@@ -1,4 +1,4 @@
-# NeoEssentials — Changelog
+# BigBangEssentials — Changelog
 
 **Minecraft 1.21.1 – 1.21.11 · NeoForge 21.1.179+**
 

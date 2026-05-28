@@ -14,7 +14,7 @@ Full-featured chat system with format templates, rich text (gradients/rainbow), 
 
 | Key | Default | Description |
 |---|---|---|
-| `enabled` | `true` | Enable NeoEssentials chat handling |
+| `enabled` | `true` | Enable BigBangEssentials chat handling |
 | `enable-chat-formatting` | `true` | Apply format templates to messages |
 | `chat-format` | `"<{prefix}{name}{suffix}> {message}"` | Default format. Supports placeholders |
 | `logChatToConsole` | `true` | Print formatted messages to server console |
@@ -43,21 +43,21 @@ Full-featured chat system with format templates, rich text (gradients/rainbow), 
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/msg` | `/msg <player> <message>` | `neoessentials.chat.msg` | Send a private message |
+| `/msg` | `/msg <player> <message>` | `bigbangessentials.chat.msg` | Send a private message |
 | `/tell`, `/whisper`, `/w`, `/m` | aliases | same | Aliases |
-| `/reply` | `/reply <message>` | `neoessentials.chat.reply` | Reply to last private message |
+| `/reply` | `/reply <message>` | `bigbangessentials.chat.reply` | Reply to last private message |
 | `/r` | alias | same | Alias |
-| `/msgtoggle` | `/msgtoggle [on\|off]` | `neoessentials.msgtoggle` | Toggle receiving private messages |
-| `/rtoggle` | `/rtoggle [on\|off]` | `neoessentials.rtoggle` | Toggle receiving replies |
-| `/socialspy` | `/socialspy [on\|off]` | `neoessentials.chat.socialspy` | Spy on all private messages |
+| `/msgtoggle` | `/msgtoggle [on\|off]` | `bigbangessentials.msgtoggle` | Toggle receiving private messages |
+| `/rtoggle` | `/rtoggle [on\|off]` | `bigbangessentials.rtoggle` | Toggle receiving replies |
+| `/socialspy` | `/socialspy [on\|off]` | `bigbangessentials.chat.socialspy` | Spy on all private messages |
 
 ### Ignore System
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/ignore` | `/ignore <player>` | `neoessentials.chat.ignore` | Ignore a player's messages |
-| `/unignore` | `/unignore <player>` | `neoessentials.chat.ignore` | Unignore a player |
-| `/ignorelist` | `/ignorelist` | `neoessentials.chat.ignore` | List ignored players |
+| `/ignore` | `/ignore <player>` | `bigbangessentials.chat.ignore` | Ignore a player's messages |
+| `/unignore` | `/unignore <player>` | `bigbangessentials.chat.ignore` | Unignore a player |
+| `/ignorelist` | `/ignorelist` | `bigbangessentials.chat.ignore` | List ignored players |
 
 ---
 
@@ -78,7 +78,7 @@ When `richText.enabled` is `true`, players (or players in `allowedRoles`) can us
 
 ## Discord Integration (Simple Discord Link)
 
-When **Simple Discord Link** is installed, NeoEssentials automatically:
+When **Simple Discord Link** is installed, BigBangEssentials automatically:
 - Relays Minecraft chat → Discord channel (configurable `channelId`)
 - Relays Discord messages → Minecraft chat
 - Formats messages using the configured Discord chat format
@@ -100,8 +100,8 @@ Works standalone (no relay) if Simple Discord Link is not installed.
 
 | File | Contents |
 |---|---|
-| `neoessentials/ignore_data.json` | Per-player ignore lists |
-| `neoessentials/muted_players.json` | Active mutes |
+| `bigbangessentials/ignore_data.json` | Per-player ignore lists |
+| `bigbangessentials/muted_players.json` | Active mutes |
 
 ---
 

@@ -1,4 +1,4 @@
-# NeoEssentials Placeholder Quick Reference
+# BigBangEssentials Placeholder Quick Reference
 # Condensed list for quick lookup
 # For full documentation, see: placeholders.txt
 
@@ -7,14 +7,14 @@
 ================================================================================
 
 PLAYER INFO:
-  {neoessentials_name}              - Player username
-  {neoessentials_displayname}       - Display name
-  {neoessentials_uuid}              - Player UUID
+  {bigbangessentials_name}              - Player username
+  {bigbangessentials_displayname}       - Display name
+  {bigbangessentials_uuid}              - Player UUID
 
 PERMISSIONS:
-  {neoessentials_prefix}            - Player prefix (auto-detects LuckPerms/FTB/Internal)
-  {neoessentials_suffix}            - Player suffix
-  {neoessentials_group}             - Player group
+  {bigbangessentials_prefix}            - Player prefix (auto-detects LuckPerms/FTB/Internal)
+  {bigbangessentials_suffix}            - Player suffix
+  {bigbangessentials_group}             - Player group
 
 LUCKPERMS (requires LuckPerms mod):
   {luckperms_prefix}                - Prefix from LuckPerms
@@ -23,49 +23,49 @@ LUCKPERMS (requires LuckPerms mod):
   {luckperms_displayname}           - Full formatted name
 
 PLAYER STATUS:
-  {neoessentials_health}            - Current health
-  {neoessentials_food}              - Food level
-  {neoessentials_level}             - XP level
-  {neoessentials_gamemode}          - Game mode
+  {bigbangessentials_health}            - Current health
+  {bigbangessentials_food}              - Food level
+  {bigbangessentials_level}             - XP level
+  {bigbangessentials_gamemode}          - Game mode
 
 LOCATION:
-  {neoessentials_world}             - Current world
-  {neoessentials_x}                 - X coordinate
-  {neoessentials_y}                 - Y coordinate
-  {neoessentials_z}                 - Z coordinate
-  {neoessentials_biome}             - Current biome
+  {bigbangessentials_world}             - Current world
+  {bigbangessentials_x}                 - X coordinate
+  {bigbangessentials_y}                 - Y coordinate
+  {bigbangessentials_z}                 - Z coordinate
+  {bigbangessentials_biome}             - Current biome
 
 ECONOMY:
-  {neoessentials_balance}           - Balance
-  {neoessentials_balance_formatted} - Formatted balance
+  {bigbangessentials_balance}           - Balance
+  {bigbangessentials_balance_formatted} - Formatted balance
 
 AFK:
-  {neoessentials_afk}               - AFK indicator
-  {neoessentials_afk_time}          - Time AFK
-  {neoessentials_afk_reason}        - AFK reason
+  {bigbangessentials_afk}               - AFK indicator
+  {bigbangessentials_afk_time}          - Time AFK
+  {bigbangessentials_afk_reason}        - AFK reason
 
 SERVER:
-  {neoessentials_server_name}       - Server name
-  {neoessentials_online_players}    - Players online
-  {neoessentials_max_players}       - Max players
-  {neoessentials_time}              - Current time
-  {neoessentials_date}              - Current date
+  {bigbangessentials_server_name}       - Server name
+  {bigbangessentials_online_players}    - Players online
+  {bigbangessentials_max_players}       - Max players
+  {bigbangessentials_time}              - Current time
+  {bigbangessentials_date}              - Current date
 
 ================================================================================
                         COMMON EXAMPLES
 ================================================================================
 
 Simple:
-  {neoessentials_prefix}{neoessentials_name}: {MESSAGE}
+  {bigbangessentials_prefix}{bigbangessentials_name}: {MESSAGE}
 
 With LuckPerms:
-  {luckperms_prefix}{neoessentials_name}{luckperms_suffix}: {MESSAGE}
+  {luckperms_prefix}{bigbangessentials_name}{luckperms_suffix}: {MESSAGE}
 
 With Location:
-  {neoessentials_prefix}{neoessentials_name} [{neoessentials_world}]: {MESSAGE}
+  {bigbangessentials_prefix}{bigbangessentials_name} [{bigbangessentials_world}]: {MESSAGE}
 
 With AFK:
-  {neoessentials_prefix}{neoessentials_name}{neoessentials_afk}: {MESSAGE}
+  {bigbangessentials_prefix}{bigbangessentials_name}{bigbangessentials_afk}: {MESSAGE}
 
 ================================================================================
 

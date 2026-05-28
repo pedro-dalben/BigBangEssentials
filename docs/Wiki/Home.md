@@ -1,6 +1,6 @@
-# NeoEssentials Wiki
+# BigBangEssentials Wiki
 
-Welcome to the official documentation hub for **NeoEssentials v1.0.2.6** — a comprehensive NeoForge server essentials mod for Minecraft 1.21.1.
+Welcome to the official documentation hub for **BigBangEssentials v1.0.2.6** — a comprehensive NeoForge server essentials mod for Minecraft 1.21.1.
 
 ---
 
@@ -26,8 +26,8 @@ Welcome to the official documentation hub for **NeoEssentials v1.0.2.6** — a c
 
 ## 🚀 Getting Started
 
-1. Drop `neoessentials-<version>.jar` into your server's `mods/` folder
-2. Start the server — config files are auto-generated in `config/neoessentials/`
+1. Drop `bigbangessentials-<version>.jar` into your server's `mods/` folder
+2. Start the server — config files are auto-generated in `config/bigbangessentials/`
 3. Key config files:
    - `config.json` — main settings (or split into per-system files)
    - `tablist.json` — tablist header/footer/formatting
@@ -46,7 +46,7 @@ Welcome to the official documentation hub for **NeoEssentials v1.0.2.6** — a c
 | **FTB Ranks** | Alternative external permission management |
 | **Simple Discord Link** | Discord ↔ Minecraft auth and chat relay |
 
-All optional — NeoEssentials runs fully standalone without any of them.
+All optional — BigBangEssentials runs fully standalone without any of them.
 
 ---
 
@@ -56,4 +56,4 @@ All optional — NeoEssentials runs fully standalone without any of them.
 
 ---
 
-*NeoEssentials v1.0.2.6 · Minecraft 1.21.1 · NeoForge 21.1.179+*
+*BigBangEssentials v1.0.2.6 · Minecraft 1.21.1 · NeoForge 21.1.179+*

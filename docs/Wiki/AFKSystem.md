@@ -44,7 +44,7 @@ The AFK system automatically marks players as AFK after a configurable period of
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/afk` | `/afk` | `neoessentials.afk` | Toggle your AFK status manually |
+| `/afk` | `/afk` | `bigbangessentials.afk` | Toggle your AFK status manually |
 | `/away` | alias | same | Alias |
 
 ---
@@ -53,9 +53,9 @@ The AFK system automatically marks players as AFK after a configurable period of
 
 | Node | Default | Description |
 |---|---|---|
-| `neoessentials.afk` | ✅ | Use `/afk` to manually toggle AFK |
-| `neoessentials.afk.others` | 🔒 | Force another player in/out of AFK |
-| `neoessentials.afk.kickexempt` | 🔒 | Exempt from AFK kick timer |
+| `bigbangessentials.afk` | ✅ | Use `/afk` to manually toggle AFK |
+| `bigbangessentials.afk.others` | 🔒 | Force another player in/out of AFK |
+| `bigbangessentials.afk.kickexempt` | 🔒 | Exempt from AFK kick timer |
 
 ---
 

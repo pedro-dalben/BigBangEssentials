@@ -27,12 +27,12 @@ All teleport destinations are checked for safety:
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/home` | `/home [name]` | `neoessentials.home` | Teleport to a home |
-| `/sethome` | `/sethome [name]` | `neoessentials.home.set` | Set home at current location |
-| `/delhome` | `/delhome [name]` | `neoessentials.home.delete` | Delete a home |
+| `/home` | `/home [name]` | `bigbangessentials.home` | Teleport to a home |
+| `/sethome` | `/sethome [name]` | `bigbangessentials.home.set` | Set home at current location |
+| `/delhome` | `/delhome [name]` | `bigbangessentials.home.delete` | Delete a home |
 | `/deletehome` | alias | same | Alias |
-| `/homes` | `/homes` | `neoessentials.home.list` | List all homes |
-| `/renamehome` | `/renamehome <old> <new>` | `neoessentials.renamehome` | Rename a home |
+| `/homes` | `/homes` | `bigbangessentials.home.list` | List all homes |
+| `/renamehome` | `/renamehome <old> <new>` | `bigbangessentials.renamehome` | Rename a home |
 
 ### Config (`teleportation.homeSettings`)
 
@@ -52,18 +52,18 @@ All teleport destinations are checked for safety:
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/warp` | `/warp [name] [player]` | `neoessentials.teleport.warp` | Teleport to a warp (or warp another player) |
+| `/warp` | `/warp [name] [player]` | `bigbangessentials.teleport.warp` | Teleport to a warp (or warp another player) |
 | `/warp` | `/warp` or `/warp <page>` | same | List all warps (paginated) |
-| `/setwarp` | `/setwarp <name>` | `neoessentials.teleport.warp.create` | Create a warp |
-| `/delwarp` | `/delwarp <name>` | `neoessentials.teleport.warp.delete` | Delete a warp |
-| `/warps` | `/warps [page]` | `neoessentials.teleport.warp.list` | List warps (20 per page) |
-| `/warpinfo` | `/warpinfo <name>` | `neoessentials.warpinfo` | Show warp coordinates and world |
-| `/pwarp` | `/pwarp [name]` | `neoessentials.teleport.pwarp` | Teleport to your player warp |
-| `/setpwarp` | `/setpwarp <name>` | `neoessentials.teleport.pwarp.create` | Create a player warp |
-| `/delpwarp` | `/delpwarp <name>` | `neoessentials.teleport.pwarp.delete` | Delete a player warp |
-| `/pwarps` | `/pwarps` | `neoessentials.teleport.pwarp.list` | List your player warps |
+| `/setwarp` | `/setwarp <name>` | `bigbangessentials.teleport.warp.create` | Create a warp |
+| `/delwarp` | `/delwarp <name>` | `bigbangessentials.teleport.warp.delete` | Delete a warp |
+| `/warps` | `/warps [page]` | `bigbangessentials.teleport.warp.list` | List warps (20 per page) |
+| `/warpinfo` | `/warpinfo <name>` | `bigbangessentials.warpinfo` | Show warp coordinates and world |
+| `/pwarp` | `/pwarp [name]` | `bigbangessentials.teleport.pwarp` | Teleport to your player warp |
+| `/setpwarp` | `/setpwarp <name>` | `bigbangessentials.teleport.pwarp.create` | Create a player warp |
+| `/delpwarp` | `/delpwarp <name>` | `bigbangessentials.teleport.pwarp.delete` | Delete a player warp |
+| `/pwarps` | `/pwarps` | `bigbangessentials.teleport.pwarp.list` | List your player warps |
 
-Set `perWarpPermission: true` in config to require `neoessentials.warps.<name>` per warp.
+Set `perWarpPermission: true` in config to require `bigbangessentials.warps.<name>` per warp.
 
 ---
 
@@ -71,8 +71,8 @@ Set `perWarpPermission: true` in config to require `neoessentials.warps.<name>` 
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/spawn` | `/spawn [player]` | `neoessentials.teleport.spawn` | Teleport to server spawn |
-| `/setspawn` | `/setspawn` | `neoessentials.teleport.spawn.set` | Set spawn at current location |
+| `/spawn` | `/spawn [player]` | `bigbangessentials.teleport.spawn` | Teleport to server spawn |
+| `/setspawn` | `/setspawn` | `bigbangessentials.teleport.spawn.set` | Set spawn at current location |
 
 ---
 
@@ -80,14 +80,14 @@ Set `perWarpPermission: true` in config to require `neoessentials.warps.<name>` 
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/tpa` | `/tpa <player>` | `neoessentials.teleport.tpa` | Request to TP to a player |
-| `/tpahere` | `/tpahere <player>` | `neoessentials.teleport.tpahere` | Request player TP to you |
-| `/tpaccept` | `/tpaccept` | `neoessentials.teleport.tpaccept` | Accept incoming request |
-| `/tpdeny` | `/tpdeny` | `neoessentials.teleport.tpdeny` | Deny incoming request |
-| `/tpacancel` | `/tpacancel` | `neoessentials.teleport.tpacancel` | Cancel your outgoing request |
-| `/tptoggle` | `/tptoggle [on\|off]` | `neoessentials.tptoggle` | Toggle accepting TP requests |
-| `/tpauto` | `/tpauto [on\|off]` | `neoessentials.tpauto` | Auto-accept all incoming TPA requests |
-| `/tpaall` | `/tpaall [player]` | `neoessentials.tpaall` | Send TPA-here to all online players |
+| `/tpa` | `/tpa <player>` | `bigbangessentials.teleport.tpa` | Request to TP to a player |
+| `/tpahere` | `/tpahere <player>` | `bigbangessentials.teleport.tpahere` | Request player TP to you |
+| `/tpaccept` | `/tpaccept` | `bigbangessentials.teleport.tpaccept` | Accept incoming request |
+| `/tpdeny` | `/tpdeny` | `bigbangessentials.teleport.tpdeny` | Deny incoming request |
+| `/tpacancel` | `/tpacancel` | `bigbangessentials.teleport.tpacancel` | Cancel your outgoing request |
+| `/tptoggle` | `/tptoggle [on\|off]` | `bigbangessentials.tptoggle` | Toggle accepting TP requests |
+| `/tpauto` | `/tpauto [on\|off]` | `bigbangessentials.tpauto` | Auto-accept all incoming TPA requests |
+| `/tpaall` | `/tpaall [player]` | `bigbangessentials.tpaall` | Send TPA-here to all online players |
 
 ---
 
@@ -95,10 +95,10 @@ Set `perWarpPermission: true` in config to require `neoessentials.warps.<name>` 
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/tpr` | `/tpr [location]` | `neoessentials.teleport.tpr` | Teleport to a random location |
+| `/tpr` | `/tpr [location]` | `bigbangessentials.teleport.tpr` | Teleport to a random location |
 | `/rtp` | alias | same | Alias |
 | `/randomtp` | alias | same | Alias |
-| `/settpr` | `/settpr <name>` | `neoessentials.teleport.settpr` | Set a named RTP centre point |
+| `/settpr` | `/settpr <name>` | `bigbangessentials.teleport.settpr` | Set a named RTP centre point |
 
 ### Config (`teleportation.randomTeleportSettings`)
 
@@ -117,14 +117,14 @@ Set `perWarpPermission: true` in config to require `neoessentials.warps.<name>` 
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/tp` | `/tp <player>` or `/tp <x y z>` | `neoessentials.teleport.admin.tp` | Teleport to player or coords |
-| `/tphere` | `/tphere <player>` | `neoessentials.teleport.admin.tphere` | Bring player to you |
-| `/tpall` | `/tpall` | `neoessentials.teleport.admin.tpall` | Bring all players to you |
-| `/tppos` | `/tppos <x> <y> <z>` | `neoessentials.teleport.admin.tppos` | Teleport to exact coordinates |
-| `/tpo` | `/tpo <player>` | `neoessentials.teleport.tpo` | TP to player, bypasses tptoggle |
-| `/tpohere` | `/tpohere <player>` | `neoessentials.teleport.tpohere` | Bring player, bypasses tptoggle |
-| `/tpoffline` | `/tpoffline <player>` | `neoessentials.teleport.tpoffline` | TP to offline player's last position |
-| `/world` | `/world [dimension] [player]` | `neoessentials.world` | Teleport to a world/dimension |
+| `/tp` | `/tp <player>` or `/tp <x y z>` | `bigbangessentials.teleport.admin.tp` | Teleport to player or coords |
+| `/tphere` | `/tphere <player>` | `bigbangessentials.teleport.admin.tphere` | Bring player to you |
+| `/tpall` | `/tpall` | `bigbangessentials.teleport.admin.tpall` | Bring all players to you |
+| `/tppos` | `/tppos <x> <y> <z>` | `bigbangessentials.teleport.admin.tppos` | Teleport to exact coordinates |
+| `/tpo` | `/tpo <player>` | `bigbangessentials.teleport.tpo` | TP to player, bypasses tptoggle |
+| `/tpohere` | `/tpohere <player>` | `bigbangessentials.teleport.tpohere` | Bring player, bypasses tptoggle |
+| `/tpoffline` | `/tpoffline <player>` | `bigbangessentials.teleport.tpoffline` | TP to offline player's last position |
+| `/world` | `/world [dimension] [player]` | `bigbangessentials.world` | Teleport to a world/dimension |
 
 ---
 
@@ -132,10 +132,10 @@ Set `perWarpPermission: true` in config to require `neoessentials.warps.<name>` 
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/back` | `/back` | `neoessentials.teleport.back` | Return to previous location |
-| `/top` | `/top` | `neoessentials.teleport.top` | Teleport to highest block above you |
-| `/jump` | `/jump` | `neoessentials.teleport.jump` | Teleport to block you're looking at |
-| `/bottom` | `/bottom` | `neoessentials.bottom` | Teleport to bottom of world at your X/Z |
+| `/back` | `/back` | `bigbangessentials.teleport.back` | Return to previous location |
+| `/top` | `/top` | `bigbangessentials.teleport.top` | Teleport to highest block above you |
+| `/jump` | `/jump` | `bigbangessentials.teleport.jump` | Teleport to block you're looking at |
+| `/bottom` | `/bottom` | `bigbangessentials.bottom` | Teleport to bottom of world at your X/Z |
 
 ---
 
@@ -143,9 +143,9 @@ Set `perWarpPermission: true` in config to require `neoessentials.warps.<name>` 
 
 | File | Contents |
 |---|---|
-| `neoessentials/homes.json` | Player UUID → named home locations |
-| `neoessentials/warps.json` | Server warp locations |
-| `neoessentials/player_warps.json` | Player-created warp locations |
+| `bigbangessentials/homes.json` | Player UUID → named home locations |
+| `bigbangessentials/warps.json` | Server warp locations |
+| `bigbangessentials/player_warps.json` | Player-created warp locations |
 
 ---
 

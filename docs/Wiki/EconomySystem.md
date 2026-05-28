@@ -6,7 +6,7 @@
 
 ## Overview
 
-NeoEssentials provides a full server economy with player balances, payments, admin tools, an async leaderboard, a sign-based ChestShop, and Vault API integration.
+BigBangEssentials provides a full server economy with player balances, payments, admin tools, an async leaderboard, a sign-based ChestShop, and Vault API integration.
 
 ---
 
@@ -38,24 +38,24 @@ NeoEssentials provides a full server economy with player balances, payments, adm
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/balance` | `/balance [player]` | `neoessentials.economy.balance` | Check your balance |
+| `/balance` | `/balance [player]` | `bigbangessentials.economy.balance` | Check your balance |
 | `/bal` | alias | same | Alias |
-| `/pay` | `/pay <player> <amount>` | `neoessentials.economy.pay` | Send money to a player |
-| `/paytoggle` | `/paytoggle` | `neoessentials.economy.pay.toggle` | Toggle receiving payments |
-| `/baltop` | `/baltop [page]` | `neoessentials.economy.baltop` | View top balances (paginated, async) |
-| `/worth` | `/worth [item\|hand] [qty]` | `neoessentials.worth` | Check sell value of an item |
-| `/sell` | `/sell hand\|inventory\|all\|<item> [qty]` | `neoessentials.sell` | Sell items for money |
-| `/payconfirmtoggle` | `/payconfirmtoggle` | `neoessentials.economy.pay.toggle` | Toggle payment confirmation prompts |
+| `/pay` | `/pay <player> <amount>` | `bigbangessentials.economy.pay` | Send money to a player |
+| `/paytoggle` | `/paytoggle` | `bigbangessentials.economy.pay.toggle` | Toggle receiving payments |
+| `/baltop` | `/baltop [page]` | `bigbangessentials.economy.baltop` | View top balances (paginated, async) |
+| `/worth` | `/worth [item\|hand] [qty]` | `bigbangessentials.worth` | Check sell value of an item |
+| `/sell` | `/sell hand\|inventory\|all\|<item> [qty]` | `bigbangessentials.sell` | Sell items for money |
+| `/payconfirmtoggle` | `/payconfirmtoggle` | `bigbangessentials.economy.pay.toggle` | Toggle payment confirmation prompts |
 
 ### Admin Commands
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/eco give` | `/eco give <player> <amount[%]>` | `neoessentials.economy.eco` | Give money (supports `10%` of balance) |
-| `/eco take` | `/eco take <player> <amount[%]>` | `neoessentials.economy.eco` | Take money |
-| `/eco set` | `/eco set <player> <amount>` | `neoessentials.economy.eco` | Set balance |
-| `/eco reset` | `/eco reset <player>` | `neoessentials.economy.eco` | Reset to starting balance |
-| `/setworth` | `/setworth <item\|hand> <price\|remove>` | `neoessentials.setworth` | Set/remove an item's sell price |
+| `/eco give` | `/eco give <player> <amount[%]>` | `bigbangessentials.economy.eco` | Give money (supports `10%` of balance) |
+| `/eco take` | `/eco take <player> <amount[%]>` | `bigbangessentials.economy.eco` | Take money |
+| `/eco set` | `/eco set <player> <amount>` | `bigbangessentials.economy.eco` | Set balance |
+| `/eco reset` | `/eco reset <player>` | `bigbangessentials.economy.eco` | Reset to starting balance |
+| `/setworth` | `/setworth <item\|hand> <price\|remove>` | `bigbangessentials.setworth` | Set/remove an item's sell price |
 
 ---
 
@@ -80,39 +80,39 @@ Line 4: diamond                      ← item name, or ? to assign by right-clic
 
 ### Admin Shops
 
-Use `Admin Shop` on line 1 — requires `neoessentials.shop.create.admin`. Admin shops have unlimited stock.
+Use `Admin Shop` on line 1 — requires `bigbangessentials.shop.create.admin`. Admin shops have unlimited stock.
 
 ### Commands
 
 | Command | Permission | Description |
 |---|---|---|
-| `/chestshop list [player]` | `neoessentials.shop.list` | List shops |
-| `/chestshop info` | `neoessentials.shop.use` | Show info about a looked-at shop |
-| `/chestshop remove <x y z>` | `neoessentials.shop.admin.remove` | Admin-remove a shop by coordinates |
-| `/chestshop reload` | `neoessentials.shop.admin.reload` | Reload shops from disk |
+| `/chestshop list [player]` | `bigbangessentials.shop.list` | List shops |
+| `/chestshop info` | `bigbangessentials.shop.use` | Show info about a looked-at shop |
+| `/chestshop remove <x y z>` | `bigbangessentials.shop.admin.remove` | Admin-remove a shop by coordinates |
+| `/chestshop reload` | `bigbangessentials.shop.admin.reload` | Reload shops from disk |
 
 ### Permissions
 
 | Node | Description |
 |---|---|
-| `neoessentials.shop.create` | Create player shops |
-| `neoessentials.shop.create.admin` | Create admin shops |
-| `neoessentials.shop.use` | Buy/sell at shops |
-| `neoessentials.shop.list.others` | View other players' shops |
-| `neoessentials.shop.admin.remove` | Remove any shop |
-| `neoessentials.shop.admin.reload` | Reload shop data |
+| `bigbangessentials.shop.create` | Create player shops |
+| `bigbangessentials.shop.create.admin` | Create admin shops |
+| `bigbangessentials.shop.use` | Buy/sell at shops |
+| `bigbangessentials.shop.list.others` | View other players' shops |
+| `bigbangessentials.shop.admin.remove` | Remove any shop |
+| `bigbangessentials.shop.admin.reload` | Reload shop data |
 
 ---
 
 ## Vault API
 
-NeoEssentials registers itself as a Vault Economy, Chat, and Permission provider. Any mod/plugin using Vault will automatically use NeoEssentials.
+BigBangEssentials registers itself as a Vault Economy, Chat, and Permission provider. Any mod/plugin using Vault will automatically use BigBangEssentials.
 
 | Provider | Class | Notes |
 |---|---|---|
-| Economy | `NeoEssentialsEconomy` | Backed by `EconomyManager`; `format()` uses live `currencySymbol` |
-| Chat | `NeoEssentialsChat` | Prefix/suffix routed through LuckPerms → FTBRanks → internal |
-| Permission | `NeoEssentialsPermission` | `playerHas()` → `PermissionAPI.hasPermission()` |
+| Economy | `BigBangEssentialsEconomy` | Backed by `EconomyManager`; `format()` uses live `currencySymbol` |
+| Chat | `BigBangEssentialsChat` | Prefix/suffix routed through LuckPerms → FTBRanks → internal |
+| Permission | `BigBangEssentialsPermission` | `playerHas()` → `PermissionAPI.hasPermission()` |
 
 Use `/vault` to check provider status in-game.
 
@@ -122,10 +122,10 @@ Use `/vault` to check provider status in-game.
 
 | File | Contents |
 |---|---|
-| `neoessentials/balances.json` | Player UUID → balance |
-| `neoessentials/transactions.json` | Transaction history log |
-| `neoessentials/worth.json` | Item ID → sell price |
-| `neoessentials/shops.json` | ChestShop data |
+| `bigbangessentials/balances.json` | Player UUID → balance |
+| `bigbangessentials/transactions.json` | Transaction history log |
+| `bigbangessentials/worth.json` | Item ID → sell price |
+| `bigbangessentials/shops.json` | ChestShop data |
 
 ---
 

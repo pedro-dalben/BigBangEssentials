@@ -1,4 +1,4 @@
-// NeoEssentials Permission Management JavaScript
+// BigBangEssentials Permission Management JavaScript
 
 // Permission System State
 const PermissionSystem = {
@@ -128,7 +128,7 @@ async function loadPermissionSystemStatus() {
                 <div class="alert-content alert-success">
                     <span class="alert-icon">✅</span>
                     <span class="alert-text">
-                        Using internal NeoEssentials permission system.
+                        Using internal BigBangEssentials permission system.
                         You can manage all permissions from this dashboard.
                     </span>
                 </div>

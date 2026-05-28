@@ -3,7 +3,7 @@
 	"tasks": [
 		{
 			"type": "shell",
-			"label": "Build NeoEssentials Mod",
+			"label": "Build BigBangEssentials Mod",
 			"command": "./gradlew build",
 			"group": "build",
 			"problemMatcher": [

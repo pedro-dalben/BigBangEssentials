@@ -125,12 +125,11 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 // "optional", meaning it will not be pulled by dependents of this mod.
 configurations {
     runtimeClasspath.extendsFrom localRuntime
-    jarJar.extendsFrom implementation
 }
 
 dependencies {
     // YAWP (Yet Another World Protector) for region protection integration (local JAR workaround)
-    // implementation name: 'yawp-1.21.1-neoforge-0.6.2-beta1'  // Disabled - jar file is currently .disabled
+    implementation name: 'yawp-1.21.1-neoforge-0.6.2-beta1'
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"

@@ -1,6 +1,6 @@
-# Changelog — NeoEssentials
+# Changelog — BigBangEssentials
 
-All notable changes to NeoEssentials are documented here.  
+All notable changes to BigBangEssentials are documented here.  
 Format: `[version+build] — date`  
 Compatibility: **Minecraft 1.21.1 – 1.21.11 · NeoForge 21.1.179+**
 
@@ -16,7 +16,7 @@ This is the first build of the `1.0.2.6` release series. Build number reset to 1
 
 #### Added
 - Sign-based ChestShop system — admin shops, auto-fill (`?`), buy/sell via right/left-click
-- Vault API — Economy, Chat, and Permission providers backed by NeoEssentials systems
+- Vault API — Economy, Chat, and Permission providers backed by BigBangEssentials systems
 - Dedicated `tablist.json` config — group colours, 18 placeholders, animation, `&` colour codes
 - 50+ new commands across Player Info, World/Fun, Teleport, Item/Misc, Utility, Admin, Player State
 - `/tpr` / `/rtp` Random Teleport — even distribution, nether-aware, async pre-computation cache, named zones, biome exclusions, `/settpr`

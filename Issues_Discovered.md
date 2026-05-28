@@ -33,7 +33,7 @@
   | Component | Details |
   |---|---|
   | `ShopData.java` | Data model — owner UUID/name, quantity, buy/sell prices, item ID, sign pos, chest pos, `itemPending` flag |
-  | `ShopManager.java` | Singleton, `ConcurrentHashMap` in-memory store, persisted to `neoessentials/shops.json` with atomic-move writes |
+  | `ShopManager.java` | Singleton, `ConcurrentHashMap` in-memory store, persisted to `bigbangessentials/shops.json` with atomic-move writes |
   | `ShopParser.java` | Validates all 4 sign lines; blank line 0 auto-assigns player name; `?` on line 4 creates pending shop; item resolution via `WorthManager.resolveItem()` then vanilla registry; K/M price suffix support |
   | `ShopTransaction.java` | BUY (right-click) and SELL (left-click) flows; uses `Container` interface for chest access; balance checks; rollback on failure |
   | `ShopInteractHandler.java` | `PlayerInteractEvent.RightClickBlock` → BUY; `LeftClickBlock` → SELL; `BlockEvent.BreakEvent` → shop removal |
@@ -50,21 +50,21 @@
 
   **Integration:** `EconomyManager` (add/subtract balance), `PermissionAPI` (LuckPerms/FTBRanks respected), `WorthManager` (item resolution), `ConfigManager` (economy enabled check), `ResourceUtil` (shops.json path)
 
-  **Permissions:** `neoessentials.shop.create`, `shop.create.admin`, `shop.use`, `shop.list.others`, `shop.admin.remove`, `shop.admin.reload`
+  **Permissions:** `bigbangessentials.shop.create`, `shop.create.admin`, `shop.use`, `shop.list.others`, `shop.admin.remove`, `shop.admin.reload`
 
 - **Vault API — missing: Economy, Chat, and Permission Vault providers**
   *(Fixed: 2026-03-05)*
 
-  **Root causes:** No Vault API implementation existed. Other mods using Vault could not hook into NeoEssentials economy or permissions.
+  **Root causes:** No Vault API implementation existed. Other mods using Vault could not hook into BigBangEssentials economy or permissions.
 
   **Implemented:**
 
   | Component | Details |
   |---|---|
-  | `NeoEssentialsEconomy` | `VaultEconomy` backed by `EconomyManager`; `format()` uses live `getCurrencySymbol()`; fires `EconomyDepositEvent`/`EconomyWithdrawEvent`; `createPlayerAccount()` uses `ConfigManager.getEconomyStartingBalance()` |
-  | `NeoEssentialsChat` | `VaultChat`; `getPlayerPrefix/getSuffix` routes through `PermissionAPI.getPrefix/getSuffix()` (respects LuckPerms → FTBRanks → internal) |
-  | `NeoEssentialsPermission` | `VaultPermission`; `playerHas()` → `PermissionAPI.hasPermission()` (external adapters respected); write ops via `PermissionManager`/`PermissionStorage` |
-  | `VaultManager` | Initialises/shuts down all three providers; lifecycle hooked into server start/stop in `NeoEssentials.java` |
+  | `BigBangEssentialsEconomy` | `VaultEconomy` backed by `EconomyManager`; `format()` uses live `getCurrencySymbol()`; fires `EconomyDepositEvent`/`EconomyWithdrawEvent`; `createPlayerAccount()` uses `ConfigManager.getEconomyStartingBalance()` |
+  | `BigBangEssentialsChat` | `VaultChat`; `getPlayerPrefix/getSuffix` routes through `PermissionAPI.getPrefix/getSuffix()` (respects LuckPerms → FTBRanks → internal) |
+  | `BigBangEssentialsPermission` | `VaultPermission`; `playerHas()` → `PermissionAPI.hasPermission()` (external adapters respected); write ops via `PermissionManager`/`PermissionStorage` |
+  | `VaultManager` | Initialises/shuts down all three providers; lifecycle hooked into server start/stop in `BigBangEssentials.java` |
 
   **Fixed during audit:**
   - `currencyNameSingular/Plural()` now reads from `EconomyManager.getCurrencySymbol()` (was hardcoded)
@@ -76,7 +76,7 @@
   - `PermissionAPI.getPrefix()`: Removed manual `debugEnabled = ConfigManager.isDebugLoggingEnabled()` gate around `LOGGER.info()` calls. Replaced with plain `LOGGER.debug()` — consistent with the rest of the codebase and respects log level automatically.
   - `ChatDebugUtil.java`: Removed `ConfigManager.isDebugLoggingEnabled()` gate + `LOGGER.info()`. Now uses plain `LOGGER.debug()` — fires per chat message.
   - `ChatHandler.java`: Removed all `MessageUtil.isDebugMode()` gated `LOGGER.info("[DEBUG]…")` blocks in Discord relay section. Replaced with plain `LOGGER.debug()`.
-  - `MessageUtil.java`: Demoted all per-startup diagnostic `LOGGER.info()` in `loadTranslations()` and `updateServerLanguageFile()` to `LOGGER.debug()`. Kept only the single summary line (`"NeoEssentials: loaded N translations"`) at INFO. Also demoted `syncDebugModeFromConfig()` banner.
+  - `MessageUtil.java`: Demoted all per-startup diagnostic `LOGGER.info()` in `loadTranslations()` and `updateServerLanguageFile()` to `LOGGER.debug()`. Kept only the single summary line (`"BigBangEssentials: loaded N translations"`) at INFO. Also demoted `syncDebugModeFromConfig()` banner.
   - `ServerDataCollector.java`: Demoted `"=== Collecting Server Statistics ==="` from `LOGGER.info()` to `LOGGER.debug()` — fires on every dashboard poll.
   - `GameEndpoint.java`, `PlayerEndpoint.java`, `LoggingEndpoint.java`: Demoted all per-HTTP-request `LOGGER.info()` (handling/collecting/success lines) to `LOGGER.debug()` — fired on every dashboard page load/refresh.
   - `ListCommand.java`: Removed redundant `MessageUtil.isDebugMode()` gate around `LOGGER.debug()` call — the debug level already suppresses it automatically.
@@ -95,20 +95,20 @@
 
   | Command | Perm | Description |
   |---|---|---|
-  | `/seen <player>` | `neoessentials.seen` | Checks online list first (shows world/pos/ping). Falls back to `ProfileCache.get()` for offline players. |
-  | `/near [radius]` | `neoessentials.near` | Iterates online players in same `ServerLevel`, computes `distanceToSqr()`, sorts by name, shows distance in metres. Default 200 block radius. |
-  | `/ping [player]` | `neoessentials.ping(.others)` | Reads `player.latency`. Colour-coded green/yellow/red. |
-  | `/playtime [player]` | `neoessentials.playtime(.others)` | Reads `Stats.CUSTOM.get(Stats.PLAY_TIME)` ticks → formatted h/m/s. |
-  | `/whois <player>` | `neoessentials.whois` | Shows UUID, dimension, XYZ, gamemode, ping, health, food. |
-  | `/realname <nick>` | `neoessentials.realname` | Searches online players by `getDisplayName().getString()` with colour stripping. |
-  | `/sudo <player> <cmd>` | `neoessentials.sudo` | Respects `neoessentials.sudo.exempt`. Prefix `c:` to send chat. Runs via `player.createCommandSourceStack()`. |
-  | `/suicide` | `neoessentials.suicide` | `player.hurt(damageSources().magic(), Float.MAX_VALUE)`. Broadcasts death message to all others. |
-  | `/msgtoggle [on\|off]` | `neoessentials.msgtoggle(.others)` | Syncs with existing `MsgToggleManager` (name-based) used by `MsgCommand`, plus UUID shadow map for `isMsgBlocked()`. |
-  | `/rtoggle [on\|off]` | `neoessentials.rtoggle(.others)` | Per-player `rtoggleEnabled` map. `isRtoggleEnabled()` available for `ReplyCommand` to check. |
-  | `/motd` | `neoessentials.motd` | Reads `ConfigManager.getMotd()` → `general.motd` in config. Replaces `{player}` placeholder. |
-  | `/rules` | `neoessentials.rules` | Reads `ConfigManager.getRules()` → `general.rules` in config. |
+  | `/seen <player>` | `bigbangessentials.seen` | Checks online list first (shows world/pos/ping). Falls back to `ProfileCache.get()` for offline players. |
+  | `/near [radius]` | `bigbangessentials.near` | Iterates online players in same `ServerLevel`, computes `distanceToSqr()`, sorts by name, shows distance in metres. Default 200 block radius. |
+  | `/ping [player]` | `bigbangessentials.ping(.others)` | Reads `player.latency`. Colour-coded green/yellow/red. |
+  | `/playtime [player]` | `bigbangessentials.playtime(.others)` | Reads `Stats.CUSTOM.get(Stats.PLAY_TIME)` ticks → formatted h/m/s. |
+  | `/whois <player>` | `bigbangessentials.whois` | Shows UUID, dimension, XYZ, gamemode, ping, health, food. |
+  | `/realname <nick>` | `bigbangessentials.realname` | Searches online players by `getDisplayName().getString()` with colour stripping. |
+  | `/sudo <player> <cmd>` | `bigbangessentials.sudo` | Respects `bigbangessentials.sudo.exempt`. Prefix `c:` to send chat. Runs via `player.createCommandSourceStack()`. |
+  | `/suicide` | `bigbangessentials.suicide` | `player.hurt(damageSources().magic(), Float.MAX_VALUE)`. Broadcasts death message to all others. |
+  | `/msgtoggle [on\|off]` | `bigbangessentials.msgtoggle(.others)` | Syncs with existing `MsgToggleManager` (name-based) used by `MsgCommand`, plus UUID shadow map for `isMsgBlocked()`. |
+  | `/rtoggle [on\|off]` | `bigbangessentials.rtoggle(.others)` | Per-player `rtoggleEnabled` map. `isRtoggleEnabled()` available for `ReplyCommand` to check. |
+  | `/motd` | `bigbangessentials.motd` | Reads `ConfigManager.getMotd()` → `general.motd` in config. Replaces `{player}` placeholder. |
+  | `/rules` | `bigbangessentials.rules` | Reads `ConfigManager.getRules()` → `general.rules` in config. |
 
-  **Additional:** `ConfigManager.getMotd()` + `getRules()` added. `general.motd` + `general.rules` added to `config.json`. 17 permission nodes, 18 lang keys, 12 commands registered in `NeoEssentials.java` + `config.json`. `PermissionSystem.md` + `CommandsReference.md` updated.
+  **Additional:** `ConfigManager.getMotd()` + `getRules()` added. `general.motd` + `general.rules` added to `config.json`. 17 permission nodes, 18 lang keys, 12 commands registered in `BigBangEssentials.java` + `config.json`. `PermissionSystem.md` + `CommandsReference.md` updated.
 
 - **World Interaction & Fun system — Missing entirely: /fireball, /tree, /bigtree, /break, /ice, /bottom, /tpaall, /broadcastworld**
   *(Fixed: 2026-03-02)*
@@ -119,15 +119,15 @@
 
   | Command | Perm | Description |
   |---|---|---|
-  | `/fireball [type] [speed] [ride]` | `neoessentials.fireball.<type>` | Spawns typed projectile in look direction using NeoForge entity constructors. 11 types: fireball, small, large, arrow, skull, egg, snowball, expbottle, dragon, trident, windcharge. Optional `ride` mounts player on projectile. Per-type permission check + wildcard `neoessentials.fireball.*`. |
-  | `/tree <type>` / `/bigtree` | `neoessentials.tree` | Raycasts 20 blocks, plants one above. Uses `level.registryAccess()` to resolve `CONFIGURED_FEATURE` by ResourceLocation key and calls `holder.place()`. 12 tree types mapped to vanilla feature keys. |
-  | `/break` | `neoessentials.break` | Raycasts 20 blocks via `player.pick()`. Calls `level.destroyBlock(pos, false, player)` (no drops). Bedrock protected unless `neoessentials.break.bedrock`. |
-  | `/ice [player]` | `neoessentials.ice(.others)` | Calls `target.setTicksFrozen(target.getTicksRequiredToFreeze() + 1)` to fully freeze via powder-snow mechanic. |
-  | `/bottom` | `neoessentials.bottom` | Scans from `level.getMinBuildHeight()` upward looking for solid+air+air pattern. Saves `/back` location before teleport. |
-  | `/tpaall [player]` | `neoessentials.tpaall(.others)` | Iterates all online players, checks tptoggle, calls `TeleportRequestManager.sendTeleportRequest()` with `TPAHERE` type for each eligible player. |
-  | `/broadcastworld <msg>` / `/bcastworld` | `neoessentials.broadcastworld` | Filters online players by `p.serverLevel() == src.getLevel()`. Sends coloured `§6[World] §e<msg>`. |
+  | `/fireball [type] [speed] [ride]` | `bigbangessentials.fireball.<type>` | Spawns typed projectile in look direction using NeoForge entity constructors. 11 types: fireball, small, large, arrow, skull, egg, snowball, expbottle, dragon, trident, windcharge. Optional `ride` mounts player on projectile. Per-type permission check + wildcard `bigbangessentials.fireball.*`. |
+  | `/tree <type>` / `/bigtree` | `bigbangessentials.tree` | Raycasts 20 blocks, plants one above. Uses `level.registryAccess()` to resolve `CONFIGURED_FEATURE` by ResourceLocation key and calls `holder.place()`. 12 tree types mapped to vanilla feature keys. |
+  | `/break` | `bigbangessentials.break` | Raycasts 20 blocks via `player.pick()`. Calls `level.destroyBlock(pos, false, player)` (no drops). Bedrock protected unless `bigbangessentials.break.bedrock`. |
+  | `/ice [player]` | `bigbangessentials.ice(.others)` | Calls `target.setTicksFrozen(target.getTicksRequiredToFreeze() + 1)` to fully freeze via powder-snow mechanic. |
+  | `/bottom` | `bigbangessentials.bottom` | Scans from `level.getMinBuildHeight()` upward looking for solid+air+air pattern. Saves `/back` location before teleport. |
+  | `/tpaall [player]` | `bigbangessentials.tpaall(.others)` | Iterates all online players, checks tptoggle, calls `TeleportRequestManager.sendTeleportRequest()` with `TPAHERE` type for each eligible player. |
+  | `/broadcastworld <msg>` / `/bcastworld` | `bigbangessentials.broadcastworld` | Filters online players by `p.serverLevel() == src.getLevel()`. Sends coloured `§6[World] §e<msg>`. |
 
-  **Additional:** 13 permission nodes, 17 lang keys, all commands registered in `NeoEssentials.java` + `config.json`. `PermissionSystem.md` + `CommandsReference.md` updated.
+  **Additional:** 13 permission nodes, 17 lang keys, all commands registered in `BigBangEssentials.java` + `config.json`. `PermissionSystem.md` + `CommandsReference.md` updated.
 
 - **Home & Warp Enhancement system — Missing entirely: /renamehome, /warpinfo, /world, /spawner, /recipe, /tpauto**
   *(Fixed: 2026-03-02)*
@@ -138,14 +138,14 @@
 
   | Command | Perm | Description |
   |---|---|---|
-  | `/renamehome <old> <new>` | `neoessentials.renamehome(.others)` | Renames a home atomically via `HomeManager.renameHome()`. Supports `player:homename` format for admin use. Validates name with existing `isValidHomeName()`. |
-  | `/warpinfo <name>` | `neoessentials.warpinfo` | Shows warp coordinates and world via `WarpManager.getWarp()`. Tab-completes all warp names. |
-  | `/world [name] [player]` | `neoessentials.world(.others)` | Lists all registered `ServerLevel` dimensions. Teleports to world spawn via `player.teleportTo()`. Matches by dimension path or full resource location key. |
-  | `/spawner <mob>` | `neoessentials.spawner[.<mob>]` | Raycasts 6 blocks to find `Blocks.SPAWNER`. Sets entity type via `SpawnerBlockEntity.setEntityId()`. Per-mob perm `neoessentials.spawner.<mob>` or wildcard `neoessentials.spawner.*`. |
-  | `/recipe [item]` | `neoessentials.recipe` | Scans all server recipes for result matching held/named item. Unlocks via `player.awardRecipes()`. Reports count of matched recipes. |
-  | `/tpauto [on\|off] [player]` | `neoessentials.tpauto(.others)` | Per-player auto-accept state. `TeleportRequestManager.sendTeleportRequest()` now calls `HomeWarpEnhancementCommands.isTpAutoEnabled()` and immediately executes the teleport without sending a request if enabled. Warns if tptoggle is also off. |
+  | `/renamehome <old> <new>` | `bigbangessentials.renamehome(.others)` | Renames a home atomically via `HomeManager.renameHome()`. Supports `player:homename` format for admin use. Validates name with existing `isValidHomeName()`. |
+  | `/warpinfo <name>` | `bigbangessentials.warpinfo` | Shows warp coordinates and world via `WarpManager.getWarp()`. Tab-completes all warp names. |
+  | `/world [name] [player]` | `bigbangessentials.world(.others)` | Lists all registered `ServerLevel` dimensions. Teleports to world spawn via `player.teleportTo()`. Matches by dimension path or full resource location key. |
+  | `/spawner <mob>` | `bigbangessentials.spawner[.<mob>]` | Raycasts 6 blocks to find `Blocks.SPAWNER`. Sets entity type via `SpawnerBlockEntity.setEntityId()`. Per-mob perm `bigbangessentials.spawner.<mob>` or wildcard `bigbangessentials.spawner.*`. |
+  | `/recipe [item]` | `bigbangessentials.recipe` | Scans all server recipes for result matching held/named item. Unlocks via `player.awardRecipes()`. Reports count of matched recipes. |
+  | `/tpauto [on\|off] [player]` | `bigbangessentials.tpauto(.others)` | Per-player auto-accept state. `TeleportRequestManager.sendTeleportRequest()` now calls `HomeWarpEnhancementCommands.isTpAutoEnabled()` and immediately executes the teleport without sending a request if enabled. Warns if tptoggle is also off. |
 
-  **Additional:** `HomeManager.renameHome()` method added. 11 permission nodes, 21 lang keys (incl. auto-accept keys), all commands registered in `NeoEssentials.java` + `config.json`. `PermissionSystem.md` + `CommandsReference.md` updated.
+  **Additional:** `HomeManager.renameHome()` method added. 11 permission nodes, 21 lang keys (incl. auto-accept keys), all commands registered in `BigBangEssentials.java` + `config.json`. `PermissionSystem.md` + `CommandsReference.md` updated.
 
 - **Item Customisation & Miscellaneous system — Missing entirely: /me, /tptoggle, /gc, /lightning, /skull, /itemname, /itemlore, /remove, /loom, /cartography**
   *(Fixed: 2026-03-02)*
@@ -156,18 +156,18 @@
 
   | Command | Perm | Description |
   |---|---|---|
-  | `/me <action>` | `neoessentials.me` | Broadcasts `§5* §dName §faction` to all players. |
-  | `/tptoggle [on\|off] [player]` | `neoessentials.tptoggle(.others)` | Toggle tp-request acceptance. State stored in `ItemCustomisationCommands.isTpToggleAllowed()`. `TeleportRequestManager.sendTeleportRequest()` now checks this before sending — returns error unless sender has `neoessentials.teleport.tpo`. |
-  | `/gc` / `/mem` | `neoessentials.gc` | Shows uptime (JMX), TPS (via `server.getAverageTickTimeNanos()`), used/total/max memory, loaded chunk count across all dimensions. |
-  | `/lightning [player]` / `/smite` | `neoessentials.lightning(.others)` | Spawns `EntityType.LIGHTNING_BOLT` at look-target or named player. Essentials: `strikeLightning()`. |
-  | `/skull [player]` | `neoessentials.skull` | Creates `PLAYER_HEAD` with `DataComponents.PROFILE` set from server profile cache (`ResolvableProfile(GameProfile)`). Falls back to random UUID + name. |
-  | `/itemname [name\|-]` / `/rename` | `neoessentials.itemname` | Sets `DataComponents.CUSTOM_NAME` on held item. Omit or use `-` to clear. |
-  | `/itemlore add\|set <n>\|remove <n>\|clear` | `neoessentials.itemlore` | Reads/writes `DataComponents.LORE` (`ItemLore`). Full add/set/remove/clear sub-commands. |
-  | `/remove <type> [radius]` | `neoessentials.remove` | Removes entities in AABB-inflated radius. Types: all, items/drops, mobs, animals, monsters, arrows, xp, boats, minecarts, tnt, paintings. Never removes players. |
-  | `/loom` | `neoessentials.loom` | Opens `LoomMenu` via `MenuProvider` + `ContainerLevelAccess`. |
-  | `/cartography` / `/cartographytable` | `neoessentials.cartography` | Opens `CartographyTableMenu` via `MenuProvider` + `ContainerLevelAccess`. |
+  | `/me <action>` | `bigbangessentials.me` | Broadcasts `§5* §dName §faction` to all players. |
+  | `/tptoggle [on\|off] [player]` | `bigbangessentials.tptoggle(.others)` | Toggle tp-request acceptance. State stored in `ItemCustomisationCommands.isTpToggleAllowed()`. `TeleportRequestManager.sendTeleportRequest()` now checks this before sending — returns error unless sender has `bigbangessentials.teleport.tpo`. |
+  | `/gc` / `/mem` | `bigbangessentials.gc` | Shows uptime (JMX), TPS (via `server.getAverageTickTimeNanos()`), used/total/max memory, loaded chunk count across all dimensions. |
+  | `/lightning [player]` / `/smite` | `bigbangessentials.lightning(.others)` | Spawns `EntityType.LIGHTNING_BOLT` at look-target or named player. Essentials: `strikeLightning()`. |
+  | `/skull [player]` | `bigbangessentials.skull` | Creates `PLAYER_HEAD` with `DataComponents.PROFILE` set from server profile cache (`ResolvableProfile(GameProfile)`). Falls back to random UUID + name. |
+  | `/itemname [name\|-]` / `/rename` | `bigbangessentials.itemname` | Sets `DataComponents.CUSTOM_NAME` on held item. Omit or use `-` to clear. |
+  | `/itemlore add\|set <n>\|remove <n>\|clear` | `bigbangessentials.itemlore` | Reads/writes `DataComponents.LORE` (`ItemLore`). Full add/set/remove/clear sub-commands. |
+  | `/remove <type> [radius]` | `bigbangessentials.remove` | Removes entities in AABB-inflated radius. Types: all, items/drops, mobs, animals, monsters, arrows, xp, boats, minecarts, tnt, paintings. Never removes players. |
+  | `/loom` | `bigbangessentials.loom` | Opens `LoomMenu` via `MenuProvider` + `ContainerLevelAccess`. |
+  | `/cartography` / `/cartographytable` | `bigbangessentials.cartography` | Opens `CartographyTableMenu` via `MenuProvider` + `ContainerLevelAccess`. |
 
-  **Additional:** 13 permission nodes, 14 lang keys (incl. `tptoggle_off` for tptoggle-blocked tpa). All commands registered in `NeoEssentials.java` + `config.json`. `PermissionSystem.md` + `CommandsReference.md` updated.
+  **Additional:** 13 permission nodes, 14 lang keys (incl. `tptoggle_off` for tptoggle-blocked tpa). All commands registered in `BigBangEssentials.java` + `config.json`. `PermissionSystem.md` + `CommandsReference.md` updated.
 
 - **Utility Commands system — Missing entirely: /ptime, /pweather, /effect, /spawnmob, /unlimited, /condense**
   *(Fixed: 2026-03-02)*
@@ -178,14 +178,14 @@
 
   | Command | Perm | Description |
   |---|---|---|
-  | `/ptime [reset\|day\|noon\|night\|midnight\|<ticks>] [player]` | `neoessentials.ptime(.others)` | Per-player client-side time via `ClientboundSetTimePacket`. Restored on rejoin. |
-  | `/pweather [reset\|sun\|storm\|clear\|rain] [player]` | `neoessentials.pweather(.others)` | Per-player weather via `ClientboundGameEventPacket`. Restored on rejoin. |
-  | `/effect <player> <effect\|clear> [duration] [amp]` | `neoessentials.effect` | Applies `MobEffectInstance`. Supports all registry effect names. `/effect <player> clear` removes all. |
-  | `/spawnmob <mob> [amount] [player]`, `/mob` | `neoessentials.spawnmob(.others)` | Spawns entities at player via `EntityType.create()` + `finalizeSpawn()`. Amount 1–100. |
-  | `/unlimited [list\|clear\|<item\|hand>] [player]` | `neoessentials.unlimited(.others)` | Adds item to per-player unlimited set. `isUnlimited()` static method for event handler use. |
-  | `/condense [item]` | `neoessentials.condense` | Converts loose items → storage blocks using 21 built-in rules (nugget→ingot→block pattern). |
+  | `/ptime [reset\|day\|noon\|night\|midnight\|<ticks>] [player]` | `bigbangessentials.ptime(.others)` | Per-player client-side time via `ClientboundSetTimePacket`. Restored on rejoin. |
+  | `/pweather [reset\|sun\|storm\|clear\|rain] [player]` | `bigbangessentials.pweather(.others)` | Per-player weather via `ClientboundGameEventPacket`. Restored on rejoin. |
+  | `/effect <player> <effect\|clear> [duration] [amp]` | `bigbangessentials.effect` | Applies `MobEffectInstance`. Supports all registry effect names. `/effect <player> clear` removes all. |
+  | `/spawnmob <mob> [amount] [player]`, `/mob` | `bigbangessentials.spawnmob(.others)` | Spawns entities at player via `EntityType.create()` + `finalizeSpawn()`. Amount 1–100. |
+  | `/unlimited [list\|clear\|<item\|hand>] [player]` | `bigbangessentials.unlimited(.others)` | Adds item to per-player unlimited set. `isUnlimited()` static method for event handler use. |
+  | `/condense [item]` | `bigbangessentials.condense` | Converts loose items → storage blocks using 21 built-in rules (nugget→ingot→block pattern). |
 
-  **Additional:** `GodModeEventHandler` updated to call `UtilityCommands.onPlayerJoin/Quit` for ptime/pweather restore on login and state cleanup on logout. 10 permission nodes, 19 lang keys, all commands registered in `NeoEssentials.java` + `config.json`. `PermissionSystem.md` updated.
+  **Additional:** `GodModeEventHandler` updated to call `UtilityCommands.onPlayerJoin/Quit` for ptime/pweather restore on login and state cleanup on logout. 10 permission nodes, 19 lang keys, all commands registered in `BigBangEssentials.java` + `config.json`. `PermissionSystem.md` updated.
 
 - **Server Admin system — Missing entirely: /broadcast, /time, /weather, /kill, /gamemode (full), /tpo, /tpohere, /tpoffline**
   *(Fixed: 2026-03-02)*
@@ -196,16 +196,16 @@
 
   | Command | Perm | Description |
   |---|---|---|
-  | `/broadcast <msg>` | `neoessentials.broadcast` | Server-wide coloured announcement. Aliases: `/bc`, `/announce`. |
-  | `/time [set\|add] <value>` | `neoessentials.time(.set)` | Get time, set or add ticks. Named values: day/noon/sunset/night/midnight/sunrise. Aliases `/day`, `/night`. |
-  | `/weather <sun\|storm\|thunder> [dur]` | `neoessentials.weather` | Sets weather on all sky-light worlds. Optional duration in seconds. Aliases `/sun`, `/storm`, `/thunder`. |
-  | `/kill <player>` | `neoessentials.kill` | Kills player via `damageSources().genericKill()`. Respects `kill.exempt` + `kill.force`. |
-  | `/gamemode <survival\|creative\|adventure\|spectator\|0-3> [player]` | `neoessentials.gamemode(.others)` | Full gamemode command with all modes + numeric shortcuts. |
-  | `/tpo <player>` | `neoessentials.teleport.tpo` | Teleport to player ignoring their tptoggle setting. |
-  | `/tpohere <player>` | `neoessentials.teleport.tpohere` | Bring player to sender ignoring tptoggle. Notifies target. |
-  | `/tpoffline <player>` | `neoessentials.teleport.tpoffline` | Loads offline player NBT from world saves, teleports to their last recorded Pos/Dimension. |
+  | `/broadcast <msg>` | `bigbangessentials.broadcast` | Server-wide coloured announcement. Aliases: `/bc`, `/announce`. |
+  | `/time [set\|add] <value>` | `bigbangessentials.time(.set)` | Get time, set or add ticks. Named values: day/noon/sunset/night/midnight/sunrise. Aliases `/day`, `/night`. |
+  | `/weather <sun\|storm\|thunder> [dur]` | `bigbangessentials.weather` | Sets weather on all sky-light worlds. Optional duration in seconds. Aliases `/sun`, `/storm`, `/thunder`. |
+  | `/kill <player>` | `bigbangessentials.kill` | Kills player via `damageSources().genericKill()`. Respects `kill.exempt` + `kill.force`. |
+  | `/gamemode <survival\|creative\|adventure\|spectator\|0-3> [player]` | `bigbangessentials.gamemode(.others)` | Full gamemode command with all modes + numeric shortcuts. |
+  | `/tpo <player>` | `bigbangessentials.teleport.tpo` | Teleport to player ignoring their tptoggle setting. |
+  | `/tpohere <player>` | `bigbangessentials.teleport.tpohere` | Bring player to sender ignoring tptoggle. Notifies target. |
+  | `/tpoffline <player>` | `bigbangessentials.teleport.tpoffline` | Loads offline player NBT from world saves, teleports to their last recorded Pos/Dimension. |
 
-  **Additional registrations:** 14 permission nodes, 16 lang keys, all commands in `NeoEssentials.java` + `config.json`. `PermissionSystem.md` updated with Server Admin section.
+  **Additional registrations:** 14 permission nodes, 16 lang keys, all commands in `BigBangEssentials.java` + `config.json`. `PermissionSystem.md` updated with Server Admin section.
 
 - **Player State / Admin Tool system — Missing entirely: /fly, /god, /heal, /feed, /speed, /ext, /burn, /give, /more, /hat, /exp, /sudo, /playtime**
   *(Fixed: 2026-03-02)*
@@ -237,7 +237,7 @@
   - `PermissionCategory.PLAYER` — Added enum value to PermissionRegistry.
   - 26 permission nodes registered.
   - 33 lang keys added to `en_us.json`.
-  - All commands added to `NeoEssentials.java` and `config.json` commands section.
+  - All commands added to `BigBangEssentials.java` and `config.json` commands section.
   - `PermissionSystem.md` updated with full Player State section.
 
 - **Worth/Sell system — Missing entirely: /worth, /sell hand|inventory|all|item, /setworth, WorthManager with price persistence**
@@ -254,17 +254,17 @@
   |---|---|
   | `WorthManager.java` | Singleton. Loads/saves `worth.json` (item registry ID → price). `getPrice(ItemStack)`, `setPrice()`, `removePrice()`, `getSellMultiplier()`, `isAllowSellNamedItems()`, `resolveItem(name)`. |
   | `/worth [item\|hand] [amount]` | Shows sell value of held item or named item × amount. Essentials: `itemWorth()`. |
-  | `/sell hand [amount]` | Sells item in hand. Requires `neoessentials.sell.hand`. |
-  | `/sell inventory\|all\|invent` | Sells all priced items in inventory. Skips named items if disabled. Requires `neoessentials.sell.bulk`. |
+  | `/sell hand [amount]` | Sells item in hand. Requires `bigbangessentials.sell.hand`. |
+  | `/sell inventory\|all\|invent` | Sells all priced items in inventory. Skips named items if disabled. Requires `bigbangessentials.sell.bulk`. |
   | `/sell <item> [amount]` | Sells by item name/ID from inventory. |
-  | `/setworth <item\|hand> <price>` | Admin: sets sell price. `hand` uses held item. Requires `neoessentials.setworth`. |
+  | `/setworth <item\|hand> <price>` | Admin: sets sell price. `hand` uses held item. Requires `bigbangessentials.setworth`. |
   | `/setworth <item\|hand> remove` | Admin: removes sell price. |
   | Sell multiplier | `economy.sellMultiplier` config (default `1.0`). Applied to all sell prices. Essentials: `getSettings().getMultiplier(user)`. |
   | Named item protection | `economy.allowSellNamedItems` config (default `false`). Essentials: `isAllowSellNamedItems()`. |
   | `economy` config section | Added `currencySymbol`, `startingBalance`, `sellMultiplier`, `allowSellNamedItems` to `config.json`. |
-  | 5 permission nodes | `neoessentials.worth`, `sell`, `sell.hand`, `sell.bulk`, `setworth` registered. |
+  | 5 permission nodes | `bigbangessentials.worth`, `sell`, `sell.hand`, `sell.bulk`, `setworth` registered. |
   | 13 lang keys | All `worth.*` and `sell.*` keys added to `en_us.json`. |
-  | Commands registered | `worth`, `sell`, `setworth` added to `NeoEssentials.java` and `config.json` commands section. |
+  | Commands registered | `worth`, `sell`, `setworth` added to `BigBangEssentials.java` and `config.json` commands section. |
 
 - **Kit system — Missing Essentials features: /kit others, /kitreset, clean list, console support, recipient notification, public cooldown API**
   *(Fixed: 2026-03-02)*
@@ -286,10 +286,10 @@
 
   | Area | Change |
   |---|---|
-  | `/kit <name> <player>` | New `target` argument. Requires `neoessentials.kit.others`. Notifies recipient with `kits.received_from`. |
+  | `/kit <name> <player>` | New `target` argument. Requires `bigbangessentials.kit.others`. Notifies recipient with `kits.received_from`. |
   | Console `/kit` | Console allowed when target arg present. Logs as "Console gave kit X to Y". |
   | `/kit` list (no args) | Clean format: per-kit single line with item count + cooldown status (Ready / Cooldown: Xm Ys). Filtered by player's permissions. |
-  | `/kitreset <kit> [player]` | New `KitResetCommand.java`. Self-reset + others-reset. Notifies target. Registered in `KitCommands` + `NeoEssentials`. |
+  | `/kitreset <kit> [player]` | New `KitResetCommand.java`. Self-reset + others-reset. Notifies target. Registered in `KitCommands` + `BigBangEssentials`. |
   | `getRemainingCooldownPublic()` | Public alias for private `getRemainingCooldown()`. Used by list display and future API. |
   | `resetCooldown(uuid, kit)` | New public method. Removes cooldown entry and saves. |
   | `resetAllCooldowns(uuid)` | New public method. Clears all cooldowns for a player. |
@@ -305,7 +305,7 @@
 
   - **`/warp <name> <player>` missing** — Essentials supports warping another player with `essentials.warp.others`. Our command accepted only `<name>`.
   - **`/warp` (no args) didn't show list** — Essentials: `if (args.length == 0 || args[0].matches("[0-9]+"))` → show paginated warp list. Ours required a name and threw a syntax error.
-  - **Per-warp permission (`neoessentials.warps.<name>`) missing** — Essentials has `getPerWarpPermission()` which checks `essentials.warps.<warpname>` per warp when enabled. Not wired in our command.
+  - **Per-warp permission (`bigbangessentials.warps.<name>`) missing** — Essentials has `getPerWarpPermission()` which checks `essentials.warps.<warpname>` per warp when enabled. Not wired in our command.
   - **`/warps [page]` pagination missing** — Essentials: `WARPS_PER_PAGE = 20`, shows `page/maxPages` header. Our `/warps` dumped all warps as a single blob.
   - **`/delwarp` used wrong permission** — Used `hasSetWarpPermission()` (create perm) instead of `PERMISSION_DELWARP`. Admin with delete-but-not-create permission couldn't delete warps.
   - **`/warps` NPE from console** — `executeWarps()` cast `getEntity()` to `ServerPlayer` unconditionally. Would NPE if run from console.
@@ -318,15 +318,15 @@
 
   | Area | Change |
   |---|---|
-  | `/warp <name> <player>` | New variant. Requires `neoessentials.teleport.warp.others`. Teleports target, notifies sender. |
+  | `/warp <name> <player>` | New variant. Requires `bigbangessentials.teleport.warp.others`. Teleports target, notifies sender. |
   | `/warp` (no args) | Now shows paginated warp list (page 1). Matches Essentials `args.length==0` behaviour. |
-  | Per-warp permission | `isPerWarpPermissionEnabled()` added to ConfigManager. When `true`, `/warp <name>` checks `neoessentials.warps.<name>`. |
+  | Per-warp permission | `isPerWarpPermissionEnabled()` added to ConfigManager. When `true`, `/warp <name>` checks `bigbangessentials.warps.<name>`. |
   | `perWarpPermission` config | Added `perWarpPermission: false` default to `warpSettings` in `config.json`. |
   | `/warps [page]` pagination | 20 per page, sorted case-insensitively. Shows `(N total, page X/Y)` header when multi-page. Filters by per-warp perms. |
   | `/delwarp` permission | Now correctly uses `PERMISSION_DELWARP` (`warp.delete`) not create perm. |
   | Console `/delwarp` | `deleteWarpByAdmin(String, String)` — new method in `WarpManager`. No `ServerPlayer` needed. |
   | `/warps` console NPE | `executeWarps` uses `source.getPlayer()` (nullable) not unchecked cast. |
-  | 26 warp lang keys | All `commands.neoessentials.teleport.warp.*` keys added to `en_us.json`. Previously showed raw keys. |
+  | 26 warp lang keys | All `commands.bigbangessentials.teleport.warp.*` keys added to `en_us.json`. Previously showed raw keys. |
   | Permission nodes | Added: `warp.others`, `warps.*`. Updated docs for `warp.list`. |
   | PermissionSystem.md | Warp section fully updated with all nodes, per-warp info, and correct command associations. |
 
@@ -356,14 +356,14 @@
   | `/eco reset <player>` | New subcommand. Sets balance to `ConfigManager.getEconomyStartingBalance()`. Notifies target if online. Logs to transaction history. |
   | `/eco give/take <player> <amount%>` | Percent support: detects `%` suffix, applies `current × (amount / 100)`. |
   | `/eco give/set` online notification | Notifies target player if online with `eco.received_give` / `eco.set_notify` message. |
-  | `/pay` offline support | Resolves offline UUID from profile cache. Blocked unless sender has `neoessentials.economy.pay.offline`. |
+  | `/pay` offline support | Resolves offline UUID from profile cache. Blocked unless sender has `bigbangessentials.economy.pay.offline`. |
   | `/pay` ignore check | If online recipient ignores sender, payment blocked with "not accepting payments" message (Essentials behaviour). |
   | `BaltopCommand` — full rewrite | Port of `BalanceTopImpl.calculateBalanceTopMapAsync()`: async `CompletableFuture`, thread-safe `CopyOnWriteArrayList`, `AtomicBoolean` cache lock. |
   | Cache auto-refresh | Cache rebuilt asynchronously when stale (>60 s) or empty. Never blocks server thread. |
   | `/baltop [page]` pagination | Default 10/page. Any page number supported. |
   | Total economy wealth | Footer line shows sum of all non-exempt balances. |
   | Cache age display | Header shows how many seconds ago data was calculated. |
-  | Exempt players | `neoessentials.economy.baltop.exempt` permission skips player from ranking & total. |
+  | Exempt players | `bigbangessentials.economy.baltop.exempt` permission skips player from ranking & total. |
   | Player name resolution | Profile cache lookup, falls back to UUID string if unresolvable. |
   | Cache invalidation | `BaltopCommand.invalidateCache()` called after every `eco give/take/set/reset` and `pay` to keep data fresh. |
   | Permission nodes | Added: `pay.offline`, `baltop.exempt`, `eco` (eco admin). Updated `pay` description. |
@@ -401,8 +401,8 @@
   | `onPlayerRespawn` | Schedules 1-tick delayed teleport back to jail after respawn. |
   | `onPlayerTeleport` | Cancels `TeleportCommandEvent` for jailed players, redirects back to jail. |
   | `onPlayerMove` (dimension change) | Catches cross-dimension escapes via `PlayerChangedDimensionEvent`. |
-  | `onPlayerRightClick` + `onPlayerRightClickBlock` | Cancels both for jailed players unless `neoessentials.jail.allow-interact`. |
-  | `onLivingAttack` | Cancels attacks by jailed players unless `neoessentials.jail.allow-attack`. |
+  | `onPlayerRightClick` + `onPlayerRightClickBlock` | Cancels both for jailed players unless `bigbangessentials.jail.allow-interact`. |
+  | `onLivingAttack` | Cancels attacks by jailed players unless `bigbangessentials.jail.allow-attack`. |
   | `onBlockBreak` / `onBlockPlace` | Now checks `allow-break` / `allow-place` bypass perms before cancelling. |
   | `onServerTick` | Replaced all-player per-tick scan → runs every 20 ticks (1s), skips non-jailed players, also calls `checkJailTimeout`. |
   | Permission nodes | Added: `jail.timed`, `deljail`, `jail.allow-break`, `jail.allow-place`, `jail.allow-interact`, `jail.allow-attack`. |
@@ -458,7 +458,7 @@
 
   - **~50+ permission nodes used in commands but never registered in `PermissionRegistry`** — commands like `/list`, `/near`, `/nick`, `/motd`, `/mail`, `/ban`, `/kick`, `/freeze`, `/jail`, `/vanish`, and many others checked permissions that weren't in the registry. This meant `PermissionScanner` wouldn't find them, `/permissions list` wouldn't show them, and LuckPerms/FTB Ranks export was incomplete.
 
-  - **Lang message keys being confused for permission nodes** — strings like `neoessentials.moderation.ban_broadcast`, `neoessentials.moderation.ban_success` etc. are **lang keys** (translation strings), not permission nodes. The scanner was incorrectly picking them up as permissions because they follow the same `neoessentials.*` pattern.
+  - **Lang message keys being confused for permission nodes** — strings like `bigbangessentials.moderation.ban_broadcast`, `bigbangessentials.moderation.ban_success` etc. are **lang keys** (translation strings), not permission nodes. The scanner was incorrectly picking them up as permissions because they follow the same `bigbangessentials.*` pattern.
 
   - **`MODERATION` category missing from `PermissionCategory` enum** — all moderation permissions (ban, kick, freeze, jail, vanish) were falling through to `MISC` in both the `PermissionRegistry` categorize helper and `PermissionBridge.categorizePermission()`.
 
@@ -515,15 +515,15 @@
   | Added `nl_nl.json` | Dutch (Netherlands) — full coverage |
   | Added `pl_pl.json` | Polish (Poland) — full coverage |
   | Added `ru_ru.json` | Russian (Russia) — full coverage |
-  | Added `deployBundledLanguageFiles()` | New method in `CustomLanguageManager` — on every server start, iterates all 8 non-English bundled lang codes, copies missing files from JAR to `neoessentials/languages/custom/`, and merges NEW keys into existing files without overwriting user edits |
+  | Added `deployBundledLanguageFiles()` | New method in `CustomLanguageManager` — on every server start, iterates all 8 non-English bundled lang codes, copies missing files from JAR to `bigbangessentials/languages/custom/`, and merges NEW keys into existing files without overwriting user edits |
 
   **How translations fall back:**
-  1. Custom user file on disk (`neoessentials/languages/custom/<lang>.json`) — highest priority
+  1. Custom user file on disk (`bigbangessentials/languages/custom/<lang>.json`) — highest priority
   2. Bundled JAR translation for that language
   3. `en_us.json` (English fallback via `MessageUtil`)
   4. Translation key itself (last resort)
 
-  **Community contribution note:** All non-English files are tagged `"_author": "NeoEssentials (machine-translated, community corrections welcome)"` — admins can edit the files in `neoessentials/languages/custom/` and run `/language reload` to apply changes without restart.
+  **Community contribution note:** All non-English files are tagged `"_author": "BigBangEssentials (machine-translated, community corrections welcome)"` — admins can edit the files in `bigbangessentials/languages/custom/` and run `/language reload` to apply changes without restart.
 
 - **Command /AFK not working properly**
   *(Fixed: 2026-03-01)*
@@ -531,15 +531,15 @@
 
   - **Root cause 1 — `AfkManager.loadConfiguration()` was never called:**
     The method to read AFK settings from `config.json` (timeout, kick settings, broadcast messages, activity tracking, etc.) existed but was never wired up. `AfkManager` ran entirely on hardcoded defaults regardless of what was in the config file.
-    **Fix:** Added `AfkManager.getInstance().loadConfiguration(afkObj)` call to `NeoEssentials.onServerStarted()`, right after `ChatManager` is initialized.
+    **Fix:** Added `AfkManager.getInstance().loadConfiguration(afkObj)` call to `BigBangEssentials.onServerStarted()`, right after `ChatManager` is initialized.
 
   - **Root cause 2 — `AfkActivityHandler` suspicious-score blocked real player activity:**
     The anti-AFK-farming filter incremented the suspicious score by 10 for every action beyond 10 of the same type in 60 seconds. The threshold to be considered "suspicious" was 100 — meaning just 10 block interactions (perfectly normal building) would permanently block that player's activity from resetting their AFK timer. The score decay was also broken: it compared `now - lastActivity` where `lastActivity` was set to `now` on every call, so the difference was always ~0 and the score never decayed.
     **Fix:** Raised `REPETITIVE_ACTION_THRESHOLD` from 10 → 30, raised `SUSPICIOUS_SCORE_THRESHOLD` from 100 → 300, fixed score decay to compare against `lastActionTime` for the relevant action type, and reset per-type count when the 60-second window expires.
 
   - **Root cause 3 — `AfkMovementDetector` was missing `@EventBusSubscriber`:**
-    The class had `@SubscribeEvent` methods for player login and logout (to initialize/cleanup position tracking) but was missing the `@EventBusSubscriber(modid = "neoessentials")` class annotation. NeoForge never registered those listeners, so player positions were never cleaned up on logout and never initialized on login.
-    **Fix:** Added `@EventBusSubscriber(modid = "neoessentials")` annotation to the class.
+    The class had `@SubscribeEvent` methods for player login and logout (to initialize/cleanup position tracking) but was missing the `@EventBusSubscriber(modid = "bigbangessentials")` class annotation. NeoForge never registered those listeners, so player positions were never cleaned up on logout and never initialized on login.
+    **Fix:** Added `@EventBusSubscriber(modid = "bigbangessentials")` annotation to the class.
 
   - **Root cause 4 — AFK broadcasts silently failed (`MessageUtil.info()` used as raw string):**
     `onPlayerGoAfk()` and `onPlayerReturnFromAfk()` called `MessageUtil.info(message)` where `message` was a plain string like `"Steve is now AFK"`. `MessageUtil.info()` treats its argument as a **translation key**, looks it up in the lang file, finds nothing, and returns the key unchanged — without colour or formatting. The broadcasts were also not logged to the server console.
@@ -549,7 +549,7 @@
     `toggleAfk()` broadcasts a message to all players, but the player who typed `/afk` received no direct personal confirmation that the command worked — especially confusing since the broadcast message may not be visible to the player themselves if it's formatted differently.
     **Fix:** After calling `toggleAfk()`, the command now sends a direct `§eYou are now AFK.` / `§eYou are no longer AFK.` message to the executing player. Auto-AFK (inactivity timeout) also sends a personal notification: `§eYou are now AFK due to inactivity.`
 
-- **NeoEssentials Chat Logging — chat messages not shown in server console (NeoForge 1.21.1, All The Mons)**
+- **BigBangEssentials Chat Logging — chat messages not shown in server console (NeoForge 1.21.1, All The Mons)**
   *(Fixed: 2026-03-01)*
   - **Root cause:** When `enable-chat-formatting` is `true`, `ChatHandler` calls `event.setCanceled(true)` and takes over dispatch itself — sending messages via `sendSystemMessage()` to players only. `sendSystemMessage()` does **not** write to the server console. The only logging was `LOGGER.debug(...)` which is silent at the default log level. Vanilla's console logging never fires because the event is cancelled.
   - **Fix 1:** Added explicit `LOGGER.info("[channel] <player> message")` after dispatching to each channel type (proximity, permission-gated, global).
@@ -557,7 +557,7 @@
   - **Fix 3:** Added `logChatToConsole` boolean to `chat` config section (default `true`). Set to `false` to suppress chat from console/logs entirely if desired.
   - Config version bumped to 20.
 
-- **NeoEssentials Teleportation — chunk not loaded causes "No safe teleport location found" even with safety disabled (NeoForge 1.21.1, All The Mons)**
+- **BigBangEssentials Teleportation — chunk not loaded causes "No safe teleport location found" even with safety disabled (NeoForge 1.21.1, All The Mons)**
   *(Fixed: 2026-03-01)*
   - **Root cause 1 — `isSafe()` used `canOcclude()`:** This is a strict opaque-cube check that returns `false` for slabs, stairs, glass, trapdoors, and many other solid blocks. Any home or warp set on those blocks was wrongly reported as unsafe.
     **Fix:** Replaced `canOcclude()` with `getCollisionShape(...).isEmpty()` in both `TeleportLocation.isSafe()` and `TeleportUtil.isSafeLocation()` — correctly matches the physical collision surface like Essentials does.
@@ -638,7 +638,7 @@
 - **Utility Systems**: Check if all these are in place, Nicknames, MOTD, near, ping, depth, helpop, rules, suicide, etc.
 - **API & Placeholder System**: Apply more PlaceholderAPI integration, create more custom placeholders or allow the creation of more custom placeholders, REST API endpoints.
 - **Permissions System Improvements**:
-  - Wildcard & Hierarchical Permissions: Support for wildcards (e.g., neoessentials.*) and hierarchical permission inheritance, so granting a parent node gives access to all child nodes.
+  - Wildcard & Hierarchical Permissions: Support for wildcards (e.g., bigbangessentials.*) and hierarchical permission inheritance, so granting a parent node gives access to all child nodes.
     Contextual Permissions: Allow permissions to be context-sensitive (e.g., per-world, per-channel, per-region, or time-based).
     Dynamic Permission Reloading: Add a command or event to reload permissions without restarting the server.
     Permission Checks in All Features: Ensure every command, event, and feature checks permissions strictly, including edge cases and new features.

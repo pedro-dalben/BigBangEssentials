@@ -6,7 +6,7 @@
 
 ## Overview
 
-NeoEssentials exposes a placeholder system, a Vault API integration, a REST API via the web dashboard, and a custom language file system — all usable by server admins and other mods.
+BigBangEssentials exposes a placeholder system, a Vault API integration, a REST API via the web dashboard, and a custom language file system — all usable by server admins and other mods.
 
 ---
 
@@ -55,7 +55,7 @@ Implement `PlaceholderExpansion` to group related placeholders under a common pr
 
 ## Vault API
 
-NeoEssentials registers as a Vault Economy, Chat, and Permission provider automatically on server start.
+BigBangEssentials registers as a Vault Economy, Chat, and Permission provider automatically on server start.
 
 ### Economy API
 
@@ -67,7 +67,7 @@ eco.withdrawPlayer(offlinePlayer, 50.0);
 double balance = eco.getBalance(offlinePlayer);
 ```
 
-### NeoEssentials Direct API
+### BigBangEssentials Direct API
 
 ```java
 // Direct access (no Vault needed)
@@ -81,7 +81,7 @@ double balance = eco.getBalance(uuid);
 
 ```java
 // Check permission
-boolean has = PermissionAPI.hasPermission(uuid, "neoessentials.fly");
+boolean has = PermissionAPI.hasPermission(uuid, "bigbangessentials.fly");
 
 // Get player prefix/suffix
 String prefix = PermissionAPI.getPrefix(uuid);
@@ -147,13 +147,13 @@ All endpoints require authentication via the `Authorization: Bearer <token>` hea
 
 ## Custom Language System
 
-NeoEssentials supports full internationalisation with per-server language overrides.
+BigBangEssentials supports full internationalisation with per-server language overrides.
 
 ### Bundled Languages
 
 `en_us`, `fr_fr`, `de_de`, `es_es`, `pt_br`, `zh_cn`, `nl_nl`, `pl_pl`, `ru_ru`
 
-All files are auto-deployed to `config/neoessentials/languages/custom/` on first start.
+All files are auto-deployed to `config/bigbangessentials/languages/custom/` on first start.
 
 ### Switching Language
 
@@ -170,11 +170,11 @@ Or in-game:
 
 ### Custom / Overriding Translations
 
-Edit any file in `config/neoessentials/languages/custom/<lang>.json`. Changes are preserved across mod updates — new keys from the JAR are merged in without overwriting your edits.
+Edit any file in `config/bigbangessentials/languages/custom/<lang>.json`. Changes are preserved across mod updates — new keys from the JAR are merged in without overwriting your edits.
 
 ### Adding a New Language
 
-1. Create `config/neoessentials/languages/custom/xx_xx.json`
+1. Create `config/bigbangessentials/languages/custom/xx_xx.json`
 2. Copy all keys from `en_us.json` and translate values
 3. Run `/language reload` to apply
 
@@ -183,8 +183,8 @@ Edit any file in `config/neoessentials/languages/custom/<lang>.json`. Changes ar
 ```json
 {
   "_langVersion": 10,
-  "commands.neoessentials.home.teleported": "§aTeleported to home §e{0}§a.",
-  "commands.neoessentials.home.not_found": "§cHome §e{0}§c not found."
+  "commands.bigbangessentials.home.teleported": "§aTeleported to home §e{0}§a.",
+  "commands.bigbangessentials.home.not_found": "§cHome §e{0}§c not found."
 }
 ```
 

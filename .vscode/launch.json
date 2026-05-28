@@ -12,15 +12,15 @@
       "projectName": "neoforge-1.20.5",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.20.5\\build\\moddev\\clientRunProgramArgs.txt"
+        "@A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.20.5\\build\\moddev\\clientRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.20.5\\build\\moddev\\clientRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoessentials%%A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.20.5\\bin\\main"
+        "@A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.20.5\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbigbangessentials%%A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.20.5\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\neoforge-1.20.5\\run",
       "env": {
-        "MOD_CLASSES": "neoessentials%%A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.20.5\\bin\\main"
+        "MOD_CLASSES": "bigbangessentials%%A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.20.5\\bin\\main"
       },
       "console": "internalConsole",
       "shortenCommandLine": "none"
@@ -36,15 +36,15 @@
       "projectName": "neoforge-1.20.5",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.20.5\\build\\moddev\\serverRunProgramArgs.txt"
+        "@A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.20.5\\build\\moddev\\serverRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.20.5\\build\\moddev\\serverRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoessentials%%A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.20.5\\bin\\main"
+        "@A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.20.5\\build\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbigbangessentials%%A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.20.5\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\neoforge-1.20.5\\run",
       "env": {
-        "MOD_CLASSES": "neoessentials%%A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.20.5\\bin\\main"
+        "MOD_CLASSES": "bigbangessentials%%A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.20.5\\bin\\main"
       },
       "console": "internalConsole",
       "shortenCommandLine": "none"
@@ -60,11 +60,11 @@
       "projectName": "neoforge-1.21.1",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.21.1\\build\\moddev\\clientRunProgramArgs.txt"
+        "@A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.21.1\\build\\moddev\\clientRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.21.1\\build\\moddev\\clientRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoessentials%%A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.21.1\\bin\\main"
+        "@A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.21.1\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbigbangessentials%%A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.21.1\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\neoforge-1.21.1\\run",
       "env": {},
@@ -82,11 +82,11 @@
       "projectName": "neoforge-1.21.1",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.21.1\\build\\moddev\\serverRunProgramArgs.txt"
+        "@A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.21.1\\build\\moddev\\serverRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.21.1\\build\\moddev\\serverRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoessentials%%A:\\Minecraft Mod Development\\NeoEssentials\\neoforge-1.21.1\\bin\\main"
+        "@A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.21.1\\build\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbigbangessentials%%A:\\Minecraft Mod Development\\BigBangEssentials\\neoforge-1.21.1\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\neoforge-1.21.1\\run",
       "env": {},
@@ -98,19 +98,19 @@
       "request": "launch",
       "name": "Client",
       "presentation": {
-        "group": "Mod Development - NeoEssentials",
+        "group": "Mod Development - BigBangEssentials",
         "order": 0
       },
-      "projectName": "NeoEssentials",
+      "projectName": "BigBangEssentials",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@D:\\ADrive_minecraft\\Minecraft Mod Development\\NeoEssentials\\build\\moddev\\clientRunProgramArgs.txt"
+        "@/home/pedro/Documentos/java/BigBangEssentials/build/moddev/clientRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@D:\\ADrive_minecraft\\Minecraft Mod Development\\NeoEssentials\\build\\moddev\\clientRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoessentials%%D:\\ADrive_minecraft\\Minecraft Mod Development\\NeoEssentials\\bin\\main"
+        "@/home/pedro/Documentos/java/BigBangEssentials/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbigbangessentials%%/home/pedro/Documentos/java/BigBangEssentials/bin/main"
       ],
-      "cwd": "${workspaceFolder}\\run",
+      "cwd": "${workspaceFolder}/run",
       "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"
@@ -120,19 +120,19 @@
       "request": "launch",
       "name": "Data",
       "presentation": {
-        "group": "Mod Development - NeoEssentials",
+        "group": "Mod Development - BigBangEssentials",
         "order": 1
       },
-      "projectName": "NeoEssentials",
+      "projectName": "BigBangEssentials",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@D:\\ADrive_minecraft\\Minecraft Mod Development\\NeoEssentials\\build\\moddev\\dataRunProgramArgs.txt"
+        "@/home/pedro/Documentos/java/BigBangEssentials/build/moddev/dataRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@D:\\ADrive_minecraft\\Minecraft Mod Development\\NeoEssentials\\build\\moddev\\dataRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoessentials%%D:\\ADrive_minecraft\\Minecraft Mod Development\\NeoEssentials\\bin\\main"
+        "@/home/pedro/Documentos/java/BigBangEssentials/build/moddev/dataRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbigbangessentials%%/home/pedro/Documentos/java/BigBangEssentials/bin/main"
       ],
-      "cwd": "${workspaceFolder}\\run",
+      "cwd": "${workspaceFolder}/run",
       "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"
@@ -142,19 +142,19 @@
       "request": "launch",
       "name": "Server",
       "presentation": {
-        "group": "Mod Development - NeoEssentials",
+        "group": "Mod Development - BigBangEssentials",
         "order": 2
       },
-      "projectName": "NeoEssentials",
+      "projectName": "BigBangEssentials",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@D:\\ADrive_minecraft\\Minecraft Mod Development\\NeoEssentials\\build\\moddev\\serverRunProgramArgs.txt"
+        "@/home/pedro/Documentos/java/BigBangEssentials/build/moddev/serverRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@D:\\ADrive_minecraft\\Minecraft Mod Development\\NeoEssentials\\build\\moddev\\serverRunVmArgs.txt",
-        "-Dfml.modFolders\u003dneoessentials%%D:\\ADrive_minecraft\\Minecraft Mod Development\\NeoEssentials\\bin\\main"
+        "@/home/pedro/Documentos/java/BigBangEssentials/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbigbangessentials%%/home/pedro/Documentos/java/BigBangEssentials/bin/main"
       ],
-      "cwd": "${workspaceFolder}\\run",
+      "cwd": "${workspaceFolder}/run",
       "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"

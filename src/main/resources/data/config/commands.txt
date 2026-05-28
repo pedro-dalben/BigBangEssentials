@@ -1,5 +1,5 @@
-# NeoEssentials Commands List
-# This file contains all available commands in the NeoEssentials mod
+# BigBangEssentials Commands List
+# This file contains all available commands in the BigBangEssentials mod
 # Format: command_name - description
 #
 # ✅ All commands feature comprehensive input validation and security checks
@@ -186,7 +186,7 @@ gma - Change to adventure mode
 suicide (killme) - Kill yourself
 
 ## Administrative Commands (10)
-neoessentials - Main mod command
+bigbangessentials - Main mod command
   - reload - Reload all configurations
   - info - Display mod information
   - debug - Toggle debug mode
@@ -205,143 +205,143 @@ clearinventory (ci, clear) - Clear inventory
 ## Permission Nodes Reference
 
 ### Economy Permissions:
-- neoessentials.economy.balance - Check balance
-- neoessentials.economy.balance.others - Check other's balance
-- neoessentials.economy.pay - Send money
-- neoessentials.economy.paytoggle - Toggle pay acceptance
-- neoessentials.economy.admin - Admin economy commands
-- neoessentials.economy.baltop - View balance top
+- bigbangessentials.economy.balance - Check balance
+- bigbangessentials.economy.balance.others - Check other's balance
+- bigbangessentials.economy.pay - Send money
+- bigbangessentials.economy.paytoggle - Toggle pay acceptance
+- bigbangessentials.economy.admin - Admin economy commands
+- bigbangessentials.economy.baltop - View balance top
 
 ### Teleportation Permissions:
-- neoessentials.teleport.home - Use home command
-- neoessentials.teleport.home.<amount> - Set max homes (e.g., neoessentials.home.10)
-- neoessentials.teleport.sethome - Set home location
-- neoessentials.teleport.delhome - Delete home
-- neoessentials.teleport.homes - List homes
-- neoessentials.teleport.spawn - Use spawn command
-- neoessentials.teleport.setspawn - Set spawn location (admin)
-- neoessentials.teleport.back - Use back command
-- neoessentials.teleport.warp - Use warp command
-- neoessentials.teleport.warp.admin - Admin warp commands
-- neoessentials.teleport.pwarp - Player warp access
-- neoessentials.teleport.pwarp.create - Create player warps
-- neoessentials.teleport.tpa - Send teleport requests
-- neoessentials.teleport.tpahere - Request players teleport to you
-- neoessentials.teleport.tpaccept - Accept teleport requests
-- neoessentials.teleport.tpdeny - Deny teleport requests
-- neoessentials.teleport.tp - Direct teleportation (admin)
-- neoessentials.teleport.tphere - Teleport players to you (admin)
-- neoessentials.teleport.tpall - Teleport all players (admin)
-- neoessentials.teleport.tppos - Teleport to coordinates (admin)
-- neoessentials.teleport.tpr - Random teleportation
-- neoessentials.teleport.top - Teleport to highest block
-- neoessentials.teleport.jump - Jump through walls
-- neoessentials.teleport.jumpto - Teleport to block you're looking at
+- bigbangessentials.teleport.home - Use home command
+- bigbangessentials.teleport.home.<amount> - Set max homes (e.g., bigbangessentials.home.10)
+- bigbangessentials.teleport.sethome - Set home location
+- bigbangessentials.teleport.delhome - Delete home
+- bigbangessentials.teleport.homes - List homes
+- bigbangessentials.teleport.spawn - Use spawn command
+- bigbangessentials.teleport.setspawn - Set spawn location (admin)
+- bigbangessentials.teleport.back - Use back command
+- bigbangessentials.teleport.warp - Use warp command
+- bigbangessentials.teleport.warp.admin - Admin warp commands
+- bigbangessentials.teleport.pwarp - Player warp access
+- bigbangessentials.teleport.pwarp.create - Create player warps
+- bigbangessentials.teleport.tpa - Send teleport requests
+- bigbangessentials.teleport.tpahere - Request players teleport to you
+- bigbangessentials.teleport.tpaccept - Accept teleport requests
+- bigbangessentials.teleport.tpdeny - Deny teleport requests
+- bigbangessentials.teleport.tp - Direct teleportation (admin)
+- bigbangessentials.teleport.tphere - Teleport players to you (admin)
+- bigbangessentials.teleport.tpall - Teleport all players (admin)
+- bigbangessentials.teleport.tppos - Teleport to coordinates (admin)
+- bigbangessentials.teleport.tpr - Random teleportation
+- bigbangessentials.teleport.top - Teleport to highest block
+- bigbangessentials.teleport.jump - Jump through walls
+- bigbangessentials.teleport.jumpto - Teleport to block you're looking at
 
 ### Moderation Permissions:
-- neoessentials.moderation.ban - Ban players
-- neoessentials.moderation.unban - Unban players
-- neoessentials.moderation.banip - Ban IP addresses
-- neoessentials.moderation.unbanip - Unban IP addresses
-- neoessentials.moderation.banlist - View ban list
-- neoessentials.moderation.kick - Kick players
-- neoessentials.moderation.kickall - Kick all players
-- neoessentials.moderation.mute - Mute players
-- neoessentials.moderation.unmute - Unmute players
-- neoessentials.moderation.mutelist - View muted players
-- neoessentials.moderation.jail - Jail players
-- neoessentials.moderation.unjail - Unjail players
-- neoessentials.moderation.setjail - Set jail location
-- neoessentials.moderation.jaillist - View jailed players
-- neoessentials.moderation.jailinfo - View jail information
-- neoessentials.moderation.freeze - Freeze players
-- neoessentials.moderation.unfreeze - Unfreeze players
-- neoessentials.moderation.freezeall - Freeze all players
-- neoessentials.moderation.unfreezeall - Unfreeze all players
-- neoessentials.moderation.freezelist - View frozen players
-- neoessentials.moderation.vanish - Use vanish mode
-- neoessentials.moderation.vanish.see - See vanished players
+- bigbangessentials.moderation.ban - Ban players
+- bigbangessentials.moderation.unban - Unban players
+- bigbangessentials.moderation.banip - Ban IP addresses
+- bigbangessentials.moderation.unbanip - Unban IP addresses
+- bigbangessentials.moderation.banlist - View ban list
+- bigbangessentials.moderation.kick - Kick players
+- bigbangessentials.moderation.kickall - Kick all players
+- bigbangessentials.moderation.mute - Mute players
+- bigbangessentials.moderation.unmute - Unmute players
+- bigbangessentials.moderation.mutelist - View muted players
+- bigbangessentials.moderation.jail - Jail players
+- bigbangessentials.moderation.unjail - Unjail players
+- bigbangessentials.moderation.setjail - Set jail location
+- bigbangessentials.moderation.jaillist - View jailed players
+- bigbangessentials.moderation.jailinfo - View jail information
+- bigbangessentials.moderation.freeze - Freeze players
+- bigbangessentials.moderation.unfreeze - Unfreeze players
+- bigbangessentials.moderation.freezeall - Freeze all players
+- bigbangessentials.moderation.unfreezeall - Unfreeze all players
+- bigbangessentials.moderation.freezelist - View frozen players
+- bigbangessentials.moderation.vanish - Use vanish mode
+- bigbangessentials.moderation.vanish.see - See vanished players
 
 ### Chat Permissions:
-- neoessentials.chat.msg - Send private messages
-- neoessentials.chat.reply - Reply to messages
-- neoessentials.chat.ignore - Ignore players
-- neoessentials.chat.unignore - Unignore players
-- neoessentials.chat.socialspy - Spy on messages
-- neoessentials.chat.msgtoggle - Toggle message receipt
-- neoessentials.chat.mail - Use mail system
-- neoessentials.chat.mail.send - Send mail
-- neoessentials.chat.color - Use color codes in chat
-- neoessentials.chat.format - Use format codes in chat
+- bigbangessentials.chat.msg - Send private messages
+- bigbangessentials.chat.reply - Reply to messages
+- bigbangessentials.chat.ignore - Ignore players
+- bigbangessentials.chat.unignore - Unignore players
+- bigbangessentials.chat.socialspy - Spy on messages
+- bigbangessentials.chat.msgtoggle - Toggle message receipt
+- bigbangessentials.chat.mail - Use mail system
+- bigbangessentials.chat.mail.send - Send mail
+- bigbangessentials.chat.color - Use color codes in chat
+- bigbangessentials.chat.format - Use format codes in chat
 
 ### Permissions Management:
-- neoessentials.permissions.admin - Full permissions access
-- neoessentials.permissions.reload - Reload permissions
-- neoessentials.permissions.group.create - Create groups
-- neoessentials.permissions.group.delete - Delete groups
-- neoessentials.permissions.group.modify - Modify groups
-- neoessentials.permissions.user.modify - Modify user permissions
-- neoessentials.permissions.list - List groups and users
-- neoessentials.permissions.info - View permission information
+- bigbangessentials.permissions.admin - Full permissions access
+- bigbangessentials.permissions.reload - Reload permissions
+- bigbangessentials.permissions.group.create - Create groups
+- bigbangessentials.permissions.group.delete - Delete groups
+- bigbangessentials.permissions.group.modify - Modify groups
+- bigbangessentials.permissions.user.modify - Modify user permissions
+- bigbangessentials.permissions.list - List groups and users
+- bigbangessentials.permissions.info - View permission information
 
 ### Kit Permissions:
-- neoessentials.kit.use - Use kits
-- neoessentials.kit.list - List kits
-- neoessentials.kit.create - Create kits (admin)
-- neoessentials.kit.delete - Delete kits (admin)
-- neoessentials.kit.<kitname> - Access specific kit
+- bigbangessentials.kit.use - Use kits
+- bigbangessentials.kit.list - List kits
+- bigbangessentials.kit.create - Create kits (admin)
+- bigbangessentials.kit.delete - Delete kits (admin)
+- bigbangessentials.kit.<kitname> - Access specific kit
 
 ### Utility Permissions:
-- neoessentials.afk - Use AFK command
-- neoessentials.afk.kickexempt - Exempt from AFK kick
-- neoessentials.nick - Change nickname
-- neoessentials.nick.others - Change other players' nicknames
-- neoessentials.nick.color - Use color in nicknames
-- neoessentials.nick.format - Use format codes in nicknames
-- neoessentials.anvil - Portable anvil
-- neoessentials.book - Editable book
-- neoessentials.book.unlock - Unlock signed books
-- neoessentials.book.title - Change book titles
-- neoessentials.book.author - Change book authors
-- neoessentials.compass - Show compass
-- neoessentials.crafting - Portable crafting table
-- neoessentials.depth - Show depth
-- neoessentials.fletching - Portable fletching table
-- neoessentials.getpos - Show position
-- neoessentials.helpop - Request help
-- neoessentials.list - List players
-- neoessentials.mail - Mail system
-- neoessentials.motd - View MOTD
-- neoessentials.motd.admin - Admin MOTD commands
-- neoessentials.near - Find nearby players
-- neoessentials.ping - Check ping
-- neoessentials.realname - Find real names
-- neoessentials.rules - View rules
-- neoessentials.seen - Check last seen
-- neoessentials.sign - Edit signs
-- neoessentials.sign.clear - Clear signs
-- neoessentials.smithing - Portable smithing table
-- neoessentials.stonecutting - Portable stonecutter
-- neoessentials.suicide - Use suicide command
-- neoessentials.whois - Player information
-- neoessentials.gamemode.survival - Change to survival mode
-- neoessentials.gamemode.creative - Change to creative mode
-- neoessentials.gamemode.spectator - Change to spectator mode
-- neoessentials.gamemode.adventure - Change to adventure mode
+- bigbangessentials.afk - Use AFK command
+- bigbangessentials.afk.kickexempt - Exempt from AFK kick
+- bigbangessentials.nick - Change nickname
+- bigbangessentials.nick.others - Change other players' nicknames
+- bigbangessentials.nick.color - Use color in nicknames
+- bigbangessentials.nick.format - Use format codes in nicknames
+- bigbangessentials.anvil - Portable anvil
+- bigbangessentials.book - Editable book
+- bigbangessentials.book.unlock - Unlock signed books
+- bigbangessentials.book.title - Change book titles
+- bigbangessentials.book.author - Change book authors
+- bigbangessentials.compass - Show compass
+- bigbangessentials.crafting - Portable crafting table
+- bigbangessentials.depth - Show depth
+- bigbangessentials.fletching - Portable fletching table
+- bigbangessentials.getpos - Show position
+- bigbangessentials.helpop - Request help
+- bigbangessentials.list - List players
+- bigbangessentials.mail - Mail system
+- bigbangessentials.motd - View MOTD
+- bigbangessentials.motd.admin - Admin MOTD commands
+- bigbangessentials.near - Find nearby players
+- bigbangessentials.ping - Check ping
+- bigbangessentials.realname - Find real names
+- bigbangessentials.rules - View rules
+- bigbangessentials.seen - Check last seen
+- bigbangessentials.sign - Edit signs
+- bigbangessentials.sign.clear - Clear signs
+- bigbangessentials.smithing - Portable smithing table
+- bigbangessentials.stonecutting - Portable stonecutter
+- bigbangessentials.suicide - Use suicide command
+- bigbangessentials.whois - Player information
+- bigbangessentials.gamemode.survival - Change to survival mode
+- bigbangessentials.gamemode.creative - Change to creative mode
+- bigbangessentials.gamemode.spectator - Change to spectator mode
+- bigbangessentials.gamemode.adventure - Change to adventure mode
 
 ### Admin Permissions:
-- neoessentials.admin - Full admin access
-- neoessentials.reload - Reload configurations
-- neoessentials.debug - Debug mode access
-- neoessentials.dashboard - Access web dashboard
-- neoessentials.dashboard.admin - Admin dashboard commands
-- neoessentials.repair - Repair items
-- neoessentials.repair.all - Repair all items
-- neoessentials.dispose - Use dispose command
-- neoessentials.powertool - Use powertool command
-- neoessentials.enchant - Enchant items
-- neoessentials.clearinventory - Clear inventory
-- neoessentials.clearinventory.others - Clear other players' inventories
+- bigbangessentials.admin - Full admin access
+- bigbangessentials.reload - Reload configurations
+- bigbangessentials.debug - Debug mode access
+- bigbangessentials.dashboard - Access web dashboard
+- bigbangessentials.dashboard.admin - Admin dashboard commands
+- bigbangessentials.repair - Repair items
+- bigbangessentials.repair.all - Repair all items
+- bigbangessentials.dispose - Use dispose command
+- bigbangessentials.powertool - Use powertool command
+- bigbangessentials.enchant - Enchant items
+- bigbangessentials.clearinventory - Clear inventory
+- bigbangessentials.clearinventory.others - Clear other players' inventories
 
 ## Command Aliases Quick Reference
 
@@ -389,7 +389,7 @@ All commands are automatically registered via CommandRegistry.getInstance()
 and can be discovered programmatically for integration with other systems.
 
 ## Configuration
-Commands can be enabled/disabled in config/neoessentials/config.json
+Commands can be enabled/disabled in config/bigbangessentials/config.json
 Individual command cooldowns and restrictions are configurable per-permission group.
 
 ## Notes:

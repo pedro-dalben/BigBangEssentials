@@ -1,4 +1,4 @@
-// NeoEssentials Dashboard JavaScript
+// BigBangEssentials Dashboard JavaScript
 
 // Configuration
 const API_BASE_URL = window.location.origin + '/api';
@@ -48,7 +48,7 @@ async function fetchWithAuth(url, options = {}) {
 
 // Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('NeoEssentials Dashboard v2.0 initialized');
+    console.log('BigBangEssentials Dashboard v2.0 initialized');
     
     // Set up event listeners first
     setupEventListeners();
@@ -1573,7 +1573,7 @@ async function handleSaveWorlds() {
     }
 }
 
-console.log('NeoEssentials Dashboard v2.1 loaded successfully - Build 417');
+console.log('BigBangEssentials Dashboard v2.1 loaded successfully - Build 417');
 console.log('Auto-refresh interval: ' + (REFRESH_INTERVAL / 1000) + ' seconds');
 console.log('Press Ctrl+R or F5 to manually refresh data');
 console.log('Player modal functions loaded:', typeof window.openPlayerModal === 'function', typeof window.closePlayerModal === 'function');
