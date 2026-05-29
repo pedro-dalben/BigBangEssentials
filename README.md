@@ -4,6 +4,8 @@
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Me-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/mrwhiteflamesyt)
 
 > BigBangEssentials is a comprehensive, config-driven essentials mod for Minecraft NeoForge 1.21.1 - 1.21.11 servers. It provides 50+ commands, GUI tools, advanced administration, and a real-time web dashboard—all managed by modular JSON config files and standardized documentation.
+>
+> ⚠️ **Credits & Origin Notice**: This project is a complete recreation/rewrite based on the original **[NeoEssentials](https://github.com/ZeroG-Network-PTY-LTD/BigBangEssentials)** mod created by **[MrWhiteFlamesYT](https://github.com/MrWhiteFlamesYT)**. Full credit for the original design, concepts, and features belongs to the original author.
 
 ## 🌟 Overview
 
@@ -132,6 +134,14 @@ Output JAR: `build/libs/bigbangessentials-VERSION+build.XXX.jar`
 - **Bug Reports**: Report issues and bugs through GitHub or Discord
 - **Feature Requests**: Suggest new features and improvements
 - **Documentation**: See [Home](https://github.com/ZeroG-Network-PTY-LTD/BigBangEssentials/wiki/Home) and system docs above
+
+## 👥 Credits & Acknowledgments
+
+This project is a custom recreation of the original **[NeoEssentials](https://github.com/ZeroG-Network-PTY-LTD/BigBangEssentials)** mod. 
+- **Original Creator:** [MrWhiteFlamesYT](https://github.com/MrWhiteFlamesYT) / [ZeroG-Network-PTY-LTD](https://github.com/ZeroG-Network-PTY-LTD)
+- **Ko-fi Support:** If you want to support the original creator's hard work, visit their [Ko-fi](https://ko-fi.com/mrwhiteflamesyt).
+
+We are deeply grateful to MrWhiteFlamesYT for the original features, conceptual design, and documentation which made this project possible.
 
 ## 📄 License
 
