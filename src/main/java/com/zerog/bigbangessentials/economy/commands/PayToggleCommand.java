@@ -15,7 +15,7 @@ public class PayToggleCommand {
         dispatcher.register(
             net.minecraft.commands.Commands.literal("paytoggle")
                 .requires(src -> src.hasPermission(2) || // Allow ops
-                    (src.getPlayer() != null && com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.economy.paytoggle")))
+                    (src.getPlayer() != null && hasPayTogglePermission(src.getPlayer().getUUID())))
                 .executes(ctx -> execute(ctx))
         );
         
@@ -23,9 +23,14 @@ public class PayToggleCommand {
         dispatcher.register(
             net.minecraft.commands.Commands.literal("pt")
                 .requires(src -> src.hasPermission(2) || // Allow ops
-                    (src.getPlayer() != null && com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.economy.paytoggle")))
+                    (src.getPlayer() != null && hasPayTogglePermission(src.getPlayer().getUUID())))
                 .executes(ctx -> execute(ctx))
         );
+    }
+
+    private static boolean hasPayTogglePermission(java.util.UUID uuid) {
+        return com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(uuid, "bigbangessentials.economy.pay.toggle")
+            || com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(uuid, "bigbangessentials.economy.paytoggle");
     }
 
     private static int execute(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {

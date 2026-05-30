@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
  * <p>Permissions:</p>
  * <ul>
  *   <li>bigbangessentials.use - Base command access and help display</li>
- *   <li>bigbangessentials.admin.reload - Configuration reload capability</li>
+ *   <li>bigbangessentials.reload - Configuration reload capability</li>
  * </ul>
  * 
  * <p>Features:</p>
@@ -151,8 +152,9 @@ public class ModRootCommand {
         }
         
         // Check for admin permission
-        return com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
-            player.getUUID(), "bigbangessentials.admin.reload");
+        return hasAnyPermission(player.getUUID(),
+            "bigbangessentials.reload",
+            "bigbangessentials.admin.reload");
     }
 
     private static CompletableFuture<Suggestions> suggestModCommands(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
@@ -473,7 +475,13 @@ public class ModRootCommand {
     @SuppressWarnings("IfCanBeSwitch") // Current if-else structure is clearer for grouped permissions
     private static boolean hasCommandPermission(ServerPlayer player, String commandName) {
         // For economy commands
-        if (commandName.equals("balance") || commandName.equals("pay") || commandName.equals("paytoggle") || 
+        if (commandName.equals("paytoggle")) {
+            return hasAnyPermission(player.getUUID(),
+                "bigbangessentials.economy.pay.toggle",
+                "bigbangessentials.economy.paytoggle");
+        }
+
+        if (commandName.equals("balance") || commandName.equals("pay") ||
             commandName.equals("eco") || commandName.equals("baltop")) {
             return com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
                 player.getUUID(), "bigbangessentials.economy." + commandName);
@@ -496,8 +504,9 @@ public class ModRootCommand {
         
         // For permission commands
         if (commandName.equals("pex") || commandName.equals("permissions")) {
-            return com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
-                player.getUUID(), "bigbangessentials.admin.permissions");
+            return hasAnyPermission(player.getUUID(),
+                "bigbangessentials.permissions.admin",
+                "bigbangessentials.admin.permissions");
         }
         
         // For utility commands
@@ -509,5 +518,14 @@ public class ModRootCommand {
         // Default: check generic command permission
         return com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
             player.getUUID(), "bigbangessentials.use");
+    }
+
+    private static boolean hasAnyPermission(UUID uuid, String... permissions) {
+        for (String permission : permissions) {
+            if (com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(uuid, permission)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

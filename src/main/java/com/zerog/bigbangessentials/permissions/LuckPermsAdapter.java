@@ -1,5 +1,6 @@
 package com.zerog.bigbangessentials.permissions;
 
+import com.zerog.bigbangessentials.api.permissions.PermissionRegistry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -56,13 +57,13 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
                     user = userFuture.get(USER_LOAD_TIMEOUT, TimeUnit.SECONDS);
                 } catch (Exception e) {
                     LOGGER.debug("Could not load user {} from LuckPerms: {}", uuid, e.getMessage());
-                    return false;
+                    return getDefaultPermissionValue(permission);
                 }
             }
 
             if (user == null) {
                 LOGGER.debug("User {} not found in LuckPerms", uuid);
-                return false;
+                return getDefaultPermissionValue(permission);
             }
 
             // Check permission using LuckPerms API
@@ -72,6 +73,13 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
             // Tristate: TRUE = has permission, FALSE = explicitly denied, UNDEFINED = not set
             // When using external permissions (LuckPerms), we respect their decision completely
             // UNDEFINED and FALSE both mean "no permission" - admin must explicitly grant permissions
+            if (result == Tristate.UNDEFINED) {
+                boolean defaultValue = getDefaultPermissionValue(permission);
+                LOGGER.debug("LuckPerms permission '{}' is undefined, falling back to default: {}",
+                    permission, defaultValue);
+                return defaultValue;
+            }
+
             boolean hasPermission = result.asBoolean();
 
             LOGGER.debug("LuckPerms permission check: user={}, permission={}, result={} ({})",
@@ -84,6 +92,10 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
                 permission, uuid, e.getMessage(), e);
             return false;
         }
+    }
+
+    private boolean getDefaultPermissionValue(String permission) {
+        return PermissionRegistry.getInstance().getDefaultPermissionValue(permission);
     }
 
     @Override

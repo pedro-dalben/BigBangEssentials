@@ -153,6 +153,19 @@ public class PermissionRegistry {
     public boolean isRegistered(String permission) {
         return registeredPermissions.contains(permission);
     }
+
+    /**
+     * Returns the configured default value for a permission node.
+     * Unknown permissions default to false.
+     */
+    public boolean getDefaultPermissionValue(String permission) {
+        if (permission == null || permission.trim().isEmpty()) {
+            return false;
+        }
+
+        PermissionInfo info = permissionInfo.get(permission.toLowerCase());
+        return info != null && info.getDefaultValue();
+    }
     
     /**
      * Get all permissions starting with a prefix (for tab completion)
@@ -890,4 +903,3 @@ public class PermissionRegistry {
         return yaml.toString();
     }
 }
-

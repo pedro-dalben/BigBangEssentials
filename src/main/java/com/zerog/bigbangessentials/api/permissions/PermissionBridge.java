@@ -508,9 +508,9 @@ public class PermissionBridge {
             writer.write("\n# Moderator permissions:\n");
             writer.write("# /pex group moderator add bigbangessentials.teleport.*\n");
             writer.write("# /pex group moderator add bigbangessentials.chat.*\n");
-            writer.write("# /pex group moderator add bigbangessentials.admin.permissions\n");
+            writer.write("# /pex group moderator add bigbangessentials.permissions.admin\n");
             writer.write("\n# Basic player permissions:\n");
-            writer.write("# /pex group player add bigbangessentials.teleport.home.home\n");
+            writer.write("# /pex group player add bigbangessentials.teleport.home\n");
             writer.write("# /pex group player add bigbangessentials.teleport.home.set\n");
             writer.write("# /pex group player add bigbangessentials.teleport.home.delete\n");
             writer.write("# /pex group player add bigbangessentials.teleport.home.list\n");
@@ -532,7 +532,7 @@ public class PermissionBridge {
             writer.write("# /pex user PlayerName add bigbangessentials.teleport.admin.tp\n");
             writer.write("# /pex user PlayerName add bigbangessentials.teleport.admin.tphere\n");
             writer.write("# /pex user PlayerName add bigbangessentials.economy.eco.give\n");
-            writer.write("# /pex user PlayerName add bigbangessentials.admin.reload\n");
+            writer.write("# /pex user PlayerName add bigbangessentials.reload\n");
             
             writer.write("\n# ===============================\n");
             writer.write("# QUICK GROUP SETUP COMMANDS\n");
@@ -547,12 +547,12 @@ public class PermissionBridge {
             writer.write("# /pex group moderator create\n");
             writer.write("# /pex group moderator add bigbangessentials.teleport.*\n");
             writer.write("# /pex group moderator add bigbangessentials.chat.*\n");
-            writer.write("# /pex group moderator add bigbangessentials.admin.permissions\n\n");
+            writer.write("# /pex group moderator add bigbangessentials.permissions.admin\n\n");
             
             writer.write("# Create Player Group:\n");
             writer.write("# /pex group player create\n");
             writer.write("# /pex group player add bigbangessentials.teleport.home.*\n");
-            writer.write("# /pex group player add bigbangessentials.teleport.spawn.spawn\n");
+            writer.write("# /pex group player add bigbangessentials.teleport.spawn\n");
             writer.write("# /pex group player add bigbangessentials.economy.balance\n");
             writer.write("# /pex group player add bigbangessentials.economy.pay\n");
             writer.write("# /pex group player add bigbangessentials.kits.starter\n");
@@ -683,7 +683,7 @@ public class PermissionBridge {
         source.sendSuccess(() -> Component.literal("§a4. PermissionsEX Group Commands:"), false);
         source.sendSuccess(() -> Component.literal("§f   /pex group admin add bigbangessentials.*"), false);
         source.sendSuccess(() -> Component.literal("§f   /pex group moderator add bigbangessentials.teleport.*"), false);
-        source.sendSuccess(() -> Component.literal("§f   /pex group player add bigbangessentials.teleport.home.home"), false);
+        source.sendSuccess(() -> Component.literal("§f   /pex group player add bigbangessentials.teleport.home"), false);
         source.sendSuccess(() -> Component.literal("§f   /pex group player add bigbangessentials.economy.balance"), false);
         source.sendSuccess(() -> Component.literal(""), false);
         source.sendSuccess(() -> Component.literal("§a5. PermissionsEX User Commands:"), false);
@@ -768,14 +768,14 @@ public class PermissionBridge {
         source.sendSuccess(() -> Component.literal("§f/pex group moderator create"), false);
         source.sendSuccess(() -> Component.literal("§f/pex group moderator add bigbangessentials.teleport.*"), false);
         source.sendSuccess(() -> Component.literal("§f/pex group moderator add bigbangessentials.chat.*"), false);
-        source.sendSuccess(() -> Component.literal("§f/pex group moderator add bigbangessentials.admin.permissions"), false);
+        source.sendSuccess(() -> Component.literal("§f/pex group moderator add bigbangessentials.permissions.admin"), false);
         source.sendSuccess(() -> Component.literal(""), false);
         
         source.sendSuccess(() -> Component.literal("§a▶ Player Group (Basic):"), false);
         source.sendSuccess(() -> Component.literal("§f/pex group player create"), false);
-        source.sendSuccess(() -> Component.literal("§f/pex group player add bigbangessentials.teleport.home.home"), false);
+        source.sendSuccess(() -> Component.literal("§f/pex group player add bigbangessentials.teleport.home"), false);
         source.sendSuccess(() -> Component.literal("§f/pex group player add bigbangessentials.teleport.home.set"), false);
-        source.sendSuccess(() -> Component.literal("§f/pex group player add bigbangessentials.teleport.spawn.spawn"), false);
+        source.sendSuccess(() -> Component.literal("§f/pex group player add bigbangessentials.teleport.spawn"), false);
         source.sendSuccess(() -> Component.literal("§f/pex group player add bigbangessentials.economy.balance"), false);
         source.sendSuccess(() -> Component.literal("§f/pex group player add bigbangessentials.economy.pay"), false);
         source.sendSuccess(() -> Component.literal("§f/pex group player add bigbangessentials.chat.msg"), false);
@@ -814,7 +814,7 @@ public class PermissionBridge {
         source.sendSuccess(() -> Component.literal("§f/pex user PlayerName add bigbangessentials.teleport.admin.tphere"), false);
         source.sendSuccess(() -> Component.literal("§f/pex user PlayerName add bigbangessentials.teleport.admin.tpall"), false);
         source.sendSuccess(() -> Component.literal("§f/pex user PlayerName add bigbangessentials.economy.eco.give"), false);
-        source.sendSuccess(() -> Component.literal("§f/pex user PlayerName add bigbangessentials.admin.reload"), false);
+        source.sendSuccess(() -> Component.literal("§f/pex user PlayerName add bigbangessentials.reload"), false);
         source.sendSuccess(() -> Component.literal(""), false);
         
         source.sendSuccess(() -> Component.literal("§a▶ Moderator Permissions for Users:"), false);

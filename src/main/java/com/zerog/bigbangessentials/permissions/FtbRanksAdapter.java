@@ -1,5 +1,6 @@
 package com.zerog.bigbangessentials.permissions;
 
+import com.zerog.bigbangessentials.api.permissions.PermissionRegistry;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.UUID;
@@ -66,17 +67,17 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
         try {
             var server = ServerLifecycleHooks.getCurrentServer();
             if (server == null) {
-                return false;
+                return getDefaultPermissionValue(permission);
             }
 
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
                 Boolean result = getOnlineBooleanPermission(player, permission);
-                return result != null && result;
+                return result != null ? result : getDefaultPermissionValue(permission);
             }
 
             Boolean result = getOfflineBooleanPermission(uuid, permission);
-            return result != null && result;
+            return result != null ? result : getDefaultPermissionValue(permission);
         } catch (Exception e) {
             LOGGER.error("Failed to check FTB Ranks permission '{}'", permission, e);
             return false;
@@ -291,5 +292,9 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
     @Override
     public boolean isAvailable() {
         return ftbRanksLoaded && available;
+    }
+
+    private boolean getDefaultPermissionValue(String permission) {
+        return PermissionRegistry.getInstance().getDefaultPermissionValue(permission);
     }
 }
