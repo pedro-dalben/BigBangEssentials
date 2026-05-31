@@ -469,6 +469,8 @@
       "cacheThreshold_comment": "Minimum number of locations to keep pre-computed in the cache.",
       "cooldown": 60,
       "cooldown_comment": "Cooldown in seconds between /tpr uses per player. 0 to disable.",
+      "onlyPreGeneratedChunks": true,
+      "onlyPreGeneratedChunks_comment": "If true, /tpr will only teleport players to chunks that have already been generated, preventing lag spikes caused by chunk generation. Defaults to true.",
       "excludedBiomes": [],
       "excludedBiomes_comment": "Biome resource locations to exclude globally (e.g. 'minecraft:ocean'). Per-location overrides can be set in the locations map.",
       "locations": {

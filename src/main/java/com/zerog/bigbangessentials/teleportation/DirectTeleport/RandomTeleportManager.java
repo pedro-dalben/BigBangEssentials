@@ -185,13 +185,25 @@ public class RandomTeleportManager {
         final double finalRx = rx;
         final double finalRz = rz;
 
-        return CompletableFuture.supplyAsync(() -> findSafeY(level, finalRx, finalRz, locationName), level.getServer())
-                .thenCompose(loc -> {
-                    if (loc != null && isValid(loc, locationName)) {
-                        return CompletableFuture.completedFuture(loc);
-                    }
-                    return attemptFind(level, cx, cy, cz, minRange, maxRange, locationName, attemptsLeft - 1);
-                });
+        int chunkX = (int) finalRx >> 4;
+        int chunkZ = (int) finalRz >> 4;
+
+        CompletableFuture<Boolean> checkFuture = isOnlyPreGeneratedChunks()
+                ? isChunkGenerated(level, chunkX, chunkZ)
+                : CompletableFuture.completedFuture(true);
+
+        return checkFuture.thenCompose(generated -> {
+            if (!generated) {
+                return attemptFind(level, cx, cy, cz, minRange, maxRange, locationName, attemptsLeft - 1);
+            }
+            return CompletableFuture.supplyAsync(() -> findSafeY(level, finalRx, finalRz, locationName), level.getServer())
+                    .thenCompose(loc -> {
+                        if (loc != null && isValid(loc, locationName)) {
+                            return CompletableFuture.completedFuture(loc);
+                        }
+                        return attemptFind(level, cx, cy, cz, minRange, maxRange, locationName, attemptsLeft - 1);
+                    });
+        });
     }
 
     /**
@@ -377,17 +389,12 @@ public class RandomTeleportManager {
         double maxRange = getMaxRange(level, name);
 
         for (int i = 0; i < toFill; i++) {
-            double[] offset = randomOffset(minRange, maxRange);
-            double rx = clampToWorldBorder(level, center[0] + offset[0], true);
-            double rz = clampToWorldBorder(level, center[2] + offset[1], false);
-            final double finalRx = rx;
-            final double finalRz = rz;
-            CompletableFuture.runAsync(() -> {
-                TeleportLocation loc = findSafeY(level, finalRx, finalRz, name);
-                if (loc != null && isValid(loc, name)) {
-                    getCache(name).add(loc);
-                }
-            }, level.getServer());
+            attemptFind(level, center[0], center[1], center[2], minRange, maxRange, name, getFindAttempts())
+                    .thenAccept(loc -> {
+                        if (loc != null) {
+                            getCache(name).add(loc);
+                        }
+                    });
         }
     }
 
@@ -530,6 +537,23 @@ public class RandomTeleportManager {
             return tpr.get(key).getAsString();
         }
         return def;
+    }
+
+    private boolean isOnlyPreGeneratedChunks() {
+        JsonObject tpr = getTprConfig();
+        if (tpr != null && tpr.has("onlyPreGeneratedChunks")) {
+            return tpr.get("onlyPreGeneratedChunks").getAsBoolean();
+        }
+        return true;
+    }
+
+    private CompletableFuture<Boolean> isChunkGenerated(ServerLevel level, int chunkX, int chunkZ) {
+        if (level.getChunkSource().hasChunk(chunkX, chunkZ)) {
+            return CompletableFuture.completedFuture(true);
+        }
+        net.minecraft.world.level.ChunkPos chunkPos = new net.minecraft.world.level.ChunkPos(chunkX, chunkZ);
+        return level.getChunkSource().chunkMap.read(chunkPos)
+                .thenApply(opt -> opt.isPresent());
     }
 }
 
