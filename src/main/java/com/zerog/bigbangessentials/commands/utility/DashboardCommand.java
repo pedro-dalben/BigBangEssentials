@@ -154,27 +154,23 @@ public class DashboardCommand {
             source.sendSuccess(() -> Component.literal("§c§l✗ §cFailed to stop dashboard!"), false);
             return 0;
         }
-        
-        // Wait a moment
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        
-        // Start
-        boolean startSuccess = DashboardLifecycleManager.startDashboard(source.getServer());
-        
-        if (startSuccess) {
-            DashboardLifecycleManager.DashboardStatus status = DashboardLifecycleManager.getStatus();
-            source.sendSuccess(() -> Component.literal("§a§l✓ §aDashboard restarted successfully!"), false);
-            source.sendSuccess(() -> Component.literal("§7URL: §b§n" + status.url), false);
-            return 1;
-        } else {
-            source.sendSuccess(() -> Component.literal("§c§l✗ §cFailed to restart dashboard!"), false);
-            source.sendSuccess(() -> Component.literal("§7Check server logs for details"), false);
-            return 0;
-        }
+
+        source.sendSuccess(() -> Component.literal("§7Dashboard restart scheduled..."), false);
+
+        source.getServer().tell(new net.minecraft.server.TickTask(source.getServer().getTickCount() + 10, () -> {
+            boolean startSuccess = DashboardLifecycleManager.startDashboard(source.getServer());
+
+            if (startSuccess) {
+                DashboardLifecycleManager.DashboardStatus status = DashboardLifecycleManager.getStatus();
+                source.sendSuccess(() -> Component.literal("§a§l✓ §aDashboard restarted successfully!"), false);
+                source.sendSuccess(() -> Component.literal("§7URL: §b§n" + status.url), false);
+            } else {
+                source.sendSuccess(() -> Component.literal("§c§l✗ §cFailed to restart dashboard!"), false);
+                source.sendSuccess(() -> Component.literal("§7Check server logs for details"), false);
+            }
+        }));
+
+        return 1;
     }
     
     private static int showUrl(CommandContext<CommandSourceStack> context) {

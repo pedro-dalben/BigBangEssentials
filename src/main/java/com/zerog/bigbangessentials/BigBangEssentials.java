@@ -334,9 +334,12 @@ public class BigBangEssentials {
                     // Send notification after a short delay to ensure player is fully connected
                     net.minecraft.server.MinecraftServer server = player.getServer();
                     if (server != null) {
-                        server.execute(() -> {
+                        server.tell(new net.minecraft.server.TickTask(server.getTickCount() + 40, () -> {
+                            if (player.hasDisconnected()) {
+                                return;
+                            }
+
                             try {
-                                Thread.sleep(2000); // 2 second delay
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal(""));
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§6§l════════════════════════════════════════════════════════════════"));
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§e§l                    CONFIG SPLITTING AVAILABLE"));
@@ -354,10 +357,10 @@ public class BigBangEssentials {
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal(""));
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§6§l════════════════════════════════════════════════════════════════"));
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal(""));
-                            } catch (InterruptedException e) {
-                                // Ignore
+                            } catch (Exception e) {
+                                LOGGER.debug("Failed to send config split notification to {}", player.getName().getString(), e);
                             }
-                        });
+                        }));
                     }
                 }
             }
@@ -970,4 +973,3 @@ public class BigBangEssentials {
         }
     }
 }
-

@@ -145,14 +145,17 @@ public class ResourcePackManager {
             var server = player.getServer();
             if (server != null) {
                 // Send resource pack after a short delay
-                server.execute(() -> {
-                    try {
-                        Thread.sleep(1000); // 1 second delay
-                        getInstance().sendResourcePack(player);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
+                server.tell(new net.minecraft.server.TickTask(server.getTickCount() + 20, () -> {
+                    if (player.hasDisconnected()) {
+                        return;
                     }
-                });
+
+                    try {
+                        getInstance().sendResourcePack(player);
+                    } catch (Exception e) {
+                        LOGGER.error("Failed to send resource pack to {}: {}", player.getName().getString(), e.getMessage(), e);
+                    }
+                }));
             }
         }
     }
@@ -236,4 +239,3 @@ public class ResourcePackManager {
         return "This server uses custom badge images. Please accept the resource pack for the best experience!";
     }
 }
-
