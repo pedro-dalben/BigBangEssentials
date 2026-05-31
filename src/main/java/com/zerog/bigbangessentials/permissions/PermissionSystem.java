@@ -257,12 +257,13 @@ public class PermissionSystem {
             if (isUsingExternal()) {
                 PermissionAPI.reload();
                 LOGGER.info("External permission system reloaded");
-                return;
+            } else {
+                if (manager != null) {
+                    manager.reload();
+                }
+                LOGGER.info("Permission system reloaded successfully");
             }
-            if (manager != null) {
-                manager.reload();
-            }
-            LOGGER.info("Permission system reloaded successfully");
+            com.zerog.bigbangessentials.teleportation.HomeManager.getInstance().clearMaxHomesCache();
         } catch (Exception e) {
             LOGGER.error("Failed to reload permission system", e);
             throw new RuntimeException("Permission reload failed", e);
@@ -318,4 +319,3 @@ public class PermissionSystem {
         }
     }
 }
-

@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Manages player home locations with creation, deletion, listing, and teleportation.
@@ -31,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class HomeManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(HomeManager.class);
     private static final String HOMES_FILE = "homes.json"; // Legacy file (for migration)
+    private static final long MAX_HOMES_CACHE_TTL_MS = TimeUnit.SECONDS.toMillis(60);
 
     // Singleton pattern
     private static class SingletonHolder {
@@ -46,6 +48,7 @@ public class HomeManager {
 
     // In-memory cache for quick lookups (UUID -> homes map)
     private final Map<UUID, Map<String, TeleportLocation>> playerHomes = new ConcurrentHashMap<>();
+    private final Map<UUID, CachedHomeLimit> maxHomesCache = new ConcurrentHashMap<>();
 
     // Configuration
     private int maxHomesPerPlayer = 5;
@@ -65,18 +68,23 @@ public class HomeManager {
      * If the player has the permission node bigbangessentials.home.<amount>, that value is used if higher than config.
      */
     public int getMaxHomesForPlayer(ServerPlayer player) {
-        int configMax = this.maxHomesPerPlayer;
-        int permMax = -1;
-        // Check for permissions bigbangessentials.home.<amount> from high to low (e.g., 100 down to 1)
-        for (int i = 100; i >= 1; i--) {
-            String perm = "bigbangessentials.home." + i;
-            if (com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), perm)) {
-                permMax = i;
-                break;
-            }
+        if (player == null) {
+            return this.maxHomesPerPlayer;
         }
+
+        UUID playerId = player.getUUID();
+        long now = System.currentTimeMillis();
+        CachedHomeLimit cached = maxHomesCache.get(playerId);
+        if (cached != null && (now - cached.timestampMs) < MAX_HOMES_CACHE_TTL_MS) {
+            return cached.maxHomes;
+        }
+
+        int configMax = this.maxHomesPerPlayer;
+        int permMax = resolvePermissionHomeLimit(player);
         // Return the higher value between permission-based and config-based limits
-        return Math.max(permMax, configMax);
+        int maxHomes = Math.max(permMax, configMax);
+        maxHomesCache.put(playerId, new CachedHomeLimit(maxHomes, now));
+        return maxHomes;
     }
     private boolean allowOverworldOnly = false;
     private boolean allowCrossDimensionHomes = true;
@@ -619,7 +627,10 @@ public class HomeManager {
 
     // Configuration getters/setters
     public int getMaxHomesPerPlayer() { return maxHomesPerPlayer; }
-    public void setMaxHomesPerPlayer(int max) { this.maxHomesPerPlayer = Math.max(1, max); }
+    public void setMaxHomesPerPlayer(int max) {
+        this.maxHomesPerPlayer = Math.max(1, max);
+        clearMaxHomesCache();
+    }
 
     public boolean isAllowOverworldOnly() { return allowOverworldOnly; }
     public void setAllowOverworldOnly(boolean allow) { this.allowOverworldOnly = allow; }
@@ -679,10 +690,48 @@ public class HomeManager {
         // Flush any pending saves before clearing cache
         playerDataStore.flushAll();
 
+        // Clear permission-derived home limits - reload may change configured caps or permissions
+        clearMaxHomesCache();
+
         // Clear cache - homes will be loaded on-demand from PlayerDataStore
         playerHomes.clear();
 
         LOGGER.info("Home system reloaded - {} players in storage, homes will load on-demand",
             playerDataStore.getTotalPlayers());
+    }
+
+    public void invalidateMaxHomesCache(UUID playerId) {
+        if (playerId != null) {
+            maxHomesCache.remove(playerId);
+        }
+    }
+
+    public void clearMaxHomesCache() {
+        maxHomesCache.clear();
+    }
+
+    private int resolvePermissionHomeLimit(ServerPlayer player) {
+        int permMax = -1;
+        UUID playerId = player.getUUID();
+
+        // Check for permissions bigbangessentials.home.<amount> from high to low (e.g., 100 down to 1)
+        for (int i = 100; i >= 1; i--) {
+            String perm = "bigbangessentials.home." + i;
+            if (com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(playerId, perm)) {
+                permMax = i;
+                break;
+            }
+        }
+        return permMax;
+    }
+
+    private static final class CachedHomeLimit {
+        final int maxHomes;
+        final long timestampMs;
+
+        private CachedHomeLimit(int maxHomes, long timestampMs) {
+            this.maxHomes = maxHomes;
+            this.timestampMs = timestampMs;
+        }
     }
 }
