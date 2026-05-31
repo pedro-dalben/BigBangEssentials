@@ -26,17 +26,22 @@ public class AfkCommandHandler {
     public static void onCommandExecute(CommandEvent event) {
         // Check if command source is a player
         if (event.getParseResults().getContext().getSource().getEntity() instanceof ServerPlayer player) {
+            AfkManager manager = AfkManager.getInstance();
+            if (!manager.isEnableActivityTracking() || !manager.isTrackCommands()) {
+                return;
+            }
+
             String commandName = getCommandName(event.getParseResults().getReader().getString());
             
             // Skip excluded commands (from config)
-            if (AfkManager.getInstance().getExcludedCommands().contains(commandName.toLowerCase())) {
+            if (manager.getExcludedCommands().contains(commandName.toLowerCase())) {
                 LOGGER.debug("Command '{}' excluded from AFK activity tracking for {}", 
                     commandName, player.getName().getString());
                 return;
             }
             
             // Update activity for non-excluded commands
-            AfkManager.getInstance().updateActivity(player.getUUID());
+            manager.updateActivity(player.getUUID());
             LOGGER.debug("Command activity tracked for {}: /{}", 
                 player.getName().getString(), commandName);
         }

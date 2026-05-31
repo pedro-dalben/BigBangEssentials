@@ -85,13 +85,18 @@ public class AfkActivityHandler {
     private static void recordActivity(ServerPlayer player, String activityType) {
         if (player == null) return;
 
+        AfkManager manager = AfkManager.getInstance();
+        if (!manager.isEnableActivityTracking()) {
+            return;
+        }
+
         UUID uuid = player.getUUID();
         ActivityPattern pattern = activityPatterns.computeIfAbsent(uuid, k -> new ActivityPattern());
         pattern.recordActivity(activityType);
 
         // Only update AFK status if not suspicious
         if (!pattern.isSuspicious()) {
-            AfkManager.getInstance().updateActivity(uuid);
+            manager.updateActivity(uuid);
             com.zerog.bigbangessentials.util.DebugLogger.log(LOGGER, "Activity tracked for {}: {} (score: {})",
                 player.getName().getString(), activityType, pattern.getSuspiciousScore());
         } else {
@@ -107,6 +112,9 @@ public class AfkActivityHandler {
     @SubscribeEvent
     public static void onPlayerRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            if (!AfkManager.getInstance().isTrackInteractions()) {
+                return;
+            }
             recordActivity(player, "interact_block");
         }
     }
@@ -114,6 +122,9 @@ public class AfkActivityHandler {
     @SubscribeEvent
     public static void onPlayerRightClickItem(PlayerInteractEvent.RightClickItem event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            if (!AfkManager.getInstance().isTrackInteractions()) {
+                return;
+            }
             recordActivity(player, "interact_item");
         }
     }
@@ -121,6 +132,9 @@ public class AfkActivityHandler {
     @SubscribeEvent
     public static void onPlayerLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            if (!AfkManager.getInstance().isTrackInteractions()) {
+                return;
+            }
             recordActivity(player, "interact_attack");
         }
     }
@@ -128,6 +142,9 @@ public class AfkActivityHandler {
     @SubscribeEvent
     public static void onItemToss(ItemTossEvent event) {
         if (event.getPlayer() instanceof ServerPlayer player) {
+            if (!AfkManager.getInstance().isTrackInteractions()) {
+                return;
+            }
             recordActivity(player, "item_toss");
         }
     }
@@ -148,7 +165,9 @@ public class AfkActivityHandler {
             UUID uuid = player.getUUID();
             // Reset activity pattern on login
             activityPatterns.put(uuid, new ActivityPattern());
-            AfkManager.getInstance().updateActivity(uuid);
+            if (AfkManager.getInstance().isEnableActivityTracking()) {
+                AfkManager.getInstance().updateActivity(uuid);
+            }
             com.zerog.bigbangessentials.util.DebugLogger.log(LOGGER, "AFK tracking initialized for: {}", player.getName().getString());
         }
     }
@@ -186,4 +205,3 @@ public class AfkActivityHandler {
         return new ConcurrentHashMap<>(activityPatterns);
     }
 }
-

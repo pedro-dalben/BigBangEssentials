@@ -431,13 +431,6 @@ public class BigBangEssentials {
                 LOGGER.error("Failed to shutdown AFK Manager", e);
             }
 
-            try {
-                LOGGER.info("Shutting down AFK Movement Detector...");
-                com.zerog.bigbangessentials.chat.handlers.AfkMovementDetector.shutdown();
-            } catch (Exception e) {
-                LOGGER.error("Failed to shutdown AFK Movement Detector", e);
-            }
-
             // Shutdown Moderation Managers
             try {
                 LOGGER.info("Shutting down Ban Manager scheduler...");

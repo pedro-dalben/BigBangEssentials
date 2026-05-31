@@ -2,6 +2,9 @@ package com.zerog.bigbangessentials.chat;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +28,7 @@ import com.google.gson.JsonParser;
  * Centralized, thread-safe manager for AFK status and activity tracking.
  * This is the single source of truth for all AFK-related functionality.
  */
+@EventBusSubscriber(modid = "bigbangessentials")
 @SuppressWarnings({"unused", "FieldCanBeLocal", "FieldMayBeFinal"}) // Public API class with configuration fields
 public class AfkManager {
     // Configurable auto-save for AFK data
@@ -55,6 +59,9 @@ public class AfkManager {
 
     // Shutdown flag to prevent task submission after shutdown
     private volatile boolean isShuttingDown = false;
+    private volatile boolean configurationLoaded = false;
+    private volatile boolean autoSaveTaskStarted = false;
+    private int afkTickCounter = 0;
 
     // Data persistence
     private final File afkDataFile = new File(com.zerog.bigbangessentials.util.ResourceUtil.DATA_DIR + "afk_data.json");
@@ -91,8 +98,6 @@ public class AfkManager {
     
     private AfkManager() {
     loadAfkData();
-    startAfkCheckTask();
-    startAutoSaveTask();
     }
     
     /**
@@ -189,6 +194,25 @@ public class AfkManager {
 
         queueSaveAfkData();
     }
+
+    /**
+     * Run AFK timeout checks on the server thread.
+     */
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        AfkManager instance = getInstance();
+        if (!instance.configurationLoaded || instance.isShuttingDown || !instance.autoAfkEnabled) {
+            return;
+        }
+
+        instance.afkTickCounter++;
+        if (instance.afkTickCounter < 600) {
+            return;
+        }
+
+        instance.afkTickCounter = 0;
+        instance.checkForAfkPlayers(event.getServer());
+    }
     
     /**
      * Get AFK reason for player
@@ -281,25 +305,9 @@ public class AfkManager {
     }
     
     /**
-     * Start the automatic AFK detection task
-     */
-    private void startAfkCheckTask() {
-        if (!autoAfkEnabled) return;
-        
-        afkCheckExecutor.scheduleAtFixedRate(() -> {
-            try {
-                checkForAfkPlayers();
-            } catch (Exception e) {
-                LOGGER.error("Error in AFK check task", e);
-            }
-        }, 30, 30, TimeUnit.SECONDS); // Check every 30 seconds
-    }
-    
-    /**
      * Check all players for AFK timeout
      */
-    private void checkForAfkPlayers() {
-        net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+    private void checkForAfkPlayers(net.minecraft.server.MinecraftServer server) {
         if (server == null) return;
         
         long currentTime = System.currentTimeMillis();
@@ -494,6 +502,9 @@ public class AfkManager {
 
         LOGGER.info("AFK configuration loaded: timeout={}min, autoAfk={}, broadcast={}, kick={}", 
             afkTimeoutMs / 60000, autoAfkEnabled, broadcastAfkMessages, kickAfkPlayers);
+
+        configurationLoaded = true;
+        startAutoSaveTask();
     }
     
     /**
@@ -635,6 +646,11 @@ public class AfkManager {
      * Start periodic auto-save task for AFK data
      */
     private void startAutoSaveTask() {
+        if (autoSaveTaskStarted) {
+            return;
+        }
+
+        autoSaveTaskStarted = true;
         afkCheckExecutor.scheduleAtFixedRate(() -> {
             if (autoSave) {
                 try {

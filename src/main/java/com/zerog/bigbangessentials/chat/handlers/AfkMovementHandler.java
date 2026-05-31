@@ -100,6 +100,11 @@ public class AfkMovementHandler {
             return;
         }
 
+        AfkManager manager = AfkManager.getInstance();
+        if (!manager.isEnableActivityTracking() || !manager.isTrackMovement()) {
+            return;
+        }
+
         UUID uuid = player.getUUID();
 
         // Throttle checks to reduce CPU usage
@@ -142,7 +147,7 @@ public class AfkMovementHandler {
 
         if (positionChanged || rotationChanged) {
             // Update AFK status
-            AfkManager.getInstance().updateActivity(uuid);
+            manager.updateActivity(uuid);
 
             // Log movement (debug level)
             if (positionChanged) {
@@ -204,4 +209,3 @@ public class AfkMovementHandler {
         return ROTATION_THRESHOLD;
     }
 }
-
