@@ -22,7 +22,7 @@ Result:
 
   - Wiki: [Your Wiki Link]
   - Discord: [Your Discord Link]
-  - GitHub Issues: https://github.com/ZeroG-Network/BigBangEssentials/issues
+  - GitHub Issues: https://github.com/pedro-dalben/BigBangEssentials/issues
 
    - Hex colors supported: &#FF5733
    - Use &r to reset formatting
