@@ -28,13 +28,14 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class TablistManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(TablistManager.class);
+    private static final int DEFAULT_REFRESH_INTERVAL_TICKS = 40;
 
     private static final TablistManager INSTANCE = new TablistManager();
     public static TablistManager getInstance() { return INSTANCE; }
 
     // ── Config ────────────────────────────────────────────────────────────────
     private boolean enabled = true;
-    private int refreshIntervalTicks = 20; // 1 second
+    private int refreshIntervalTicks = DEFAULT_REFRESH_INTERVAL_TICKS; // 2 seconds
     private List<String> headerFrames = new ArrayList<>();
     private List<String> footerFrames = new ArrayList<>();
     private String playerFormat = "§f{prefix}§r{player}{suffix}";
@@ -91,7 +92,9 @@ public class TablistManager {
             }
 
             enabled            = !tab.has("enabled")           || tab.get("enabled").getAsBoolean();
-            refreshIntervalTicks = tab.has("refreshInterval")  ? tab.get("refreshInterval").getAsInt() : 20;
+            refreshIntervalTicks = tab.has("refreshInterval")
+                ? Math.max(1, tab.get("refreshInterval").getAsInt())
+                : DEFAULT_REFRESH_INTERVAL_TICKS;
             hideVanished       = !tab.has("hideVanished")       || tab.get("hideVanished").getAsBoolean();
             showAfkIndicator   = !tab.has("showAfkIndicator")   || tab.get("showAfkIndicator").getAsBoolean();
             afkSuffix          = tab.has("afkSuffix")
@@ -164,36 +167,37 @@ public class TablistManager {
     /** Send updated header/footer packet to all online players. */
     public void updateAll(MinecraftServer server) {
         if (!enabled || server == null) return;
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            updatePlayer(player, server);
+
+        List<ServerPlayer> players = server.getPlayerList().getPlayers();
+        if (players.isEmpty()) return;
+
+        String headerTemplate = currentFrame(headerFrames, this.headerFrame);
+        String footerTemplate = currentFrame(footerFrames, this.footerFrame);
+        PlaceholderUsage headerUsage = PlaceholderUsage.from(headerTemplate);
+        PlaceholderUsage footerUsage = PlaceholderUsage.from(footerTemplate);
+        PlaceholderUsage usage = headerUsage.merge(footerUsage);
+        RefreshContext context = RefreshContext.create(server, players, usage, hideVanished);
+
+        for (ServerPlayer player : players) {
+            sendTablistPacket(player, headerTemplate, footerTemplate, usage, context);
         }
     }
 
     /** Send header/footer to a single player. */
     public void updatePlayer(ServerPlayer player, MinecraftServer server) {
-        if (!enabled) return;
-        try {
-            String header = buildHeader(player, server);
-            String footer = buildFooter(player, server);
-            ClientboundTabListPacket packet = new ClientboundTabListPacket(
-                Component.literal(header),
-                Component.literal(footer)
-            );
-            player.connection.send(packet);
-        } catch (Exception e) {
-            LOGGER.debug("Failed to send tablist packet to {}: {}", player.getName().getString(), e.getMessage());
-        }
-    }
+        if (!enabled || player == null || server == null) return;
 
-    // ── Build header/footer ───────────────────────────────────────────────────
-    private String buildHeader(ServerPlayer player, MinecraftServer server) {
-        String frame = headerFrames.get(Math.min(headerFrame, headerFrames.size() - 1));
-        return applyPlaceholders(frame, player, server);
-    }
+        List<ServerPlayer> players = server.getPlayerList().getPlayers();
+        if (players.isEmpty()) return;
 
-    private String buildFooter(ServerPlayer player, MinecraftServer server) {
-        String frame = footerFrames.get(Math.min(footerFrame, footerFrames.size() - 1));
-        return applyPlaceholders(frame, player, server);
+        String headerTemplate = currentFrame(headerFrames, this.headerFrame);
+        String footerTemplate = currentFrame(footerFrames, this.footerFrame);
+        PlaceholderUsage headerUsage = PlaceholderUsage.from(headerTemplate);
+        PlaceholderUsage footerUsage = PlaceholderUsage.from(footerTemplate);
+        PlaceholderUsage usage = headerUsage.merge(footerUsage);
+        RefreshContext context = RefreshContext.create(server, players, usage, hideVanished);
+
+        sendTablistPacket(player, headerTemplate, footerTemplate, usage, context);
     }
 
     // ── Placeholders ─────────────────────────────────────────────────────────
@@ -217,73 +221,401 @@ public class TablistManager {
      * {bar}           — decorative separator
      * &<code>         — colour codes converted to §
      */
-    private String applyPlaceholders(String text, ServerPlayer player, MinecraftServer server) {
+    private void sendTablistPacket(
+        ServerPlayer player,
+        String headerFrame,
+        String footerFrame,
+        PlaceholderUsage usage,
+        RefreshContext context
+    ) {
+        try {
+            PlayerPlaceholderValues values = PlayerPlaceholderValues.create(this, player, usage, context);
+            String header = applyPlaceholders(headerFrame, player, usage, context, values);
+            String footer = applyPlaceholders(footerFrame, player, usage, context, values);
+
+            ClientboundTabListPacket packet = new ClientboundTabListPacket(
+                Component.literal(header),
+                Component.literal(footer)
+            );
+            player.connection.send(packet);
+        } catch (Exception e) {
+            LOGGER.debug("Failed to send tablist packet to {}: {}", player.getName().getString(), e.getMessage());
+        }
+    }
+
+    private String currentFrame(List<String> frames, int frameIndex) {
+        return frames.get(Math.min(frameIndex, frames.size() - 1));
+    }
+
+    private String applyPlaceholders(
+        String text,
+        ServerPlayer player,
+        PlaceholderUsage usage,
+        RefreshContext context,
+        PlayerPlaceholderValues values
+    ) {
         if (text == null) return "";
 
         // Convert & colour codes
         text = text.replace("&", "§");
 
-        int online = (int) server.getPlayerList().getPlayers().stream()
-            .filter(p -> !isVanishedFromPlayer(p, player))
-            .count();
-        int max = server.getMaxPlayers();
-        int ping = player.connection.latency();
-        String world = player.serverLevel().dimension().location().getPath();
-        String playerName = player.getName().getString();
-        String displayName = getDisplayName(player);
-
-        // TPS
-        double tps = getTps(server);
-        String tpsStr = tps >= 19.0 ? "§a" + String.format("%.1f", tps)
-                      : tps >= 15.0 ? "§e" + String.format("%.1f", tps)
-                      : "§c" + String.format("%.1f", tps);
-
-        // Real time
-        String time = new java.text.SimpleDateFormat("HH:mm").format(new java.util.Date());
-
-        // Server name from MOTD
-        String serverName = server.getMotd();
-
-        // Position
-        int x = player.getBlockX(), y = player.getBlockY(), z = player.getBlockZ();
-
-        // Economy balance
-        String balance = "0";
-        try {
-            java.math.BigDecimal bd = com.zerog.bigbangessentials.economy.managers.EconomyManager.getInstance().getBalance(player.getUUID());
-            balance = String.format("%.2f", bd.doubleValue());
-        } catch (Exception ignored) {}
-
-        // Permission group prefix/suffix/name
-        String prefix = getPermissionPrefix(player);
-        String suffix = getPermissionSuffix(player);
-        String group = getPermissionGroup(player);
-
-        // Apply per-group colour override to displayname if configured
-        String groupColor = groupColors.getOrDefault(group, groupColors.getOrDefault("default", ""));
-        String coloredDisplayName = groupColor.isEmpty() ? displayName : groupColor + displayName;
+        if (usage.player) {
+            text = text.replace("{player}", values.playerName);
+        }
+        if (usage.displayName) {
+            String groupColor = groupColors.getOrDefault(values.group, groupColors.getOrDefault("default", ""));
+            String coloredDisplayName = groupColor.isEmpty() ? values.displayName : groupColor + values.displayName;
+            text = text.replace("{displayname}", coloredDisplayName);
+        }
+        if (usage.online) {
+            text = text.replace("{online}", String.valueOf(values.online));
+        }
+        if (usage.max) {
+            text = text.replace("{max}", String.valueOf(context.maxPlayers));
+        }
+        if (usage.ping) {
+            text = text.replace("{ping}", String.valueOf(values.ping));
+        }
+        if (usage.world) {
+            text = text.replace("{world}", values.world);
+        }
+        if (usage.tps) {
+            text = text.replace("{tps}", context.tpsStr);
+        }
+        if (usage.time) {
+            text = text.replace("{time}", context.time);
+        }
+        if (usage.serverName) {
+            text = text.replace("{server_name}", context.serverName);
+        }
+        if (usage.x) {
+            text = text.replace("{x}", String.valueOf(values.x));
+        }
+        if (usage.y) {
+            text = text.replace("{y}", String.valueOf(values.y));
+        }
+        if (usage.z) {
+            text = text.replace("{z}", String.valueOf(values.z));
+        }
+        if (usage.balance) {
+            text = text.replace("{balance}", values.balance);
+        }
+        if (usage.prefix) {
+            text = text.replace("{prefix}", values.prefix);
+        }
+        if (usage.suffix) {
+            text = text.replace("{suffix}", values.suffix);
+        }
+        if (usage.group) {
+            text = text.replace("{group}", values.group);
+        }
 
         text = text
-            .replace("{player}", playerName)
-            .replace("{displayname}", coloredDisplayName)
-            .replace("{online}", String.valueOf(online))
-            .replace("{max}", String.valueOf(max))
-            .replace("{ping}", String.valueOf(ping))
-            .replace("{world}", world)
-            .replace("{tps}", tpsStr)
-            .replace("{time}", time)
-            .replace("{server_name}", serverName)
-            .replace("{x}", String.valueOf(x))
-            .replace("{y}", String.valueOf(y))
-            .replace("{z}", String.valueOf(z))
-            .replace("{balance}", balance)
-            .replace("{prefix}", prefix)
-            .replace("{suffix}", suffix)
-            .replace("{group}", group)
             .replace("{newline}", "\n")
             .replace("{bar}", "§8§m                              §r");
 
         return text;
+    }
+
+    private static final class PlaceholderUsage {
+        private static final PlaceholderUsage EMPTY = new PlaceholderUsage(
+            false, false, false, false, false, false, false, false, false,
+            false, false, false, false, false, false, false
+        );
+
+        final boolean player;
+        final boolean displayName;
+        final boolean online;
+        final boolean max;
+        final boolean ping;
+        final boolean world;
+        final boolean tps;
+        final boolean time;
+        final boolean serverName;
+        final boolean x;
+        final boolean y;
+        final boolean z;
+        final boolean balance;
+        final boolean prefix;
+        final boolean suffix;
+        final boolean group;
+
+        private PlaceholderUsage(
+            boolean player,
+            boolean displayName,
+            boolean online,
+            boolean max,
+            boolean ping,
+            boolean world,
+            boolean tps,
+            boolean time,
+            boolean serverName,
+            boolean x,
+            boolean y,
+            boolean z,
+            boolean balance,
+            boolean prefix,
+            boolean suffix,
+            boolean group
+        ) {
+            this.player = player;
+            this.displayName = displayName;
+            this.online = online;
+            this.max = max;
+            this.ping = ping;
+            this.world = world;
+            this.tps = tps;
+            this.time = time;
+            this.serverName = serverName;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.balance = balance;
+            this.prefix = prefix;
+            this.suffix = suffix;
+            this.group = group;
+        }
+
+        static PlaceholderUsage from(String text) {
+            if (text == null || text.isEmpty()) {
+                return EMPTY;
+            }
+
+            return new PlaceholderUsage(
+                text.contains("{player}"),
+                text.contains("{displayname}"),
+                text.contains("{online}"),
+                text.contains("{max}"),
+                text.contains("{ping}"),
+                text.contains("{world}"),
+                text.contains("{tps}"),
+                text.contains("{time}"),
+                text.contains("{server_name}"),
+                text.contains("{x}"),
+                text.contains("{y}"),
+                text.contains("{z}"),
+                text.contains("{balance}"),
+                text.contains("{prefix}"),
+                text.contains("{suffix}"),
+                text.contains("{group}")
+            );
+        }
+
+        PlaceholderUsage merge(PlaceholderUsage other) {
+            if (other == null || other == EMPTY) {
+                return this;
+            }
+            if (this == EMPTY) {
+                return other;
+            }
+
+            return new PlaceholderUsage(
+                player || other.player,
+                displayName || other.displayName,
+                online || other.online,
+                max || other.max,
+                ping || other.ping,
+                world || other.world,
+                tps || other.tps,
+                time || other.time,
+                serverName || other.serverName,
+                x || other.x,
+                y || other.y,
+                z || other.z,
+                balance || other.balance,
+                prefix || other.prefix,
+                suffix || other.suffix,
+                group || other.group
+            );
+        }
+
+        boolean needsPermissionData() {
+            return displayName || prefix || suffix || group;
+        }
+    }
+
+    private static final class RefreshContext {
+        final int totalPlayers;
+        final int vanishedPlayers;
+        final boolean hideVanished;
+        final int maxPlayers;
+        final String tpsStr;
+        final String time;
+        final String serverName;
+
+        private RefreshContext(
+            int totalPlayers,
+            int vanishedPlayers,
+            boolean hideVanished,
+            int maxPlayers,
+            String tpsStr,
+            String time,
+            String serverName
+        ) {
+            this.totalPlayers = totalPlayers;
+            this.vanishedPlayers = vanishedPlayers;
+            this.hideVanished = hideVanished;
+            this.maxPlayers = maxPlayers;
+            this.tpsStr = tpsStr;
+            this.time = time;
+            this.serverName = serverName;
+        }
+
+        static RefreshContext create(
+            MinecraftServer server,
+            List<ServerPlayer> players,
+            PlaceholderUsage usage,
+            boolean hideVanished
+        ) {
+            int totalPlayers = usage.online ? players.size() : 0;
+            int vanishedPlayers = 0;
+
+            if (usage.online && hideVanished) {
+                try {
+                    com.zerog.bigbangessentials.moderation.VanishManager vanishManager =
+                        com.zerog.bigbangessentials.moderation.VanishManager.getInstance();
+                    for (ServerPlayer onlinePlayer : players) {
+                        if (vanishManager.isPlayerVanished(onlinePlayer.getUUID())) {
+                            vanishedPlayers++;
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            int maxPlayers = usage.max || usage.online ? server.getMaxPlayers() : 0;
+            String tpsStr = usage.tps ? formatTps(TablistManager.getTps(server)) : "";
+            String time = usage.time ? new java.text.SimpleDateFormat("HH:mm").format(new java.util.Date()) : "";
+            String serverName = usage.serverName ? server.getMotd() : "";
+
+            return new RefreshContext(
+                totalPlayers,
+                vanishedPlayers,
+                hideVanished,
+                maxPlayers,
+                tpsStr,
+                time,
+                serverName
+            );
+        }
+
+        int getVisibleOnlineCount(ServerPlayer viewer) {
+            if (!hideVanished || vanishedPlayers <= 0) {
+                return totalPlayers;
+            }
+
+            try {
+                if (PermissionAPI.hasPermission(viewer.getUUID(), "bigbangessentials.vanish.see")) {
+                    return totalPlayers;
+                }
+            } catch (Exception ignored) {}
+
+            return Math.max(0, totalPlayers - vanishedPlayers);
+        }
+    }
+
+    private static final class PermissionData {
+        static final PermissionData EMPTY = new PermissionData("", "", "default");
+
+        final String prefix;
+        final String suffix;
+        final String group;
+
+        private PermissionData(String prefix, String suffix, String group) {
+            this.prefix = prefix;
+            this.suffix = suffix;
+            this.group = group;
+        }
+    }
+
+    private static final class PlayerPlaceholderValues {
+        final String playerName;
+        final String displayName;
+        final int online;
+        final int ping;
+        final String world;
+        final int x;
+        final int y;
+        final int z;
+        final String balance;
+        final String prefix;
+        final String suffix;
+        final String group;
+
+        private PlayerPlaceholderValues(
+            String playerName,
+            String displayName,
+            int online,
+            int ping,
+            String world,
+            int x,
+            int y,
+            int z,
+            String balance,
+            String prefix,
+            String suffix,
+            String group
+        ) {
+            this.playerName = playerName;
+            this.displayName = displayName;
+            this.online = online;
+            this.ping = ping;
+            this.world = world;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.balance = balance;
+            this.prefix = prefix;
+            this.suffix = suffix;
+            this.group = group;
+        }
+
+        static PlayerPlaceholderValues create(
+            TablistManager manager,
+            ServerPlayer player,
+            PlaceholderUsage usage,
+            RefreshContext context
+        ) {
+            String playerName = usage.player || usage.displayName ? player.getName().getString() : "";
+            String displayName = usage.displayName ? manager.getDisplayName(player) : "";
+            PermissionData permissionData = usage.needsPermissionData() ? resolvePermissionData(player) : PermissionData.EMPTY;
+
+            int online = usage.online ? context.getVisibleOnlineCount(player) : 0;
+            int ping = usage.ping ? player.connection.latency() : 0;
+            String world = usage.world ? player.serverLevel().dimension().location().getPath() : "";
+            int x = usage.x ? player.getBlockX() : 0;
+            int y = usage.y ? player.getBlockY() : 0;
+            int z = usage.z ? player.getBlockZ() : 0;
+
+            String balance = "0";
+            if (usage.balance) {
+                try {
+                    java.math.BigDecimal bd = com.zerog.bigbangessentials.economy.managers.EconomyManager.getInstance()
+                        .getBalance(player.getUUID());
+                    balance = String.format("%.2f", bd.doubleValue());
+                } catch (Exception ignored) {}
+            }
+
+            return new PlayerPlaceholderValues(
+                playerName,
+                displayName,
+                online,
+                ping,
+                world,
+                x,
+                y,
+                z,
+                balance,
+                permissionData.prefix,
+                permissionData.suffix,
+                permissionData.group
+            );
+        }
+    }
+
+    private static String formatTps(double tps) {
+        return tps >= 19.0 ? "§a" + String.format("%.1f", tps)
+            : tps >= 15.0 ? "§e" + String.format("%.1f", tps)
+            : "§c" + String.format("%.1f", tps);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -302,7 +634,31 @@ public class TablistManager {
         return player.getName().getString();
     }
 
-    private double getTps(MinecraftServer server) {
+    private static PermissionData resolvePermissionData(ServerPlayer player) {
+        try {
+            com.zerog.bigbangessentials.permissions.PermissionManager mgr =
+                com.zerog.bigbangessentials.permissions.PermissionSystem.getManager();
+            com.zerog.bigbangessentials.permissions.PermissionUser user = mgr.getUser(player.getUUID());
+            if (user != null) {
+                String groupName = user.getGroup();
+                com.zerog.bigbangessentials.permissions.PermissionGroup group = mgr.getGroup(groupName);
+                String prefix = "";
+                String suffix = "";
+                if (group != null) {
+                    if (group.getPrefix() != null && !group.getPrefix().isEmpty()) {
+                        prefix = group.getPrefix().replace("&", "§");
+                    }
+                    if (group.getSuffix() != null && !group.getSuffix().isEmpty()) {
+                        suffix = group.getSuffix().replace("&", "§");
+                    }
+                }
+                return new PermissionData(prefix, suffix, groupName != null ? groupName : "default");
+            }
+        } catch (Exception ignored) {}
+        return PermissionData.EMPTY;
+    }
+
+    private static double getTps(MinecraftServer server) {
         try {
             // NeoForge 1.21.1: getAverageTickTimeNanos() → convert to TPS
             double avgMs = server.getAverageTickTimeNanos() / 1_000_000.0;
@@ -398,10 +754,6 @@ public class TablistManager {
         server.execute(() -> updateAll(server));
     }
 }
-
-
-
-
 
 
 

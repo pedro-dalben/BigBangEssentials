@@ -837,7 +837,7 @@
   "tablist": {
     "enabled": true,
     "enabled_comment": "Enable the custom tablist header/footer system.",
-    "refreshInterval": 20,
+    "refreshInterval": 40,
     "refreshInterval_comment": "How often (in ticks, 20 = 1 second) to refresh the tablist for all players.",
     "showPing": true,
     "hideVanished": true,
