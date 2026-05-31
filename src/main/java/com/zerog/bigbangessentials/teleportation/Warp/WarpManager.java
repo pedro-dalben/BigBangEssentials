@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -30,6 +31,8 @@ import org.slf4j.LoggerFactory;
  */
 @SuppressWarnings({"unused", "InvertedCondition"}) // Public API class
 public class WarpManager {
+    private static final long PLAYER_WARP_LIMIT_CACHE_TTL_MS = TimeUnit.SECONDS.toMillis(60);
+
     // Cooldown for setting warps (seconds) and per-player last set timestamps
     private final Map<UUID, Long> lastWarpSetTimestamps = new ConcurrentHashMap<>();
     private int warpSetCooldown = 0;
@@ -40,6 +43,7 @@ public class WarpManager {
     // (savePlayerWarps and loadPlayerWarps are defined only once below)
     // Player warps: UUID -> (warpName -> TeleportLocation)
     private final Map<UUID, Map<String, TeleportLocation>> playerWarps = new ConcurrentHashMap<>();
+    private final Map<UUID, CachedWarpLimit> playerWarpLimitCache = new ConcurrentHashMap<>();
     // Player warp config
     private int maxPlayerWarps = 3;
     private boolean allowPlayerWarps = false;
@@ -152,27 +156,29 @@ public class WarpManager {
      * @return Maximum number of player warps allowed (or -1 for unlimited)
      */
     public int getMaxPlayerWarpsForPlayer(ServerPlayer player) {
-        // Check for unlimited permission first
-        if (com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
-                player.getUUID(), "bigbangessentials.warp.limit.unlimited")) {
-            return -1; // Unlimited
+        if (player == null) {
+            return this.maxPlayerWarps;
+        }
+
+        UUID playerId = player.getUUID();
+        long now = System.currentTimeMillis();
+        CachedWarpLimit cached = playerWarpLimitCache.get(playerId);
+        if (cached != null && (now - cached.timestampMs) < PLAYER_WARP_LIMIT_CACHE_TTL_MS) {
+            return cached.maxWarps;
         }
 
         int configMax = this.maxPlayerWarps;
-        int permMax = -1;
-
-        // Check for permissions bigbangessentials.warp.limit.<amount> from high to low (e.g., 100 down to 1)
-        for (int i = 100; i >= 1; i--) {
-            String perm = "bigbangessentials.warp.limit." + i;
-            if (com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), perm)) {
-                permMax = i;
-                break;
-            }
+        int permMax = resolvePermissionWarpLimit(player);
+        if (permMax == -1) {
+            playerWarpLimitCache.put(playerId, new CachedWarpLimit(-1, now));
+            return -1;
         }
 
         // Return the higher value between config and permission
         // Return the higher value between permission-based and config-based limits
-        return Math.max(permMax, configMax);
+        int maxWarps = Math.max(permMax, configMax);
+        playerWarpLimitCache.put(playerId, new CachedWarpLimit(maxWarps, now));
+        return maxWarps;
     }
 
     public boolean createPlayerWarp(ServerPlayer player, String warpName, TeleportLocation location) {
@@ -785,11 +791,54 @@ public class WarpManager {
     public void reload() {
         LOGGER.info("Reloading warp system...");
         loadConfig();
+        clearMaxPlayerWarpsCache();
         warps.clear();
         playerWarps.clear();
         loadWarps();
         loadPlayerWarps();
         LOGGER.info("Warp system reloaded: {} warps, {} player warps loaded", warps.size(),
             playerWarps.values().stream().mapToInt(Map::size).sum());
+    }
+
+    public void invalidateMaxPlayerWarpsCache(UUID playerId) {
+        if (playerId != null) {
+            playerWarpLimitCache.remove(playerId);
+        }
+    }
+
+    public void clearMaxPlayerWarpsCache() {
+        playerWarpLimitCache.clear();
+    }
+
+    private int resolvePermissionWarpLimit(ServerPlayer player) {
+        UUID playerId = player.getUUID();
+
+        // Check for unlimited permission first
+        if (com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                playerId, "bigbangessentials.warp.limit.unlimited")) {
+            return -1; // Unlimited
+        }
+
+        int permMax = -1;
+
+        // Check for permissions bigbangessentials.warp.limit.<amount> from high to low (e.g., 100 down to 1)
+        for (int i = 100; i >= 1; i--) {
+            String perm = "bigbangessentials.warp.limit." + i;
+            if (com.zerog.bigbangessentials.api.permissions.PermissionAPI.hasPermission(playerId, perm)) {
+                permMax = i;
+                break;
+            }
+        }
+        return permMax;
+    }
+
+    private static final class CachedWarpLimit {
+        final int maxWarps;
+        final long timestampMs;
+
+        private CachedWarpLimit(int maxWarps, long timestampMs) {
+            this.maxWarps = maxWarps;
+            this.timestampMs = timestampMs;
+        }
     }
 }

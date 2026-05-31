@@ -264,6 +264,7 @@ public class PermissionSystem {
                 LOGGER.info("Permission system reloaded successfully");
             }
             com.zerog.bigbangessentials.teleportation.HomeManager.getInstance().clearMaxHomesCache();
+            com.zerog.bigbangessentials.teleportation.Warp.WarpManager.getInstance().clearMaxPlayerWarpsCache();
         } catch (Exception e) {
             LOGGER.error("Failed to reload permission system", e);
             throw new RuntimeException("Permission reload failed", e);

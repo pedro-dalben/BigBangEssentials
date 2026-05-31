@@ -18,5 +18,7 @@ public class HomeEventHandler {
         }
 
         HomeManager.getInstance().invalidateMaxHomesCache(player.getUUID());
+        com.zerog.bigbangessentials.teleportation.Warp.WarpManager.getInstance()
+            .invalidateMaxPlayerWarpsCache(player.getUUID());
     }
 }
