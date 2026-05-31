@@ -1132,6 +1132,10 @@ public class ConfigManager {
      * returns merged view of all split config files.
      */
     public JsonObject getConfig(String configName) {
+        if ("chat".equals(configName)) {
+            return getChatConfig();
+        }
+
         lock.readLock().lock();
         FileReader reader = null;
         try {
@@ -1163,6 +1167,18 @@ public class ConfigManager {
             }
             lock.readLock().unlock();
         }
+    }
+
+    /**
+     * Return the chat section from config.json, or an empty object if missing.
+     * This works for both monolithic config.json and split config mode.
+     */
+    public JsonObject getChatConfig() {
+        JsonObject config = getConfig(MAIN_CONFIG);
+        if (config.has("chat") && config.get("chat").isJsonObject()) {
+            return config.getAsJsonObject("chat");
+        }
+        return new JsonObject();
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigManager.class);

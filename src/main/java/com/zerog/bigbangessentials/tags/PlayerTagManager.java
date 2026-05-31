@@ -117,7 +117,7 @@ public class PlayerTagManager {
      */
     public boolean isAboveHeadTagsEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("aboveHeadTagsEnabled")) {

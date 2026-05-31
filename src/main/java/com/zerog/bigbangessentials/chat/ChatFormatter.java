@@ -362,7 +362,7 @@ public class ChatFormatter {
     private static boolean isChatEnhancementsEnabled() {
         try {
             return com.zerog.bigbangessentials.config.ConfigManager.getInstance()
-                .getConfig("chat").get("enableChatEnhancements").getAsBoolean();
+                .getChatConfig().get("enableChatEnhancements").getAsBoolean();
         } catch (Exception e) {
             return true; // Default enabled
         }
@@ -597,7 +597,7 @@ public class ChatFormatter {
 
     private static boolean isItemLinksEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("allowItemLinks")) {
                 return chatConfig.get("allowItemLinks").getAsBoolean();
             }
@@ -609,7 +609,7 @@ public class ChatFormatter {
 
     private static boolean isUrlDetectionEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("autoLinkUrls")) {
                 return chatConfig.get("autoLinkUrls").getAsBoolean();
             }
@@ -621,7 +621,7 @@ public class ChatFormatter {
 
     private static boolean isMentionsEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("mentions") && chatConfig.getAsJsonObject("mentions").has("enabled")) {
                 return chatConfig.getAsJsonObject("mentions").get("enabled").getAsBoolean();
             }
@@ -633,7 +633,7 @@ public class ChatFormatter {
 
     private static boolean isMentionSoundEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("mentions") && chatConfig.getAsJsonObject("mentions").has("playSound")) {
                 return chatConfig.getAsJsonObject("mentions").get("playSound").getAsBoolean();
             }
@@ -645,7 +645,7 @@ public class ChatFormatter {
 
     private static ChatFormatting getMentionColor() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("mentions") && chatConfig.getAsJsonObject("mentions").has("highlightColor")) {
                 String color = chatConfig.getAsJsonObject("mentions").get("highlightColor").getAsString();
                 if (color.startsWith("&") && color.length() == 2) {
@@ -662,7 +662,7 @@ public class ChatFormatter {
 
     private static float getMentionSoundVolume() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("mentions") && chatConfig.getAsJsonObject("mentions").has("soundVolume")) {
                 return chatConfig.getAsJsonObject("mentions").get("soundVolume").getAsFloat();
             }

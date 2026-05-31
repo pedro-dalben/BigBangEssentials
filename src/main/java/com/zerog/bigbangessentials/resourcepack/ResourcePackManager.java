@@ -164,7 +164,7 @@ public class ResourcePackManager {
 
     private boolean isAutoSendEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("autoSendResourcePack")) {
@@ -179,7 +179,7 @@ public class ResourcePackManager {
 
     private boolean shouldGeneratePack() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("useCustomImages")) {
@@ -195,7 +195,7 @@ public class ResourcePackManager {
     @SuppressWarnings("unused") // For future use when auto-send is implemented
     private boolean isPackRequired() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("requireResourcePack")) {
@@ -210,7 +210,7 @@ public class ResourcePackManager {
 
     private String getConfiguredPackUrl() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("resourcePackUrl")) {
@@ -226,7 +226,7 @@ public class ResourcePackManager {
     @SuppressWarnings("unused") // For future use when auto-send is implemented
     private String getPackPrompt() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("resourcePackPrompt")) {

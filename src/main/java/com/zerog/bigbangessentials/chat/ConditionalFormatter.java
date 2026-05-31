@@ -205,7 +205,7 @@ public class ConditionalFormatter {
 
     private static boolean isConditionalFormattingEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("conditionalFormatting")) {
                 return chatConfig.getAsJsonObject("conditionalFormatting").get("enabled").getAsBoolean();
             }

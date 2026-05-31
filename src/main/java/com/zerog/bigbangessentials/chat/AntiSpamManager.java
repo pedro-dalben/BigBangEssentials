@@ -291,7 +291,7 @@ public class AntiSpamManager {
 
     private boolean isAntiSpamEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("antiSpam")) {
                 return chatConfig.getAsJsonObject("antiSpam").get("enabled").getAsBoolean();
             }
@@ -303,7 +303,7 @@ public class AntiSpamManager {
 
     private boolean isSpamFilterEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("antiSpam")) {
                 var antiSpam = chatConfig.getAsJsonObject("antiSpam");
                 if (antiSpam.has("spamFilter")) {
@@ -318,7 +318,7 @@ public class AntiSpamManager {
 
     private boolean isRepeatFilterEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("antiSpam")) {
                 var antiSpam = chatConfig.getAsJsonObject("antiSpam");
                 if (antiSpam.has("repeatFilter")) {
@@ -333,7 +333,7 @@ public class AntiSpamManager {
 
     private boolean isLinkFilterEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("antiSpam")) {
                 var antiSpam = chatConfig.getAsJsonObject("antiSpam");
                 if (antiSpam.has("linkFilter")) {
@@ -348,7 +348,7 @@ public class AntiSpamManager {
 
     private boolean isCapsFilterEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("antiSpam")) {
                 var antiSpam = chatConfig.getAsJsonObject("antiSpam");
                 if (antiSpam.has("capsFilter")) {
@@ -371,25 +371,25 @@ public class AntiSpamManager {
     }
 
     private JsonObject getSpamFilterConfig() {
-        var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+        var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
         var antiSpam = getSafeJsonObject(chatConfig, "antiSpam");
         return getSafeJsonObject(antiSpam, "spamFilter");
     }
 
     private JsonObject getRepeatFilterConfig() {
-        var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+        var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
         var antiSpam = getSafeJsonObject(chatConfig, "antiSpam");
         return getSafeJsonObject(antiSpam, "repeatFilter");
     }
 
     private JsonObject getLinkFilterConfig() {
-        var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+        var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
         var antiSpam = getSafeJsonObject(chatConfig, "antiSpam");
         return getSafeJsonObject(antiSpam, "linkFilter");
     }
 
     private JsonObject getCapsFilterConfig() {
-        var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+        var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
         var antiSpam = getSafeJsonObject(chatConfig, "antiSpam");
         return getSafeJsonObject(antiSpam, "capsFilter");
     }

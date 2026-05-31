@@ -171,7 +171,7 @@ public class ChatManager {
     public String getChatFormat(String group, String world) {
         // Phase 3: Check if format templates are enabled
         try {
-            com.google.gson.JsonObject chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            com.google.gson.JsonObject chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("formatTemplates")) {
                 com.google.gson.JsonObject templates = chatConfig.getAsJsonObject("formatTemplates");
                 if (templates.has("enabled") && templates.get("enabled").getAsBoolean()) {

@@ -67,7 +67,7 @@ public class BadgeManager {
             }
 
             // Use emoji badges from config (fallback or primary depending on setup)
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("rankBadges")) {
@@ -89,7 +89,7 @@ public class BadgeManager {
      */
     private boolean isCustomImagesEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("useCustomImages")) {
@@ -113,7 +113,7 @@ public class BadgeManager {
         StringBuilder icons = new StringBuilder();
 
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("statusIcons")) {
@@ -338,7 +338,7 @@ public class BadgeManager {
      */
     private String getCustomImagePath() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("customImagePath")) {
@@ -363,7 +363,7 @@ public class BadgeManager {
     @SuppressWarnings("BooleanMethodIsAlwaysInverted") // Used correctly with ! operator
     private boolean isChatBadgesEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("enabled")) {
@@ -378,7 +378,7 @@ public class BadgeManager {
 
     private boolean isStatusIconsEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("statusIcons")) {
@@ -393,7 +393,7 @@ public class BadgeManager {
 
     private String getBadgePosition() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 return chatConfig.getAsJsonObject("badges").get("badgePosition").getAsString();
             }
@@ -405,7 +405,7 @@ public class BadgeManager {
 
     private String getIconPosition() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("statusIcons")) {

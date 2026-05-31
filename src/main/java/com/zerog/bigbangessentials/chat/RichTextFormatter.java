@@ -176,7 +176,7 @@ public class RichTextFormatter {
      */
     private static boolean isRichTextEnabled() {
         try {
-            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getConfig("chat");
+            var chatConfig = com.zerog.bigbangessentials.config.ConfigManager.getInstance().getChatConfig();
             if (chatConfig.has("richText")) {
                 return chatConfig.getAsJsonObject("richText").get("enabled").getAsBoolean();
             }
