@@ -93,35 +93,16 @@ public class ChannelCommands {
      */
     private static void registerChannelCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName, String channelName, String permission) {
         dispatcher.register(Commands.literal(commandName)
-            .executes(ctx -> switchChannel(ctx, channelName, permission))
             .then(Commands.argument("message", StringArgumentType.greedyString())
-                .executes(ctx -> {
-                    // Switch to channel and send message in one command
-                    int result = switchChannel(ctx, channelName, permission);
-                    if (result == 1) {
-                        // Channel switched successfully, now send the message
-                        String message = StringArgumentType.getString(ctx, "message");
-                        ServerPlayer player = ctx.getSource().getPlayerOrException();
-
-                        // Trigger chat by posting chat event - ChatHandler will process it
-                        // Note: ServerChatEvent constructor is marked as @ApiStatus.Internal
-                        // We use it here because there's no public API to trigger chat events
-                        @SuppressWarnings("UnstableApiUsage")
-                        net.neoforged.neoforge.event.ServerChatEvent chatEvent =
-                            new net.neoforged.neoforge.event.ServerChatEvent(player, message,
-                                net.minecraft.network.chat.Component.literal(message));
-                        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(chatEvent);
-                    }
-                    return result;
-                })
+                .executes(ctx -> executeChannelMessage(ctx, channelName, permission))
             )
         );
     }
 
     /**
-     * Switch player to specified channel
+     * Execute message to specified channel with temporary override
      */
-    private static int switchChannel(CommandContext<CommandSourceStack> ctx, String channelName, String permission) {
+    private static int executeChannelMessage(CommandContext<CommandSourceStack> ctx, String channelName, String permission) {
         try {
             ServerPlayer player = ctx.getSource().getPlayerOrException();
 
@@ -134,17 +115,26 @@ public class ChannelCommands {
                 }
             }
 
-            // Set player's channel
-            ChatHandler.setPlayerChannel(player.getUUID(), channelName);
+            String message = StringArgumentType.getString(ctx, "message");
 
-            // Send confirmation
-            ctx.getSource().sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.channel.switched", channelName), false);
+            // Set temporary channel override for this player
+            ChatHandler.setTemporaryChannel(player.getUUID(), channelName);
+            try {
+                // Trigger chat by posting chat event - ChatHandler will process it
+                @SuppressWarnings("UnstableApiUsage")
+                net.neoforged.neoforge.event.ServerChatEvent chatEvent =
+                    new net.neoforged.neoforge.event.ServerChatEvent(player, message,
+                        net.minecraft.network.chat.Component.literal(message));
+                net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(chatEvent);
+            } finally {
+                // Clear the temporary override
+                ChatHandler.clearTemporaryChannel(player.getUUID());
+            }
 
-            LOGGER.debug("Player {} switched to channel: {}", player.getName().getString(), channelName);
             return 1;
 
         } catch (Exception e) {
-            LOGGER.error("Error switching channel: {}", e.getMessage(), e);
+            LOGGER.error("Error executing channel message: {}", e.getMessage(), e);
             ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.channel.error"));
             return 0;
         }

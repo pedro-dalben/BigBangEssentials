@@ -28,6 +28,32 @@ public class ChatHandler {
      */
     // Per-player channel state
     private static final java.util.Map<java.util.UUID, String> playerChannelMap = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<java.util.UUID, String> temporaryPlayerChannelMap = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Set the temporary channel override for a player
+     */
+    public static void setTemporaryChannel(java.util.UUID playerUUID, String channel) {
+        if (channel == null || channel.isEmpty()) {
+            temporaryPlayerChannelMap.remove(playerUUID);
+        } else {
+            temporaryPlayerChannelMap.put(playerUUID, channel);
+        }
+    }
+
+    /**
+     * Get the temporary channel override for a player
+     */
+    public static String getTemporaryChannel(java.util.UUID playerUUID) {
+        return temporaryPlayerChannelMap.get(playerUUID);
+    }
+
+    /**
+     * Clear the temporary channel override for a player
+     */
+    public static void clearTemporaryChannel(java.util.UUID playerUUID) {
+        temporaryPlayerChannelMap.remove(playerUUID);
+    }
 
     /**
      * Set the channel for a specific player
@@ -160,9 +186,9 @@ public class ChatHandler {
                     }
                 }
             }
-            // If not by prefix, check per-player channel state
+            // If not by prefix, check temporary channel override (commands)
             if (channel == null) {
-                channel = playerChannelMap.getOrDefault(player.getUUID(), null);
+                channel = temporaryPlayerChannelMap.get(player.getUUID());
             }
             // If still not set, use default (local if enabled, else global)
             if (channel == null && channelsConfig != null) {
@@ -241,6 +267,7 @@ public class ChatHandler {
                         var playerPos = player.position();
                         @SuppressWarnings("resource") // Level is not closeable, warning is false positive
                         var playerLevel = player.level();
+                        int heardCount = 0;
                         
                         for (ServerPlayer target : playerList.getPlayers()) {
                             // Check permission first if required
@@ -253,7 +280,15 @@ public class ChatHandler {
                             var targetLevel = target.level();
                             if (targetLevel.dimension().equals(playerLevel.dimension()) && target.position().distanceTo(playerPos) <= radius) {
                                 target.sendSystemMessage(formattedMessage);
+                                if (!target.getUUID().equals(player.getUUID())) {
+                                    heardCount++;
+                                }
                             }
+                        }
+                        if (heardCount == 0) {
+                            player.sendSystemMessage(com.zerog.bigbangessentials.util.MessageUtil.coloredText(
+                                com.zerog.bigbangessentials.util.MessageUtil.localize("commands.bigbangessentials.chat.nobody_heard")
+                            ));
                         }
                         // Always log to server console so chat appears in logs
                         if (isConsoleLoggingEnabled()) {

@@ -45,6 +45,7 @@
   "commands.bigbangessentials.teleport.misc.top_success": "§aTeletransportado ao bloco mais alto na sua posição.",
   "_comment_moderation": "=== Sistema de Moderação ===",
   "commands.bigbangessentials.chat.muted": "Você está silenciado e não pode enviar mensagens.",
+  "commands.bigbangessentials.chat.nobody_heard": "§7Não há ninguém próximo para ouvir sua mensagem. Use §a/g §7para falar no global.",
   "commands.bigbangessentials.mute.success": "{0} foi silenciado.",
   "commands.bigbangessentials.unmute.success": "{0} foi dessilenciado.",
   "bigbangessentials.moderation.ban_broadcast": "§c{0} foi banido por {1} por: {2}",

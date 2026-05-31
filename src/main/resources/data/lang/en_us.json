@@ -247,6 +247,7 @@
   "bigbangessentials.moderation.vanishlist_offline": "§7(offline)",
   "_comment_permissions": "=== Permissions System ===",
   "commands.bigbangessentials.chat.no_permission": "§cYou don't have permission to use this chat command.",
+  "commands.bigbangessentials.chat.nobody_heard": "§7Nobody nearby heard your message. Use §a/g §7to speak globally.",
   "commands.bigbangessentials.createkit.permission_hint": "Players need permission ''{0}'' to use this kit.",
   "commands.bigbangessentials.ignore.no_permission": "§cYou don't have permission to ignore players.",
   "commands.bigbangessentials.msg.no_permission": "You do not have permission to use /msg.",
