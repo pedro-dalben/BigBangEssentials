@@ -147,7 +147,8 @@ public class DashboardAPI {
             }
 
             // Set up thread pool and store reference for proper shutdown
-            executor = Executors.newFixedThreadPool(10);
+            int maxThreads = Math.max(1, ConfigManager.getInstance().getWebDashboardMaxThreads());
+            executor = Executors.newFixedThreadPool(maxThreads);
             apiServer.setExecutor(executor);
 
             // Register API endpoints

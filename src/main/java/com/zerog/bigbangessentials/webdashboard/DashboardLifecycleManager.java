@@ -25,9 +25,13 @@ public class DashboardLifecycleManager {
      */
     @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent event) {
-        
-        if (!ConfigManager.isWebDashboardEnabled()) {
+        if (!isDashboardAllowed()) {
             LOGGER.info("Dashboard is disabled in configuration");
+            return;
+        }
+
+        if (!ConfigManager.getInstance().isWebDashboardAutoStartEnabled()) {
+            LOGGER.info("Dashboard auto-start is disabled in configuration");
             return;
         }
         
@@ -105,6 +109,11 @@ public class DashboardLifecycleManager {
      */
     public static boolean startDashboard(MinecraftServer server) {
         try {
+            if (!isDashboardAllowed()) {
+                LOGGER.info("Dashboard start blocked because it is disabled in configuration");
+                return false;
+            }
+
             if (DashboardAPI.getInstance().isRunning()) {
                 return false; // Already running
             }
@@ -169,7 +178,7 @@ public class DashboardLifecycleManager {
      */
     public static DashboardStatus getStatus() {
         boolean running = DashboardAPI.getInstance().isRunning();
-        boolean enabled = ConfigManager.isWebDashboardEnabled();
+        boolean enabled = isDashboardAllowed();
         String url = String.format("http://%s:%d", 
             DashboardAPI.getInstance().getBindAddress(),
             DashboardAPI.getInstance().getPort());
@@ -192,5 +201,9 @@ public class DashboardLifecycleManager {
             this.manuallyDisabled = manuallyDisabled;
             this.url = url;
         }
+    }
+
+    private static boolean isDashboardAllowed() {
+        return ConfigManager.isWebDashboardEnabled() && ConfigManager.isWebDashboardModuleEnabled();
     }
 }

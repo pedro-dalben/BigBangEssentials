@@ -3,7 +3,7 @@ package com.zerog.bigbangessentials.webdashboard.api.endpoints;
 import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import com.zerog.bigbangessentials.webdashboard.data.GameDataCollector;
+import com.zerog.bigbangessentials.webdashboard.data.DataCollector;
 import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,11 +21,9 @@ import java.util.concurrent.TimeUnit;
 public class GameEndpoint implements HttpHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(GameEndpoint.class);
     private final MinecraftServer server;
-    private final GameDataCollector gameCollector;
     
     public GameEndpoint(MinecraftServer server) {
         this.server = server;
-        this.gameCollector = new GameDataCollector(server);
     }
     
     @Override
@@ -42,16 +40,18 @@ public class GameEndpoint implements HttpHandler {
                 return;
             }
             
+            DataCollector dataCollector = DataCollector.getInstance();
+
             // Execute data collection on server thread for thread safety
             CompletableFuture<JsonObject> future = CompletableFuture.supplyAsync(() -> {
                 try {
                     LOGGER.debug("Collecting game data for endpoint: {}", path);
                     // Parse path to determine which endpoint
                     return switch (path) {
-                        case "/api/game/statistics" -> gameCollector.getGameStatistics();
-                        case "/api/game/events" -> gameCollector.getGameEvents(100);
-                        case "/api/game/activity" -> gameCollector.getGameActivity();
-                        case "/api/game/blocks" -> gameCollector.getTopBlocks();
+                        case "/api/game/statistics" -> dataCollector.getGameStatistics();
+                        case "/api/game/events" -> dataCollector.getGameEvents(100);
+                        case "/api/game/activity" -> dataCollector.getGameActivity();
+                        case "/api/game/blocks" -> dataCollector.getTopBlocks();
                         default -> {
                             JsonObject error = new JsonObject();
                             error.addProperty("error", "Endpoint not found");

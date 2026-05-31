@@ -1,6 +1,7 @@
 package com.zerog.bigbangessentials.webdashboard.data;
 
 import com.google.gson.JsonObject;
+import com.zerog.bigbangessentials.config.ConfigManager;
 import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,10 +48,13 @@ public class DataCollector {
      */
     public void initialize(MinecraftServer server) {
         // Initialize specialized collectors
+        clearCache();
         this.playerCollector = new PlayerDataCollector(server);
         this.serverCollector = new ServerDataCollector(server);
         this.gameCollector = new GameDataCollector(server);
         this.loggingCollector = new LoggingDataCollector();
+        this.gameCollector.clearEvents();
+        this.gameCollector.setCollectionEnabled(true);
         
         LOGGER.info("Data Collector initialized with all specialized collectors");
     }
@@ -59,6 +63,10 @@ public class DataCollector {
      * Stop data collection
      */
     public void shutdown() {
+        if (this.gameCollector != null) {
+            this.gameCollector.setCollectionEnabled(false);
+            this.gameCollector.clearEvents();
+        }
         this.dataCache.clear();
         LOGGER.info("Data Collector stopped");
     }
@@ -66,53 +74,65 @@ public class DataCollector {
     // ===== PLAYER DATA METHODS =====
     
     public JsonObject getPlayerProfile(UUID playerUuid) {
-        return playerCollector.getPlayerProfile(playerUuid);
+        return getCachedOrCompute("player_profile_" + playerUuid,
+            () -> playerCollector.getPlayerProfile(playerUuid), cacheMillis(2));
     }
     
     public JsonObject getPlayerStatistics(UUID playerUuid) {
-        return playerCollector.getPlayerStatistics(playerUuid);
+        return getCachedOrCompute("player_stats_" + playerUuid,
+            () -> playerCollector.getPlayerStatistics(playerUuid), cacheMillis(2));
     }
     
     public JsonObject getPlayerAchievements(UUID playerUuid) {
-        return playerCollector.getPlayerAchievements(playerUuid);
+        return getCachedOrCompute("player_achievements_" + playerUuid,
+            () -> playerCollector.getPlayerAchievements(playerUuid), cacheMillis(2));
     }
     
     public JsonObject getPlayerInventory(UUID playerUuid) {
-        return playerCollector.getPlayerInventory(playerUuid);
+        return getCachedOrCompute("player_inventory_" + playerUuid,
+            () -> playerCollector.getPlayerInventory(playerUuid), cacheMillis(2));
     }
     
     public JsonObject getPlayerStatus(UUID playerUuid) {
-        return playerCollector.getPlayerStatus(playerUuid);
+        return getCachedOrCompute("player_status_" + playerUuid,
+            () -> playerCollector.getPlayerStatus(playerUuid), cacheMillis(1));
     }
     
     public JsonObject getPlayerHealth(UUID playerUuid) {
-        return playerCollector.getPlayerHealth(playerUuid);
+        return getCachedOrCompute("player_health_" + playerUuid,
+            () -> playerCollector.getPlayerHealth(playerUuid), cacheMillis(1));
     }
     
     public JsonObject getPlayerXP(UUID playerUuid) {
-        return playerCollector.getPlayerXP(playerUuid);
+        return getCachedOrCompute("player_xp_" + playerUuid,
+            () -> playerCollector.getPlayerXP(playerUuid), cacheMillis(2));
     }
     
     public JsonObject getPlayerLocation(UUID playerUuid) {
-        return playerCollector.getPlayerLocation(playerUuid);
+        return getCachedOrCompute("player_location_" + playerUuid,
+            () -> playerCollector.getPlayerLocation(playerUuid), cacheMillis(1));
     }
     
     public JsonObject getPlayerHomes(String username) {
-        return playerCollector.getPlayerHomes(username);
+        return getCachedOrCompute("player_homes_" + username.toLowerCase(),
+            () -> playerCollector.getPlayerHomes(username), cacheMillis(6));
     }
     
     public JsonObject getOnlinePlayers() {
-        return playerCollector.getOnlinePlayers();
+        return getCachedOrCompute("online_players",
+            () -> playerCollector.getOnlinePlayers(), cacheMillis(6));
     }
     
     // ===== SERVER DATA METHODS =====
     
     public JsonObject getServerProfile() {
-        return serverCollector.getServerProfile();
+        return getCachedOrCompute("server_profile",
+            () -> serverCollector.getServerProfile(), cacheMillis(12));
     }
     
     public JsonObject getServerStatistics() {
-        return serverCollector.getServerStatistics();
+        return getCachedOrCompute("server_statistics",
+            () -> serverCollector.getServerStatistics(), cacheMillis(2));
     }
     
     /**
@@ -128,15 +148,18 @@ public class DataCollector {
     }
     
     public JsonObject getServerWorlds() {
-        return serverCollector.getServerWorlds();
+        return getCachedOrCompute("server_worlds",
+            () -> serverCollector.getServerWorlds(), cacheMillis(6));
     }
     
     public JsonObject getServerConfig() {
-        return serverCollector.getServerConfig();
+        return getCachedOrCompute("server_config",
+            () -> serverCollector.getServerConfig(), cacheMillis(12));
     }
     
     public JsonObject getServerPerformance() {
-        return serverCollector.getServerPerformance();
+        return getCachedOrCompute("server_performance",
+            () -> serverCollector.getServerPerformance(), cacheMillis(2));
     }
     
     /**
@@ -160,19 +183,23 @@ public class DataCollector {
     // ===== GAME DATA METHODS =====
     
     public JsonObject getGameEvents(int limit) {
-        return gameCollector.getGameEvents(limit);
+        return getCachedOrCompute("game_events_" + limit,
+            () -> gameCollector.getGameEvents(limit), cacheMillis(1));
     }
     
     public JsonObject getGameStatistics() {
-        return gameCollector.getGameStatistics();
+        return getCachedOrCompute("game_statistics",
+            () -> gameCollector.getGameStatistics(), cacheMillis(2));
     }
     
     public JsonObject getGameActivity() {
-        return gameCollector.getGameActivity();
+        return getCachedOrCompute("game_activity",
+            () -> gameCollector.getGameActivity(), cacheMillis(2));
     }
     
     public JsonObject getTopBlocks() {
-        return gameCollector.getTopBlocks();
+        return getCachedOrCompute("game_top_blocks",
+            () -> gameCollector.getTopBlocks(), cacheMillis(6));
     }
     
     public void clearGameEvents() {
@@ -241,6 +268,10 @@ public class DataCollector {
      * Get or compute cached data
      */
     private JsonObject getCachedOrCompute(String key, DataSupplier supplier, long cacheDuration) {
+        if (cacheDuration <= 0) {
+            return supplier.get();
+        }
+
         CachedData cached = dataCache.get(key);
         long now = System.currentTimeMillis();
         
@@ -251,6 +282,14 @@ public class DataCollector {
         JsonObject data = supplier.get();
         dataCache.put(key, new CachedData(data, now));
         return data;
+    }
+
+    private long cacheMillis(int multiplier) {
+        int baseSeconds = ConfigManager.getInstance().getWebDashboardCacheTimeoutSeconds();
+        if (baseSeconds <= 0 || multiplier <= 0) {
+            return 0L;
+        }
+        return baseSeconds * 1000L * multiplier;
     }
     
     /**

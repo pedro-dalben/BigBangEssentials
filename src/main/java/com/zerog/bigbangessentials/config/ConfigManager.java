@@ -1759,6 +1759,21 @@ public class ConfigManager {
     }
 
     /**
+     * Returns true if the web dashboard module is enabled (modules.webDashboardEnabled).
+     * Defaults to true if not set.
+     */
+    public static boolean isWebDashboardModuleEnabled() {
+        JsonObject config = getInstance().getConfig(MAIN_CONFIG);
+        if (config.has("modules")) {
+            JsonObject modules = config.getAsJsonObject("modules");
+            if (modules.has("webDashboardEnabled")) {
+                return modules.get("webDashboardEnabled").getAsBoolean();
+            }
+        }
+        return true;
+    }
+
+    /**
      * Returns true if unsafe enchantments are allowed (items.unsafe-enchantments).
      * Defaults to true if not set.
      */
@@ -2107,6 +2122,21 @@ public class ConfigManager {
     }
 
     /**
+     * Returns true if the web dashboard should auto-start with the server.
+     * Defaults to false if not set.
+     */
+    public boolean isWebDashboardAutoStartEnabled() {
+        JsonObject config = getConfig(MAIN_CONFIG);
+        if (config.has("webDashboard")) {
+            JsonObject dashboard = config.getAsJsonObject("webDashboard");
+            if (dashboard.has("autoStart")) {
+                return dashboard.get("autoStart").getAsBoolean();
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns the web dashboard bind address from webDashboard.bindAddress.
      * Defaults to "0.0.0.0" if not set.
      */
@@ -2137,6 +2167,49 @@ public class ConfigManager {
             }
         }
         return 10;
+    }
+
+    /**
+     * Returns the dashboard auto-refresh interval in seconds from webDashboard.uiSettings.refreshInterval.
+     * Defaults to 10 if not set.
+     */
+    public int getWebDashboardRefreshIntervalSeconds() {
+        JsonObject config = getConfig(MAIN_CONFIG);
+        if (config.has("webDashboard")) {
+            JsonObject dashboard = config.getAsJsonObject("webDashboard");
+            if (dashboard.has("uiSettings")) {
+                JsonObject uiSettings = dashboard.getAsJsonObject("uiSettings");
+                if (uiSettings.has("refreshInterval")) {
+                    try {
+                        int interval = uiSettings.get("refreshInterval").getAsInt();
+                        if (interval > 0) {
+                            return interval;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+        return 10;
+    }
+
+    /**
+     * Returns the dashboard API cache timeout in seconds from webDashboard.apiSettings.cacheTimeout.
+     * Defaults to 5 if not set. Values <= 0 disable response caching.
+     */
+    public int getWebDashboardCacheTimeoutSeconds() {
+        JsonObject config = getConfig(MAIN_CONFIG);
+        if (config.has("webDashboard")) {
+            JsonObject dashboard = config.getAsJsonObject("webDashboard");
+            if (dashboard.has("apiSettings")) {
+                JsonObject apiSettings = dashboard.getAsJsonObject("apiSettings");
+                if (apiSettings.has("cacheTimeout")) {
+                    try {
+                        return apiSettings.get("cacheTimeout").getAsInt();
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+        return 5;
     }
 
     /**

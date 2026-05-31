@@ -3,7 +3,7 @@ package com.zerog.bigbangessentials.webdashboard.api.endpoints;
 import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import com.zerog.bigbangessentials.webdashboard.data.PlayerDataCollector;
+import com.zerog.bigbangessentials.webdashboard.data.DataCollector;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
@@ -23,11 +23,9 @@ import java.util.concurrent.TimeUnit;
 public class PlayerEndpoint implements HttpHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(PlayerEndpoint.class);
     private final MinecraftServer server;
-    private final PlayerDataCollector playerCollector;
     
     public PlayerEndpoint(MinecraftServer server) {
         this.server = server;
-        this.playerCollector = new PlayerDataCollector(server);
     }
     
     /**
@@ -52,11 +50,13 @@ public class PlayerEndpoint implements HttpHandler {
                 return;
             }
             
+            DataCollector dataCollector = DataCollector.getInstance();
+
             // Execute data collection on server thread for thread safety
             CompletableFuture<JsonObject> future = CompletableFuture.supplyAsync(() -> {
                 try {
                     LOGGER.debug("Collecting player data for endpoint: {}", path);
-                    return getResponse(path);
+                    return getResponse(path, dataCollector);
                 } catch (Exception e) {
                     LOGGER.error("Error collecting player data for path: {}", path, e);
                     JsonObject error = new JsonObject();
@@ -124,7 +124,7 @@ public class PlayerEndpoint implements HttpHandler {
         }
     }
     
-    private JsonObject getResponse(String path) {
+    private JsonObject getResponse(String path, DataCollector dataCollector) {
         JsonObject response;
             
             // Parse path to determine which endpoint
@@ -136,7 +136,7 @@ public class PlayerEndpoint implements HttpHandler {
                     response.addProperty("error", "Player not found");
                     return response;
                 }
-                response = playerCollector.getPlayerProfile(uuid);
+                response = dataCollector.getPlayerProfile(uuid);
             } else if (path.matches("/api/player/stats/.*")) {
                 String username = path.substring("/api/player/stats/".length());
                 UUID uuid = usernameToUuid(username);
@@ -145,7 +145,7 @@ public class PlayerEndpoint implements HttpHandler {
                     response.addProperty("error", "Player not found");
                     return response;
                 }
-                response = playerCollector.getPlayerStatistics(uuid);
+                response = dataCollector.getPlayerStatistics(uuid);
             } else if (path.matches("/api/player/achievements/.*")) {
                 String username = path.substring("/api/player/achievements/".length());
                 UUID uuid = usernameToUuid(username);
@@ -154,7 +154,7 @@ public class PlayerEndpoint implements HttpHandler {
                     response.addProperty("error", "Player not found");
                     return response;
                 }
-                response = playerCollector.getPlayerAchievements(uuid);
+                response = dataCollector.getPlayerAchievements(uuid);
             } else if (path.matches("/api/player/inventory/.*")) {
                 String username = path.substring("/api/player/inventory/".length());
                 UUID uuid = usernameToUuid(username);
@@ -163,7 +163,7 @@ public class PlayerEndpoint implements HttpHandler {
                     response.addProperty("error", "Player not found");
                     return response;
                 }
-                response = playerCollector.getPlayerInventory(uuid);
+                response = dataCollector.getPlayerInventory(uuid);
             } else if (path.matches("/api/player/status/.*")) {
                 String username = path.substring("/api/player/status/".length());
                 UUID uuid = usernameToUuid(username);
@@ -172,7 +172,7 @@ public class PlayerEndpoint implements HttpHandler {
                     response.addProperty("error", "Player not found");
                     return response;
                 }
-                response = playerCollector.getPlayerStatus(uuid);
+                response = dataCollector.getPlayerStatus(uuid);
             } else if (path.matches("/api/player/health/.*")) {
                 String username = path.substring("/api/player/health/".length());
                 UUID uuid = usernameToUuid(username);
@@ -181,7 +181,7 @@ public class PlayerEndpoint implements HttpHandler {
                     response.addProperty("error", "Player not found");
                     return response;
                 }
-                response = playerCollector.getPlayerHealth(uuid);
+                response = dataCollector.getPlayerHealth(uuid);
             } else if (path.matches("/api/player/xp/.*")) {
                 String username = path.substring("/api/player/xp/".length());
                 UUID uuid = usernameToUuid(username);
@@ -190,7 +190,7 @@ public class PlayerEndpoint implements HttpHandler {
                     response.addProperty("error", "Player not found");
                     return response;
                 }
-                response = playerCollector.getPlayerXP(uuid);
+                response = dataCollector.getPlayerXP(uuid);
             } else if (path.matches("/api/player/location/.*")) {
                 String username = path.substring("/api/player/location/".length());
                 UUID uuid = usernameToUuid(username);
@@ -199,12 +199,12 @@ public class PlayerEndpoint implements HttpHandler {
                     response.addProperty("error", "Player not found");
                     return response;
                 }
-                response = playerCollector.getPlayerLocation(uuid);
+                response = dataCollector.getPlayerLocation(uuid);
             } else if (path.matches("/api/player/homes/.*")) {
                 String username = path.substring("/api/player/homes/".length());
-                response = playerCollector.getPlayerHomes(username);
+                response = dataCollector.getPlayerHomes(username);
             } else if (path.equals("/api/player/online")) {
-                response = playerCollector.getOnlinePlayers();
+                response = dataCollector.getOnlinePlayers();
             } else {
                 response = new JsonObject();
                 response.addProperty("error", "Endpoint not found");

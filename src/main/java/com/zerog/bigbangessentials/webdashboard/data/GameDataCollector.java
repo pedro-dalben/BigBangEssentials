@@ -11,9 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Game Data Collector
@@ -31,10 +31,16 @@ public class GameDataCollector {
     
     @SuppressWarnings("unused") // Reserved for future use (e.g., real-time event streaming)
     private final MinecraftServer server;
-    private static final ConcurrentLinkedQueue<GameEvent> eventQueue = new ConcurrentLinkedQueue<>();
+    private static final Object EVENT_LOCK = new Object();
+    private static final ArrayDeque<GameEvent> eventQueue = new ArrayDeque<>();
+    private static volatile boolean collectionEnabled = false;
     
     public GameDataCollector(MinecraftServer server) {
         this.server = server;
+    }
+
+    public void setCollectionEnabled(boolean enabled) {
+        collectionEnabled = enabled;
     }
     
     /**
@@ -44,18 +50,39 @@ public class GameDataCollector {
     public JsonObject getGameEvents(int limit) {
         JsonObject response = new JsonObject();
         JsonArray events = new JsonArray();
-        
-        List<GameEvent> recentEvents = new ArrayList<>();
-        for (GameEvent event : eventQueue) {
-            if (recentEvents.size() >= limit) break;
-            recentEvents.add(event);
+
+        if (!collectionEnabled) {
+            response.add("events", events);
+            response.addProperty("count", 0);
+            response.addProperty("total", 0);
+            return response;
         }
-        
+
+        if (limit <= 0) {
+            response.add("events", events);
+            response.addProperty("count", 0);
+            response.addProperty("total", 0);
+            return response;
+        }
+
+        List<GameEvent> recentEvents;
+        synchronized (EVENT_LOCK) {
+            recentEvents = new ArrayList<>(eventQueue);
+        }
+
+        if (recentEvents.size() > limit) {
+            recentEvents = recentEvents.subList(recentEvents.size() - limit, recentEvents.size());
+        }
+
         recentEvents.forEach(event -> events.add(event.toJson()));
         
         response.add("events", events);
         response.addProperty("count", events.size());
-        response.addProperty("total", eventQueue.size());
+        int total;
+        synchronized (EVENT_LOCK) {
+            total = eventQueue.size();
+        }
+        response.addProperty("total", total);
         
         return response;
     }
@@ -94,6 +121,16 @@ public class GameDataCollector {
      */
     public JsonObject getGameActivity() {
         JsonObject activity = new JsonObject();
+
+        if (!collectionEnabled) {
+            activity.addProperty("playerJoins", 0);
+            activity.addProperty("playerLeaves", 0);
+            activity.addProperty("blockBreaks", 0);
+            activity.addProperty("blockPlaces", 0);
+            activity.addProperty("deaths", 0);
+            activity.addProperty("period", "last_hour");
+            return activity;
+        }
         
         // Count events by type in the last hour
         long oneHourAgo = Instant.now().toEpochMilli() - (60 * 60 * 1000);
@@ -104,15 +141,17 @@ public class GameDataCollector {
         int blockPlaces = 0;
         int deaths = 0;
         
-        for (GameEvent event : eventQueue) {
-            if (event.timestamp < oneHourAgo) continue;
-            
-            switch (event.type) {
-                case "player.join" -> playerJoins++;
-                case "player.leave" -> playerLeaves++;
-                case "block.break" -> blockBreaks++;
-                case "block.place" -> blockPlaces++;
-                case "player.death" -> deaths++;
+        synchronized (EVENT_LOCK) {
+            for (GameEvent event : eventQueue) {
+                if (event.timestamp < oneHourAgo) continue;
+
+                switch (event.type) {
+                    case "player.join" -> playerJoins++;
+                    case "player.leave" -> playerLeaves++;
+                    case "block.break" -> blockBreaks++;
+                    case "block.place" -> blockPlaces++;
+                    case "player.death" -> deaths++;
+                }
             }
         }
         
@@ -147,6 +186,7 @@ public class GameDataCollector {
     
     @SubscribeEvent
     public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!collectionEnabled) return;
         addEvent(new GameEvent(
             "player.join",
             event.getEntity().getName().getString() + " joined the game",
@@ -156,6 +196,7 @@ public class GameDataCollector {
     
     @SubscribeEvent
     public static void onPlayerLeave(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!collectionEnabled) return;
         addEvent(new GameEvent(
             "player.leave",
             event.getEntity().getName().getString() + " left the game",
@@ -165,6 +206,7 @@ public class GameDataCollector {
     
     @SubscribeEvent
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
+        if (!collectionEnabled) return;
         String blockName = event.getState().getBlock().getName().getString();
         String playerName = event.getPlayer().getName().getString();
         
@@ -185,11 +227,15 @@ public class GameDataCollector {
     // Helper methods
     
     private static void addEvent(GameEvent event) {
-        eventQueue.offer(event);
-        
-        // Keep queue size manageable
-        while (eventQueue.size() > MAX_EVENTS) {
-            eventQueue.poll();
+        if (!collectionEnabled) {
+            return;
+        }
+
+        synchronized (EVENT_LOCK) {
+            if (eventQueue.size() >= MAX_EVENTS) {
+                eventQueue.removeFirst();
+            }
+            eventQueue.addLast(event);
         }
     }
     
@@ -198,7 +244,9 @@ public class GameDataCollector {
      * Endpoint: DELETE /api/game/events
      */
     public void clearEvents() {
-        eventQueue.clear();
+        synchronized (EVENT_LOCK) {
+            eventQueue.clear();
+        }
         LOGGER.info("Game event history cleared");
     }
     

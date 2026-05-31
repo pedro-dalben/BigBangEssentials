@@ -2,11 +2,12 @@
 
 // Configuration
 const API_BASE_URL = window.location.origin + '/api';
-const REFRESH_INTERVAL = 5000; // 5 seconds
+let refreshIntervalMs = 10000; // Default to config default (10 seconds)
 
 // State
 let refreshTimer = null;
 let lastUpdateTime = 0;
+let refreshInProgress = false;
 
 // Helper function to make authenticated API calls
 async function fetchWithAuth(url, options = {}) {
@@ -508,7 +509,7 @@ function startAutoRefresh() {
     
     refreshTimer = setInterval(() => {
         refreshData();
-    }, REFRESH_INTERVAL);
+    }, refreshIntervalMs);
 }
 
 function stopAutoRefresh() {
@@ -520,6 +521,11 @@ function stopAutoRefresh() {
 
 // Main refresh function
 async function refreshData() {
+    if (refreshInProgress) {
+        return;
+    }
+
+    refreshInProgress = true;
     try {
         updateApiStatus('Refreshing...', true);
         lastUpdateTime = Date.now();
@@ -547,6 +553,8 @@ async function refreshData() {
     } catch (error) {
         console.error('Error refreshing data:', error);
         updateApiStatus('Connection Error', false);
+    } finally {
+        refreshInProgress = false;
     }
 }
 
@@ -837,6 +845,8 @@ async function loadServerInfo() {
         const data = await response.json();
         
         if (data) {
+            applyDashboardSettings(data.dashboard);
+
             const infoElement = document.getElementById('serverInfo');
             
             if (infoElement) {
@@ -866,6 +876,29 @@ async function loadServerInfo() {
         }
     } catch (error) {
         console.error('Error loading server info:', error);
+    }
+}
+
+function applyDashboardSettings(dashboard) {
+    if (!dashboard || !dashboard.uiSettings) {
+        return;
+    }
+
+    const refreshSeconds = Number(dashboard.uiSettings.refreshInterval);
+    if (!Number.isFinite(refreshSeconds) || refreshSeconds <= 0) {
+        return;
+    }
+
+    const nextInterval = Math.max(1000, Math.round(refreshSeconds * 1000));
+    if (nextInterval === refreshIntervalMs) {
+        return;
+    }
+
+    refreshIntervalMs = nextInterval;
+    console.log('Dashboard auto-refresh interval updated to ' + (refreshIntervalMs / 1000) + ' seconds');
+
+    if (refreshTimer) {
+        startAutoRefresh();
     }
 }
 
@@ -903,8 +936,7 @@ async function loadWorlds() {
                         <div class="world-name">🌍 ${escapeHtml(world.name || 'Unknown')}</div>
                         <div class="world-info">
                             ${world.playersInWorld || 0} players • 
-                            ${world.loadedChunks || 0} chunks • 
-                            ${world.entities || 0} entities
+                            ${world.loadedChunks || 0} chunks
                         </div>
                     </div>
                 `).join('');
@@ -1574,7 +1606,7 @@ async function handleSaveWorlds() {
 }
 
 console.log('BigBangEssentials Dashboard v2.1 loaded successfully - Build 417');
-console.log('Auto-refresh interval: ' + (REFRESH_INTERVAL / 1000) + ' seconds');
+console.log('Auto-refresh interval: ' + (refreshIntervalMs / 1000) + ' seconds');
 console.log('Press Ctrl+R or F5 to manually refresh data');
 console.log('Player modal functions loaded:', typeof window.openPlayerModal === 'function', typeof window.closePlayerModal === 'function');
 console.log('Admin control functions loaded:', typeof handleRestartServer === 'function');

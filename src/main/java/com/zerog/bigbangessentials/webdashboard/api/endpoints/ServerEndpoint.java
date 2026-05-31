@@ -3,6 +3,7 @@ package com.zerog.bigbangessentials.webdashboard.api.endpoints;
 import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import com.zerog.bigbangessentials.webdashboard.data.DataCollector;
 import com.zerog.bigbangessentials.webdashboard.data.ServerDataCollector;
 import com.zerog.bigbangessentials.webdashboard.data.ServerAssetCollector;
 import net.minecraft.server.MinecraftServer;
@@ -22,12 +23,10 @@ import java.util.concurrent.TimeUnit;
 public class ServerEndpoint implements HttpHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(ServerEndpoint.class);
     private final MinecraftServer server;
-    private final ServerDataCollector serverCollector;
     private final ServerAssetCollector assetCollector;
 
     public ServerEndpoint(MinecraftServer server) {
         this.server = server;
-        this.serverCollector = new ServerDataCollector(server);
         this.assetCollector = new ServerAssetCollector(server);
     }
     
@@ -36,7 +35,7 @@ public class ServerEndpoint implements HttpHandler {
         String path = exchange.getRequestURI().getPath();
         String method = exchange.getRequestMethod();
         
-        LOGGER.info("ServerEndpoint handling request: {} {}", method, path);
+        LOGGER.debug("ServerEndpoint handling request: {} {}", method, path);
         
         try {
             // Only allow GET requests
@@ -45,10 +44,12 @@ public class ServerEndpoint implements HttpHandler {
                 return;
             }
             
+            DataCollector dataCollector = DataCollector.getInstance();
+
             // Execute data collection on server thread for thread safety
             CompletableFuture<JsonObject> future = CompletableFuture.supplyAsync(() -> {
                 try {
-                    LOGGER.info("Collecting data for endpoint: {}", path);
+                    LOGGER.debug("Collecting data for endpoint: {}", path);
                     // Parse path to determine which endpoint
                     if (path.startsWith("/api/server/assets/")) {
                         // Get specific namespace assets
@@ -56,13 +57,13 @@ public class ServerEndpoint implements HttpHandler {
                         return assetCollector.getNamespaceAssets(namespace);
                     }
                     return switch (path) {
-                        case "/api/server/profile" -> serverCollector.getServerProfile();
-                        case "/api/server/performance" -> serverCollector.getServerPerformance();
-                        case "/api/server/statistics" -> serverCollector.getServerStatistics();
-                        case "/api/server/status" -> serverCollector.getServerStatus();
-                        case "/api/server/health" -> serverCollector.getServerHealth();
-                        case "/api/server/worlds" -> serverCollector.getServerWorlds();
-                        case "/api/server/config" -> serverCollector.getServerConfig();
+                        case "/api/server/profile" -> dataCollector.getServerProfile();
+                        case "/api/server/performance" -> dataCollector.getServerPerformance();
+                        case "/api/server/statistics" -> dataCollector.getServerStatistics();
+                        case "/api/server/status" -> dataCollector.getServerStatus();
+                        case "/api/server/health" -> dataCollector.getServerHealth();
+                        case "/api/server/worlds" -> dataCollector.getServerWorlds();
+                        case "/api/server/config" -> dataCollector.getServerConfig();
                         case "/api/server/assets" -> assetCollector.getAllAssets();
                         default -> {
                             JsonObject error = new JsonObject();
@@ -82,7 +83,7 @@ public class ServerEndpoint implements HttpHandler {
             JsonObject response;
             try {
                 response = future.get(10, TimeUnit.SECONDS);
-                LOGGER.info("Data collected successfully for: {}", path);
+                LOGGER.debug("Data collected successfully for: {}", path);
             } catch (java.util.concurrent.TimeoutException e) {
                 LOGGER.error("Timeout waiting for data collection: {}", path);
                 response = new JsonObject();
