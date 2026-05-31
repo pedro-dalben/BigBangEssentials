@@ -440,6 +440,8 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
             saveExecutor.shutdownNow();
             Thread.currentThread().interrupt();
         }
+
+        EconomyTransactionLogger.shutdown();
         
         LOGGER.info("EconomyManager shutdown complete.");
     }
