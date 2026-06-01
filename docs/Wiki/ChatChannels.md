@@ -11,10 +11,10 @@ Chat channels allow messages to be scoped to a specific audience — local proxi
 ### How Players Speak in Channels
 
 Players can send messages through specific channels in three ways:
-1. **Default Channel:** Any message typed normally in chat goes to the channel configured with `"default": true` (which is **local** by default).
+1. **Default Channel:** Any message typed normally in chat goes to the local channel by default.
 2. **Commands:** 
-   - Type `/command` (e.g., `/g` or `/l`) to switch the active default channel.
-   - Type `/command <message>` (e.g., `/g Hello world!`) to send a one-off message to that channel without switching your default.
+   - Type `/command <message>` (e.g., `/g Hello world!`) to send a one-off message to that channel.
+   - `/g` does not switch your active channel; it sends a single global message tagged with `[g]`.
 3. **Prefix Shortcuts:** If a channel has a `prefix` configured (e.g., `!` for global, `@` for staff), typing that prefix before a chat message will route it directly to that channel (e.g., typing `!hello` sends `hello` to the global channel).
 
 ---
@@ -43,8 +43,10 @@ Each channel entry supports:
 | `radius` | Block radius for `local` type (ignored for others) |
 | `permission` | Required permission to use this channel |
 | `prefix` | Shortcut prefix to route messages directly from standard chat |
+| `tag` | Visible tag prepended to the formatted chat line (`[g]` for global by default) |
 | `format` | Message format (supports `{player}`, `{prefix}`, `{message}`) |
 | `default` | If `true`, all normal chat goes through this channel |
+| `noPlayersMessage` | Message shown when local chat has nobody nearby to hear it |
 | `discord.enabled` | Relay this channel to Discord |
 | `discord.channelId` | Discord channel ID to relay to |
 | `discord.relayFromDiscord` | Pull Discord messages into this channel |
@@ -62,7 +64,9 @@ Each channel entry supports:
     "command": "l",
     "aliases": ["local", "lc"],
     "prefix": "",
+    "tag": "",
     "default": true,
+    "noPlayersMessage": "§7Nobody nearby heard your message. Use §a/g §7to speak globally.",
     "discord": {
       "enabled": false,
       "channelId": ""
@@ -73,6 +77,7 @@ Each channel entry supports:
     "command": "g",
     "aliases": ["global", "gc"],
     "prefix": "!",
+    "tag": "§7[§ag§7]",
     "default": false,
     "discord": {
       "enabled": true,
@@ -107,4 +112,3 @@ Each channel entry supports:
 ---
 
 *Back to [Wiki Home](Home)*
-

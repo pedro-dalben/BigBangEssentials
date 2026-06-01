@@ -27,7 +27,7 @@ Welcome to the official documentation hub for **BigBangEssentials v1.0.2.6** —
 ## 🚀 Getting Started
 
 1. Drop `bigbangessentials-<version>.jar` into your server's `mods/` folder
-2. Start the server — config files are auto-generated in `config/bigbangessentials/`
+2. Start the server — config files are auto-generated in `world/serverconfig/bigbangessentials/`
 3. Key config files:
    - `config.json` — main settings (or split into per-system files)
    - `tablist.json` — tablist header/footer/formatting

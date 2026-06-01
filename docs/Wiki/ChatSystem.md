@@ -8,6 +8,8 @@
 
 Full-featured chat system with format templates, rich text (gradients/rainbow), channel routing, Discord relay, mute/ignore, social spy, and per-player time/weather. All chat is logged to the server console.
 
+Channel routing is local by default. Normal chat stays local, `/g` sends a one-off global message tagged `[g]`, and the local no-nearby prompt comes from `chat.channels.local.noPlayersMessage`.
+
 ---
 
 ## Config (`config.json` → `chat`)

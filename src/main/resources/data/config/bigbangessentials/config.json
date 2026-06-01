@@ -1,5 +1,5 @@
 {
-  "_configVersion": 20,
+  "_configVersion": 21,
   "_configVersion_comment": "DO NOT MODIFY: This field is used by BigBangEssentials for automatic config updates. Changing this may cause config corruption.",
   "modules": {
     "economyEnabled": true,
@@ -647,17 +647,17 @@
       "badgePosition": "before_prefix",
       "badgePosition_comment": "Where to show badges: 'before_prefix', 'after_prefix', 'before_name', 'after_name'.",
       "useCustomImages": false,
-      "useCustomImages_comment": "If true, uses custom badge images from config/bigbangessentials/badges/ folder. Place PNG files named after ranks (e.g., admin.png, vip.png).",
+      "useCustomImages_comment": "If true, uses custom badge images from world/serverconfig/bigbangessentials/badges/ folder. Place PNG files named after ranks (e.g., admin.png, vip.png).",
       "customImageSize": 16,
       "customImageSize_comment": "Size of custom badge images in pixels (16, 24, or 32). Images will be scaled to this size.",
-      "customImagePath": "config/bigbangessentials/badges",
+      "customImagePath": "world/serverconfig/bigbangessentials/badges",
       "customImagePath_comment": "Path to custom badge images folder relative to server root. Place PNG files here named after ranks.",
       "autoSendResourcePack": false,
       "autoSendResourcePack_comment": "If true, automatically generates and sends resource pack to players when they join. Requires useCustomImages to be enabled.",
       "requireResourcePack": false,
       "requireResourcePack_comment": "If true, players MUST accept the resource pack to join the server. If false, it's optional.",
       "resourcePackUrl": "",
-      "resourcePackUrl_comment": "Public URL where the resource pack is hosted (e.g., https://yoursite.com/BigBangEssentials-Badges.zip). Leave empty to disable auto-send. The mod will generate the pack in config/bigbangessentials/ - upload it to a web server.",
+      "resourcePackUrl_comment": "Public URL where the resource pack is hosted (e.g., https://yoursite.com/BigBangEssentials-Badges.zip). Leave empty to disable auto-send. The mod will generate the pack in world/serverconfig/bigbangessentials/ - upload it to a web server.",
       "resourcePackPrompt": "This server uses custom badge images. Please accept the resource pack for the best experience!",
       "resourcePackPrompt_comment": "Message shown to players when sending the resource pack.",
       "rankBadges": {
@@ -773,7 +773,10 @@
         "command": "l",
         "aliases": ["local", "lc"],
         "prefix": "",
+        "tag": "",
         "default": true,
+        "noPlayersMessage": "§7Nobody nearby heard your message. Use §a/g §7to speak globally.",
+        "noPlayersMessage_comment": "Message shown when local chat has nobody nearby. Can be a translation key or a raw formatted string.",
         "discord": {
           "enabled": false,
           "enabled_comment": "Send local chat messages to Discord. Usually disabled since local is proximity-based.",
@@ -786,6 +789,8 @@
         "command": "g",
         "aliases": ["global", "gc"],
         "prefix": "!",
+        "tag": "§7[§ag§7]",
+        "tag_comment": "Visible label prepended to global chat messages.",
         "default": false,
         "discord": {
           "enabled": true,
@@ -809,7 +814,7 @@
         }
       }
     },
-    "channels-description": "Chat channels system: Set 'enabled' to false to disable all channels and use standard global chat. When enabled, players can use local (proximity-based), global (all players), and staff (permission-based) channels. Each channel has its own enabled flag, command, prefix, and settings. For proximity-only servers: set channels.enabled=true, local.enabled=true, global.enabled=false. For global-only servers: set channels.enabled=false OR set local.enabled=false, global.enabled=true.",
+    "channels-description": "Chat channels system: local chat is the default. Normal chat stays local, and /g sends a one-off global message with a visible [g] label. Set 'enabled' to false to disable all channels and use standard global chat. When enabled, players can use local (proximity-based), global (all players), and staff (permission-based) channels. Each channel has its own enabled flag, command, prefix, tag, and settings. The local channel also has a configurable noPlayersMessage for when nobody is nearby to hear the message. For proximity-only servers: set channels.enabled=true, local.enabled=true, global.enabled=false. For global-only servers: set channels.enabled=false OR set local.enabled=false, global.enabled=true.",
     "enable-chat-formatting": true,
     "enable-color-codes": true,
     "logChatToConsole": true,

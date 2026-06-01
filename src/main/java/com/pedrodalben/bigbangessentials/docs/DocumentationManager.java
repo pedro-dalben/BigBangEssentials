@@ -512,7 +512,7 @@ public class DocumentationManager {
                 """
                 To change the dashboard port:
                 1. Stop your server
-                2. Open `config/bigbangessentials/main.json`
+                2. Open `world/serverconfig/bigbangessentials/main.json`
                 3. Find the `webDashboard` section
                 4. Change `port` value (e.g., from 8080 to 8081)
                 5. Save the file and restart your server
@@ -536,7 +536,7 @@ public class DocumentationManager {
                 If you've forgotten the admin password:
                 1. Open server console
                 2. Execute: `/bigbangessentials resetpassword admin newpassword`
-                3. Or edit `config/bigbangessentials/users.json` directly
+                3. Or edit `world/serverconfig/bigbangessentials/users.json` directly
                 4. Log in with new credentials
                 
                 For security, change the password again after logging in via the dashboard Settings page.

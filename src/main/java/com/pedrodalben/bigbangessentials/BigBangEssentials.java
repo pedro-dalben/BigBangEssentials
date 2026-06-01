@@ -3,6 +3,7 @@ import com.pedrodalben.bigbangessentials.commands.CommandRegistry;
 import com.pedrodalben.bigbangessentials.config.ConfigSplitter;
 import com.pedrodalben.bigbangessentials.core.ManagerRegistry;
 import com.pedrodalben.bigbangessentials.permissions.PermissionSystem;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import net.neoforged.fml.common.Mod;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.commands.CommandSourceStack;
@@ -47,6 +48,13 @@ public class BigBangEssentials {
         LOGGER.info("╚════════════════════════════════════════════════════════════════╝");
         LOGGER.info("");
         LOGGER.info("Initializing {} systems...", MOD_NAME);
+
+        // Move legacy config files into world/serverconfig before any manager loads them.
+        try {
+            ResourceUtil.migrateLegacyConfigDirectory();
+        } catch (Exception e) {
+            LOGGER.warn("Legacy config migration failed: {}", e.getMessage(), e);
+        }
         
         // Initialize PlaceholderAPI system
         try {

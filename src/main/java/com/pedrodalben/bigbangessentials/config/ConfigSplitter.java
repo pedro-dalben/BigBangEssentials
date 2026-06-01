@@ -491,7 +491,7 @@ public class ConfigSplitter {
         stub.addProperty("_notice",
             "This server is using SPLIT CONFIGURATION FILES for easier management.");
         stub.addProperty("_notice_info",
-            "Configuration has been split into smaller, focused files in the config/bigbangessentials/ directory.");
+            "Configuration has been split into smaller, focused files in the world/serverconfig/bigbangessentials/ directory.");
 
         // Create a helpful guide object
         JsonObject guide = new JsonObject();

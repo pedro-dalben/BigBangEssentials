@@ -417,9 +417,9 @@ bigbangessentials.dashboard.admin.files - File management access (default: false
 # - PERMISSION_NODES_SUMMARY.md
 
 # Configuration Files:
-# - config/bigbangessentials/config.json (main config)
-# - config/bigbangessentials/permissions.json (internal permissions)
-# - config/bigbangessentials/discord_auth.json (Discord authentication)
+# - world/serverconfig/bigbangessentials/config.json (main config)
+# - world/serverconfig/bigbangessentials/permissions.json (internal permissions)
+# - world/serverconfig/bigbangessentials/discord_auth.json (Discord authentication)
 
 # Commands:
 # /bigbangessentials reload - Reload all configurations

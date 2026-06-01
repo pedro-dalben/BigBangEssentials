@@ -9,6 +9,7 @@ import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.kits.Kit;
 import com.pedrodalben.bigbangessentials.kits.KitManager;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -271,7 +272,7 @@ public class MiscItemCommands {
 
     // ── /customtext [chapter] [page] ─────────────────────────────────────────
     // Essentials: Commandcustomtext — display a paginated custom text file.
-    // Files live in config/bigbangessentials/text/<chapter>.txt
+    // Files live in world/serverconfig/bigbangessentials/text/<chapter>.txt
     private static final int LINES_PER_PAGE = 10;
 
     private static void registerCustomText(CommandDispatcher<CommandSourceStack> d) {
@@ -317,7 +318,7 @@ public class MiscItemCommands {
             return 0;
         }
 
-        Path textDir = Paths.get("config", "bigbangessentials", "text");
+        Path textDir = ResourceUtil.getConfigPath("text");
         Path file = textDir.resolve(safeChapter + ".txt");
 
         if (!Files.exists(file)) {
@@ -327,7 +328,7 @@ public class MiscItemCommands {
                 if (safeChapter.equals("info")) {
                     Files.writeString(file,
                         "§6Welcome to the server!\n" +
-                        "§7Edit this file at: config/bigbangessentials/text/info.txt\n" +
+                        "§7Edit this file at: " + ResourceUtil.getConfigFile("text/info.txt").getPath() + "\n" +
                         "§7You can use §r&§7 colour codes.\n");
                 }
             } catch (IOException e) {
@@ -601,4 +602,3 @@ public class MiscItemCommands {
         return days + "d" + (hours > 0 ? hours + "h" : "");
     }
 }
-

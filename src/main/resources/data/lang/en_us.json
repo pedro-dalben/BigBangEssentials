@@ -885,7 +885,7 @@
   "commands.bigbangessentials.powertoollist.header": "§6=== Your Powertools ({0}) ===",
   "commands.bigbangessentials.powertoollist.empty": "§eYou have no active powertools.",
   "commands.bigbangessentials.customtext.invalid_chapter": "§cInvalid chapter name. Use letters, numbers, dash or underscore only.",
-  "commands.bigbangessentials.customtext.not_found": "§cText chapter '§f{0}§c' not found. Create it at: config/bigbangessentials/text/{0}.txt",
+  "commands.bigbangessentials.customtext.not_found": "§cText chapter '§f{0}§c' not found. Create it at: world/serverconfig/bigbangessentials/text/{0}.txt",
   "commands.bigbangessentials.customtext.read_error": "§cFailed to read text file. Check server logs.",
   "commands.bigbangessentials.payconfirmtoggle.toggled": "§ePayment confirmation is now §f{0}§e.",
   "commands.bigbangessentials.ciconfirmtoggle.toggled": "§eClearInventory confirmation is now §f{0}§e.",

@@ -1,5 +1,6 @@
 package com.pedrodalben.bigbangessentials.chat;
 
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import net.minecraft.server.level.ServerPlayer;
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
 import org.slf4j.Logger;
@@ -209,7 +210,7 @@ public class BadgeManager {
     }
 
     /**
-     * Load custom badge images from config/bigbangessentials/badges/ folder.
+     * Load custom badge images from world/serverconfig/bigbangessentials/badges/ folder.
      */
     public void loadCustomBadgeImages() {
         if (!isCustomImagesEnabled() || customImagesLoaded) {
@@ -290,14 +291,14 @@ public class BadgeManager {
                        - etc.
                     
                     3. Enable custom images in config:
-                       Edit: config/bigbangessentials/config.json
+                       Edit: world/serverconfig/bigbangessentials/config.json
                        Set: "useCustomImages": true
                     
                     4. Restart the server
                     
                     EXAMPLE STRUCTURE:
                     ------------------
-                    config/bigbangessentials/badges/
+                    world/serverconfig/bigbangessentials/badges/
                     ├── admin.png       (Crown image)
                     ├── moderator.png   (Shield image)
                     ├── vip.png         (Diamond image)
@@ -342,13 +343,14 @@ public class BadgeManager {
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("customImagePath")) {
-                    return badges.get("customImagePath").getAsString();
+                    return ResourceUtil.remapLegacyConfigPath(
+                        badges.get("customImagePath").getAsString());
                 }
             }
         } catch (Exception e) {
             // Ignore
         }
-        return "config/bigbangessentials/badges";
+        return ResourceUtil.getConfigPath("badges").toString();
     }
 
     /**

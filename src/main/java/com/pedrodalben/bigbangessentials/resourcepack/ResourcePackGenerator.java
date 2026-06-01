@@ -14,9 +14,11 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
+
 /**
  * Resource Pack Generator - Phase 3 Custom Badge Images
- * Automatically generates a resource pack from badge images in config/bigbangessentials/badges/
+ * Automatically generates a resource pack from badge images in world/serverconfig/bigbangessentials/badges/
  * Creates proper font definitions and pack structure
  */
 public class ResourcePackGenerator {
@@ -58,7 +60,7 @@ public class ResourcePackGenerator {
                 buildPackStructure(tempDir, badgeImages);
 
                 // Create ZIP file
-                Path outputZip = Paths.get("config/bigbangessentials/", PACK_NAME + ".zip");
+                Path outputZip = ResourceUtil.getConfigPath(PACK_NAME + ".zip");
                 Files.createDirectories(outputZip.getParent());
 
                 createZipFile(tempDir, outputZip);
@@ -227,7 +229,7 @@ public class ResourcePackGenerator {
      * Save SHA-1 hash to file.
      */
     private static void saveSHA1(String sha1) throws IOException {
-        Path sha1File = Paths.get("config/bigbangessentials/", PACK_NAME + ".sha1");
+        Path sha1File = ResourceUtil.getConfigPath(PACK_NAME + ".sha1");
         Files.writeString(sha1File, sha1);
         LOGGER.debug("Saved SHA-1 to {}", sha1File);
     }
@@ -281,13 +283,14 @@ public class ResourcePackGenerator {
             if (chatConfig.has("badges")) {
                 var badges = chatConfig.getAsJsonObject("badges");
                 if (badges.has("customImagePath")) {
-                    return Paths.get(badges.get("customImagePath").getAsString());
+                    return Paths.get(ResourceUtil.remapLegacyConfigPath(
+                        badges.get("customImagePath").getAsString()));
                 }
             }
         } catch (Exception e) {
             // Ignore
         }
-        return Paths.get("config/bigbangessentials/badges");
+        return ResourceUtil.getConfigPath("badges");
     }
 
     /**
@@ -308,4 +311,3 @@ public class ResourcePackGenerator {
         return 16;
     }
 }
-

@@ -153,7 +153,7 @@ BigBangEssentials supports full internationalisation with per-server language ov
 
 `en_us`, `fr_fr`, `de_de`, `es_es`, `pt_br`, `zh_cn`, `nl_nl`, `pl_pl`, `ru_ru`
 
-All files are auto-deployed to `config/bigbangessentials/languages/custom/` on first start.
+All files are auto-deployed to `bigbangessentials/languages/custom/` on first start.
 
 ### Switching Language
 
@@ -170,11 +170,11 @@ Or in-game:
 
 ### Custom / Overriding Translations
 
-Edit any file in `config/bigbangessentials/languages/custom/<lang>.json`. Changes are preserved across mod updates — new keys from the JAR are merged in without overwriting your edits.
+Edit any file in `bigbangessentials/languages/custom/<lang>.json`. Changes are preserved across mod updates — new keys from the JAR are merged in without overwriting your edits.
 
 ### Adding a New Language
 
-1. Create `config/bigbangessentials/languages/custom/xx_xx.json`
+1. Create `bigbangessentials/languages/custom/xx_xx.json`
 2. Copy all keys from `en_us.json` and translate values
 3. Run `/language reload` to apply
 

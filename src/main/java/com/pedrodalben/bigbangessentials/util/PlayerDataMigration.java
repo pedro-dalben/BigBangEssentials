@@ -113,7 +113,7 @@ public class PlayerDataMigration {
                 LOGGER.warn("  - Failed: {} players", failedCount);
             }
             LOGGER.info("  - Old file backed up: {}", backupFile.getName());
-            LOGGER.info("  - New location: config/bigbangessentials/playerdata/{}/", dataType);
+            LOGGER.info("  - New location: bigbangessentials/playerdata/{}/", dataType);
             LOGGER.info("════════════════════════════════════════════════════════");
 
             return migratedCount;
@@ -160,4 +160,3 @@ public class PlayerDataMigration {
         return oldFile.exists() && !migratedFile.exists();
     }
 }
-

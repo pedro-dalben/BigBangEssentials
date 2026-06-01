@@ -190,16 +190,24 @@ public class ChatHandler {
             if (channel == null) {
                 channel = temporaryPlayerChannelMap.get(player.getUUID());
             }
-            // If still not set, use default (local if enabled, else global)
+            // If still not set, prefer local as the default channel, then fall back to any explicit default.
             if (channel == null && channelsConfig != null) {
-                for (String ch : channelsConfig.keySet()) {
-                    // Skip metadata fields
-                    if (ch.equals("enabled") || ch.endsWith("-description")) continue;
+                if (channelsConfig.has("local") && channelsConfig.get("local").isJsonObject()) {
+                    com.google.gson.JsonObject localObj = channelsConfig.getAsJsonObject("local");
+                    if (!localObj.has("enabled") || localObj.get("enabled").getAsBoolean()) {
+                        channel = "local";
+                    }
+                }
+                if (channel == null) {
+                    for (String ch : channelsConfig.keySet()) {
+                        // Skip metadata fields
+                        if (ch.equals("enabled") || ch.endsWith("-description")) continue;
 
-                    com.google.gson.JsonObject chObj = channelsConfig.getAsJsonObject(ch);
-                    if (chObj.has("enabled") && chObj.get("enabled").getAsBoolean() && chObj.has("default") && chObj.get("default").getAsBoolean()) {
-                        channel = ch;
-                        break;
+                        com.google.gson.JsonObject chObj = channelsConfig.getAsJsonObject(ch);
+                        if (chObj.has("enabled") && chObj.get("enabled").getAsBoolean() && chObj.has("default") && chObj.get("default").getAsBoolean()) {
+                            channel = ch;
+                            break;
+                        }
                     }
                 }
             }
@@ -240,12 +248,24 @@ public class ChatHandler {
                 event.setCanceled(true);
                 // Format the message using our custom formatter
                 Component formattedMessage = ChatFormatter.formatMessage(chatFormat, player, message);
-                // Route message based on channel
                 // Get channel config for dynamic routing
                 JsonObject channelObj = null;
                 if (channelsConfig != null && channelsConfig.has(channel)) {
                     channelObj = channelsConfig.getAsJsonObject(channel);
                 }
+                String channelTag = null;
+                if (channelObj != null && channelObj.has("tag")) {
+                    channelTag = channelObj.get("tag").getAsString();
+                } else if ("global".equalsIgnoreCase(channel) && channelsConfig != null) {
+                    channelTag = "§7[§ag§7]";
+                }
+                if (channelTag != null && !channelTag.trim().isEmpty()) {
+                    formattedMessage = Component.literal("")
+                        .append(MessageUtil.coloredText(channelTag.stripTrailing()))
+                        .append(Component.literal(" "))
+                        .append(formattedMessage);
+                }
+                // Route message based on channel
                 
                 // Check if channel has radius (proximity-based)
                 boolean hasRadius = channelObj != null && channelObj.has("radius");
@@ -255,6 +275,12 @@ public class ChatHandler {
                 String requiredPermission = null;
                 if (channelObj != null && channelObj.has("permission")) {
                     requiredPermission = channelObj.get("permission").getAsString();
+                }
+
+                if (requiredPermission != null && !com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), requiredPermission)) {
+                    event.setCanceled(true);
+                    player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.chat.no_permission"));
+                    return;
                 }
                 
                 var server = player.getServer();
@@ -286,8 +312,17 @@ public class ChatHandler {
                             }
                         }
                         if (heardCount == 0) {
+                            String noPlayersMessage = null;
+                            if (channelObj != null && channelObj.has("noPlayersMessage")) {
+                                noPlayersMessage = channelObj.get("noPlayersMessage").getAsString();
+                            } else if ("local".equalsIgnoreCase(channel)) {
+                                noPlayersMessage = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().getLocalChatNoPlayersMessage();
+                            }
+                            if (noPlayersMessage == null || noPlayersMessage.trim().isEmpty()) {
+                                noPlayersMessage = "commands.bigbangessentials.chat.nobody_heard";
+                            }
                             player.sendSystemMessage(com.pedrodalben.bigbangessentials.util.MessageUtil.coloredText(
-                                com.pedrodalben.bigbangessentials.util.MessageUtil.localize("commands.bigbangessentials.chat.nobody_heard")
+                                com.pedrodalben.bigbangessentials.util.MessageUtil.localize(noPlayersMessage)
                             ));
                         }
                         // Always log to server console so chat appears in logs
@@ -400,4 +435,3 @@ public class ChatHandler {
         return true; // Default: always log to console
     }
 }
-

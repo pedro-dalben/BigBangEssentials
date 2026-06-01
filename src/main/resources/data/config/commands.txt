@@ -389,7 +389,7 @@ All commands are automatically registered via CommandRegistry.getInstance()
 and can be discovered programmatically for integration with other systems.
 
 ## Configuration
-Commands can be enabled/disabled in config/bigbangessentials/config.json
+Commands can be enabled/disabled in world/serverconfig/bigbangessentials/config.json
 Individual command cooldowns and restrictions are configurable per-permission group.
 
 ## Notes:

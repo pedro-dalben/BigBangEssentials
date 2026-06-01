@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Chat channel commands (/local, /global, /staff, etc.)
- * Allows players to switch between different chat channels.
+ * Sends one-off messages through a specific channel without changing the player's default chat state.
  */
 public class ChannelCommands {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChannelCommands.class);
@@ -100,7 +100,7 @@ public class ChannelCommands {
     }
 
     /**
-     * Execute message to specified channel with temporary override
+     * Execute a one-off message to the specified channel.
      */
     private static int executeChannelMessage(CommandContext<CommandSourceStack> ctx, String channelName, String permission) {
         try {
@@ -140,4 +140,3 @@ public class ChannelCommands {
         }
     }
 }
-

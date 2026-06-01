@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 
 import java.io.File;
 import java.io.FileReader;
@@ -27,7 +28,7 @@ import java.util.Map;
 public class CloudProviderManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(CloudProviderManager.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final File TOKENS_FILE = new File("config/bigbangessentials/cloud_tokens.json");
+    private static final File TOKENS_FILE = ResourceUtil.getConfigFile("cloud_tokens.json");
 
     private static CloudProviderManager INSTANCE;
     private final Map<String, CloudProviderToken> tokens = new HashMap<>();
@@ -217,4 +218,3 @@ public class CloudProviderManager {
         }
     }
 }
-

@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -146,8 +147,7 @@ public class TablistCommand {
             "§e/tablist set footer <text> §7— runtime footer override\n" +
             "§e/tablist info §7— show status and config file path\n" +
             "§e/tablist config §7— show current settings summary\n" +
-            "§7Config file: §fconfig/bigbangessentials/tablist.json"
+            "§7Config file: §f" + ResourceUtil.getConfigFile("tablist.json").getPath()
         ), false);
     }
 }
-

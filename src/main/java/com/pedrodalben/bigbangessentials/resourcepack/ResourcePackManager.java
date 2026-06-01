@@ -1,5 +1,6 @@
 package com.pedrodalben.bigbangessentials.resourcepack;
 
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -96,7 +97,7 @@ public class ResourcePackManager {
         }
 
         // Load SHA-1 hash
-        Path sha1File = Paths.get("config/bigbangessentials/BigBangEssentials-Badges.sha1");
+        Path sha1File = ResourceUtil.getConfigPath("BigBangEssentials-Badges.sha1");
         if (Files.exists(sha1File)) {
             resourcePackHash = Files.readString(sha1File).trim();
             LOGGER.info("Loaded resource pack SHA-1: {}", resourcePackHash);

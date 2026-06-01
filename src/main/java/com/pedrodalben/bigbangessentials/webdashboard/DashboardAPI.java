@@ -11,6 +11,7 @@ import com.pedrodalben.bigbangessentials.webdashboard.api.endpoints.ServerEndpoi
 import com.pedrodalben.bigbangessentials.webdashboard.endpoints.PermissionEndpoint;
 import com.pedrodalben.bigbangessentials.webdashboard.handlers.AuthHandler;
 import com.pedrodalben.bigbangessentials.webdashboard.handlers.FileManagementHandler;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,7 +132,7 @@ public class DashboardAPI {
                     } catch (java.net.BindException e2) {
                         LOGGER.error("Fallback also failed! Port {} may be in use or system doesn't support network binding.", port);
                         LOGGER.error("Possible solutions:");
-                        LOGGER.error("  1. Change the port in config/bigbangessentials/config.json → webDashboard.port");
+                        LOGGER.error("  1. Change the port in {} → webDashboard.port", ResourceUtil.getConfigFile("config.json").getPath());
                         LOGGER.error("  2. Check if another application is using port {}", port);
                         LOGGER.error("  3. Verify your server's network configuration");
                         throw e2;
@@ -139,7 +140,7 @@ public class DashboardAPI {
                 } else {
                     LOGGER.error("Cannot bind to any interface on port {}!", port);
                     LOGGER.error("Possible solutions:");
-                    LOGGER.error("  1. Change the port in config/bigbangessentials/config.json → webDashboard.port");
+                    LOGGER.error("  1. Change the port in {} → webDashboard.port", ResourceUtil.getConfigFile("config.json").getPath());
                     LOGGER.error("  2. Check if another application is using port {}", port);
                     LOGGER.error("  3. Verify your server's firewall and network settings");
                     throw e;

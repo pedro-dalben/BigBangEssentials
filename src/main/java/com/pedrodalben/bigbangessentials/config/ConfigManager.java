@@ -1181,6 +1181,27 @@ public class ConfigManager {
         return new JsonObject();
     }
 
+    /**
+     * Returns the configured message shown when a local chat message has no nearby listeners.
+     * Falls back to the bundled translation key if the config value is missing.
+     */
+    public String getLocalChatNoPlayersMessage() {
+        JsonObject chat = getChatConfig();
+        if (chat.has("channels") && chat.get("channels").isJsonObject()) {
+            JsonObject channels = chat.getAsJsonObject("channels");
+            if (channels.has("local") && channels.get("local").isJsonObject()) {
+                JsonObject local = channels.getAsJsonObject("local");
+                if (local.has("noPlayersMessage")) {
+                    String value = local.get("noPlayersMessage").getAsString();
+                    if (value != null && !value.trim().isEmpty()) {
+                        return value;
+                    }
+                }
+            }
+        }
+        return "commands.bigbangessentials.chat.nobody_heard";
+    }
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigManager.class);
     // private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -1211,7 +1232,7 @@ public class ConfigManager {
 
     // Expected versions for each config file (must match the version in JAR resources)
     private static final java.util.Map<String, Integer> EXPECTED_CONFIG_VERSIONS = new java.util.HashMap<>() {{
-        put(MAIN_CONFIG, 20);
+        put(MAIN_CONFIG, 21);
         put(ECONOMY_CONFIG, 2);
         put(PERMISSIONS_CONFIG, 5);
         put(KITS_CONFIG, 1);
@@ -1230,6 +1251,10 @@ public class ConfigManager {
      * Internal permissions.json is not generated if external permissions are enabled.
      */
     private void ensureDefaultConfigs() {
+        // Make sure the new world/serverconfig directory exists and pull over any legacy files first.
+        ResourceUtil.migrateLegacyConfigDirectory();
+        ResourceUtil.ensureConfigDirectory();
+
         String[] requiredConfigs = new String[] {
             MAIN_CONFIG, ECONOMY_CONFIG, PERMISSIONS_CONFIG, KITS_CONFIG, DISCORD_AUTH_CONFIG, TABLIST_CONFIG
         };

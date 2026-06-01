@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Now uses per-player data storage for better performance and scalability:</p>
  * <pre>
- * config/bigbangessentials/playerdata/homes/
+ * bigbangessentials/playerdata/homes/
  * ├── {uuid1}.json  (Player 1's homes)
  * ├── {uuid2}.json  (Player 2's homes)
  * └── {uuid3}.json  (Player 3's homes)
