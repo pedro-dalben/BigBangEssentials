@@ -59,7 +59,7 @@ public class PermissionSystem {
                     if (detectedPlugin != null) {
                         LOGGER.info("✓ Detected permission plugin: {}", detectedPlugin);
                     }
-                    LOGGER.info("✓ Using {} for ALL permission checks, prefixes, and suffixes", externalAdapter.getName());
+                    LOGGER.info("✓ Using {} for ALL permission checks, prefixes, suffixes, and primary groups", externalAdapter.getName());
                     PermissionAPI.setExternalAdapter(externalAdapter);
                     usingExternal = true;
                     // Internal permission system is NOT loaded or used

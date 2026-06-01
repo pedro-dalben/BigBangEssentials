@@ -212,6 +212,32 @@ public class PermissionAPI {
     }
 
     /**
+     * Returns the player's primary group or rank identifier.
+     */
+    public static String getPrimaryGroup(UUID uuid) {
+        if (uuid == null) {
+            LOGGER.warn("PermissionAPI.getPrimaryGroup: UUID is null");
+            return "default";
+        }
+
+        if (externalAdapter != null) {
+            String group = externalAdapter.getPrimaryGroup(uuid);
+            return group != null && !group.trim().isEmpty() ? group : "default";
+        }
+
+        if (manager == null) {
+            LOGGER.warn("PermissionAPI.getPrimaryGroup: PermissionManager is null");
+            return "default";
+        }
+
+        PermissionUser user = manager.getUser(uuid);
+        String groupName = (user != null && user.getGroup() != null && !user.getGroup().trim().isEmpty())
+            ? user.getGroup()
+            : manager.getDefaultGroup();
+        return groupName != null && !groupName.trim().isEmpty() ? groupName : "default";
+    }
+
+    /**
      * Reloads all permissions and groups from disk at runtime.
      */
     public static void reload() throws Exception {

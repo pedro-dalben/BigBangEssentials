@@ -214,20 +214,7 @@ public class ChatHandler {
             if (channel == null) channel = "global"; // fallback
 
             // Get group and world for per-group/world chat format
-            String group = null;
-            try {
-                var permManager = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getManager();
-                if (permManager != null) {
-                    var user = permManager.getUser(player.getUUID());
-                    if (user != null && user.getGroup() != null) {
-                        group = user.getGroup();
-                    } else {
-                        group = permManager.getDefaultGroup();
-                    }
-                }
-            } catch (Exception e) {
-                LOGGER.debug("Could not get group for player {}: {}", playerName, e.getMessage());
-            }
+            String group = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getPrimaryGroup(player.getUUID());
             String world = null;
             try {
                 @SuppressWarnings("resource") // Level is not closeable, warning is false positive

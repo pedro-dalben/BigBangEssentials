@@ -422,14 +422,7 @@ public class BadgeManager {
 
     private String getPrimaryGroup(ServerPlayer player) {
         try {
-            // Try to get from PermissionAPI
-            var permManager = PermissionAPI.getManager();
-            if (permManager != null) {
-                var user = permManager.getUser(player.getUUID());
-                if (user != null) {
-                    return user.getGroup();
-                }
-            }
+            return PermissionAPI.getPrimaryGroup(player.getUUID());
         } catch (Exception e) {
             LOGGER.debug("Error getting primary group: {}", e.getMessage());
         }

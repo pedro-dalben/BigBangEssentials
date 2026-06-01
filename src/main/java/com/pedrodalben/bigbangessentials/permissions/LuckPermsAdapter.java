@@ -212,6 +212,37 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
     }
 
     @Override
+    public String getPrimaryGroup(UUID uuid) {
+        if (!luckPermsLoaded || luckPermsApi == null) {
+            return null;
+        }
+
+        try {
+            User user = luckPermsApi.getUserManager().getUser(uuid);
+
+            if (user == null) {
+                try {
+                    CompletableFuture<User> userFuture = luckPermsApi.getUserManager().loadUser(uuid);
+                    user = userFuture.get(USER_LOAD_TIMEOUT, TimeUnit.SECONDS);
+                } catch (Exception e) {
+                    LOGGER.debug("Could not load user {} from LuckPerms for primary group: {}", uuid, e.getMessage());
+                    return null;
+                }
+            }
+
+            if (user != null) {
+                String primaryGroup = user.getPrimaryGroup();
+                LOGGER.debug("LuckPerms primary group for user {}: [{}]", uuid, primaryGroup);
+                return primaryGroup;
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error getting primary group for user {}: {}", uuid, e.getMessage(), e);
+        }
+
+        return null;
+    }
+
+    @Override
     public void reload() {
         // LuckPerms handles its own reloading via /lp reload
         LOGGER.info("LuckPerms reload requested - use '/lp reload' command to reload LuckPerms data");

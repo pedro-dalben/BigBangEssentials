@@ -53,13 +53,7 @@ public class PlayerTagManager {
 
     private String getPrimaryGroup(ServerPlayer player) {
         try {
-            var permManager = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getManager();
-            if (permManager != null) {
-                var user = permManager.getUser(player.getUUID());
-                if (user != null) {
-                    return user.getGroup();
-                }
-            }
+            return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getPrimaryGroup(player.getUUID());
         } catch (Exception e) {
             LOGGER.debug("Error getting primary group: {}", e.getMessage());
         }

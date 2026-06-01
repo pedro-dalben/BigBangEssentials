@@ -636,24 +636,14 @@ public class TablistManager {
 
     private static PermissionData resolvePermissionData(ServerPlayer player) {
         try {
-            com.pedrodalben.bigbangessentials.permissions.PermissionManager mgr =
-                com.pedrodalben.bigbangessentials.permissions.PermissionSystem.getManager();
-            com.pedrodalben.bigbangessentials.permissions.PermissionUser user = mgr.getUser(player.getUUID());
-            if (user != null) {
-                String groupName = user.getGroup();
-                com.pedrodalben.bigbangessentials.permissions.PermissionGroup group = mgr.getGroup(groupName);
-                String prefix = "";
-                String suffix = "";
-                if (group != null) {
-                    if (group.getPrefix() != null && !group.getPrefix().isEmpty()) {
-                        prefix = group.getPrefix().replace("&", "§");
-                    }
-                    if (group.getSuffix() != null && !group.getSuffix().isEmpty()) {
-                        suffix = group.getSuffix().replace("&", "§");
-                    }
-                }
-                return new PermissionData(prefix, suffix, groupName != null ? groupName : "default");
-            }
+            String prefix = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getPrefix(player.getUUID());
+            String suffix = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getSuffix(player.getUUID());
+            String groupName = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getPrimaryGroup(player.getUUID());
+            return new PermissionData(
+                prefix != null ? prefix.replace("&", "§") : "",
+                suffix != null ? suffix.replace("&", "§") : "",
+                groupName != null ? groupName : "default"
+            );
         } catch (Exception ignored) {}
         return PermissionData.EMPTY;
     }
@@ -670,15 +660,9 @@ public class TablistManager {
 
     private String getPermissionPrefix(ServerPlayer player) {
         try {
-            com.pedrodalben.bigbangessentials.permissions.PermissionManager mgr =
-                com.pedrodalben.bigbangessentials.permissions.PermissionSystem.getManager();
-            com.pedrodalben.bigbangessentials.permissions.PermissionUser user = mgr.getUser(player.getUUID());
-            if (user != null) {
-                String groupName = user.getGroup();
-                com.pedrodalben.bigbangessentials.permissions.PermissionGroup group = mgr.getGroup(groupName);
-                if (group != null && group.getPrefix() != null && !group.getPrefix().isEmpty()) {
-                    return group.getPrefix().replace("&", "§");
-                }
+            String prefix = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getPrefix(player.getUUID());
+            if (prefix != null && !prefix.isEmpty()) {
+                return prefix.replace("&", "§");
             }
         } catch (Exception ignored) {}
         return "";
@@ -686,15 +670,9 @@ public class TablistManager {
 
     private String getPermissionSuffix(ServerPlayer player) {
         try {
-            com.pedrodalben.bigbangessentials.permissions.PermissionManager mgr =
-                com.pedrodalben.bigbangessentials.permissions.PermissionSystem.getManager();
-            com.pedrodalben.bigbangessentials.permissions.PermissionUser user = mgr.getUser(player.getUUID());
-            if (user != null) {
-                String groupName = user.getGroup();
-                com.pedrodalben.bigbangessentials.permissions.PermissionGroup group = mgr.getGroup(groupName);
-                if (group != null && group.getSuffix() != null && !group.getSuffix().isEmpty()) {
-                    return group.getSuffix().replace("&", "§");
-                }
+            String suffix = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getSuffix(player.getUUID());
+            if (suffix != null && !suffix.isEmpty()) {
+                return suffix.replace("&", "§");
             }
         } catch (Exception ignored) {}
         return "";
@@ -702,10 +680,7 @@ public class TablistManager {
 
     private String getPermissionGroup(ServerPlayer player) {
         try {
-            com.pedrodalben.bigbangessentials.permissions.PermissionManager mgr =
-                com.pedrodalben.bigbangessentials.permissions.PermissionSystem.getManager();
-            com.pedrodalben.bigbangessentials.permissions.PermissionUser user = mgr.getUser(player.getUUID());
-            if (user != null) return user.getGroup();
+            return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getPrimaryGroup(player.getUUID());
         } catch (Exception ignored) {}
         return "default";
     }
@@ -754,7 +729,6 @@ public class TablistManager {
         server.execute(() -> updateAll(server));
     }
 }
-
 
 
 

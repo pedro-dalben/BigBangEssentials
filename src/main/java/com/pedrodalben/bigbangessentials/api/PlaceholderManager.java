@@ -223,13 +223,7 @@ public class PlaceholderManager {
      */
     private String getLuckPermsPrimaryGroup(ServerPlayer player) {
         try {
-            var permManager = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getManager();
-            if (permManager != null) {
-                var user = permManager.getUser(player.getUUID());
-                if (user != null && user.getGroup() != null) {
-                    return user.getGroup();
-                }
-            }
+            return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getPrimaryGroup(player.getUUID());
         } catch (Exception e) {
             LOGGER.debug("Error getting LuckPerms group: {}", e.getMessage());
         }

@@ -36,10 +36,9 @@ public class VanishManager {
      */
     public int getPlayerPriority(UUID playerId) {
         // Integrate with permission/group system
-        // Use PermissionSystem.getManager().getUser(playerId).getGroup()
         String group = null;
         try {
-            group = com.pedrodalben.bigbangessentials.permissions.PermissionSystem.getManager().getUser(playerId).getGroup();
+            group = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getPrimaryGroup(playerId);
         } catch (Exception e) {
             // fallback
         }

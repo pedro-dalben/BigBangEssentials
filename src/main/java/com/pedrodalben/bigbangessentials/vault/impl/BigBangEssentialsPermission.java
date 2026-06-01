@@ -167,11 +167,8 @@ public class BigBangEssentialsPermission extends VaultPermission {
     @Override
     public String[] getPlayerGroups(String world, UUID playerId) {
         try {
-            PermissionManager pm = PermissionAPI.getManager();
-            if (pm == null) return new String[0];
-            PermissionUser user = pm.getUser(playerId);
-            String g = user.getGroup();
-            return g != null ? new String[]{g} : new String[0];
+            String group = PermissionAPI.getPrimaryGroup(playerId);
+            return group != null && !group.isBlank() ? new String[]{group} : new String[0];
         } catch (Exception e) {
             LOGGER.error("VaultPermission: getPlayerGroups error: {}", e.getMessage());
             return new String[0];
@@ -181,9 +178,7 @@ public class BigBangEssentialsPermission extends VaultPermission {
     @Override
     public String getPrimaryGroup(String world, UUID playerId) {
         try {
-            PermissionManager pm = PermissionAPI.getManager();
-            if (pm == null) return null;
-            return pm.getUser(playerId).getGroup();
+            return PermissionAPI.getPrimaryGroup(playerId);
         } catch (Exception e) {
             LOGGER.error("VaultPermission: getPrimaryGroup error: {}", e.getMessage());
             return null;
@@ -204,4 +199,3 @@ public class BigBangEssentialsPermission extends VaultPermission {
         }
     }
 }
-

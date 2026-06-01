@@ -29,6 +29,15 @@ public interface ExternalPermissionAdapter {
     String getSuffix(UUID uuid);
 
     /**
+     * Get the user's primary group or rank identifier.
+     * @param uuid The UUID of the user.
+     * @return The primary group name, or null if not supported.
+     */
+    default String getPrimaryGroup(UUID uuid) {
+        return null;
+    }
+
+    /**
      * Reload the external permission data (if supported).
      */
     void reload();

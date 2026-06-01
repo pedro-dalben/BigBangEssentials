@@ -28,6 +28,8 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
     private Method getAddedRanksMethod;
     private Method rankGetPowerMethod;
     private Method rankGetPermissionMethod;
+    private Method rankGetIdMethod;
+    private Method rankGetNameMethod;
     private Method permissionValueIsEmptyMethod;
     private Method permissionValueAsBooleanOrFalseMethod;
     private Method permissionValueAsStringMethod;
@@ -46,6 +48,8 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
                 getAddedRanksMethod = rankManagerClass.getMethod("getAddedRanks", GameProfile.class);
                 rankGetPowerMethod = rankClass.getMethod("getPower");
                 rankGetPermissionMethod = rankClass.getMethod("getPermission", String.class);
+                rankGetIdMethod = rankClass.getMethod("getId");
+                rankGetNameMethod = rankClass.getMethod("getName");
                 permissionValueIsEmptyMethod = permissionValueClass.getMethod("isEmpty");
                 permissionValueAsBooleanOrFalseMethod = permissionValueClass.getMethod("asBooleanOrFalse");
                 permissionValueAsStringMethod = permissionValueClass.getMethod("asString");
@@ -196,6 +200,29 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
         }
     }
 
+    private String getRankIdentifier(Object rank) {
+        try {
+            Object id = rankGetIdMethod.invoke(rank);
+            if (id != null) {
+                String value = id.toString();
+                if (!value.isBlank()) {
+                    return value;
+                }
+            }
+
+            Object name = rankGetNameMethod.invoke(rank);
+            if (name != null) {
+                String value = name.toString();
+                if (!value.isBlank()) {
+                    return value;
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Failed to extract FTB Ranks rank identifier: {}", e.getMessage());
+        }
+        return null;
+    }
+
     private String asString(Object permissionValue) throws Exception {
         if (isEmpty(permissionValue)) {
             return null;
@@ -277,6 +304,31 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
         }
 
         return null;
+    }
+
+    @Override
+    public String getPrimaryGroup(UUID uuid) {
+        if (!available) {
+            return null;
+        }
+
+        try {
+            List<?> sortedRanks = getSortedAddedRanks(uuid);
+            if (sortedRanks == null || sortedRanks.isEmpty()) {
+                return "default";
+            }
+
+            String group = getRankIdentifier(sortedRanks.get(0));
+            if (group == null || group.isBlank()) {
+                return "default";
+            }
+
+            LOGGER.debug("FTB Ranks primary group for user {}: [{}]", uuid, group);
+            return group;
+        } catch (Exception e) {
+            LOGGER.error("Failed to get FTB Ranks primary group for user {}", uuid, e);
+            return "default";
+        }
     }
 
     @Override

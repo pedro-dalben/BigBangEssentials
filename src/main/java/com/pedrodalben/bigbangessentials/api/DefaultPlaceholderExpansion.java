@@ -219,16 +219,7 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
         if (player == null) return null;
         
         try {
-            // Get the player's group through the PermissionManager
-            var manager = PermissionAPI.getManager();
-            if (manager != null) {
-                var user = manager.getUser(player.getUUID());
-                if (user != null && user.getGroup() != null) {
-                    return user.getGroup();
-                }
-                return manager.getDefaultGroup();
-            }
-            return "default";
+            return PermissionAPI.getPrimaryGroup(player.getUUID());
         } catch (Exception e) {
             LOGGER.debug("Error getting group for player {}: {}", player.getName().getString(), e.getMessage());
             return "default";
