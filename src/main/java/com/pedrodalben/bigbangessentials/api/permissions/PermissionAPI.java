@@ -99,6 +99,23 @@ public class PermissionAPI {
         LOGGER.debug("═══════════════════════");
         return hasInternalPerm;
     }
+
+    /**
+     * Returns true if the player has any permission in the provided list.
+     */
+    public static boolean hasAnyPermission(UUID uuid, String... permissions) {
+        if (permissions == null || permissions.length == 0) {
+            return false;
+        }
+
+        for (String permission : permissions) {
+            if (hasPermission(uuid, permission)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
     
     /**
      * Checks if a player is opped by their UUID.

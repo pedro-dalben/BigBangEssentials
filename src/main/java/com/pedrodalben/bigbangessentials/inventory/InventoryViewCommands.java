@@ -3,6 +3,7 @@ package com.pedrodalben.bigbangessentials.inventory;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -34,7 +35,9 @@ public class InventoryViewCommands {
         // /invsee <player> - View inventory (read-only)
         dispatcher.register(
             Commands.literal("invsee")
-                .requires(source -> hasPermission(source, "bigbangessentials.invsee"))
+                .requires(source -> hasPermission(source,
+                    "bigbangessentials.invsee",
+                    "bigbangessentials.item.invsee"))
                 .then(Commands.argument("target", EntityArgument.player())
                     .executes(ctx -> viewInventory(ctx, false))
                 )
@@ -43,7 +46,9 @@ public class InventoryViewCommands {
         // /invseeedit <player> - View and edit inventory
         dispatcher.register(
             Commands.literal("invseeedit")
-                .requires(source -> hasPermission(source, "bigbangessentials.invsee.edit"))
+                .requires(source -> hasPermission(source,
+                    "bigbangessentials.invsee.edit",
+                    "bigbangessentials.item.invsee.edit"))
                 .then(Commands.argument("target", EntityArgument.player())
                     .executes(ctx -> viewInventory(ctx, true))
                 )
@@ -52,7 +57,10 @@ public class InventoryViewCommands {
         // /enderchest <player> - View ender chest (read-only)
         dispatcher.register(
             Commands.literal("enderchest")
-                .requires(source -> hasPermission(source, "bigbangessentials.enderchest"))
+                .requires(source -> hasPermission(source,
+                    "bigbangessentials.enderchest",
+                    "bigbangessentials.item.enderchest",
+                    "bigbangessentials.item.endersee"))
                 .then(Commands.argument("target", EntityArgument.player())
                     .executes(ctx -> viewEnderChest(ctx, false))
                 )
@@ -61,7 +69,10 @@ public class InventoryViewCommands {
         // /enderchestedit <player> - View and edit ender chest
         dispatcher.register(
             Commands.literal("enderchestedit")
-                .requires(source -> hasPermission(source, "bigbangessentials.enderchest.edit"))
+                .requires(source -> hasPermission(source,
+                    "bigbangessentials.enderchest.edit",
+                    "bigbangessentials.item.enderchest.edit",
+                    "bigbangessentials.item.endersee.edit"))
                 .then(Commands.argument("target", EntityArgument.player())
                     .executes(ctx -> viewEnderChest(ctx, true))
                 )
@@ -70,22 +81,21 @@ public class InventoryViewCommands {
         // Aliases
         dispatcher.register(Commands.literal("inv").redirect(dispatcher.getRoot().getChild("invsee")));
         dispatcher.register(Commands.literal("ec").redirect(dispatcher.getRoot().getChild("enderchest")));
-        dispatcher.register(Commands.literal("ecedit").redirect(dispatcher.getRoot().getChild("enderchestdit")));
+        dispatcher.register(Commands.literal("ecedit").redirect(dispatcher.getRoot().getChild("enderchestedit")));
 
-        LOGGER.info("Registered inventory view commands: /invsee, /invseeedit, /enderchest, /enderchest");
+        LOGGER.info("Registered inventory view commands: /invsee, /invseeedit, /enderchest, /enderchestedit");
     }
 
     /**
      * Check if source has permission
      */
-    private static boolean hasPermission(CommandSourceStack source, String permission) {
+    private static boolean hasPermission(CommandSourceStack source, String... permissions) {
         // Console always has permission
         if (!(source.getEntity() instanceof ServerPlayer player)) {
             return true;
         }
 
-        return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
-            player.getUUID(), permission);
+        return PermissionAPI.hasAnyPermission(player.getUUID(), permissions);
     }
 
     /**
@@ -202,4 +212,3 @@ public class InventoryViewCommands {
         ));
     }
 }
-

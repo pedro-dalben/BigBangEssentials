@@ -8,6 +8,8 @@
 
 Full teleportation suite — homes, warps, player warps, spawn, TPA requests, random teleport, direct TP commands, and utility teleports. All with safe-location detection, delay/warmup, and `/back` support.
 
+Compatibility note: the runtime accepts both the canonical teleport permission nodes from `PermissionSystem.md` and the older aliases used in legacy configs and older docs.
+
 ---
 
 ## Safe Location Detection

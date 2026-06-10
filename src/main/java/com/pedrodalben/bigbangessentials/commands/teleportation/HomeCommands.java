@@ -39,6 +39,26 @@ public class HomeCommands {
     private static final String PERMISSION_HOMES = "bigbangessentials.teleport.home.list";
     private static final String PERMISSION_RENAMEHOME = "bigbangessentials.renamehome";
     private static final String PERMISSION_RENAMEHOME_OTHERS = "bigbangessentials.renamehome.others";
+    private static final String[] PERMISSION_HOME_COMPAT = {
+        PERMISSION_HOME,
+        "bigbangessentials.home",
+        "bigbangessentials.teleportation.home"
+    };
+    private static final String[] PERMISSION_SETHOME_COMPAT = {
+        PERMISSION_SETHOME,
+        "bigbangessentials.home.set",
+        "bigbangessentials.teleport.sethome"
+    };
+    private static final String[] PERMISSION_DELHOME_COMPAT = {
+        PERMISSION_DELHOME,
+        "bigbangessentials.home.delete",
+        "bigbangessentials.teleport.delhome"
+    };
+    private static final String[] PERMISSION_HOMES_COMPAT = {
+        PERMISSION_HOMES,
+        "bigbangessentials.home.list",
+        "bigbangessentials.teleport.homes"
+    };
 
     private static final SuggestionProvider<CommandSourceStack> HOME_SUGGESTIONS = (context, builder) -> {
         if (context.getSource().getEntity() instanceof ServerPlayer player) {
@@ -91,11 +111,7 @@ public class HomeCommands {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
                 if (source.getEntity() instanceof ServerPlayer player) {
-                    boolean hasPerm = PermissionAPI.hasPermission(player.getUUID(), PERMISSION_HOME);
-                    if (!hasPerm) {
-                        return false;
-                    }
-                    return hasPerm;
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_HOME_COMPAT);
                 }
                 return false; // Console can't use homes
             })
@@ -119,11 +135,7 @@ public class HomeCommands {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
                 if (source.getEntity() instanceof ServerPlayer player) {
-                    boolean hasPerm = PermissionAPI.hasPermission(player.getUUID(), PERMISSION_SETHOME);
-                    if (!hasPerm) {
-                        return false;
-                    }
-                    return hasPerm;
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETHOME_COMPAT);
                 }
                 return false; // Console can't use homes
             })
@@ -153,11 +165,7 @@ public class HomeCommands {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
                 if (source.getEntity() instanceof ServerPlayer player) {
-                    boolean hasPerm = PermissionAPI.hasPermission(player.getUUID(), PERMISSION_DELHOME);
-                    if (!hasPerm) {
-                        return false;
-                    }
-                    return hasPerm;
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_DELHOME_COMPAT);
                 }
                 return false; // Console can't use homes
             })
@@ -187,11 +195,7 @@ public class HomeCommands {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
                 if (source.getEntity() instanceof ServerPlayer player) {
-                    boolean hasPerm = PermissionAPI.hasPermission(player.getUUID(), PERMISSION_HOMES);
-                    if (!hasPerm) {
-                        return false;
-                    }
-                    return hasPerm;
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_HOMES_COMPAT);
                 }
                 return false; // Console can't use homes
             })

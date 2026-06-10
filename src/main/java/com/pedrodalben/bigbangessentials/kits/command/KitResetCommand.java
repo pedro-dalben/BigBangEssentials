@@ -31,7 +31,13 @@ public class KitResetCommand {
             .requires(src -> {
                 var p = src.getPlayer();
                 return p == null
-                    || PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.kitreset");
+                    || PermissionAPI.hasAnyPermission(
+                        p.getUUID(),
+                        "bigbangessentials.kitreset",
+                        "bigbangessentials.kits.admin.reset",
+                        "bigbangessentials.kit.reset",
+                        "bigbangessentials.kits.admin"
+                    );
             })
             // /kitreset <kitname>
             .then(Commands.argument("kitname", StringArgumentType.word())
@@ -106,4 +112,3 @@ public class KitResetCommand {
         return 1;
     }
 }
-

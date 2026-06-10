@@ -45,7 +45,13 @@ public class DelKitCommand {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
                 if (source.getEntity() instanceof ServerPlayer player) {
-                    return PermissionAPI.hasPermission(player.getUUID(), "bigbangessentials.kits.delete");
+                    return PermissionAPI.hasAnyPermission(
+                        player.getUUID(),
+                        "bigbangessentials.kits.delete",
+                        "bigbangessentials.kits.admin.delete",
+                        "bigbangessentials.kit.delete",
+                        "bigbangessentials.kits.admin"
+                    );
                 }
                 return source.hasPermission(4); // Console/OP fallback
             })

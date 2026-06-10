@@ -378,6 +378,7 @@
   "commands.bigbangessentials.createkit.not_enough_money": "§cYou don't have enough money to create this kit.",
   "commands.bigbangessentials.createkit.pastebin_failed": "§cFailed to upload kit to Pastebin.",
   "commands.bigbangessentials.createkit.pastebin_success": "§aKit uploaded to Pastebin: {0}",
+  "commands.bigbangessentials.createkit.usage": "§cUsage: /{0} <name> [displayname] [cooldown] [description]",
   "commands.bigbangessentials.createkit.updated": "Kit ''{0}'' updated with {1} items (cooldown: {2})",
   "commands.bigbangessentials.delkit.charge_failed": "§cFailed to charge you for deleting the kit.",
   "commands.bigbangessentials.delkit.confirm_instructions": "Use ''/delkit {0} confirm'' to confirm deletion.",

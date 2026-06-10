@@ -25,6 +25,19 @@ public class SpawnCommands {
     private static final String PERMISSION_SPAWN = "bigbangessentials.teleport.spawn";
     private static final String PERMISSION_SETSPAWN = "bigbangessentials.teleport.spawn.set";
     private static final String PERMISSION_SPAWNINFO = "bigbangessentials.teleport.spawn.info";
+    private static final String[] PERMISSION_SPAWN_COMPAT = {
+        PERMISSION_SPAWN,
+        "bigbangessentials.spawn"
+    };
+    private static final String[] PERMISSION_SETSPAWN_COMPAT = {
+        PERMISSION_SETSPAWN,
+        "bigbangessentials.spawn.set",
+        "bigbangessentials.teleport.setspawn"
+    };
+    private static final String[] PERMISSION_SPAWNINFO_COMPAT = {
+        PERMISSION_SPAWNINFO,
+        "bigbangessentials.spawn.info"
+    };
     
     // Track last spawn usage per player (UUID -> epoch seconds)
     private static final java.util.Map<java.util.UUID, Long> lastSpawnUsage = new java.util.HashMap<>();
@@ -74,7 +87,7 @@ public class SpawnCommands {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
                 if (source.getEntity() instanceof ServerPlayer player) {
-                    return PermissionAPI.hasPermission(player.getUUID(), PERMISSION_SPAWN);
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SPAWN_COMPAT);
                 }
                 return source.hasPermission(2); // Console fallback
             })
@@ -89,7 +102,7 @@ public class SpawnCommands {
         dispatcher.register(Commands.literal("setspawn")
             .requires(source -> {
                 if (source.getEntity() instanceof ServerPlayer player) {
-                    return PermissionAPI.hasPermission(player.getUUID(), PERMISSION_SETSPAWN);
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETSPAWN_COMPAT);
                 }
                 return source.hasPermission(3); // Console fallback
             })
@@ -112,7 +125,7 @@ public class SpawnCommands {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
                 if (source.getEntity() instanceof ServerPlayer player) {
-                    return PermissionAPI.hasPermission(player.getUUID(), PERMISSION_SPAWNINFO);
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SPAWNINFO_COMPAT);
                 }
                 return source.hasPermission(2); // Console fallback
             })
@@ -233,6 +246,6 @@ public class SpawnCommands {
      * Check if player has permission to set spawn
      */
     private static boolean hasSetSpawnPermission(ServerPlayer player) {
-        return PermissionAPI.hasPermission(player.getUUID(), PERMISSION_SETSPAWN);
+        return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETSPAWN_COMPAT);
     }
 }

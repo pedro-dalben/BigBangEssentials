@@ -23,34 +23,50 @@ public class PwarpCommands {
     private static final String PERMISSION_SETPWARP = "bigbangessentials.teleport.pwarp.create";
     private static final String PERMISSION_DELPWARP = "bigbangessentials.teleport.pwarp.delete";
     private static final String PERMISSION_PWARPS = "bigbangessentials.teleport.pwarp.list";
+    private static final String[] PERMISSION_PWARP_COMPAT = {
+        PERMISSION_PWARP,
+        "bigbangessentials.pwarp"
+    };
+    private static final String[] PERMISSION_SETPWARP_COMPAT = {
+        PERMISSION_SETPWARP,
+        "bigbangessentials.pwarp.set"
+    };
+    private static final String[] PERMISSION_DELPWARP_COMPAT = {
+        PERMISSION_DELPWARP,
+        "bigbangessentials.pwarp.delete"
+    };
+    private static final String[] PERMISSION_PWARPS_COMPAT = {
+        PERMISSION_PWARPS,
+        "bigbangessentials.pwarp.list"
+    };
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         WarpManager warpManager = WarpManager.getInstance();
         if (!warpManager.isPlayerWarpsEnabled()) return;
         // /pwarp <name>
         dispatcher.register(Commands.literal("pwarp")
-            .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasPermission(player.getUUID(), PERMISSION_PWARP))
+            .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_PWARP_COMPAT))
             .then(Commands.argument("name", StringArgumentType.word())
                 .executes(PwarpCommands::executePwarp)
             )
         );
         // /setpwarp <name>
         dispatcher.register(Commands.literal("setpwarp")
-            .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasPermission(player.getUUID(), PERMISSION_SETPWARP))
+            .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETPWARP_COMPAT))
             .then(Commands.argument("name", StringArgumentType.word())
                 .executes(PwarpCommands::executeSetPwarp)
             )
         );
         // /delpwarp <name>
         dispatcher.register(Commands.literal("delpwarp")
-            .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasPermission(player.getUUID(), PERMISSION_DELPWARP))
+            .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_DELPWARP_COMPAT))
             .then(Commands.argument("name", StringArgumentType.word())
                 .executes(PwarpCommands::executeDelPwarp)
             )
         );
         // /pwarps
         dispatcher.register(Commands.literal("pwarps")
-            .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasPermission(player.getUUID(), PERMISSION_PWARPS))
+            .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_PWARPS_COMPAT))
             .executes(PwarpCommands::executePwarps)
         );
     }

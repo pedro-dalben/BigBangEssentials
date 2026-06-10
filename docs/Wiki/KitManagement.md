@@ -14,14 +14,16 @@ Create item kits with cooldowns, permission gates, and command execution on clai
 
 | Command | Syntax | Permission | Description |
 |---|---|---|---|
-| `/kit` | `/kit` | `bigbangessentials.kits` | List available kits with cooldown status |
-| `/kit` | `/kit <name> [player]` | `bigbangessentials.kits` / `bigbangessentials.kits.others` | Claim a kit (or give to another player) |
+| `/kit` | `/kit` | `bigbangessentials.kits.use` | List available kits with cooldown status |
+| `/kit` | `/kit <name> [player]` | `bigbangessentials.kits.use` / `bigbangessentials.kit.others` | Claim a kit (or give to another player) |
 | `/kits` | alias | same | Alias |
 | `/listkits` | alias | same | Alias |
-| `/showkit` | `/showkit <name>` | `bigbangessentials.kits` | Preview kit contents without claiming |
-| `/createkit` | `/createkit <name> [cooldown]` | `bigbangessentials.kits.create` | Create kit from current inventory |
-| `/delkit` | `/delkit <name>` | `bigbangessentials.kits.delete` | Delete a kit |
+| `/showkit` | `/showkit <name>` | `bigbangessentials.showkit` | Preview kit contents without claiming |
+| `/createkit` | `/createkit <name> [cooldown]` | `bigbangessentials.kits.create` / `bigbangessentials.kits.admin.create` | Create kit from current inventory |
+| `/delkit` | `/delkit <name>` | `bigbangessentials.kits.delete` / `bigbangessentials.kits.admin.delete` | Delete a kit |
 | `/kitreset` | `/kitreset <kit> [player]` | `bigbangessentials.kitreset` / `bigbangessentials.kitreset.others` | Reset a kit cooldown |
+
+> Compatibility note: the runtime also accepts the legacy singular kit nodes (`bigbangessentials.kit.*`) and the bundled admin nodes (`bigbangessentials.kits.admin.*`) so older permission setups keep working.
 
 ---
 

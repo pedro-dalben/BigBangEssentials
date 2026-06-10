@@ -4,6 +4,8 @@
 > All commands are prefixed with `/`. Permission nodes follow `bigbangessentials.<node>` pattern.  
 > `🔒` = op-only by default · `✅` = available to all players by default  
 > Square brackets `[x]` = optional · Angle brackets `<x>` = required · `|` = or
+>
+> Compatibility note: some rows below still mention legacy permission aliases used by older configs. The runtime accepts both the canonical nodes from `PermissionSystem.md` and the older aliases documented here.
 
 ---
 
@@ -489,4 +491,3 @@ Web dashboard settings are under `webDashboard`.
 
 *See [PermissionSystem.md](PermissionSystem.md) for the full permissions reference.*  
 *See [EconomySystem.md](EconomySystem.md), [TeleportationSystem.md](TeleportationSystem.md), etc. for system-specific documentation.*
-

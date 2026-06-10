@@ -40,10 +40,17 @@ public class CreateKitCommand {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
                 if (source.getEntity() instanceof ServerPlayer player) {
-                    return PermissionAPI.hasPermission(player.getUUID(), "bigbangessentials.kits.create");
+                    return PermissionAPI.hasAnyPermission(
+                        player.getUUID(),
+                        "bigbangessentials.kits.create",
+                        "bigbangessentials.kits.admin.create",
+                        "bigbangessentials.kit.create",
+                        "bigbangessentials.kits.admin"
+                    );
                 }
                 return source.hasPermission(4); // Console/OP fallback
             })
+            .executes(ctx -> showUsage(ctx, commandName))
             .then(Commands.argument("kitname", StringArgumentType.word())
                 .executes(CreateKitCommand::createBasicKit)
                 .then(Commands.argument("displayname", StringArgumentType.string())
@@ -57,6 +64,14 @@ public class CreateKitCommand {
                 )
             )
         );
+    }
+
+    private static int showUsage(CommandContext<CommandSourceStack> context, String commandName) {
+        context.getSource().sendFailure(MessageUtil.error(
+            "commands.bigbangessentials.createkit.usage",
+            commandName
+        ));
+        return 0;
     }
     
     private static int createBasicKit(CommandContext<CommandSourceStack> context) {

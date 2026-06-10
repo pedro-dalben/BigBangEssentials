@@ -8,6 +8,8 @@
 
 Item management commands for repair, disposal, enchanting, inventory management, powertool bindings, and item utilities.
 
+Compatibility note: inventory-view permissions accept both the canonical nodes and the older `item.*` aliases used by legacy configs.
+
 ---
 
 ## Commands

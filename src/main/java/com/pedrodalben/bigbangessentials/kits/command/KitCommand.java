@@ -39,7 +39,12 @@ public class KitCommand {
             .requires(src -> {
                 var p = src.getPlayer();
                 // console always allowed (will need player arg); players need base use perm
-                return p == null || PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.kits.use");
+                return p == null || PermissionAPI.hasAnyPermission(
+                    p.getUUID(),
+                    "bigbangessentials.kits.use",
+                    "bigbangessentials.kit",
+                    "bigbangessentials.kits.admin"
+                );
             })
             // /kit — list kits
             .executes(KitCommand::listAvailableKits)

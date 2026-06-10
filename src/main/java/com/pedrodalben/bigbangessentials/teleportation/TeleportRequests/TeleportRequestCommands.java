@@ -28,6 +28,26 @@ public class TeleportRequestCommands {
     private static final String PERMISSION_ACCEPT = "bigbangessentials.teleport.request.accept";
     private static final String PERMISSION_DENY = "bigbangessentials.teleport.request.deny";
     private static final String PERMISSION_CANCEL = "bigbangessentials.teleport.request.cancel";
+    private static final String[] PERMISSION_TPA_COMPAT = {
+        PERMISSION_TPA,
+        "bigbangessentials.teleport.tpa"
+    };
+    private static final String[] PERMISSION_TPAHERE_COMPAT = {
+        PERMISSION_TPAHERE,
+        "bigbangessentials.teleport.tpahere"
+    };
+    private static final String[] PERMISSION_ACCEPT_COMPAT = {
+        PERMISSION_ACCEPT,
+        "bigbangessentials.teleport.tpaccept"
+    };
+    private static final String[] PERMISSION_DENY_COMPAT = {
+        PERMISSION_DENY,
+        "bigbangessentials.teleport.tpdeny"
+    };
+    private static final String[] PERMISSION_CANCEL_COMPAT = {
+        PERMISSION_CANCEL,
+        "bigbangessentials.teleport.tpacancel"
+    };
     
     // Suggestion provider for online players
     private static final SuggestionProvider<CommandSourceStack> ONLINE_PLAYERS = (context, builder) -> {
@@ -50,7 +70,7 @@ public class TeleportRequestCommands {
                     Commands.literal("tpa")
                         .requires(source -> {
                             if (source.getEntity() instanceof ServerPlayer player) {
-                                boolean hasPerm = PermissionAPI.hasPermission(player.getUUID(), PERMISSION_TPA);
+                                boolean hasPerm = PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_TPA_COMPAT);
                                 LOGGER.info("[TPA] Checking permission {} for {}: {}", PERMISSION_TPA, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
@@ -69,7 +89,7 @@ public class TeleportRequestCommands {
                     Commands.literal("tpahere")
                         .requires(source -> {
                             if (source.getEntity() instanceof ServerPlayer player) {
-                                boolean hasPerm = PermissionAPI.hasPermission(player.getUUID(), PERMISSION_TPAHERE);
+                                boolean hasPerm = PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_TPAHERE_COMPAT);
                                 LOGGER.info("[TPAHERE] Checking permission {} for {}: {}", PERMISSION_TPAHERE, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
@@ -88,7 +108,7 @@ public class TeleportRequestCommands {
                     Commands.literal("tpaccept")
                         .requires(source -> {
                             if (source.getEntity() instanceof ServerPlayer player) {
-                                boolean hasPerm = PermissionAPI.hasPermission(player.getUUID(), PERMISSION_ACCEPT);
+                                boolean hasPerm = PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_ACCEPT_COMPAT);
                                 LOGGER.info("[TPACCEPT] Checking permission {} for {}: {}", PERMISSION_ACCEPT, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
@@ -104,7 +124,7 @@ public class TeleportRequestCommands {
                     Commands.literal("tpdeny")
                         .requires(source -> {
                             if (source.getEntity() instanceof ServerPlayer player) {
-                                boolean hasPerm = PermissionAPI.hasPermission(player.getUUID(), PERMISSION_DENY);
+                                boolean hasPerm = PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_DENY_COMPAT);
                                 LOGGER.info("[TPDENY] Checking permission {} for {}: {}", PERMISSION_DENY, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
@@ -114,20 +134,10 @@ public class TeleportRequestCommands {
                 );
             }
             
-            if (config.isCommandEnabled("tpcancel")) {
+            if (config.isCommandEnabled("tpcancel") || config.isCommandEnabled("tpacancel")) {
                 // /tpcancel - Cancel your sent teleport request
-                dispatcher.register(
-                    Commands.literal("tpcancel")
-                        .requires(source -> {
-                            if (source.getEntity() instanceof ServerPlayer player) {
-                                boolean hasPerm = PermissionAPI.hasPermission(player.getUUID(), PERMISSION_CANCEL);
-                                LOGGER.info("[TPCANCEL] Checking permission {} for {}: {}", PERMISSION_CANCEL, player.getName().getString(), hasPerm);
-                                return hasPerm;
-                            }
-                            return false; // Console can't use teleport requests
-                        })
-                        .executes(context -> executeTpCancel(context))
-                );
+                registerTpCancelCommand(dispatcher, "tpcancel");
+                registerTpCancelCommand(dispatcher, "tpacancel");
             }
             
             LOGGER.info("Registered enabled teleport request commands");
@@ -254,5 +264,20 @@ public class TeleportRequestCommands {
             LOGGER.error("Error executing /tpcancel command", e);
             return 0;
         }
+    }
+
+    private static void registerTpCancelCommand(CommandDispatcher<CommandSourceStack> dispatcher, String literal) {
+        dispatcher.register(
+            Commands.literal(literal)
+                .requires(source -> {
+                    if (source.getEntity() instanceof ServerPlayer player) {
+                        boolean hasPerm = PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_CANCEL_COMPAT);
+                        LOGGER.info("[TPCANCEL] Checking permission {} for {}: {}", PERMISSION_CANCEL, player.getName().getString(), hasPerm);
+                        return hasPerm;
+                    }
+                    return false; // Console can't use teleport requests
+                })
+                .executes(context -> executeTpCancel(context))
+        );
     }
 }

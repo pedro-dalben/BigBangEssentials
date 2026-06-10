@@ -544,7 +544,7 @@ public class BigBangEssentials {
         registry.registerCommand("tpahere", "Request a player to teleport to you");
         registry.registerCommand("tpaccept", "Accept a teleport request");
         registry.registerCommand("tpdeny", "Deny a teleport request");
-        registry.registerCommand("tpacancel", "Cancel your teleport request");
+        registry.registerCommand("tpacancel", "Cancel your teleport request", "tpcancel");
         com.pedrodalben.bigbangessentials.teleportation.TeleportRequests.TeleportRequestCommands.register(dispatcher);
         
         // Register admin teleportation commands
@@ -654,7 +654,7 @@ public class BigBangEssentials {
         registry.registerCommand("kit", "Claim a kit");
         registry.registerCommand("kits", "List available kits");
         registry.registerCommand("listkits", "List available kits (alias)");
-        registry.registerCommand("createkit", "Create a new kit");
+        registry.registerCommand("createkit", "Create a new kit", "makekit", "addkit");
         registry.registerCommand("delkit", "Delete a kit");
         registry.registerCommand("kitreset", "Reset a kit cooldown");
         com.pedrodalben.bigbangessentials.kits.command.KitCommands.register(dispatcher);
