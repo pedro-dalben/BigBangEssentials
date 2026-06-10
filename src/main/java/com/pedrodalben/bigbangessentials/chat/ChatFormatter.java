@@ -65,6 +65,13 @@ public class ChatFormatter {
                 LOGGER.debug("After badges/icons: {}", normalizedTemplate);
             }
 
+            // Apply player-selected chat tags
+            normalizedTemplate = com.pedrodalben.bigbangessentials.tags.TagManager.getInstance()
+                .applyChatTags(player, normalizedTemplate);
+            if (debugEnabled) {
+                LOGGER.debug("After chat tags: {}", normalizedTemplate);
+            }
+
             // Restrict colors in message BEFORE inserting into template
             String restrictedMessage = restrictPlayerMessageColors(message, player);
             if (debugEnabled) {
@@ -302,6 +309,9 @@ public class ChatFormatter {
             .replace("{USERNAME}", "{bigbangessentials_username}")
             .replace("{PREFIX}", "{bigbangessentials_prefix}")
             .replace("{SUFFIX}", "{bigbangessentials_suffix}")
+            .replace("{TAG}", "{bigbangessentials_tag}")
+            .replace("{TAG_NAME}", "{bigbangessentials_tag_name}")
+            .replace("{TAG_FORMAT}", "{bigbangessentials_tag_format}")
             .replace("{WORLD}", "{bigbangessentials_world}")
             .replace("{X}", "{bigbangessentials_x}")
             .replace("{Y}", "{bigbangessentials_y}")

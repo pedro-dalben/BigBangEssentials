@@ -6,7 +6,7 @@
 
 ## Overview
 
-Full-featured chat system with format templates, rich text (gradients/rainbow), channel routing, Discord relay, mute/ignore, social spy, and per-player time/weather. All chat is logged to the server console.
+Full-featured chat system with format templates, player-selectable tags, rich text (gradients/rainbow), channel routing, Discord relay, mute/ignore, social spy, and per-player time/weather. All chat is logged to the server console.
 
 Channel routing is local by default. Normal chat stays local, `/g` sends a one-off global message tagged `[g]`, and the local no-nearby prompt comes from `chat.channels.local.noPlayersMessage`.
 
@@ -34,6 +34,9 @@ Channel routing is local by default. Normal chat stays local, `/g` sends a one-o
 | `{suffix}` | Player's permission group suffix |
 | `{name}` | Player's real username |
 | `{displayname}` | Player's nickname or real name |
+| `{bigbangessentials_tag}` | Selected chat tag, injected before the name |
+| `{bigbangessentials_tag_name}` | Selected chat tag name |
+| `{bigbangessentials_tag_format}` | Raw selected chat tag format |
 | `{message}` | The chat message content |
 | `{world}` | Current world/dimension name |
 
@@ -60,6 +63,20 @@ Channel routing is local by default. Normal chat stays local, `/g` sends a one-o
 | `/ignore` | `/ignore <player>` | `bigbangessentials.chat.ignore` | Ignore a player's messages |
 | `/unignore` | `/unignore <player>` | `bigbangessentials.chat.ignore` | Unignore a player |
 | `/ignorelist` | `/ignorelist` | `bigbangessentials.chat.ignore` | List ignored players |
+
+### Chat Tags
+
+| Command | Syntax | Permission | Description |
+|---|---|---|---|
+| `/createtag` | `/createtag <name> <format>` | `bigbangessentials.tag.create` / `bigbangessentials.tag.admin` | Create or update a chat tag |
+| `/deltag` | `/deltag <name>` | `bigbangessentials.tag.remove` / `bigbangessentials.tag.admin` | Delete a chat tag |
+| `/tags` | `/tags` | none | List the tags you can use and select one |
+| `/tag` | alias for `/tags` | same | Alias; supports `/tag select <name>`, `/tag clear`, and `/tag remove <name>` |
+
+Tag definitions are stored in `world/serverconfig/bigbangessentials/tags.json`.
+Grant access with `bigbangessentials.tag.<name>`, for example `bigbangessentials.tag.campeao`.
+Use `{bigbangessentials_tag}` in `chat-format` to inject the selected tag automatically, or use `{bigbangessentials_tag_name}` and `{bigbangessentials_tag_format}` for custom layouts.
+Removing a tag with `/deltag` or `/tag remove` deletes the definition from `tags.json`; players who had it selected will lose it on the next chat/selection lookup.
 
 ---
 
@@ -104,6 +121,8 @@ Works standalone (no relay) if Simple Discord Link is not installed.
 |---|---|
 | `bigbangessentials/ignore_data.json` | Per-player ignore lists |
 | `bigbangessentials/muted_players.json` | Active mutes |
+| `world/serverconfig/bigbangessentials/tags.json` | Global chat tag definitions |
+| `bigbangessentials/playerdata/tags/*.json` | Per-player selected tag state |
 
 ---
 

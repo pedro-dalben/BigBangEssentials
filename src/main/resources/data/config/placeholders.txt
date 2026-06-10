@@ -15,10 +15,10 @@ Use placeholders in chat format, MOTD, signs, books, and any text component.
 Format: {placeholder_name} or {placeholder_name:parameter}
 
 Example chat format:
-  "chat-format": "{bigbangessentials_prefix}{bigbangessentials_name}{bigbangessentials_suffix}: {MESSAGE}"
+  "chat-format": "{bigbangessentials_prefix}{bigbangessentials_tag}{bigbangessentials_name}{bigbangessentials_suffix}: {MESSAGE}"
 
 Result:
-  [Admin] PlayerName [VIP]: Hello world!
+  [Admin] [Campeão] PlayerName [VIP]: Hello world!
 
   - Wiki: [Your Wiki Link]
   - Discord: [Your Discord Link]
@@ -353,6 +353,12 @@ PLAYER STATUS:
 {bigbangessentials_group}             - Player's primary group
 {bigbangessentials_suffix}            - Player's suffix (from LuckPerms or internal)
 {bigbangessentials_prefix}            - Player's prefix (from LuckPerms or internal)
+--------
+CHAT TAGS:
+
+{bigbangessentials_tag}               - Selected chat tag with trailing space (empty if none)
+{bigbangessentials_tag_name}          - Selected tag name
+{bigbangessentials_tag_format}        - Raw selected tag format
 ------------------
 PERMISSION SYSTEM:
 

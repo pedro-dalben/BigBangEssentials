@@ -270,6 +270,17 @@ public class ModRootCommand {
                 LOGGER.error("✗ Failed to reload chat system: {}", e.getMessage(), e);
                 source.sendFailure(MessageUtil.warning("Failed to reload chat configuration: " + e.getMessage()));
             }
+
+            // Reload TagManager
+            totalCount++;
+            try {
+                com.pedrodalben.bigbangessentials.tags.TagManager.getInstance().reload();
+                LOGGER.info("✓ Tag system reloaded");
+                successCount++;
+            } catch (Exception e) {
+                LOGGER.error("✗ Failed to reload tag system: {}", e.getMessage(), e);
+                source.sendFailure(MessageUtil.warning("Failed to reload tags: " + e.getMessage()));
+            }
             
             // Reload AfkManager
             totalCount++;

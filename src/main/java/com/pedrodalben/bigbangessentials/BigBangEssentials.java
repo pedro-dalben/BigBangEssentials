@@ -13,7 +13,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +48,9 @@ public class BigBangEssentials {
         LOGGER.info("╚════════════════════════════════════════════════════════════════╝");
         LOGGER.info("");
         LOGGER.info("Initializing {} systems...", MOD_NAME);
+
+        NeoForge.EVENT_BUS.register(GameEvents.class);
+        LOGGER.info("Registered BigBangEssentials game event handlers");
 
         // Move legacy config files into world/serverconfig before any manager loads them.
         try {
@@ -124,6 +127,9 @@ public class BigBangEssentials {
         registry.registerManager("AfkManager", "chat",
             com.pedrodalben.bigbangessentials.chat.AfkManager.class,
             com.pedrodalben.bigbangessentials.chat.AfkManager::getInstance);
+        registry.registerManager("TagManager", "chat",
+            com.pedrodalben.bigbangessentials.tags.TagManager.class,
+            com.pedrodalben.bigbangessentials.tags.TagManager::getInstance);
         
         // Note: MuteManager, SocialSpyManager, LastMessageManager, MsgToggleManager, ChatManager
         // are utility classes without singleton pattern - not registered here
@@ -177,7 +183,6 @@ public class BigBangEssentials {
         LOGGER.debug("Manager registration complete - {} managers registered", registry.getManagerCount());
     }
     
-    @EventBusSubscriber(modid = "bigbangessentials", bus = EventBusSubscriber.Bus.GAME)
     public static class GameEvents {
         
         @SubscribeEvent
@@ -483,6 +488,7 @@ public class BigBangEssentials {
             removeVanillaCommand(dispatcher, "msg");
             removeVanillaCommand(dispatcher, "tell");
             removeVanillaCommand(dispatcher, "w");
+            removeVanillaCommand(dispatcher, "tag");
             
             registerAllCommands(dispatcher, registry);
         }
@@ -628,6 +634,9 @@ public class BigBangEssentials {
         registry.registerCommand("socialspy", "Spy on private messages");
         registry.registerCommand("msgtoggle", "Toggle receiving private messages");
         registry.registerCommand("mail", "Manage mail messages");
+        registry.registerCommand("createtag", "Create or update a chat tag");
+        registry.registerCommand("deltag", "Delete a chat tag");
+        registry.registerCommand("tags", "List and select your chat tags", "tag");
         com.pedrodalben.bigbangessentials.chat.command.MsgCommand.register(dispatcher);
         com.pedrodalben.bigbangessentials.chat.command.ReplyCommand.register(dispatcher);
         com.pedrodalben.bigbangessentials.chat.command.IgnoreCommand.register(dispatcher);
@@ -637,6 +646,7 @@ public class BigBangEssentials {
         com.pedrodalben.bigbangessentials.chat.command.UnmuteCommand.register(dispatcher);
         com.pedrodalben.bigbangessentials.chat.command.MuteListCommand.register(dispatcher);
         com.pedrodalben.bigbangessentials.chat.command.MsgToggleCommand.register(dispatcher);
+        com.pedrodalben.bigbangessentials.tags.command.TagCommands.register(dispatcher);
 
         // Register channel commands (dynamically from config)
         com.pedrodalben.bigbangessentials.chat.commands.ChannelCommands.register(dispatcher);

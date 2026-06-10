@@ -96,7 +96,7 @@ vanish (v) - Toggle vanish mode (invisible to players)
 unvanish - Disable vanish mode
 vanishlist - List vanished players
 
-## Chat & Communication Commands (12)
+## Chat & Communication Commands (15)
 msg (message, tell, whisper, w, pm) - Send a private message to a player
 reply (r) - Reply to the last private message
 ignore - Ignore messages from a player
@@ -108,6 +108,12 @@ mail - Manage your mail messages
   - send <player> <message> - Send mail to a player
   - delete <id> - Delete a mail message
   - clear - Clear all your mail
+createtag - Create or update a chat tag
+deltag - Delete a chat tag
+tags (tag) - List and select your chat tags
+  - list - List all accessible tags
+  - select <name> - Select a tag you can use
+  - clear - Remove your selected tag
 
 ## Permission Management Commands (2)
 permissions (pex) - Manage permissions and groups

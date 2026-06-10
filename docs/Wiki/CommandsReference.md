@@ -235,6 +235,17 @@
 | `/ac` | alias for `/helpop` | same | ✅ | Alias |
 | `/amsg` | alias for `/helpop` | same | ✅ | Alias |
 
+### Chat Tags
+
+| Command | Syntax | Permission | Default | Description |
+|---|---|---|---|---|
+| `/createtag` | `/createtag <name> <format>` | `bigbangessentials.tag.create` / `bigbangessentials.tag.admin` | 🔒 | Create or update a chat tag |
+| `/deltag` | `/deltag <name>` | `bigbangessentials.tag.remove` / `bigbangessentials.tag.admin` | 🔒 | Delete a chat tag |
+| `/tags` | `/tags` or `/tag list` | none | ✅ | List the tags you can use and select one |
+| `/tag` | alias for `/tags` | same | ✅ | Alias; supports `/tag select <name>`, `/tag clear`, and `/tag remove <name>` |
+
+Each tag is protected by `bigbangessentials.tag.<name>` and can be granted individually or through the `bigbangessentials.tag.*` wildcard. The management nodes are `bigbangessentials.tag.create`, `bigbangessentials.tag.remove`, and `bigbangessentials.tag.admin`.
+
 ---
 
 ## Kits

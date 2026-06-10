@@ -29,6 +29,9 @@
     "enchanthand": true,
     "msg": true,
     "reply": true,
+    "createtag": true,
+    "deltag": true,
+    "tags": true,
     "afk": true,
     "ignore": true,
     "unignore": true,
@@ -612,12 +615,12 @@
   },
   "chat": {
     "chat-format": {
-      "default": "<{bigbangessentials_prefix} {bigbangessentials_username} {bigbangessentials_suffix}> {MESSAGE}",
-      "group:admin": "&c[Admin] {bigbangessentials_username}: {MESSAGE}",
-      "group:mod": "&2[Mod] {bigbangessentials_username}: {MESSAGE}",
-      "world:creative": "&b[C] {bigbangessentials_username}: {MESSAGE}"
+      "default": "<{bigbangessentials_prefix}{bigbangessentials_tag}{bigbangessentials_username}{bigbangessentials_suffix}> {MESSAGE}",
+      "group:admin": "&c[Admin] {bigbangessentials_tag}{bigbangessentials_username}: {MESSAGE}",
+      "group:mod": "&2[Mod] {bigbangessentials_tag}{bigbangessentials_username}: {MESSAGE}",
+      "world:creative": "&b[C] {bigbangessentials_tag}{bigbangessentials_username}: {MESSAGE}"
     },
-    "chat-format-description": "Chat format template. You can use a string (for global format) or an object for per-group/world formats. Keys: 'default', 'group:GROUPNAME', 'world:WORLDNAME', or 'group:GROUP:world:WORLD'. Placeholders: {bigbangessentials_displayname}, {bigbangessentials_username}, {MESSAGE}, {bigbangessentials_prefix}, {bigbangessentials_suffix}, {bigbangessentials_world}, {bigbangessentials_x}, {bigbangessentials_y}, {bigbangessentials_z}, {bigbangessentials_health}, {bigbangessentials_level}, and more via PlaceholderAPI. Legacy uppercase placeholders like {USERNAME}, {PREFIX}, {SUFFIX} are automatically converted for backwards compatibility. Use '&' for color codes (e.g., &c for red, &6 for gold).",
+    "chat-format-description": "Chat format template. You can use a string (for global format) or an object for per-group/world formats. Keys: 'default', 'group:GROUPNAME', 'world:WORLDNAME', or 'group:GROUP:world:WORLD'. Placeholders: {bigbangessentials_displayname}, {bigbangessentials_username}, {bigbangessentials_tag}, {bigbangessentials_tag_name}, {bigbangessentials_tag_format}, {MESSAGE}, {bigbangessentials_prefix}, {bigbangessentials_suffix}, {bigbangessentials_world}, {bigbangessentials_x}, {bigbangessentials_y}, {bigbangessentials_z}, {bigbangessentials_health}, {bigbangessentials_level}, and more via PlaceholderAPI. Use /createtag to define tags and /tag select to choose one. Legacy uppercase placeholders like {USERNAME}, {PREFIX}, {SUFFIX}, and {TAG} are automatically converted for backwards compatibility. Use '&' for color codes (e.g., &c for red, &6 for gold).",
     "enableChatEnhancements": true,
     "enableChatEnhancements_comment": "Enable Phase 2 chat enhancements (clickable names, mentions, URLs, item links). Set to false to use basic chat formatting only.",
     "clickablePlayerNames": true,
@@ -733,14 +736,14 @@
       "activeTemplate": "default",
       "activeTemplate_comment": "Active template to use: 'default', 'rpg', 'modern', 'minimal', 'detailed', 'ranked', or 'custom'.",
       "templates": {
-        "default": "<{bigbangessentials_prefix} {bigbangessentials_username} {bigbangessentials_suffix}> {MESSAGE}",
-        "rpg": "&7[Lv.{bigbangessentials_level}] {bigbangessentials_prefix}{bigbangessentials_name}&r: {MESSAGE}",
-        "modern": "● {bigbangessentials_prefix}{bigbangessentials_name} &8› &r{MESSAGE}",
-        "minimal": "{bigbangessentials_name}: {MESSAGE}",
-        "detailed": "&7[{bigbangessentials_world}] &r<{bigbangessentials_prefix}{bigbangessentials_name}{bigbangessentials_suffix}&r> {MESSAGE}",
-        "ranked": "&7[{bigbangessentials_group}] {bigbangessentials_prefix}{bigbangessentials_name}&r: {MESSAGE}",
-        "custom": "<{bigbangessentials_prefix} {bigbangessentials_username} {bigbangessentials_suffix}> {MESSAGE}"
-      }
+      "default": "<{bigbangessentials_prefix}{bigbangessentials_tag}{bigbangessentials_username}{bigbangessentials_suffix}> {MESSAGE}",
+      "rpg": "&7[Lv.{bigbangessentials_level}] {bigbangessentials_prefix}{bigbangessentials_tag}{bigbangessentials_name}&r: {MESSAGE}",
+      "modern": "● {bigbangessentials_prefix}{bigbangessentials_tag}{bigbangessentials_name} &8› &r{MESSAGE}",
+      "minimal": "{bigbangessentials_tag}{bigbangessentials_name}: {MESSAGE}",
+      "detailed": "&7[{bigbangessentials_world}] &r<{bigbangessentials_prefix}{bigbangessentials_tag}{bigbangessentials_name}{bigbangessentials_suffix}&r> {MESSAGE}",
+      "ranked": "&7[{bigbangessentials_group}] {bigbangessentials_prefix}{bigbangessentials_tag}{bigbangessentials_name}&r: {MESSAGE}",
+      "custom": "<{bigbangessentials_prefix}{bigbangessentials_tag}{bigbangessentials_username}{bigbangessentials_suffix}> {MESSAGE}"
+    }
     },
     "richText": {
       "enabled": false,

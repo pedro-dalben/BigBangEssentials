@@ -37,6 +37,9 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
         placeholders.add("prefix");
         placeholders.add("suffix");
         placeholders.add("group");
+        placeholders.add("tag");
+        placeholders.add("tag_name");
+        placeholders.add("tag_format");
         
         // Location placeholders
         placeholders.add("world");
@@ -113,6 +116,9 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
                 case "prefix" -> getPlayerPrefix(player);
                 case "suffix" -> getPlayerSuffix(player);
                 case "group" -> getPlayerGroup(player);
+                case "tag" -> getPlayerTag(player);
+                case "tag_name" -> getPlayerTagName(player);
+                case "tag_format" -> getPlayerTagFormat(player);
                 
                 // Location
                 case "world" -> player != null ? getWorldName(player) : null;
@@ -223,6 +229,55 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
         } catch (Exception e) {
             LOGGER.debug("Error getting group for player {}: {}", player.getName().getString(), e.getMessage());
             return "default";
+        }
+    }
+
+    /**
+     * Get the player's selected chat tag, including a trailing separator when present.
+     */
+    @Nullable
+    private String getPlayerTag(@Nullable ServerPlayer player) {
+        if (player == null) return null;
+
+        try {
+            return com.pedrodalben.bigbangessentials.tags.TagManager.getInstance()
+                .getSelectedChatTag(player);
+        } catch (Exception e) {
+            LOGGER.debug("Error getting tag for player {}: {}", player.getName().getString(), e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * Get the player's selected tag name.
+     */
+    @Nullable
+    private String getPlayerTagName(@Nullable ServerPlayer player) {
+        if (player == null) return null;
+
+        try {
+            String tagName = com.pedrodalben.bigbangessentials.tags.TagManager.getInstance()
+                .getSelectedTagName(player.getUUID());
+            return tagName != null ? tagName : "";
+        } catch (Exception e) {
+            LOGGER.debug("Error getting tag name for player {}: {}", player.getName().getString(), e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * Get the player's selected tag format.
+     */
+    @Nullable
+    private String getPlayerTagFormat(@Nullable ServerPlayer player) {
+        if (player == null) return null;
+
+        try {
+            return com.pedrodalben.bigbangessentials.tags.TagManager.getInstance()
+                .getSelectedTagFormat(player.getUUID());
+        } catch (Exception e) {
+            LOGGER.debug("Error getting tag format for player {}: {}", player.getName().getString(), e.getMessage());
+            return "";
         }
     }
     

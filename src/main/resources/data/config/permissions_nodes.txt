@@ -210,6 +210,10 @@ bigbangessentials.chat.badge - Use chat badges (default: false)
 bigbangessentials.chat.badge.admin - Use admin badge (default: false)
 bigbangessentials.chat.badge.staff - Use staff badge (default: false)
 bigbangessentials.chat.badge.custom - Use custom badges (default: false)
+bigbangessentials.tag.create - Create or update chat tags (default: false)
+bigbangessentials.tag.remove - Delete chat tags (default: false)
+bigbangessentials.tag.admin - Manage chat tags (default: false)
+bigbangessentials.tag.<name> - Use a specific chat tag (dynamic, e.g. bigbangessentials.tag.campeao)
 bigbangessentials.chat.anti-spam - Exempt from anti-spam (default: false)
 bigbangessentials.chat.anti-caps - Exempt from anti-caps (default: false)
 bigbangessentials.chat.anti-link - Exempt from anti-link (default: false)
@@ -269,6 +273,7 @@ bigbangessentials.teleport.* - All teleportation permissions
 bigbangessentials.kits.* - All kit permissions
 bigbangessentials.item.* - All item management permissions
 bigbangessentials.chat.* - All chat permissions
+bigbangessentials.tag.* - All chat tag permissions
 bigbangessentials.permissions.* - All permission system permissions
 
 ## ═══════════════════════════════════════════════════════════
