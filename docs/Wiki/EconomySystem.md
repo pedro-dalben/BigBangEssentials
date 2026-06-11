@@ -86,7 +86,7 @@ Use `Admin Shop` on line 1 — requires `bigbangessentials.shop.create.admin`. A
 
 | Command | Permission | Description |
 |---|---|---|
-| `/chestshop list [player]` | `bigbangessentials.shop.list` | List shops |
+| `/chestshop list [player]` | none for self, `bigbangessentials.shop.list.others` for another player | List shops |
 | `/chestshop info` | `bigbangessentials.shop.use` | Show info about a looked-at shop |
 | `/chestshop remove <x y z>` | `bigbangessentials.shop.admin.remove` | Admin-remove a shop by coordinates |
 | `/chestshop reload` | `bigbangessentials.shop.admin.reload` | Reload shops from disk |
@@ -95,7 +95,7 @@ Use `Admin Shop` on line 1 — requires `bigbangessentials.shop.create.admin`. A
 
 | Node | Description |
 |---|---|
-| `bigbangessentials.shop.create` | Create player shops |
+| `bigbangessentials.shop.create` | Create player shops and convert signs into shops |
 | `bigbangessentials.shop.create.admin` | Create admin shops |
 | `bigbangessentials.shop.use` | Buy/sell at shops |
 | `bigbangessentials.shop.list.others` | View other players' shops |

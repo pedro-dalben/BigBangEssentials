@@ -96,8 +96,9 @@ public class WarpCommands {
                 // /warp <name> <player>  — Essentials: essentials.warp.others
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests(PLAYER_SUGGESTIONS)
-                    .requires(src -> src.getPlayer() == null ||
-                        PermissionAPI.hasAnyPermission(src.getPlayer().getUUID(), PERMISSION_WARP_OTHERS_COMPAT))
+                    .requires(src -> src.hasPermission(3)
+                        || src.getPlayer() == null
+                        || PermissionAPI.hasAnyPermission(src.getPlayer().getUUID(), PERMISSION_WARP_OTHERS_COMPAT))
                     .executes(ctx -> executeWarp(ctx,
                         StringArgumentType.getString(ctx, "name"),
                         StringArgumentType.getString(ctx, "target")))
@@ -107,7 +108,8 @@ public class WarpCommands {
     }
 
     private static boolean hasAnyWarpPerm(CommandSourceStack src) {
-        if (src.getPlayer() == null) return src.hasPermission(2);
+        if (src.hasPermission(2)) return true;
+        if (src.getPlayer() == null) return false;
         UUID id = src.getPlayer().getUUID();
         return PermissionAPI.hasAnyPermission(id, PERMISSION_WARP_COMPAT)
             || PermissionAPI.hasAnyPermission(id, PERMISSION_WARP_LIST_COMPAT)
@@ -217,9 +219,9 @@ public class WarpCommands {
     private static void registerSetWarpCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         for (String alias : new String[]{"setwarp", "createwarp", "addwarp"}) {
             dispatcher.register(Commands.literal(alias)
-                .requires(src -> src.getPlayer() == null
-                    ? src.hasPermission(3)
-                    : PermissionAPI.hasAnyPermission(src.getPlayer().getUUID(), PERMISSION_SETWARP_COMPAT))
+                .requires(src -> src.hasPermission(3)
+                    || (src.getPlayer() != null
+                        && PermissionAPI.hasAnyPermission(src.getPlayer().getUUID(), PERMISSION_SETWARP_COMPAT)))
                 .then(Commands.argument("name", StringArgumentType.word())
                     .executes(WarpCommands::executeSetWarpHere)
                     .then(Commands.argument("pos", BlockPosArgument.blockPos())
@@ -254,9 +256,9 @@ public class WarpCommands {
     private static void registerDelWarpCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         for (String alias : new String[]{"delwarp", "deletewarp", "removewarp", "rwarp"}) {
             dispatcher.register(Commands.literal(alias)
-                .requires(src -> src.getPlayer() == null
-                    ? src.hasPermission(3)
-                    : PermissionAPI.hasAnyPermission(src.getPlayer().getUUID(), PERMISSION_DELWARP_COMPAT))
+                .requires(src -> src.hasPermission(3)
+                    || (src.getPlayer() != null
+                        && PermissionAPI.hasAnyPermission(src.getPlayer().getUUID(), PERMISSION_DELWARP_COMPAT)))
                 .then(Commands.argument("name", StringArgumentType.word())
                     .suggests(WARP_SUGGESTIONS)
                     .executes(ctx -> executeDelWarp(ctx, StringArgumentType.getString(ctx, "name")))
@@ -285,7 +287,8 @@ public class WarpCommands {
             return 0;
         }
         // Permission is already checked in requires(), but double-check for clarity
-        if (!PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_DELWARP_COMPAT)) {
+        if (!source.hasPermission(3)
+                && !PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_DELWARP_COMPAT)) {
             source.sendFailure(MessageUtil.error("commands.bigbangessentials.general.no_permission"));
             return 0;
         }
@@ -296,7 +299,8 @@ public class WarpCommands {
     private static void registerWarpsCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         for (String alias : new String[]{"warps", "warplist", "listwarps"}) {
             dispatcher.register(Commands.literal(alias)
-                .requires(src -> src.getPlayer() == null
+                .requires(src -> src.hasPermission(2)
+                    || src.getPlayer() == null
                     || PermissionAPI.hasAnyPermission(src.getPlayer().getUUID(), PERMISSION_WARP_LIST_COMPAT))
                 .executes(ctx -> executeWarpList(ctx.getSource(), 1))
                 .then(Commands.argument("page", IntegerArgumentType.integer(1))
@@ -310,7 +314,8 @@ public class WarpCommands {
     // Essentials: Commandwarpinfo — shows coordinates and world for a warp.
     public static void registerWarpInfoCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("warpinfo")
-            .requires(src -> src.getPlayer() == null
+            .requires(src -> src.hasPermission(2)
+                || src.getPlayer() == null
                 || PermissionAPI.hasPermission(src.getPlayer().getUUID(), PERMISSION_WARPINFO))
             .then(Commands.argument("warp", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(

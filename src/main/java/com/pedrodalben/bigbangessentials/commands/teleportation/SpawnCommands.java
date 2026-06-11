@@ -86,10 +86,14 @@ public class SpawnCommands {
     private static void registerSpawnCommandWithName(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer player) {
+                if (source.hasPermission(2)) {
+                    return true;
+                }
+                ServerPlayer player = source.getPlayer();
+                if (player != null) {
                     return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SPAWN_COMPAT);
                 }
-                return source.hasPermission(2); // Console fallback
+                return false;
             })
             .executes(SpawnCommands::executeSpawn)
         );
@@ -101,10 +105,14 @@ public class SpawnCommands {
     private static void registerSetSpawnCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("setspawn")
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer player) {
+                if (source.hasPermission(3)) {
+                    return true;
+                }
+                ServerPlayer player = source.getPlayer();
+                if (player != null) {
                     return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETSPAWN_COMPAT);
                 }
-                return source.hasPermission(3); // Console fallback
+                return false;
             })
             .executes(SpawnCommands::executeSetSpawnHere)
             .then(Commands.argument("pos", BlockPosArgument.blockPos())
@@ -124,10 +132,14 @@ public class SpawnCommands {
     private static void registerSpawnInfoCommandWithName(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer player) {
+                if (source.hasPermission(2)) {
+                    return true;
+                }
+                ServerPlayer player = source.getPlayer();
+                if (player != null) {
                     return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SPAWNINFO_COMPAT);
                 }
-                return source.hasPermission(2); // Console fallback
+                return false;
             })
             .executes(SpawnCommands::executeSpawnInfo)
         );
@@ -186,7 +198,7 @@ public class SpawnCommands {
         SpawnManager spawnManager = SpawnManager.getInstance();
         
         // Check permission
-        if (!hasSetSpawnPermission(player)) {
+        if (!hasSetSpawnPermission(context.getSource(), player)) {
             context.getSource().sendFailure(MessageUtil.error("teleport.spawn.no_permission"));
             return 0;
         }
@@ -205,7 +217,7 @@ public class SpawnCommands {
         SpawnManager spawnManager = SpawnManager.getInstance();
         
         // Check permission
-        if (!hasSetSpawnPermission(player)) {
+        if (!hasSetSpawnPermission(context.getSource(), player)) {
             context.getSource().sendFailure(MessageUtil.error("teleport.spawn.no_permission"));
             return 0;
         }
@@ -234,7 +246,7 @@ public class SpawnCommands {
         player.sendSystemMessage(MessageUtil.info(info));
         
         // Show statistics if player has admin permission
-        if (hasSetSpawnPermission(player)) {
+        if (hasSetSpawnPermission(context.getSource(), player)) {
             String stats = spawnManager.getStatistics();
             player.sendSystemMessage(MessageUtil.component(stats));
         }
@@ -245,7 +257,8 @@ public class SpawnCommands {
     /**
      * Check if player has permission to set spawn
      */
-    private static boolean hasSetSpawnPermission(ServerPlayer player) {
-        return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETSPAWN_COMPAT);
+    private static boolean hasSetSpawnPermission(CommandSourceStack source, ServerPlayer player) {
+        return source.hasPermission(3)
+            || PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETSPAWN_COMPAT);
     }
 }

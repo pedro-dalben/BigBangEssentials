@@ -102,20 +102,18 @@ public class ChatFormatter {
                 LOGGER.info("After cleanup: [{}]", formatted);
             }
 
-            // Phase 4: Apply rich text effects (gradients, rainbow)
-            Component richTextResult = RichTextFormatter.processRichText(formatted);
+            // Phase 4: Expand rich text effects (gradients, rainbow) without dropping color markup
+            String richTextExpanded = RichTextFormatter.expandRichText(formatted);
             if (debugEnabled) {
-                LOGGER.info("After rich text: [{}]", richTextResult.getString());
+                LOGGER.info("After rich text expansion: [{}]", richTextExpanded);
             }
 
             // Apply Phase 2 enhancements if enabled
             Component result;
             if (isChatEnhancementsEnabled()) {
-                // Convert component back to string for enhancement processing
-                String richTextString = componentToFormattedString(richTextResult);
-                result = enhanceMessage(richTextString, player, player.getServer());
+                result = enhanceMessage(richTextExpanded, player, player.getServer());
             } else {
-                result = richTextResult;
+                result = com.pedrodalben.bigbangessentials.util.ChatComponentUtil.parseColorCodes(richTextExpanded);
             }
 
             if (debugEnabled) {
@@ -682,13 +680,4 @@ public class ChatFormatter {
         return 1.0f;
     }
 
-    /**
-     * Convert component back to formatted string for further processing.
-     * This is a simple conversion - for complex components, use getString().
-     */
-    private static String componentToFormattedString(Component component) {
-        // For now, just get the plain string
-        // In future, could preserve formatting codes
-        return component.getString();
-    }
 }

@@ -36,6 +36,21 @@ public class RichTextFormatter {
      * Process rich text formatting tags and convert to colored components.
      */
     public static Component processRichText(String text) {
+        String expanded = expandRichText(text);
+        try {
+            return com.pedrodalben.bigbangessentials.util.ChatComponentUtil.parseColorCodes(expanded);
+
+        } catch (Exception e) {
+            LOGGER.error("Error processing rich text: {}", e.getMessage(), e);
+            return Component.literal(text);
+        }
+    }
+
+    /**
+     * Expand rich text tags into legacy color markup without parsing to a Component.
+     * This preserves the color codes for later interactive processing.
+     */
+    public static String expandRichText(String text) {
         try {
             if (isRichTextEnabled()) {
                 // Process gradients first
@@ -45,17 +60,10 @@ public class RichTextFormatter {
                 text = processRainbow(text);
             }
 
-            // Always parse color codes (even if rich text effects are disabled)
-            return com.pedrodalben.bigbangessentials.util.ChatComponentUtil.parseColorCodes(text);
-
+            return text;
         } catch (Exception e) {
-            LOGGER.error("Error processing rich text: {}", e.getMessage(), e);
-            // Still try to parse color codes on error
-            try {
-                return com.pedrodalben.bigbangessentials.util.ChatComponentUtil.parseColorCodes(text);
-            } catch (Exception e2) {
-                return Component.literal(text);
-            }
+            LOGGER.error("Error expanding rich text: {}", e.getMessage(), e);
+            return text;
         }
     }
 
@@ -186,4 +194,3 @@ public class RichTextFormatter {
         return false;
     }
 }
-

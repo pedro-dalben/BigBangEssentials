@@ -52,8 +52,9 @@ public class DirectTeleportCommands {
     private static void registerTpCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("tp")
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer p) return PermissionAPI.hasPermission(p.getUUID(), PERMISSION_TP);
-                return source.hasPermission(2);
+                if (source.hasPermission(2)) return true;
+                ServerPlayer p = source.getPlayer();
+                return p != null && PermissionAPI.hasPermission(p.getUUID(), PERMISSION_TP);
             })
             .then(Commands.argument("target", EntityArgument.player())
                 .executes(ctx -> teleportToPlayer(ctx, ctx.getSource().getPlayerOrException(),
@@ -76,8 +77,9 @@ public class DirectTeleportCommands {
     private static void registerTphereCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("tphere")
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer p) return PermissionAPI.hasPermission(p.getUUID(), PERMISSION_TPHERE);
-                return source.hasPermission(2);
+                if (source.hasPermission(2)) return true;
+                ServerPlayer p = source.getPlayer();
+                return p != null && PermissionAPI.hasPermission(p.getUUID(), PERMISSION_TPHERE);
             })
             .then(Commands.argument("player", EntityArgument.player())
                 .executes(ctx -> teleportPlayerHere(ctx, EntityArgument.getPlayer(ctx, "player"))))
@@ -87,8 +89,9 @@ public class DirectTeleportCommands {
     private static void registerTpallCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("tpall")
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer p) return PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.teleport.admin.tpall");
-                return source.hasPermission(2);
+                if (source.hasPermission(2)) return true;
+                ServerPlayer p = source.getPlayer();
+                return p != null && PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.teleport.admin.tpall");
             })
             .executes(DirectTeleportCommands::teleportAllPlayers)
         );
@@ -97,8 +100,9 @@ public class DirectTeleportCommands {
     private static void registerTpposCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("tppos")
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer p) return PermissionAPI.hasPermission(p.getUUID(), PERMISSION_TPPOS);
-                return source.hasPermission(2);
+                if (source.hasPermission(2)) return true;
+                ServerPlayer p = source.getPlayer();
+                return p != null && PermissionAPI.hasPermission(p.getUUID(), PERMISSION_TPPOS);
             })
             .then(Commands.argument("coordinates", Vec3Argument.vec3())
                 .executes(ctx -> {
@@ -118,7 +122,8 @@ public class DirectTeleportCommands {
     private static void registerTopCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("top")
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer p) return PermissionAPI.hasPermission(p.getUUID(), PERMISSION_TOP);
+                ServerPlayer p = source.getPlayer();
+                if (p != null) return PermissionAPI.hasPermission(p.getUUID(), PERMISSION_TOP);
                 return source.hasPermission(0);
             })
             .executes(DirectTeleportCommands::teleportToTop)
@@ -128,8 +133,9 @@ public class DirectTeleportCommands {
     private static void registerJumptoCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("jumpto")
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer p) return PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.teleport.jumpto");
-                return source.hasPermission(2);
+                if (source.hasPermission(2)) return true;
+                ServerPlayer p = source.getPlayer();
+                return p != null && PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.teleport.jumpto");
             })
             .executes(DirectTeleportCommands::jumpToTargetBlock)
         );
@@ -138,8 +144,9 @@ public class DirectTeleportCommands {
     private static void registerJumpCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("jump")
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer p) return PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.teleport.jump");
-                return source.hasPermission(2);
+                if (source.hasPermission(2)) return true;
+                ServerPlayer p = source.getPlayer();
+                return p != null && PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.teleport.jump");
             })
             .executes(DirectTeleportCommands::jumpToTargetBlock)
         );
@@ -154,7 +161,8 @@ public class DirectTeleportCommands {
         for (String alias : new String[]{"tpr", "rtp", "randomtp", "randomteleport"}) {
             dispatcher.register(Commands.literal(alias)
                 .requires(source -> {
-                    if (source.getEntity() instanceof ServerPlayer p) return PermissionAPI.hasPermission(p.getUUID(), PERMISSION_TPR);
+                    ServerPlayer p = source.getPlayer();
+                    if (p != null) return PermissionAPI.hasPermission(p.getUUID(), PERMISSION_TPR);
                     return source.hasPermission(0);
                 })
                 .executes(ctx -> randomTeleport(ctx, ""))
@@ -176,8 +184,9 @@ public class DirectTeleportCommands {
         // /settpr <locationName> — set the RTP centre for a named slot
         dispatcher.register(Commands.literal("settpr")
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer p) return PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.teleport.settpr");
-                return source.hasPermission(2);
+                if (source.hasPermission(2)) return true;
+                ServerPlayer p = source.getPlayer();
+                return p != null && PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.teleport.settpr");
             })
             .then(Commands.argument("locationName", StringArgumentType.word())
                 .executes(DirectTeleportCommands::setTprLocation))
@@ -187,8 +196,9 @@ public class DirectTeleportCommands {
     private static void registerTpoCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("tpo")
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer p) return PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.teleport.admin.tpo");
-                return source.hasPermission(2);
+                if (source.hasPermission(2)) return true;
+                ServerPlayer p = source.getPlayer();
+                return p != null && PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.teleport.admin.tpo");
             })
             .then(Commands.argument("player", StringArgumentType.word())
                 .executes(ctx -> teleportToOfflinePlayer(ctx, StringArgumentType.getString(ctx, "player"))))

@@ -72,7 +72,7 @@ public class TagCommands {
                 })
                 .executes(ctx -> showCreateUsage(ctx, "createtag"))
                 .then(Commands.argument("name", StringArgumentType.word())
-                    .executes(ctx -> createTag(ctx))
+                    .executes(ctx -> showCreateUsage(ctx, "createtag"))
                     .then(Commands.argument("format", StringArgumentType.greedyString())
                         .executes(ctx -> createTag(ctx)))
                 )
@@ -199,7 +199,7 @@ public class TagCommands {
         CommandSourceStack source = context.getSource();
         ServerPlayer player = source.getPlayer();
         if (player == null) {
-            source.sendFailure(MessageUtil.error("bigbangessentials.error.no_server"));
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.general.player_only"));
             return 0;
         }
 
@@ -253,7 +253,7 @@ public class TagCommands {
         CommandSourceStack source = context.getSource();
         ServerPlayer player = source.getPlayer();
         if (player == null) {
-            source.sendFailure(MessageUtil.error("bigbangessentials.error.no_server"));
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.general.player_only"));
             return 0;
         }
 
@@ -300,7 +300,7 @@ public class TagCommands {
         CommandSourceStack source = context.getSource();
         ServerPlayer player = source.getPlayer();
         if (player == null) {
-            source.sendFailure(MessageUtil.error("bigbangessentials.error.no_server"));
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.general.player_only"));
             return 0;
         }
 
@@ -343,9 +343,13 @@ public class TagCommands {
     }
 
     private static boolean hasTagManagementPermission(CommandSourceStack source, String... permissions) {
-        if (source.getEntity() instanceof ServerPlayer player) {
+        if (source.hasPermission(4)) {
+            return true;
+        }
+        ServerPlayer player = source.getPlayer();
+        if (player != null) {
             return PermissionAPI.hasAnyPermission(player.getUUID(), permissions);
         }
-        return source.hasPermission(4);
+        return false;
     }
 }

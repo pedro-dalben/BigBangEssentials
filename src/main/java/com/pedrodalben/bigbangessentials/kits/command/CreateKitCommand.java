@@ -39,7 +39,11 @@ public class CreateKitCommand {
     private static void registerCreateKitCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer player) {
+                if (source.hasPermission(4)) {
+                    return true;
+                }
+                ServerPlayer player = source.getPlayer();
+                if (player != null) {
                     return PermissionAPI.hasAnyPermission(
                         player.getUUID(),
                         "bigbangessentials.kits.create",
@@ -48,7 +52,7 @@ public class CreateKitCommand {
                         "bigbangessentials.kits.admin"
                     );
                 }
-                return source.hasPermission(4); // Console/OP fallback
+                return false;
             })
             .executes(ctx -> showUsage(ctx, commandName))
             .then(Commands.argument("kitname", StringArgumentType.word())
@@ -102,8 +106,9 @@ public class CreateKitCommand {
         String kitName = StringArgumentType.getString(context, "kitname");
         
         // Only players can create kits (need inventory)
-        if (!(source.getEntity() instanceof ServerPlayer player)) {
-            source.sendFailure(MessageUtil.error("bigbangessentials.error.no_server"));
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.general.player_only"));
             return 0;
         }
         

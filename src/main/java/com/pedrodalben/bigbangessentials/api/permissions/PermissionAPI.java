@@ -39,6 +39,40 @@ public class PermissionAPI {
         return externalAdapter;
     }
 
+    private static String fallbackInternalPrefix(UUID uuid) {
+        if (manager == null) {
+            return "";
+        }
+        PermissionUser user = manager.getUser(uuid);
+        String groupName = (user != null && user.getGroup() != null) ? user.getGroup() : manager.getDefaultGroup();
+        if (groupName == null) {
+            return "";
+        }
+        PermissionGroup group = manager.getGroup(groupName);
+        if (group == null) {
+            return "";
+        }
+        String prefix = group.getPrefix();
+        return prefix != null ? prefix : "";
+    }
+
+    private static String fallbackInternalSuffix(UUID uuid) {
+        if (manager == null) {
+            return "";
+        }
+        PermissionUser user = manager.getUser(uuid);
+        String groupName = (user != null && user.getGroup() != null) ? user.getGroup() : manager.getDefaultGroup();
+        if (groupName == null) {
+            return "";
+        }
+        PermissionGroup group = manager.getGroup(groupName);
+        if (group == null) {
+            return "";
+        }
+        String suffix = group.getSuffix();
+        return suffix != null ? suffix : "";
+    }
+
     /**
      * Returns true if using an external permission system.
      */
@@ -62,8 +96,18 @@ public class PermissionAPI {
         LOGGER.debug("Permission: {}", permission);
         LOGGER.debug("External adapter: {}", (externalAdapter != null ? externalAdapter.getName() : "NONE"));
 
-        // If using external permissions (LuckPerms, FTB Ranks), ONLY use external system
-        // Do NOT check ops bypass - let the external system handle that
+        // Minecraft OPs should be able to use admin commands even when a permission
+        // bridge is configured, as long as the mod's OP bypass setting is enabled.
+        if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isOpsBypassPermissionsEnabled()) {
+            if (isPlayerOpped(uuid)) {
+                LOGGER.debug("Player is OP - bypassing permission check");
+                LOGGER.debug("Result: TRUE (op bypass)");
+                LOGGER.debug("═══════════════════════");
+                return true;
+            }
+        }
+
+        // If using external permissions (LuckPerms, FTB Ranks), delegate after OP bypass.
         if (externalAdapter != null) {
             LOGGER.debug("Using external permission system: {}", externalAdapter.getName());
             boolean hasExternalPerm = externalAdapter.hasPermission(uuid, permission);
@@ -74,17 +118,6 @@ public class PermissionAPI {
         
         LOGGER.debug("Using INTERNAL permission system");
 
-        // Only use internal system if NO external adapter is configured
-        // Check ops bypass first (only for internal system)
-        if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isOpsBypassPermissionsEnabled()) {
-            if (isPlayerOpped(uuid)) {
-                LOGGER.debug("Player is OP - bypassing permission check");
-                LOGGER.debug("Result: TRUE (op bypass)");
-                LOGGER.debug("═══════════════════════");
-                return true;
-            }
-        }
-        
         // Finally check internal permission manager
         if (manager == null) {
             LOGGER.warn("PermissionAPI.hasPermission: PermissionManager is null - returning false");
@@ -159,35 +192,23 @@ public class PermissionAPI {
         LOGGER.debug(">>> PermissionAPI.getPrefix() called for UUID: {}", uuid);
         LOGGER.debug(">>> Using external adapter: {}", (externalAdapter != null ? externalAdapter.getName() : "NONE"));
 
-        // If external adapter is set, ONLY use it - do NOT fall back to internal
         if (externalAdapter != null) {
             LOGGER.debug(">>> Querying external adapter for prefix...");
             String prefix = externalAdapter.getPrefix(uuid);
             LOGGER.debug(">>> External adapter returned: [{}]", prefix);
-            return prefix != null ? prefix : "";
+            if (prefix != null && !prefix.isBlank()) {
+                return prefix;
+            }
+
+            String fallback = fallbackInternalPrefix(uuid);
+            LOGGER.debug(">>> Falling back to internal prefix: [{}]", fallback);
+            return fallback;
         }
 
-        // Only use internal system if NO external adapter is configured
         LOGGER.debug(">>> Using internal permission system (no external adapter)");
-
-        if (manager == null) {
-            LOGGER.warn("PermissionAPI.getPrefix: PermissionManager is null");
-            return "";
-        }
-        PermissionUser user = manager.getUser(uuid);
-        String groupName = (user != null && user.getGroup() != null) ? user.getGroup() : manager.getDefaultGroup();
-        if (groupName == null) {
-            LOGGER.warn("PermissionAPI.getPrefix: Default group name is null");
-            return "";
-        }
-        PermissionGroup group = manager.getGroup(groupName);
-        if (group == null) {
-            LOGGER.warn("PermissionAPI.getPrefix: No PermissionGroup found for group '" + groupName + "'");
-            return "";
-        }
-        String prefix = group.getPrefix();
+        String prefix = fallbackInternalPrefix(uuid);
         LOGGER.debug(">>> Internal system prefix: [{}]", prefix);
-        return prefix != null ? prefix : "";
+        return prefix;
     }
 
     public static String getSuffix(UUID uuid) {
@@ -196,36 +217,19 @@ public class PermissionAPI {
             LOGGER.warn("PermissionAPI.getSuffix: UUID is null");
             return "";
         }
-        
-        // If external adapter is set, ONLY use it - do NOT fall back to internal
+
         if (externalAdapter != null) {
             String suffix = externalAdapter.getSuffix(uuid);
-            // Return what external system says, even if null/empty
-            // Do NOT fall back to internal when external is enabled
-            return suffix != null ? suffix : "";
+            if (suffix != null && !suffix.isBlank()) {
+                return suffix;
+            }
+
+            String fallback = fallbackInternalSuffix(uuid);
+            LOGGER.debug(">>> Falling back to internal suffix: [{}]", fallback);
+            return fallback;
         }
 
-        // Only use internal system if NO external adapter is configured
-        if (manager == null) {
-            LOGGER.warn("PermissionAPI.getSuffix: PermissionManager is null");
-            return "";
-        }
-        PermissionUser user = manager.getUser(uuid);
-        if (user == null) {
-            LOGGER.warn("PermissionAPI.getSuffix: No PermissionUser found for UUID " + uuid);
-        }
-        String groupName = (user != null && user.getGroup() != null) ? user.getGroup() : manager.getDefaultGroup();
-        if (groupName == null) {
-            LOGGER.warn("PermissionAPI.getSuffix: Default group name is null");
-            return "";
-        }
-        PermissionGroup group = manager.getGroup(groupName);
-        if (group == null) {
-            LOGGER.warn("PermissionAPI.getSuffix: No PermissionGroup found for group '" + groupName + "'");
-            return "";
-        }
-        String suffix = group.getSuffix();
-        return suffix != null ? suffix : "";
+        return fallbackInternalSuffix(uuid);
     }
 
     /**
@@ -239,7 +243,9 @@ public class PermissionAPI {
 
         if (externalAdapter != null) {
             String group = externalAdapter.getPrimaryGroup(uuid);
-            return group != null && !group.trim().isEmpty() ? group : "default";
+            if (group != null && !group.trim().isEmpty()) {
+                return group;
+            }
         }
 
         if (manager == null) {

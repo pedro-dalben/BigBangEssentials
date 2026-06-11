@@ -44,7 +44,11 @@ public class DelKitCommand {
     private static void registerDelKitCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
             .requires(source -> {
-                if (source.getEntity() instanceof ServerPlayer player) {
+                if (source.hasPermission(4)) {
+                    return true;
+                }
+                ServerPlayer player = source.getPlayer();
+                if (player != null) {
                     return PermissionAPI.hasAnyPermission(
                         player.getUUID(),
                         "bigbangessentials.kits.delete",
@@ -53,7 +57,7 @@ public class DelKitCommand {
                         "bigbangessentials.kits.admin"
                     );
                 }
-                return source.hasPermission(4); // Console/OP fallback
+                return false;
             })
             .then(Commands.argument("kitname", StringArgumentType.word())
                 .suggests(SUGGEST_KITS)

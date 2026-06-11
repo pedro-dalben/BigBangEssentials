@@ -20,6 +20,7 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.pedrodalben.bigbangessentials.config.ConfigManager;
 
 /**
  * Centralized message handling system for BigBangEssentials
@@ -35,6 +36,7 @@ public class MessageUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageUtil.class);
     private static final Map<String, String> translations = new HashMap<>();
     private static boolean loaded = false;
+    private static String loadedLanguage = null;
     private static boolean debugMode = false; // Default to false, will sync with config
     /**
      * Sync debugMode with config value (modules.debugMode)
@@ -54,10 +56,17 @@ public class MessageUtil {
      * are merged in from the JAR without overwriting user edits.
      */
     private static void loadTranslations() {
-        if (loaded) return;
+        String activeLanguage = normalizeLanguageCode(ConfigManager.getLocalizationLanguage());
+        if (loaded && activeLanguage.equals(loadedLanguage)) {
+            return;
+        }
+
+        translations.clear();
         loaded = true;
+        loadedLanguage = activeLanguage;
 
         LOGGER.debug("=== LOADING BIGBANGESSENTIALS TRANSLATIONS ===");
+        LOGGER.debug("Active language: {}", activeLanguage);
 
         File customLangDir = getBigBangEssentialsLangCustomDir();
         if (!customLangDir.exists()) {
@@ -68,7 +77,7 @@ public class MessageUtil {
                 LOGGER.debug("Created custom language directory: {}", customLangDir.getAbsolutePath());
             }
         }
-        File serverLangFile = new File(customLangDir, "en_us.json");
+        File serverLangFile = new File(customLangDir, activeLanguage + ".json");
         LOGGER.debug("Server language file path: {}", serverLangFile.getAbsolutePath());
 
         Map<String, String> finalTranslations = null;
@@ -85,7 +94,7 @@ public class MessageUtil {
                 if (deployedVersion < CURRENT_LANG_VERSION) {
                     LOGGER.info("BigBangEssentials: lang file is v{} (current v{}) — merging new keys...",
                         deployedVersion, CURRENT_LANG_VERSION);
-                    Map<String, String> jarTranslations = loadJarTranslations();
+                    Map<String, String> jarTranslations = loadJarTranslations(activeLanguage);
                     if (jarTranslations != null) {
                         int added = 0;
                         for (Map.Entry<String, String> e : jarTranslations.entrySet()) {
@@ -113,14 +122,14 @@ public class MessageUtil {
         }
         // If file missing or unreadable, deploy from JAR
         if (translations.isEmpty()) {
-            Map<String, String> jarTranslations = loadJarTranslations();
+            Map<String, String> jarTranslations = loadJarTranslations(activeLanguage);
             if (jarTranslations == null || jarTranslations.isEmpty()) {
                 LOGGER.error("Failed to load JAR translations - cannot proceed");
-                try (InputStream testIn = ResourceUtil.getJarLangResource("en_us.json")) {
+                try (InputStream testIn = ResourceUtil.getJarLangResource(activeLanguage + ".json")) {
                     if (testIn == null) {
-                        LOGGER.error("JAR resource 'en_us.json' is missing or not found in /data/lang/");
+                        LOGGER.error("JAR resource '{}' is missing or not found in /data/lang/", activeLanguage + ".json");
                     } else {
-                        LOGGER.debug("JAR resource 'en_us.json' is present but failed to load as translations.");
+                        LOGGER.debug("JAR resource '{}' is present but failed to load as translations.", activeLanguage + ".json");
                     }
                 } catch (Exception e) {
                     LOGGER.error("Exception when testing JAR resource existence: {}", e.getMessage(), e);
@@ -159,7 +168,26 @@ public class MessageUtil {
      * Load translations from JAR resource
      */
     private static Map<String, String> loadJarTranslations() {
-        try (InputStream in = ResourceUtil.getJarLangResource("en_us.json")) {
+        return loadJarTranslations(ConfigManager.getLocalizationLanguage());
+    }
+
+    private static Map<String, String> loadJarTranslations(String languageCode) {
+        String normalizedLanguage = normalizeLanguageCode(languageCode);
+        Map<String, String> translations = loadJarTranslationsFromResource(normalizedLanguage);
+        if (translations != null && !translations.isEmpty()) {
+            return translations;
+        }
+
+        if (!"en_us".equals(normalizedLanguage)) {
+            LOGGER.warn("Falling back to en_us language resource for {}", normalizedLanguage);
+            translations = loadJarTranslationsFromResource("en_us");
+        }
+
+        return translations;
+    }
+
+    private static Map<String, String> loadJarTranslationsFromResource(String languageCode) {
+        try (InputStream in = ResourceUtil.getJarLangResource(languageCode + ".json")) {
             if (in != null) {
                 try (java.util.Scanner scanner = new java.util.Scanner(in, java.nio.charset.StandardCharsets.UTF_8).useDelimiter("\\A")) {
                     String json = scanner.hasNext() ? scanner.next() : "";
@@ -167,11 +195,10 @@ public class MessageUtil {
                     Type type = new TypeToken<Map<String, String>>(){}.getType();
                     return gson.fromJson(json, type);
                 }
-            } else {
-                LOGGER.error("JAR language resource 'en_us.json' not found.");
             }
+            LOGGER.error("JAR language resource '{}' not found.", languageCode + ".json");
         } catch (Exception e) {
-            LOGGER.error("Failed to load JAR translations: {}", e.getMessage(), e);
+            LOGGER.error("Failed to load JAR translations for {}: {}", languageCode, e.getMessage(), e);
         }
         return null;
     }
@@ -314,6 +341,7 @@ public class MessageUtil {
      */
     public static void reloadTranslations() {
         loaded = false;
+        loadedLanguage = null;
         translations.clear();
         loadTranslations();
         LOGGER.info("Forced translation reload completed, {} keys loaded", translations.size());
@@ -324,8 +352,9 @@ public class MessageUtil {
      * Ensures all keys from the JAR are present in the server language file.
      */
     public static void ensureLanguageFileUpToDate() {
-        File serverLangFile = ResourceUtil.getLanguageFile("en_us");
-        Map<String, String> jarTranslations = loadJarTranslations();
+        String languageCode = normalizeLanguageCode(ConfigManager.getLocalizationLanguage());
+        File serverLangFile = new File(getBigBangEssentialsLangCustomDir(), languageCode + ".json");
+        Map<String, String> jarTranslations = loadJarTranslations(languageCode);
         Map<String, String> serverTranslations = loadServerTranslations(serverLangFile);
         boolean needsUpdate = false;
         if (jarTranslations == null) {
@@ -366,20 +395,33 @@ public class MessageUtil {
     }
 
     /**
+     * Normalizes language codes to the canonical lower-case underscore format.
+     */
+    private static String normalizeLanguageCode(String languageCode) {
+        if (languageCode == null) {
+            return "en_us";
+        }
+
+        String normalized = languageCode.trim().toLowerCase(java.util.Locale.ROOT).replace('-', '_');
+        return normalized.isEmpty() ? "en_us" : normalized;
+    }
+
+    /**
      * Ensures the custom language file exists and is loaded from the correct directory.
      * If missing, generates it from the JAR resource and logs all steps.
      */
     public static void ensureCustomLanguageFile() {
         File configRoot = getBigBangEssentialsConfigRoot();
         File langDir = new File(configRoot, "bigbangessentials/languages/custom");
-        File langFile = new File(langDir, "en_us.json");
+        String languageCode = normalizeLanguageCode(ConfigManager.getLocalizationLanguage());
+        File langFile = new File(langDir, languageCode + ".json");
         logInfo("[Lang] Working directory: " + System.getProperty("user.dir"));
         logInfo("[Lang] Resolved language file path: " + langFile.getAbsolutePath());
         if (!langFile.exists() || langFile.length() == 0) {
             logInfo("Custom language file not found or empty: " + langFile.getAbsolutePath());
-            try (InputStream in = ResourceUtil.getJarLangResource("en_us.json")) {
+            try (InputStream in = ResourceUtil.getJarLangResource(languageCode + ".json")) {
                 if (in == null) {
-                    logError("Default language resource not found in JAR: data/lang/en_us.json");
+                    logError("Default language resource not found in JAR: data/lang/" + languageCode + ".json");
                     return;
                 }
                 Files.createDirectories(langFile.getParentFile().toPath());

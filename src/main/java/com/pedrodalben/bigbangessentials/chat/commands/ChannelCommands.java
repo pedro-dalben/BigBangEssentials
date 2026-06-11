@@ -24,12 +24,14 @@ public class ChannelCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         try {
             // Load channel configuration
-            JsonObject mainConfig = ConfigManager.getInstance().getConfig(ConfigManager.MAIN_CONFIG);
-            JsonObject chatConfig = mainConfig.has("chat") ? mainConfig.getAsJsonObject("chat") : null;
-            JsonObject channelsConfig = chatConfig != null && chatConfig.has("channels") ? chatConfig.getAsJsonObject("channels") : null;
+            JsonObject chatConfig = ConfigManager.getInstance().getChatConfig();
+            JsonObject channelsConfig = chatConfig.has("channels") && chatConfig.get("channels").isJsonObject()
+                ? chatConfig.getAsJsonObject("channels")
+                : null;
 
             if (channelsConfig == null) {
                 LOGGER.warn("No channels configuration found, skipping channel command registration");
+                registerFallbackGlobalChannel(dispatcher);
                 return;
             }
 
@@ -83,8 +85,14 @@ public class ChannelCommands {
 
             LOGGER.info("Registered {} channel commands", registeredCount);
 
+            if (registeredCount == 0) {
+                LOGGER.warn("No channel commands were registered from config; registering fallback /g command");
+                registerFallbackGlobalChannel(dispatcher);
+            }
+
         } catch (Exception e) {
             LOGGER.error("Failed to register channel commands: {}", e.getMessage(), e);
+            registerFallbackGlobalChannel(dispatcher);
         }
     }
 
@@ -97,6 +105,20 @@ public class ChannelCommands {
                 .executes(ctx -> executeChannelMessage(ctx, channelName, permission))
             )
         );
+    }
+
+    /**
+     * Register a minimal fallback global channel command so /g remains available
+     * even if the channel config cannot be parsed during startup.
+     */
+    private static void registerFallbackGlobalChannel(CommandDispatcher<CommandSourceStack> dispatcher) {
+        try {
+            registerChannelCommand(dispatcher, "g", "global", null);
+            registerChannelCommand(dispatcher, "global", "global", null);
+            LOGGER.info("Registered fallback global channel commands: /g, /global");
+        } catch (Exception e) {
+            LOGGER.error("Failed to register fallback global channel commands: {}", e.getMessage(), e);
+        }
     }
 
     /**

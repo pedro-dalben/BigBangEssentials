@@ -1,12 +1,13 @@
 package com.pedrodalben.bigbangessentials.permissions;
 
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionRegistry;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.Set;
 import java.util.Optional;
-import java.util.List;
 import java.util.stream.Collectors;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -21,15 +22,37 @@ import org.slf4j.LoggerFactory;
  */
 public class FtbRanksAdapter implements ExternalPermissionAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(FtbRanksAdapter.class);
+    private static final List<String> PREFIX_NODES = List.of(
+        "prefix",
+        "ftbranks.prefix"
+    );
+    private static final List<String> SUFFIX_NODES = List.of(
+        "suffix",
+        "ftbranks.suffix"
+    );
+    private static final List<String> NAME_FORMAT_TOKENS = List.of(
+        "{name}",
+        "{username}",
+        "{player}",
+        "{displayname}",
+        "%name%",
+        "%username%",
+        "%player%",
+        "<name>",
+        "<username>",
+        "<player>"
+    );
     private final boolean ftbRanksLoaded;
     private boolean available;
     private Method getPermissionValueMethod;
     private Method managerMethod;
     private Method getAddedRanksMethod;
+    private Class<?> getAddedRanksParameterType;
     private Method rankGetPowerMethod;
     private Method rankGetPermissionMethod;
     private Method rankGetIdMethod;
     private Method rankGetNameMethod;
+    private Method rankIsActiveMethod;
     private Method permissionValueIsEmptyMethod;
     private Method permissionValueAsBooleanOrFalseMethod;
     private Method permissionValueAsStringMethod;
@@ -45,11 +68,12 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
 
                 getPermissionValueMethod = ftbRanksAPIClass.getMethod("getPermissionValue", ServerPlayer.class, String.class);
                 managerMethod = ftbRanksAPIClass.getMethod("manager");
-                getAddedRanksMethod = rankManagerClass.getMethod("getAddedRanks", GameProfile.class);
+                resolveGetAddedRanksMethod(rankManagerClass);
                 rankGetPowerMethod = rankClass.getMethod("getPower");
                 rankGetPermissionMethod = rankClass.getMethod("getPermission", String.class);
                 rankGetIdMethod = rankClass.getMethod("getId");
                 rankGetNameMethod = rankClass.getMethod("getName");
+                rankIsActiveMethod = rankClass.getMethod("isActive", ServerPlayer.class);
                 permissionValueIsEmptyMethod = permissionValueClass.getMethod("isEmpty");
                 permissionValueAsBooleanOrFalseMethod = permissionValueClass.getMethod("asBooleanOrFalse");
                 permissionValueAsStringMethod = permissionValueClass.getMethod("asString");
@@ -174,32 +198,6 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
-    private List<?> getSortedAddedRanks(UUID uuid) throws Exception {
-        Object manager = managerMethod.invoke(null);
-        if (manager == null) {
-            return null;
-        }
-
-        var profile = new GameProfile(uuid, "");
-        var ranks = (Set<?>) getAddedRanksMethod.invoke(manager, profile);
-        if (ranks == null) {
-            return null;
-        }
-
-        return ranks.stream()
-            .sorted((r1, r2) -> Integer.compare(getRankPower(r2), getRankPower(r1)))
-            .collect(Collectors.toList());
-    }
-
-    private int getRankPower(Object rank) {
-        try {
-            return ((Number) rankGetPowerMethod.invoke(rank)).intValue();
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-
     private String getRankIdentifier(Object rank) {
         try {
             Object id = rankGetIdMethod.invoke(rank);
@@ -272,18 +270,182 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
         return null;
     }
 
+    private void resolveGetAddedRanksMethod(Class<?> rankManagerClass) throws ClassNotFoundException, NoSuchMethodException {
+        List<Class<?>> candidates = new ArrayList<>();
+
+        try {
+            candidates.add(Class.forName("net.minecraft.server.players.NameAndId"));
+        } catch (ClassNotFoundException ignored) {
+            // Older mappings may not expose NameAndId here.
+        }
+
+        try {
+            candidates.add(Class.forName("com.mojang.authlib.GameProfile"));
+        } catch (ClassNotFoundException ignored) {
+            // Keep searching through reflective methods below.
+        }
+
+        for (Class<?> candidate : candidates) {
+            try {
+                getAddedRanksMethod = rankManagerClass.getMethod("getAddedRanks", candidate);
+                getAddedRanksParameterType = candidate;
+                return;
+            } catch (NoSuchMethodException ignored) {
+                // Try the next parameter type.
+            }
+        }
+
+        for (Method method : rankManagerClass.getMethods()) {
+            if (method.getName().equals("getAddedRanks") && method.getParameterCount() == 1) {
+                getAddedRanksMethod = method;
+                getAddedRanksParameterType = method.getParameterTypes()[0];
+                return;
+            }
+        }
+
+        throw new NoSuchMethodException("Could not resolve RankManager.getAddedRanks(...)");
+    }
+
+    private Object createPlayerIdentity(UUID uuid, String playerName, ServerPlayer player) {
+        try {
+            if (player != null) {
+                try {
+                    Method nameAndIdMethod = player.getClass().getMethod("nameAndId");
+                    Object identity = nameAndIdMethod.invoke(player);
+                    if (identity != null && getAddedRanksParameterType.isInstance(identity)) {
+                        return identity;
+                    }
+                } catch (Exception ignored) {
+                    // Fall through to reflective construction.
+                }
+            }
+            if (getAddedRanksParameterType == null) {
+                return null;
+            }
+
+            if (getAddedRanksParameterType.getName().equals("com.mojang.authlib.GameProfile")) {
+                return new GameProfile(uuid, playerName != null ? playerName : "");
+            }
+
+            try {
+                Method ofMethod = getAddedRanksParameterType.getMethod("of", UUID.class, String.class);
+                return ofMethod.invoke(null, uuid, playerName != null ? playerName : "");
+            } catch (Exception ignored) {
+                // Try constructors below.
+            }
+
+            for (Constructor<?> constructor : getAddedRanksParameterType.getDeclaredConstructors()) {
+                Class<?>[] parameterTypes = constructor.getParameterTypes();
+                if (parameterTypes.length == 2 && parameterTypes[0] == UUID.class && parameterTypes[1] == String.class) {
+                    constructor.setAccessible(true);
+                    return constructor.newInstance(uuid, playerName != null ? playerName : "");
+                }
+                if (parameterTypes.length == 2 && parameterTypes[0] == String.class && parameterTypes[1] == UUID.class) {
+                    constructor.setAccessible(true);
+                    return constructor.newInstance(playerName != null ? playerName : "", uuid);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Failed to build FTB Ranks identity object: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private List<?> getSortedAddedRanks(UUID uuid) throws Exception {
+        Object manager = managerMethod.invoke(null);
+        if (manager == null || getAddedRanksMethod == null) {
+            return null;
+        }
+
+        Object identity = createPlayerIdentity(uuid, "", null);
+        if (identity == null) {
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        Set<?> ranks = (Set<?>) getAddedRanksMethod.invoke(manager, identity);
+        if (ranks == null) {
+            return null;
+        }
+
+        return ranks.stream()
+            .sorted((r1, r2) -> Integer.compare(getRankPower(r2), getRankPower(r1)))
+            .collect(Collectors.toList());
+    }
+
+    private List<?> getSortedAddedRanks(ServerPlayer player) throws Exception {
+        Object manager = managerMethod.invoke(null);
+        if (manager == null || getAddedRanksMethod == null) {
+            return null;
+        }
+
+        Object identity = createPlayerIdentity(player.getUUID(), player.getName().getString(), player);
+        if (identity == null) {
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        Set<?> ranks = (Set<?>) getAddedRanksMethod.invoke(manager, identity);
+        if (ranks == null) {
+            return null;
+        }
+
+        return ranks.stream()
+            .filter(rank -> isRankActive(rank, player))
+            .sorted((r1, r2) -> Integer.compare(getRankPower(r2), getRankPower(r1)))
+            .collect(Collectors.toList());
+    }
+
+    private boolean isRankActive(Object rank, ServerPlayer player) {
+        try {
+            return (boolean) rankIsActiveMethod.invoke(rank, player);
+        } catch (Exception e) {
+            LOGGER.debug("Failed to evaluate FTB Ranks active state: {}", e.getMessage());
+            return true;
+        }
+    }
+
+    private String extractPrefixFromNameFormat(String nameFormat) {
+        if (nameFormat == null || nameFormat.isBlank()) {
+            return null;
+        }
+
+        for (String token : NAME_FORMAT_TOKENS) {
+            int index = nameFormat.indexOf(token);
+            if (index >= 0) {
+                return nameFormat.substring(0, index);
+            }
+        }
+
+        return null;
+    }
+
+    private String extractSuffixFromNameFormat(String nameFormat) {
+        if (nameFormat == null || nameFormat.isBlank()) {
+            return null;
+        }
+
+        for (String token : NAME_FORMAT_TOKENS) {
+            int index = nameFormat.indexOf(token);
+            if (index >= 0) {
+                return nameFormat.substring(index + token.length());
+            }
+        }
+
+        return null;
+    }
+
     @Override
     public String getPrefix(UUID uuid) {
-        // 1. Try "prefix" node first
-        String prefix = getPermissionStringValue(uuid, "prefix");
+        String prefix = getFirstNonBlankPermissionString(uuid, PREFIX_NODES);
         if (prefix != null) {
             return prefix;
         }
 
-        // 2. Try "ftbranks.name_format" and extract prefix
-        String nameFormat = getPermissionStringValue(uuid, "ftbranks.name_format");
-        if (nameFormat != null && nameFormat.contains("{name}")) {
-            return nameFormat.substring(0, nameFormat.indexOf("{name}"));
+        String nameFormat = getFirstNonBlankPermissionString(uuid, List.of("ftbranks.name_format", "name_format"));
+        String extractedPrefix = extractPrefixFromNameFormat(nameFormat);
+        if (extractedPrefix != null && !extractedPrefix.isBlank()) {
+            return extractedPrefix;
         }
 
         return null;
@@ -291,16 +453,15 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
 
     @Override
     public String getSuffix(UUID uuid) {
-        // 1. Try "suffix" node first
-        String suffix = getPermissionStringValue(uuid, "suffix");
+        String suffix = getFirstNonBlankPermissionString(uuid, SUFFIX_NODES);
         if (suffix != null) {
             return suffix;
         }
 
-        // 2. Try "ftbranks.name_format" and extract suffix
-        String nameFormat = getPermissionStringValue(uuid, "ftbranks.name_format");
-        if (nameFormat != null && nameFormat.contains("{name}")) {
-            return nameFormat.substring(nameFormat.indexOf("{name}") + 6);
+        String nameFormat = getFirstNonBlankPermissionString(uuid, List.of("ftbranks.name_format", "name_format"));
+        String extractedSuffix = extractSuffixFromNameFormat(nameFormat);
+        if (extractedSuffix != null && !extractedSuffix.isBlank()) {
+            return extractedSuffix;
         }
 
         return null;
@@ -313,7 +474,9 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
         }
 
         try {
-            List<?> sortedRanks = getSortedAddedRanks(uuid);
+            var server = ServerLifecycleHooks.getCurrentServer();
+            ServerPlayer player = server != null ? server.getPlayerList().getPlayer(uuid) : null;
+            List<?> sortedRanks = player != null ? getSortedAddedRanks(player) : getSortedAddedRanks(uuid);
             if (sortedRanks == null || sortedRanks.isEmpty()) {
                 return "default";
             }
@@ -348,5 +511,23 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
 
     private boolean getDefaultPermissionValue(String permission) {
         return PermissionRegistry.getInstance().getDefaultPermissionValue(permission);
+    }
+
+    private String getFirstNonBlankPermissionString(UUID uuid, List<String> nodes) {
+        for (String node : nodes) {
+            String value = getPermissionStringValue(uuid, node);
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private int getRankPower(Object rank) {
+        try {
+            return ((Number) rankGetPowerMethod.invoke(rank)).intValue();
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }

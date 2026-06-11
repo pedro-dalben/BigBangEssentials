@@ -10,6 +10,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -1202,6 +1203,27 @@ public class ConfigManager {
         return "commands.bigbangessentials.chat.nobody_heard";
     }
 
+    /**
+     * Returns the active localization language from config.json.
+     * Defaults to en_us and normalizes common variants like pt-BR to pt_br.
+     */
+    public static String getLocalizationLanguage() {
+        JsonObject config = getInstance().getConfig(MAIN_CONFIG);
+        if (config.has("localization") && config.get("localization").isJsonObject()) {
+            JsonObject localization = config.getAsJsonObject("localization");
+            if (localization.has("language")) {
+                String value = localization.get("language").getAsString();
+                if (value != null) {
+                    String normalized = value.trim().toLowerCase(Locale.ROOT).replace('-', '_');
+                    if (!normalized.isEmpty()) {
+                        return normalized;
+                    }
+                }
+            }
+        }
+        return "en_us";
+    }
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigManager.class);
     // private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -1232,7 +1254,7 @@ public class ConfigManager {
 
     // Expected versions for each config file (must match the version in JAR resources)
     private static final java.util.Map<String, Integer> EXPECTED_CONFIG_VERSIONS = new java.util.HashMap<>() {{
-        put(MAIN_CONFIG, 21);
+        put(MAIN_CONFIG, 22);
         put(ECONOMY_CONFIG, 2);
         put(PERMISSIONS_CONFIG, 5);
         put(KITS_CONFIG, 1);

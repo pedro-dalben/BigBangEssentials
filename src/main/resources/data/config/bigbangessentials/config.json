@@ -1,5 +1,5 @@
 {
-  "_configVersion": 21,
+  "_configVersion": 22,
   "_configVersion_comment": "DO NOT MODIFY: This field is used by BigBangEssentials for automatic config updates. Changing this may cause config corruption.",
   "modules": {
     "economyEnabled": true,
@@ -12,6 +12,10 @@
   },
   "logging": {
     "enableDebugLogging": false
+  },
+  "localization": {
+    "language": "en_us",
+    "language_comment": "Language code for in-game messages and custom language files. Examples: en_us, pt_br, es_es"
   },
   "commands": {
     "balance": true,
