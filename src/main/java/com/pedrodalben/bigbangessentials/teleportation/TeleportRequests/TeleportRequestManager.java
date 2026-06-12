@@ -514,7 +514,7 @@ private final ScheduledExecutorService scheduler = Executors.newScheduledThreadP
         long timeLeft = (request.getExpiryTime() - System.currentTimeMillis()) / 1000;
         String typeText = request.getType() == TeleportRequestType.TPA ? "to teleport to you" : "you to teleport to them";
         
-        return MessageUtil.localize("teleport.request.pending_info", 
+        return MessageUtil.localize("commands.bigbangessentials.teleport.request.pending_info", 
                                    request.getRequesterName(), typeText, timeLeft);
     }
     
@@ -663,6 +663,5 @@ private final ScheduledExecutorService scheduler = Executors.newScheduledThreadP
         }
     }
 }
-
 
 

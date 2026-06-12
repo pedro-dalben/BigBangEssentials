@@ -363,7 +363,7 @@ public class KitManager {
     public KitUsageResult canUseKit(ServerPlayer player, String kitName) {
         // If allowKitOverride is enabled and player has override permission, skip all restrictions
         if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isAllowKitOverrideEnabled() &&
-            com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), "bigbangessentials.kits.override")) {
+            hasStrictPermission(player.getUUID(), "bigbangessentials.kits.override")) {
             return new KitUsageResult(true, "Kit can be used (override)");
         }
         
@@ -638,22 +638,40 @@ public class KitManager {
         UUID playerId = player.getUUID();
         // Check override permission if allowKitOverride is enabled
         if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isAllowKitOverrideEnabled()) {
-            if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(playerId, "bigbangessentials.kits.override")) {
+            if (hasStrictPermission(playerId, "bigbangessentials.kits.override")) {
                 return true;
             }
         }
         // Check global cooldown exemption
-        if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(playerId, "bigbangessentials.kits.nocooldown")) {
+        if (hasStrictPermission(playerId, "bigbangessentials.kits.nocooldown")) {
             return true;
         }
         
         // Check per-kit cooldown exemption
         String kitNocooldownPermission = "bigbangessentials.kits." + kitName.toLowerCase() + ".nocooldown";
-        if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(playerId, kitNocooldownPermission)) {
+        if (hasStrictPermission(playerId, kitNocooldownPermission)) {
             return true;
         }
         
         return false;
+    }
+
+    /**
+     * Checks a permission node without applying the global OP bypass.
+     * Kit cooldown exemptions should only happen when the permission is explicitly granted.
+     */
+    private boolean hasStrictPermission(UUID playerId, String permission) {
+        if (permission == null || permission.isBlank()) {
+            return false;
+        }
+
+        var externalAdapter = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getExternalAdapter();
+        if (externalAdapter != null) {
+            return externalAdapter.hasPermission(playerId, permission);
+        }
+
+        var manager = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getManager();
+        return manager != null && manager.hasPermission(playerId, permission);
     }
     
     private String formatTime(long millis) {
@@ -697,4 +715,3 @@ public class KitManager {
         public String getMessage() { return message; }
     }
 }
-

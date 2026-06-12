@@ -196,7 +196,8 @@ public class TagManager {
     }
 
     /**
-     * Returns the selected tag text for chat. Adds a separator if the format does not already end with whitespace.
+     * Returns the selected tag text for chat.
+     * Keeps the tag color local by appending a reset after the tag content.
      */
     public String getSelectedChatTag(ServerPlayer player) {
         if (player == null) {
@@ -213,7 +214,7 @@ public class TagManager {
             return "";
         }
 
-        return ensureTrailingSpace(format);
+        return ensureTrailingSpace(format) + "§r";
     }
 
     /**

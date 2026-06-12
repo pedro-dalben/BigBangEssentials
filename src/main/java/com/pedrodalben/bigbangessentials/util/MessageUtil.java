@@ -158,6 +158,19 @@ public class MessageUtil {
                 translations.putAll(jarTranslations);
             }
         }
+        if (!"en_us".equals(activeLanguage) && !translations.isEmpty()) {
+            Map<String, String> englishFallback = loadJarTranslations("en_us");
+            if (englishFallback != null && !englishFallback.isEmpty()) {
+                int added = 0;
+                for (Map.Entry<String, String> entry : englishFallback.entrySet()) {
+                    if (!translations.containsKey(entry.getKey())) {
+                        translations.put(entry.getKey(), entry.getValue());
+                        added++;
+                    }
+                }
+                LOGGER.debug("Merged {} missing en_us fallback translations for {}", added, activeLanguage);
+            }
+        }
         LOGGER.debug("Translation loading complete. Total keys: {}", translations.size());
         if (serverLangFile.length() == 0) {
             LOGGER.error("Server language file is empty after creation! Check file permissions and JAR resource.");
@@ -257,7 +270,22 @@ public class MessageUtil {
         }
         
         try {
-            String result = MessageFormat.format(template.replace("%s", "{0}"), args);
+            if (args == null || args.length == 0) {
+                return template;
+            }
+
+            // We replace %s with {0} for legacy support
+            String safeTemplate = template.replace("%s", "{0}");
+            
+            // Escape existing single quotes first to prevent MessageFormat syntax errors
+            safeTemplate = safeTemplate.replace("'", "''");
+            
+            // Escape all PlaceholderAPI placeholders (e.g. {player_name}) so MessageFormat 
+            // doesn't try to parse them as format indices (which causes IllegalArgumentException).
+            // This regex matches '{' that are NOT followed by numbers+'}', or numbers+',' 
+            safeTemplate = safeTemplate.replaceAll("\\{(?!\\d+\\}|\\d+,)([^}]+)\\}", "'{'$1'}'");
+
+            String result = MessageFormat.format(safeTemplate, args);
             if (debugMode) {
                 LOGGER.info("MessageFormat success - Key: {}, Template: '{}', Args: {}, Result: '{}'", 
                     key, template, java.util.Arrays.toString(args), result);
