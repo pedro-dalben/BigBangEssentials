@@ -137,6 +137,7 @@ public class AfkManager {
      * Check if player is AFK
      */
     public boolean isAfk(UUID playerUuid) {
+        if (!com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isAfkEnabled()) return false;
         PlayerAfkData data = playerData.get(playerUuid);
         return data != null && data.isAfk();
     }
@@ -161,6 +162,7 @@ public class AfkManager {
      * Set AFK status for player
      */
     public void setAfkStatus(UUID playerUuid, boolean afk, String reason) {
+        if (afk && !com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isAfkEnabled()) return;
         PlayerAfkData data = playerData.computeIfAbsent(playerUuid, k -> new PlayerAfkData());
         boolean wasAfk = data.isAfk();
 
@@ -201,7 +203,7 @@ public class AfkManager {
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
         AfkManager instance = getInstance();
-        if (!instance.configurationLoaded || instance.isShuttingDown || !instance.autoAfkEnabled) {
+        if (!instance.configurationLoaded || instance.isShuttingDown || !instance.autoAfkEnabled || !com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isAfkEnabled()) {
             return;
         }
 

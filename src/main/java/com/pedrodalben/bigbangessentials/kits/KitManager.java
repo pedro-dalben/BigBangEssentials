@@ -439,7 +439,7 @@ public class KitManager {
         }
         // Double-check maxKitsPerPlayer after giving kit (in case of race conditions), unless override
         if (!(com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isAllowKitOverrideEnabled() &&
-              com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), "bigbangessentials.kits.override"))) {
+              hasStrictPermission(player.getUUID(), "bigbangessentials.kits.override"))) {
             int maxKits = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().getMaxKitsPerPlayer();
             if (maxKits > 0 && !hasCooldownExemption(player, kitName)) {
                 Map<String, Long> cooldownMap = playerCooldowns.get(player.getUUID());
@@ -667,11 +667,11 @@ public class KitManager {
 
         var externalAdapter = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getExternalAdapter();
         if (externalAdapter != null) {
-            return externalAdapter.hasPermission(playerId, permission);
+            return externalAdapter.hasExactPermission(playerId, permission);
         }
 
         var manager = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getManager();
-        return manager != null && manager.hasPermission(playerId, permission);
+        return manager != null && manager.hasExactPermission(playerId, permission);
     }
     
     private String formatTime(long millis) {

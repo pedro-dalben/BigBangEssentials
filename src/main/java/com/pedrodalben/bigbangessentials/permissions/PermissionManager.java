@@ -128,6 +128,25 @@ public class PermissionManager {
         }
         return result;
     }
+
+    /**
+     * Checks only for an exact permission node, without wildcard expansion.
+     * This is used for bypass permissions where broad wildcards should not apply.
+     */
+    public boolean hasExactPermission(UUID uuid, String permission) {
+        if (uuid == null || permission == null || permission.trim().isEmpty()) {
+            return false;
+        }
+
+        permission = permission.toLowerCase();
+        PermissionUser user = getUser(uuid);
+        if (user != null && user.getPermissions().contains(permission)) {
+            return true;
+        }
+
+        String groupName = (user != null && user.getGroup() != null) ? user.getGroup() : defaultGroup;
+        return hasGroupExactPermission(groupName, permission, new HashSet<>());
+    }
     
     private boolean computePermission(UUID uuid, String permission) {
         LOGGER.debug("Computing permission '{}' for UUID {}", permission, uuid);
@@ -305,6 +324,24 @@ public class PermissionManager {
         for (String parent : group.getInherits()) {
             LOGGER.debug("  Checking inherited group '{}'", parent);
             if (hasGroupPermission(parent, permission, visited)) return true;
+        }
+        return false;
+    }
+
+    private boolean hasGroupExactPermission(String groupName, String permission, Set<String> visited) {
+        if (groupName == null || visited.contains(groupName.toLowerCase())) return false;
+        visited.add(groupName.toLowerCase());
+        PermissionGroup group = getGroup(groupName);
+        if (group == null) {
+            return false;
+        }
+        if (group.getPermissions().contains(permission)) {
+            return true;
+        }
+        for (String parent : group.getInherits()) {
+            if (hasGroupExactPermission(parent, permission, visited)) {
+                return true;
+            }
         }
         return false;
     }

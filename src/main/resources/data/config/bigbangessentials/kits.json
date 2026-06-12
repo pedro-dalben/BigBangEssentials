@@ -4,7 +4,7 @@
     "kits": [
         {
             "name": "starter",
-            "cooldown": 86400,
+            "cooldownHours": 24,
             "items": [
                 {
                     "item": "minecraft:stone_sword",

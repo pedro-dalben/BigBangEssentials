@@ -112,6 +112,22 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
         }
     }
 
+    @Override
+    public boolean hasExactPermission(UUID uuid, String permission) {
+        if (!available || uuid == null || permission == null || permission.isBlank()) {
+            return false;
+        }
+
+        try {
+            Object permissionValue = getPermissionValue(uuid, permission);
+            Boolean result = asBoolean(permissionValue);
+            return Boolean.TRUE.equals(result);
+        } catch (Exception e) {
+            LOGGER.error("Failed to check exact FTB Ranks permission '{}'", permission, e);
+            return false;
+        }
+    }
+
     private Boolean getOnlineBooleanPermission(ServerPlayer player, String permission) throws Exception {
         Object permissionValue = getPermissionValueMethod.invoke(null, player, permission);
         Boolean result = asBoolean(permissionValue);

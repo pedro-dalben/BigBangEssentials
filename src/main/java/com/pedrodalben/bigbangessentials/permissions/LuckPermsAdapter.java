@@ -94,6 +94,45 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
         }
     }
 
+    @Override
+    public boolean hasExactPermission(UUID uuid, String permission) {
+        if (!luckPermsLoaded || luckPermsApi == null || permission == null || permission.isBlank()) {
+            return false;
+        }
+
+        try {
+            User user = getOrLoadUser(uuid);
+            if (user == null) {
+                return false;
+            }
+
+            QueryOptions queryOptions = QueryOptions.defaultContextualOptions();
+            Boolean exactValue = user.getCachedData()
+                .getPermissionData(queryOptions)
+                .getPermissionMap()
+                .get(permission.toLowerCase());
+            return Boolean.TRUE.equals(exactValue);
+        } catch (Exception e) {
+            LOGGER.error("Error checking exact permission '{}' for user {}: {}",
+                permission, uuid, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    private User getOrLoadUser(UUID uuid) throws Exception {
+        if (uuid == null) {
+            return null;
+        }
+
+        User user = luckPermsApi.getUserManager().getUser(uuid);
+        if (user != null) {
+            return user;
+        }
+
+        CompletableFuture<User> userFuture = luckPermsApi.getUserManager().loadUser(uuid);
+        return userFuture.get(USER_LOAD_TIMEOUT, TimeUnit.SECONDS);
+    }
+
     private boolean getDefaultPermissionValue(String permission) {
         return PermissionRegistry.getInstance().getDefaultPermissionValue(permission);
     }

@@ -70,6 +70,35 @@ public class BukkitSpongeAdapter implements ExternalPermissionAdapter {
     }
 
     @Override
+    public boolean hasExactPermission(UUID uuid, String permission) {
+        if (!available || uuid == null || permission == null || permission.isBlank()) return false;
+        try {
+            if (isBukkit) {
+                Class<?> bukkitClass = Class.forName("org.bukkit.Bukkit");
+                Object player = bukkitClass.getMethod("getPlayer", UUID.class).invoke(null, uuid);
+                if (player == null) {
+                    return false;
+                }
+
+                Object effectivePermissions = player.getClass().getMethod("getEffectivePermissions").invoke(player);
+                if (effectivePermissions instanceof Iterable<?> iterable) {
+                    String permissionLower = permission.toLowerCase();
+                    for (Object attachmentInfo : iterable) {
+                        Object node = attachmentInfo.getClass().getMethod("getPermission").invoke(attachmentInfo);
+                        Object value = attachmentInfo.getClass().getMethod("getValue").invoke(attachmentInfo);
+                        if (node != null && permissionLower.equals(node.toString().toLowerCase()) && Boolean.TRUE.equals(value)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("Failed to check exact Bukkit/Sponge permission", e);
+        }
+        return false;
+    }
+
+    @Override
     public String getPrefix(UUID uuid) {
         // Not implemented for Bukkit/Sponge by default
         return null;

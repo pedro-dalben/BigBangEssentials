@@ -128,7 +128,7 @@ public class Kit {
         json.addProperty("name", name);
         json.addProperty("displayName", displayName);
         json.addProperty("description", description);
-        json.addProperty("cooldownMillis", cooldownMillis);
+        json.addProperty("cooldownHours", cooldownMillis / 3600000d);
         json.addProperty("permission", permission);
         json.addProperty("maxUses", maxUses);
         json.addProperty("enabled", enabled);
@@ -164,9 +164,14 @@ public class Kit {
         String displayName = json.has("displayName") ? json.get("displayName").getAsString() : name;
         String description = json.has("description") ? json.get("description").getAsString() : "";
 
-        // Handle both "cooldown" (seconds) and "cooldownMillis" for backward compatibility
+        // Handle legacy cooldown formats for backward compatibility:
+        // - cooldownHours: preferred format
+        // - cooldownMillis: legacy internal format
+        // - cooldown: legacy seconds format
         long cooldownMillis = 0;
-        if (json.has("cooldownMillis")) {
+        if (json.has("cooldownHours")) {
+            cooldownMillis = Math.max(0, Math.round(json.get("cooldownHours").getAsDouble() * 60d * 60d * 1000d));
+        } else if (json.has("cooldownMillis")) {
             cooldownMillis = json.get("cooldownMillis").getAsLong();
         } else if (json.has("cooldown")) {
             // Convert seconds to milliseconds

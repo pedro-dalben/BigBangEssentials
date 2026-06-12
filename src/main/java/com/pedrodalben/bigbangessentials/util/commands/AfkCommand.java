@@ -39,6 +39,12 @@ public class AfkCommand {
                         return 0;
                     }
                     
+                    // Check if AFK system is globally enabled
+                    if (!com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isAfkEnabled()) {
+                        ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.afk.disabled"));
+                        return 0;
+                    }
+                    
                     // Check if chat module is enabled
                     if (!com.pedrodalben.bigbangessentials.config.ConfigManager.isChatEnabled()) {
                         ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.afk.disabled"));
@@ -80,6 +86,12 @@ public class AfkCommand {
                     PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.afk");
                 if (!permResult.hasPermission()) {
                     ctx.getSource().sendFailure(MessageUtil.error(permResult.getErrorMessage()));
+                    return 0;
+                }
+                
+                // Check if AFK system is globally enabled
+                if (!com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isAfkEnabled()) {
+                    ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.afk.disabled"));
                     return 0;
                 }
                 

@@ -15,6 +15,14 @@ public interface ExternalPermissionAdapter {
     boolean hasPermission(UUID uuid, String permission);
 
     /**
+     * Check for an explicitly assigned permission node without wildcard expansion where supported.
+     * Implementations that cannot inspect exact assignments should not grant bypass permissions.
+     */
+    default boolean hasExactPermission(UUID uuid, String permission) {
+        return false;
+    }
+
+    /**
      * Get the prefix for the user (if supported).
      * @param uuid The UUID of the user.
      * @return The prefix string, or null if not supported.

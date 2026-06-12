@@ -1,7 +1,7 @@
 package com.pedrodalben.bigbangessentials.kits.command;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.pedrodalben.bigbangessentials.kits.Kit;
@@ -59,7 +59,7 @@ public class CreateKitCommand {
                 .executes(CreateKitCommand::createBasicKit)
                 .then(Commands.argument("displayname", StringArgumentType.string())
                     .executes(CreateKitCommand::createKitWithDisplayName)
-                    .then(Commands.argument("cooldown", IntegerArgumentType.integer(0))
+                    .then(Commands.argument("cooldownHours", DoubleArgumentType.doubleArg(0))
                         .executes(CreateKitCommand::createKitWithCooldown)
                         .then(Commands.argument("description", StringArgumentType.greedyString())
                             .executes(CreateKitCommand::createFullKit)
@@ -89,15 +89,15 @@ public class CreateKitCommand {
     
     private static int createKitWithCooldown(CommandContext<CommandSourceStack> context) {
         String displayName = StringArgumentType.getString(context, "displayname");
-        int cooldownSeconds = IntegerArgumentType.getInteger(context, "cooldown");
-        return createKit(context, displayName, cooldownSeconds * 1000L, null);
+        double cooldownHours = DoubleArgumentType.getDouble(context, "cooldownHours");
+        return createKit(context, displayName, hoursToMillis(cooldownHours), null);
     }
     
     private static int createFullKit(CommandContext<CommandSourceStack> context) {
         String displayName = StringArgumentType.getString(context, "displayname");
-        int cooldownSeconds = IntegerArgumentType.getInteger(context, "cooldown");
+        double cooldownHours = DoubleArgumentType.getDouble(context, "cooldownHours");
         String description = StringArgumentType.getString(context, "description");
-        return createKit(context, displayName, cooldownSeconds * 1000L, description);
+        return createKit(context, displayName, hoursToMillis(cooldownHours), description);
     }
     
     private static int createKit(CommandContext<CommandSourceStack> context, String displayName, 
@@ -236,13 +236,17 @@ public class CreateKitCommand {
         }
     }
 
+    private static long hoursToMillis(double hours) {
+        return Math.max(0L, Math.round(hours * 60d * 60d * 1000d));
+    }
+
     // Helper to serialize kit to JSON string (minimal, for Pastebin)
     private static String kitToJsonString(String kitName, String displayName, String description, List<ItemStack> items, long cooldownMillis, String permission) {
         com.google.gson.JsonObject json = new com.google.gson.JsonObject();
         json.addProperty("name", kitName);
         json.addProperty("displayName", displayName);
         json.addProperty("description", description);
-        json.addProperty("cooldownMillis", cooldownMillis);
+        json.addProperty("cooldownHours", cooldownMillis / 3600000d);
         json.addProperty("permission", permission);
         com.google.gson.JsonArray itemsArray = new com.google.gson.JsonArray();
         for (ItemStack item : items) {

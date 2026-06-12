@@ -19,7 +19,7 @@ Create item kits with cooldowns, permission gates, and command execution on clai
 | `/kits` | alias | same | Alias |
 | `/listkits` | alias | same | Alias |
 | `/showkit` | `/showkit <name>` | `bigbangessentials.showkit` | Preview kit contents without claiming |
-| `/createkit` | `/createkit <name> [cooldown]` | `bigbangessentials.kits.create` / `bigbangessentials.kits.admin.create` | Create kit from current inventory |
+| `/createkit` | `/createkit <name> [cooldownHours]` | `bigbangessentials.kits.create` / `bigbangessentials.kits.admin.create` | Create kit from current inventory |
 | `/delkit` | `/delkit <name>` | `bigbangessentials.kits.delete` / `bigbangessentials.kits.admin.delete` | Delete a kit |
 | `/kitreset` | `/kitreset <kit> [player]` | `bigbangessentials.kitreset` / `bigbangessentials.kitreset.others` | Reset a kit cooldown |
 
@@ -49,7 +49,7 @@ Create item kits with cooldowns, permission gates, and command execution on clai
   "kits": [
     {
       "name": "starter",
-      "cooldown": 86400,
+      "cooldownHours": 24,
       "items": [
         { "item": "minecraft:stone_sword", "count": 1 },
         { "item": "minecraft:bread", "count": 16 }
