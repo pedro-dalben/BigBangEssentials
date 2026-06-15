@@ -156,6 +156,10 @@ dependencies {
     // JarJar will properly isolate this dependency within our mod
     implementation 'org.java-websocket:Java-WebSocket:1.5.7'
     jarJar(group: 'org.java-websocket', name: 'Java-WebSocket', version: '[1.5.7,1.6.0)')
+    
+    // SnakeYAML for parsing YAML menus
+    implementation 'org.yaml:snakeyaml:2.2'
+    jarJar(group: 'org.yaml', name: 'snakeyaml', version: '[2.2,3.0)')
 
     // LuckPerms API for permissions integration
     compileOnly 'net.luckperms:api:5.4'

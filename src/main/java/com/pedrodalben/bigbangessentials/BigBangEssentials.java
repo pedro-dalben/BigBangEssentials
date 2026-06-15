@@ -218,6 +218,15 @@ public class BigBangEssentials {
                 LOGGER.error("✗ Vault API initialization failed: {}", e.getMessage(), e);
             }
 
+            // Initialize GUI Menus (New Framework)
+            try {
+                LOGGER.info("⚙ Initializing New Menu System...");
+                com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().initialize();
+                LOGGER.info("✓ New Menu System initialized");
+            } catch (Exception e) {
+                LOGGER.error("✗ Menu System failed to initialize: {}", e.getMessage(), e);
+            }
+
             // Initialize ChestShop system
             try {
                 LOGGER.info("⚙ Initializing ChestShop system...");
@@ -489,6 +498,9 @@ public class BigBangEssentials {
             removeVanillaCommand(dispatcher, "tell");
             removeVanillaCommand(dispatcher, "w");
             removeVanillaCommand(dispatcher, "tag");
+            
+            // Register New Menu System Commands
+            com.pedrodalben.bigbangessentials.menu.command.MenuCommand.register(dispatcher);
             
             registerAllCommands(dispatcher, registry);
         }
