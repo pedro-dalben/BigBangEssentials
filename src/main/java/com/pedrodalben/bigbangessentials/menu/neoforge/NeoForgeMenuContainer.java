@@ -10,8 +10,20 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.SimpleContainer;
 import com.pedrodalben.bigbangessentials.menu.session.MenuSession;
 import com.pedrodalben.bigbangessentials.menu.model.MenuCloseReason;
+import com.pedrodalben.bigbangessentials.menu.model.MenuClickType;
+import com.pedrodalben.bigbangessentials.menu.model.MenuDefinition;
+import com.pedrodalben.bigbangessentials.menu.model.MenuPageDefinition;
+import com.pedrodalben.bigbangessentials.menu.model.MenuItemDefinition;
+import com.pedrodalben.bigbangessentials.menu.MenuSystem;
+import com.pedrodalben.bigbangessentials.menu.action.ActionContext;
+import com.pedrodalben.bigbangessentials.menu.action.ActionExecutor;
+import com.pedrodalben.bigbangessentials.menu.placeholder.PlaceholderService;
+import com.pedrodalben.bigbangessentials.util.ChatComponentUtil;
 import com.pedrodalben.bigbangessentials.menu.runtime.MenuServiceImpl;
 import net.minecraft.server.level.ServerPlayer;
+
+import java.util.Collections;
+import java.util.Optional;
 
 public class NeoForgeMenuContainer extends AbstractContainerMenu {
     private final SimpleContainer menuInventory;
@@ -28,7 +40,7 @@ public class NeoForgeMenuContainer extends AbstractContainerMenu {
 
         // Add menu slots
         for (int i = 0; i < size; ++i) {
-            this.addSlot(new Slot(menuInventory, i, 0, 0)); // Visual position doesn't matter for server
+            this.addSlot(new Slot(menuInventory, i, 0, 0));
         }
 
         // Add player inventory
@@ -53,21 +65,110 @@ public class NeoForgeMenuContainer extends AbstractContainerMenu {
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        return ItemStack.EMPTY; // Prevent shift-click by default
+        return ItemStack.EMPTY; // Prevent shift-click from moving items
     }
 
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
-        if (slotId >= 0 && slotId < this.size) {
-            // Cancel event if prevent-item-take is true
-            // Execute actions
-            if (player instanceof ServerPlayer sp) {
-                // Simplified for now: just refresh if needed, but we intercept clicks and call pipelines
+        // Prevent double click and quick craft completely if they involve menu slots
+        if (clickType == ClickType.PICKUP_ALL || clickType == ClickType.QUICK_CRAFT) {
+            return;
+        }
+
+        // If click is on player inventory slot, let it behave normally (except shift clicking handled by quickMoveStack)
+        if (slotId >= this.size || slotId < 0) {
+            super.clicked(slotId, button, clickType, player);
+            return;
+        }
+
+        // Click is on menu slot (0 <= slotId < size)
+        if (player instanceof ServerPlayer sp) {
+            MenuClickType menuClick = mapClickType(clickType, button);
+
+            // Execute click processing on Minecraft server main thread
+            sp.getServer().submit(() -> {
+                try {
+                    handleMenuSlotClick(sp, slotId, menuClick);
+                } catch (Exception e) {
+                    // Fail-safe, do not crash the server
+                } finally {
+                    this.sendAllDataToRemote();
+                }
+            });
+        }
+    }
+
+    private void handleMenuSlotClick(ServerPlayer player, int slotId, MenuClickType clickType) {
+        Optional<MenuDefinition> menuOpt = MenuSystem.getInstance().getMenuService().getMenu(session.getMenuId());
+        if (menuOpt.isEmpty()) return;
+
+        MenuDefinition menu = menuOpt.get();
+        MenuPageDefinition page = menu.pages().get(session.getCurrentPageId());
+        if (page == null) return;
+
+        // Find clicked item definition
+        MenuItemDefinition itemDef = null;
+        for (MenuItemDefinition item : page.items().values()) {
+            if (item.slotBinding().slots().contains(slotId)) {
+                itemDef = item;
+                break;
             }
         }
-        // Don't call super to prevent item movement for menu slots
-        if (slotId < this.size) return;
-        super.clicked(slotId, button, clickType, player);
+
+        if (itemDef == null) {
+            return; // Empty slot clicked, consume click and do nothing
+        }
+
+        // Evaluate permissions & conditions
+        boolean permPass = NeoForgeMenuRenderer.checkPermissionSpec(itemDef.clickPermission(), player, session.getContext());
+        boolean condPass = NeoForgeMenuRenderer.checkConditions(itemDef.clickConditions(), player, session.getContext());
+
+        ActionContext actionContext = new ActionContext(
+            player, session, menu, page, itemDef, clickType, session.getContext(), Collections.emptyMap()
+        );
+
+        ActionExecutor executor = new ActionExecutor(MenuSystem.getInstance().getActionRegistry());
+
+        if (permPass && condPass) {
+            // Execute actions
+            executor.executeAll(itemDef.actions(), actionContext);
+
+            // Close on click flag
+            if (itemDef.closeOnClick()) {
+                MenuSystem.getInstance().getMenuService().closeMenu(player, menu.id(), MenuCloseReason.PLAYER_CLOSE);
+            }
+            // Refresh on click flag
+            else if (itemDef.refreshOnClick()) {
+                MenuSystem.getInstance().getMenuService().refreshCurrentPage(player);
+            }
+        } else {
+            // Run deny-actions
+            executor.executeAll(itemDef.denyActions(), actionContext);
+
+            // Handle denied message if clickPermission fails and has message key
+            if (!permPass && itemDef.clickPermission() != null && itemDef.clickPermission().deniedMessageKey() != null) {
+                String msg = itemDef.clickPermission().deniedMessageKey();
+                String resolved = PlaceholderService.resolve(msg, player, session.getContext());
+                player.sendSystemMessage(ChatComponentUtil.parseColorCodes(resolved));
+            }
+        }
+    }
+
+    private MenuClickType mapClickType(ClickType type, int button) {
+        if (type == ClickType.PICKUP) {
+            return button == 1 ? MenuClickType.RIGHT : MenuClickType.LEFT;
+        } else if (type == ClickType.QUICK_MOVE) {
+            return button == 1 ? MenuClickType.SHIFT_RIGHT : MenuClickType.SHIFT_LEFT;
+        } else if (type == ClickType.CLONE) {
+            return MenuClickType.MIDDLE;
+        } else if (type == ClickType.THROW) {
+            return MenuClickType.DROP;
+        } else if (type == ClickType.SWAP) {
+            return MenuClickType.NUMBER_KEY;
+        } else if (type == ClickType.QUICK_CRAFT || type == ClickType.PICKUP_ALL) {
+            return MenuClickType.DOUBLE_CLICK;
+        }
+        return MenuClickType.UNKNOWN;
     }
 
     @Override

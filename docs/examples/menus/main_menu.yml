@@ -1,0 +1,163 @@
+id: main_menu
+schema-version: 1
+size: 54
+title: "&6&lMenu Principal &r- &7{player_name}"
+
+pages:
+  main:
+    default-page: true
+    items:
+      gray_border:
+        slots: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18, 26, 27, 35, 36, 44, 45, 46, 47, 48, 50, 51, 52, 53]
+        item:
+          material-id: "minecraft:gray_stained_glass_pane"
+          display-name: " "
+      close_button:
+        slot: 49
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "&cFechar Menu"
+          lore:
+            - "&7Clique para fechar o menu."
+        actions:
+          - type: "close_menu"
+      msg_button:
+        slot: 20
+        item:
+          material-id: "minecraft:paper"
+          display-name: "&aEnviar Mensagem: {player_name}"
+          lore:
+            - "&7Envia uma mensagem de teste."
+            - "&7Mundo atual: &f{player_world}"
+        actions:
+          - type: "send_message"
+            params:
+              message: "&a[BigBangEssentials] Olá, {player_name}! A navegação funciona."
+      player_cmd_button:
+        slot: 21
+        item:
+          material-id: "minecraft:diamond_sword"
+          display-name: "&bExecutar Comando Jogador"
+          lore:
+            - "&7Executa o comando &f/ping&7."
+        actions:
+          - type: "run_player_command"
+            params:
+              command: "ping"
+      console_cmd_button:
+        slot: 22
+        item:
+          material-id: "minecraft:command_block"
+          display-name: "&cExecutar Comando Console"
+          lore:
+            - "&7Executa &f/say&7 pelo console."
+        actions:
+          - type: "run_console_command"
+            params:
+              command: "say O jogador {player_name} clicou no menu!"
+      open_second_button:
+        slot: 23
+        item:
+          material-id: "minecraft:ender_pearl"
+          display-name: "&dIr para Segundo Menu"
+          lore:
+            - "&7Clique para abrir o segundo menu."
+            - "&7ID do Menu: &f{menu_id}"
+        actions:
+          - type: "open_menu"
+            params:
+              menu: "second_menu"
+      permission_button:
+        slot: 24
+        item:
+          material-id: "minecraft:gold_ingot"
+          display-name: "&eBotão com Permissão"
+          lore:
+            - "&7Requer &fbigbangessentials.menu.test&7."
+        click-permission:
+          all-of:
+            - "bigbangessentials.menu.test"
+          denied-message-key: "&cVocê não tem permissão para usar esse botão!"
+        actions:
+          - type: "send_message"
+            params:
+              message: "&aVocê tem a permissão necessária!"
+      deny_action_button:
+        slot: 25
+        item:
+          material-id: "minecraft:tnt"
+          display-name: "&cBotão com Condição e DenyAction"
+          lore:
+            - "&7Clique para testar falha."
+        click-conditions:
+          - type: "permission"
+            params:
+              permission: "bigbangessentials.nonexistent"
+        actions:
+          - type: "send_message"
+            params:
+              message: "&aEste texto nunca deve aparecer (sucesso)."
+        deny-actions:
+          - type: "send_message"
+            params:
+              message: "&c[DenyAction] Condição falhou com sucesso!"
+      set_context_button:
+        slot: 30
+        item:
+          material-id: "minecraft:emerald"
+          display-name: "&aDefinir Contexto: Ativado123"
+          lore:
+            - "&7Define a chave 'test_key' como 'Ativado123'."
+        actions:
+          - type: "set_context_value"
+            params:
+              key: "test_key"
+              value: "Ativado123"
+          - type: "send_message"
+            params:
+              message: "&a[Context] test_key definido como Ativado123!"
+      remove_context_button:
+        slot: 31
+        item:
+          material-id: "minecraft:redstone"
+          display-name: "&cRemover Contexto"
+          lore:
+            - "&7Remove a chave 'test_key'."
+        actions:
+          - type: "remove_context_value"
+            params:
+              key: "test_key"
+          - type: "send_message"
+            params:
+              message: "&c[Context] test_key removido!"
+      context_condition_button:
+        slot: 32
+        item:
+          material-id: "minecraft:repeater"
+          display-name: "&dBotão com Condição de Contexto"
+          lore:
+            - "&7Requer que 'test_key' seja 'Ativado123'."
+            - "&7Valor atual: &f{context:test_key}"
+        click-conditions:
+          - type: "context_equals"
+            params:
+              key: "test_key"
+              value: "Ativado123"
+            failure-message-key: "&cErro: A chave de contexto 'test_key' não é 'Ativado123'!"
+        actions:
+          - type: "send_message"
+            params:
+              message: "&a[Sucesso] Condição de contexto atendida!"
+        deny-actions:
+          - type: "send_message"
+            params:
+              message: "&c[Falha] Requer que você clique no botão de Emerald primeiro!"
+      back_button:
+        slot: 40
+        item:
+          material-id: "minecraft:arrow"
+          display-name: "&cVoltar (Backstack)"
+          lore:
+            - "&7Executa a ação de voltar (back_menu)."
+        actions:
+          - type: "back_menu"

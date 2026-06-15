@@ -4,6 +4,7 @@ import com.pedrodalben.bigbangessentials.menu.model.MenuDefinition;
 import com.pedrodalben.bigbangessentials.menu.model.PatternDefinition;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,13 +12,25 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MenuRegistry {
     private final Map<String, MenuDefinition> menus = new ConcurrentHashMap<>();
     private final Map<String, PatternDefinition> patterns = new ConcurrentHashMap<>();
+    private final Map<String, List<String>> invalidMenus = new ConcurrentHashMap<>();
 
     public void registerMenu(MenuDefinition menu) {
         menus.put(menu.id(), menu);
+        invalidMenus.remove(menu.id());
+    }
+
+    public void registerInvalidMenu(String id, List<String> errors) {
+        invalidMenus.put(id, errors);
+        menus.remove(id);
+    }
+
+    public Map<String, List<String>> getInvalidMenus() {
+        return invalidMenus;
     }
 
     public void unregisterMenu(String id) {
         menus.remove(id);
+        invalidMenus.remove(id);
     }
 
     public Optional<MenuDefinition> getMenu(String id) {
@@ -39,5 +52,6 @@ public class MenuRegistry {
     public void clear() {
         menus.clear();
         patterns.clear();
+        invalidMenus.clear();
     }
 }

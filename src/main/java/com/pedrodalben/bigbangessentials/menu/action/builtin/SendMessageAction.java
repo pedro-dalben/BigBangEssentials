@@ -16,7 +16,8 @@ public class SendMessageAction implements MenuActionHandler {
     public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
         String message = context.param("message", String.class);
         if (message != null) {
-            context.player().sendSystemMessage(Component.literal(message.replace("<gold>", "§6").replace("<red>", "§c").replace("<green>", "§a")));
+            String resolved = com.pedrodalben.bigbangessentials.menu.placeholder.PlaceholderService.resolve(message, context.player(), context.context());
+            context.player().sendSystemMessage(com.pedrodalben.bigbangessentials.util.ChatComponentUtil.parseColorCodes(resolved));
         }
         return CompletableFuture.completedFuture(ActionExecutionResult.success());
     }

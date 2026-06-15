@@ -174,6 +174,17 @@ dependencies {
     // runtimeOnly fg.deobf("dev.architectury:architectury-neoforge:VERSION")
     // runtimeOnly fg.deobf("dev.ftb.mods:ftb-library-neoforge:VERSION")
     // runtimeOnly fg.deobf("dev.ftb.mods:ftbranks-neoforge:VERSION")
+    
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+}
+
+sourceSets {
+    test {
+        compileClasspath += sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.runtimeClasspath
+    }
 }
 
 
@@ -237,4 +248,8 @@ idea {
         downloadSources = true
         downloadJavadoc = true
     }
+}
+
+test {
+    useJUnitPlatform()
 }

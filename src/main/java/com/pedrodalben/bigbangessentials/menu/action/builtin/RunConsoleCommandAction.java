@@ -15,7 +15,7 @@ public class RunConsoleCommandAction implements MenuActionHandler {
     public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
         String command = context.param("command", String.class);
         if (command != null) {
-            String finalCmd = command.replace("{player_name}", context.player().getGameProfile().getName());
+            String finalCmd = com.pedrodalben.bigbangessentials.menu.placeholder.PlaceholderService.resolve(command, context.player(), context.context());
             context.player().getServer().submit(() -> {
                 context.player().getServer().getCommands().performPrefixedCommand(context.player().getServer().createCommandSourceStack(), finalCmd);
             });

@@ -18,8 +18,12 @@ public class MenuSession {
     private Deque<MenuBackStackEntry> backStack;
     private AbstractContainerMenu containerMenu;
     private boolean closed;
+    private MenuContext context;
 
     // Getters and Setters
+    public MenuContext getContext() { return context; }
+    public void setContext(MenuContext context) { this.context = context; }
+
     public UUID getSessionId() { return sessionId; }
     public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
 

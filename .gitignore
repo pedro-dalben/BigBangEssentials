@@ -60,3 +60,9 @@ docs/DASHBOARD_TODO_IMPLEMENTATION.md
 docs/DASHBOARD_V2_REDESIGN.md
 Issues_Discovered.md
 .gradle/buildOutputCleanup/buildOutputCleanup.lock
+
+# Runtime/local directories
+var/
+logs/
+world/
+config/

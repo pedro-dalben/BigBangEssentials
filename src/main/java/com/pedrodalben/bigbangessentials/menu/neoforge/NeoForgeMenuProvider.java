@@ -9,13 +9,18 @@ import net.minecraft.world.SimpleContainer;
 import com.pedrodalben.bigbangessentials.menu.session.MenuSession;
 import com.pedrodalben.bigbangessentials.menu.model.MenuDefinition;
 import com.pedrodalben.bigbangessentials.menu.runtime.MenuServiceImpl;
+import net.minecraft.server.level.ServerPlayer;
+import com.pedrodalben.bigbangessentials.menu.placeholder.PlaceholderService;
+import com.pedrodalben.bigbangessentials.util.ChatComponentUtil;
 
 public class NeoForgeMenuProvider implements MenuProvider {
+    private final ServerPlayer player;
     private final MenuSession session;
     private final MenuDefinition menu;
     private final MenuServiceImpl service;
 
-    public NeoForgeMenuProvider(MenuSession session, MenuDefinition menu, MenuServiceImpl service) {
+    public NeoForgeMenuProvider(ServerPlayer player, MenuSession session, MenuDefinition menu, MenuServiceImpl service) {
+        this.player = player;
         this.session = session;
         this.menu = menu;
         this.service = service;
@@ -23,11 +28,13 @@ public class NeoForgeMenuProvider implements MenuProvider {
 
     @Override
     public Component getDisplayName() {
-        return menu.title() != null ? menu.title() : Component.literal("Menu");
+        String rawTitle = menu.rawTitle() != null ? menu.rawTitle() : "Menu";
+        String resolved = PlaceholderService.resolve(rawTitle, player, session.getContext());
+        return ChatComponentUtil.parseColorCodes(resolved);
     }
 
     @Override
-    public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
+    public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player playerEntity) {
         net.minecraft.world.inventory.MenuType<?> type;
         int size = menu.size();
         if (size <= 9) type = net.minecraft.world.inventory.MenuType.GENERIC_9x1;

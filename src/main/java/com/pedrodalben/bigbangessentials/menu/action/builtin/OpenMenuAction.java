@@ -16,8 +16,13 @@ public class OpenMenuAction implements MenuActionHandler {
     public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
         String targetMenuId = context.param("menu-id", String.class);
         if (targetMenuId == null) {
+            targetMenuId = context.param("menu", String.class);
+        }
+        if (targetMenuId == null) {
             return CompletableFuture.completedFuture(ActionExecutionResult.failed("Missing menu-id"));
         }
+        
+        targetMenuId = com.pedrodalben.bigbangessentials.menu.placeholder.PlaceholderService.resolve(targetMenuId, context.player(), context.context());
         
         return MenuSystem.getInstance().getMenuService()
             .openMenu(context.player(), targetMenuId, context.context())

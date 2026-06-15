@@ -120,6 +120,7 @@ public class MenuServiceImpl implements MenuService {
                 session.setRevision(1);
                 session.setBackStack(new ArrayDeque<>());
                 session.setClosed(false);
+                session.setContext(context);
 
                 renderer.openMenu(player, session, menu, context, this);
                 

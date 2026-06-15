@@ -1,0 +1,39 @@
+id: second_menu
+schema-version: 1
+size: 27
+title: "&6&lSegundo Menu &r- &dPag. {menu_page}"
+
+pages:
+  main:
+    default-page: true
+    items:
+      back_button:
+        slot: 10
+        item:
+          material-id: "minecraft:arrow"
+          display-name: "&eVoltar para Menu Principal"
+          lore:
+            - "&7Usa a ação back_menu para"
+            - "&7retornar no histórico."
+        actions:
+          - type: "back_menu"
+      msg_confirm_button:
+        slot: 13
+        item:
+          material-id: "minecraft:writable_book"
+          display-name: "&aStatus de Navegação"
+          lore:
+            - "&7Valor de contexto recebido:"
+            - "&f{context:test_key}"
+            - "&7(Deve ser 'Ativado123' se setado)"
+        actions:
+          - type: "send_message"
+            params:
+              message: "&a[BigBangEssentials] A navegação entre menus e o transporte de contexto funcionam perfeitamente!"
+      close_button:
+        slot: 16
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "&cFechar Menu"
+        actions:
+          - type: "close_menu"
