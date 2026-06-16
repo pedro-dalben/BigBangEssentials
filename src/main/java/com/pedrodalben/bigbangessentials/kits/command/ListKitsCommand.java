@@ -31,7 +31,6 @@ public class ListKitsCommand {
         }
         
         registerListKitsCommand(dispatcher, "listkits");
-        registerListKitsCommand(dispatcher, "kits");
     }
     
     private static void registerListKitsCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {

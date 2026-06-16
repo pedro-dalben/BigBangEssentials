@@ -35,21 +35,20 @@ public class KitCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         if (!com.pedrodalben.bigbangessentials.config.ConfigManager.isKitSystemEnabled()) return;
 
-        dispatcher.register(Commands.literal("kit")
-            .requires(src -> {
-                var p = src.getPlayer();
-                // console always allowed (will need player arg); players need base use perm
-                return p == null || PermissionAPI.hasAnyPermission(
-                    p.getUUID(),
-                    "bigbangessentials.kits.use",
-                    "bigbangessentials.kit",
-                    "bigbangessentials.kits.admin"
-                );
-            })
+        registerKitLiteral(dispatcher, "kit", true);
+        registerKitLiteral(dispatcher, "kits", false);
+    }
+
+    private static void registerKitLiteral(CommandDispatcher<CommandSourceStack> dispatcher,
+                                           String literalName,
+                                           boolean allowClaimArguments) {
+        var literal = Commands.literal(literalName)
+            .requires(src -> true)
             // /kit — list kits
-            .executes(KitCommand::listAvailableKits)
-            // /kit <name>
-            .then(Commands.argument("kitname", StringArgumentType.word())
+            .executes(KitCommand::listAvailableKits);
+
+        if (allowClaimArguments) {
+            literal.then(Commands.argument("kitname", StringArgumentType.word())
                 .suggests(KitCommand::suggestKits)
                 // /kit <name>  (self)
                 .executes(ctx -> executeGiveKit(ctx,
@@ -67,8 +66,10 @@ public class KitCommand {
                         StringArgumentType.getString(ctx, "kitname"),
                         StringArgumentType.getString(ctx, "target")))
                 )
-            )
-        );
+            );
+        }
+
+        dispatcher.register(literal);
     }
 
     // ── Suggestions ───────────────────────────────────────────────────────────
@@ -91,6 +92,11 @@ public class KitCommand {
     private static int listAvailableKits(CommandContext<CommandSourceStack> ctx) {
         var source = ctx.getSource();
         var player = source.getPlayer();
+
+        if (player != null && !hasKitCommandAccess(player)) {
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.no_permission_general"));
+            return 0;
+        }
 
         var available = player != null
             ? KitManager.getInstance().getAvailableKits(player)
@@ -213,5 +219,36 @@ public class KitCommand {
         if (h > 0) return h + "h " + (m % 60) + "m";
         if (m > 0) return m + "m " + (s % 60) + "s";
         return s + "s";
+    }
+
+    private static boolean hasKitCommandAccess(ServerPlayer player) {
+        return hasGeneralKitCommandPermission(player) || hasAnyAccessibleKit(player);
+    }
+
+    private static boolean hasGeneralKitCommandPermission(ServerPlayer player) {
+        return PermissionAPI.hasAnyPermission(
+            player.getUUID(),
+            "bigbangessentials.kits.use",
+            "bigbangessentials.kits.list",
+            "bigbangessentials.kit",
+            "bigbangessentials.kit.list",
+            "bigbangessentials.kits.admin"
+        );
+    }
+
+    private static boolean hasAnyAccessibleKit(ServerPlayer player) {
+        for (Kit kit : KitManager.getInstance().getAllKits()) {
+            if (!kit.isEnabled()) {
+                continue;
+            }
+
+            String permission = kit.getPermission() != null && !kit.getPermission().isEmpty()
+                ? kit.getPermission()
+                : "bigbangessentials.kits." + kit.getName().toLowerCase();
+            if (PermissionAPI.hasPermission(player.getUUID(), permission)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
