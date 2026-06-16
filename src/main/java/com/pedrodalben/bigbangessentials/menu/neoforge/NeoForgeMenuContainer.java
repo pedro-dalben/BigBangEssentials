@@ -115,16 +115,41 @@ public class NeoForgeMenuContainer extends AbstractContainerMenu {
             }
         }
 
+        java.util.Map<String, String> slotOverrides = null;
+        if (itemDef == null && menu.pagination() != null && menu.pagination().enabled()) {
+            if (menu.pagination().contentSlots().contains(slotId)) {
+                slotOverrides = session.getSlotPlaceholderOverrides().get(slotId);
+                if (slotOverrides != null && !menuInventory.getItem(slotId).isEmpty()) {
+                    itemDef = menu.pagination().dynamicItemTemplate();
+                }
+            }
+        }
+
         if (itemDef == null) {
             return; // Empty slot clicked, consume click and do nothing
         }
 
+        // Merge slot overrides into context if they exist
+        com.pedrodalben.bigbangessentials.menu.session.MenuContext clickContext = session.getContext();
+        if (slotOverrides != null) {
+            java.util.Map<String, String> mergedOverrides = new java.util.HashMap<>();
+            if (clickContext.placeholderOverrides() != null) {
+                mergedOverrides.putAll(clickContext.placeholderOverrides());
+            }
+            mergedOverrides.putAll(slotOverrides);
+            clickContext = new com.pedrodalben.bigbangessentials.menu.session.MenuContext(
+                clickContext.playerId(), clickContext.locale(), clickContext.values(),
+                mergedOverrides, clickContext.sourceModule(), clickContext.sourceCommand(),
+                clickContext.correlationId()
+            );
+        }
+
         // Evaluate permissions & conditions
-        boolean permPass = NeoForgeMenuRenderer.checkPermissionSpec(itemDef.clickPermission(), player, session.getContext());
-        boolean condPass = NeoForgeMenuRenderer.checkConditions(itemDef.clickConditions(), player, session.getContext());
+        boolean permPass = NeoForgeMenuRenderer.checkPermissionSpec(itemDef.clickPermission(), player, clickContext);
+        boolean condPass = NeoForgeMenuRenderer.checkConditions(itemDef.clickConditions(), player, clickContext);
 
         ActionContext actionContext = new ActionContext(
-            player, session, menu, page, itemDef, clickType, session.getContext(), Collections.emptyMap()
+            player, session, menu, page, itemDef, clickType, clickContext, Collections.emptyMap()
         );
 
         ActionExecutor executor = new ActionExecutor(MenuSystem.getInstance().getActionRegistry());
@@ -174,7 +199,7 @@ public class NeoForgeMenuContainer extends AbstractContainerMenu {
     @Override
     public void removed(Player player) {
         super.removed(player);
-        if (player instanceof ServerPlayer sp) {
+        if (player instanceof ServerPlayer sp && !session.isClosed()) {
             menuService.closeMenu(sp, session.getMenuId(), MenuCloseReason.PLAYER_CLOSE);
         }
     }

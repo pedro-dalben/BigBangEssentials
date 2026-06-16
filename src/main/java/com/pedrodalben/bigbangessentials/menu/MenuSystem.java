@@ -5,6 +5,7 @@ import com.pedrodalben.bigbangessentials.menu.api.MenuPersistenceService;
 import com.pedrodalben.bigbangessentials.menu.api.MenuActionRegistry;
 import com.pedrodalben.bigbangessentials.menu.api.MenuConditionRegistry;
 import com.pedrodalben.bigbangessentials.menu.api.MenuPlaceholderRegistry;
+import com.pedrodalben.bigbangessentials.menu.api.MenuDataProviderRegistry;
 import com.pedrodalben.bigbangessentials.menu.runtime.MenuRegistry;
 import com.pedrodalben.bigbangessentials.menu.session.MenuSessionStore;
 import com.pedrodalben.bigbangessentials.menu.neoforge.NeoForgeMenuRenderer;
@@ -15,6 +16,7 @@ import com.pedrodalben.bigbangessentials.menu.command.MenuCommand;
 import com.pedrodalben.bigbangessentials.menu.runtime.MenuActionRegistryImpl;
 import com.pedrodalben.bigbangessentials.menu.runtime.MenuConditionRegistryImpl;
 import com.pedrodalben.bigbangessentials.menu.runtime.MenuPlaceholderRegistryImpl;
+import com.pedrodalben.bigbangessentials.menu.runtime.MenuDataProviderRegistryImpl;
 import net.neoforged.fml.loading.FMLPaths;
 import java.nio.file.Path;
 
@@ -25,6 +27,7 @@ public class MenuSystem {
     private MenuActionRegistryImpl actionRegistry;
     private MenuConditionRegistryImpl conditionRegistry;
     private MenuPlaceholderRegistryImpl placeholderRegistry;
+    private MenuDataProviderRegistryImpl dataProviderRegistry;
     private MenuRegistry registry;
 
     public static MenuSystem getInstance() {
@@ -43,6 +46,7 @@ public class MenuSystem {
         actionRegistry = new MenuActionRegistryImpl();
         conditionRegistry = new MenuConditionRegistryImpl();
         placeholderRegistry = new MenuPlaceholderRegistryImpl();
+        dataProviderRegistry = new MenuDataProviderRegistryImpl();
         
         // Register Actions
         actionRegistry.registerActionHandler("open_menu", new com.pedrodalben.bigbangessentials.menu.action.builtin.OpenMenuAction());
@@ -77,6 +81,9 @@ public class MenuSystem {
         Path configDir = FMLPaths.CONFIGDIR.get().resolve("bigbangessentials").resolve("menus");
         persistenceService = new YamlMenuPersistenceService(configDir, registry);
 
+        // Register teleport integration actions, providers, etc.
+        com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuIntegration.getInstance().register(configDir);
+
         // Load all menus
         persistenceService.loadAllMenus();
 
@@ -102,6 +109,10 @@ public class MenuSystem {
 
     public MenuPlaceholderRegistry getPlaceholderRegistry() {
         return placeholderRegistry;
+    }
+
+    public MenuDataProviderRegistry getDataProviderRegistry() {
+        return dataProviderRegistry;
     }
 
     public MenuRegistry getRegistry() {

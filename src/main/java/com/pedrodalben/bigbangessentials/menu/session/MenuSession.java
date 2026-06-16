@@ -19,6 +19,11 @@ public class MenuSession {
     private AbstractContainerMenu containerMenu;
     private boolean closed;
     private MenuContext context;
+    private final Map<Integer, Map<String, String>> slotPlaceholderOverrides = new java.util.HashMap<>();
+
+    public Map<Integer, Map<String, String>> getSlotPlaceholderOverrides() {
+        return slotPlaceholderOverrides;
+    }
 
     // Getters and Setters
     public MenuContext getContext() { return context; }

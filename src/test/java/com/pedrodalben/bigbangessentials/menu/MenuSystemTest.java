@@ -18,6 +18,7 @@ import com.pedrodalben.bigbangessentials.menu.session.MenuContext;
 import com.pedrodalben.bigbangessentials.menu.session.MenuSession;
 import com.pedrodalben.bigbangessentials.menu.persistence.yaml.YamlMenuParser;
 import com.pedrodalben.bigbangessentials.menu.persistence.yaml.YamlMenuPersistenceService;
+import com.pedrodalben.bigbangessentials.util.ChatComponentUtil;
 
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
@@ -178,6 +179,13 @@ public class MenuSystemTest {
     }
 
     @Test
+    public void testNamedMenuColorTagsAreParsed() {
+        Component parsed = ChatComponentUtil.parseColorCodes("<gold>Menu <yellow>Warps");
+        String plain = parsed.getString();
+        assertEquals("Menu Warps", plain);
+    }
+
+    @Test
     public void testParserAndValidation() throws IOException {
         YamlMenuParser parser = new YamlMenuParser();
 
@@ -248,6 +256,37 @@ public class MenuSystemTest {
         Files.writeString(tempFile, invalidMaterialYaml);
         Exception ex3 = assertThrows(YamlMenuParser.MenuValidationException.class, () -> parser.parse(tempFile));
         assertTrue(ex3.getMessage().contains("Invalid material-id format") || ex3.getMessage().contains("Unknown material-id"));
+
+        Files.deleteIfExists(tempFile);
+    }
+
+    @Test
+    public void testParserRejectsInvalidPaginationConfiguration() throws IOException {
+        YamlMenuParser parser = new YamlMenuParser();
+
+        String invalidPaginationYaml = """
+            id: invalid_pagination
+            schema-version: 1
+            size: 27
+            title: "Invalid Pagination"
+            pagination:
+              enabled: true
+              source: ""
+              content-slots: [10, 10, 40]
+            pages:
+              main:
+                default-page: true
+                items: {}
+            """;
+
+        Path tempFile = Files.createTempFile("invalid_pagination", ".yml");
+        Files.writeString(tempFile, invalidPaginationYaml);
+
+        Exception ex = assertThrows(YamlMenuParser.MenuValidationException.class, () -> parser.parse(tempFile));
+        assertTrue(ex.getMessage().contains("Pagination is enabled but 'source' is empty"));
+        assertTrue(ex.getMessage().contains("Pagination is enabled but 'dynamic-item-template' is missing or invalid"));
+        assertTrue(ex.getMessage().contains("Duplicate pagination content slot 10"));
+        assertTrue(ex.getMessage().contains("Pagination content slot 40 is out of bounds"));
 
         Files.deleteIfExists(tempFile);
     }

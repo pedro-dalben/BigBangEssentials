@@ -1,0 +1,53 @@
+id: "pwarps_menu"
+size: 54
+title: "<gold>Player Warps Públicos"
+
+pagination:
+  enabled: true
+  source: "pwarps.public"
+  content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
+
+dynamic-item-template:
+  item:
+    material-id: "{pwarp_icon}"
+    display-name: "<yellow>{pwarp_name}"
+    lore:
+      - "<gray>Dono: <white>{pwarp_owner_name}"
+      - "<gray>Mundo: <white>{pwarp_world}"
+      - "<gray>Coordenadas: <white>{pwarp_x}, {pwarp_y}, {pwarp_z}"
+      - ""
+      - "<green>Clique Esquerdo para teleportar."
+      - "<red>Clique Direito (Dono) para deletar."
+  actions:
+    - type: "teleport_pwarp"
+      params:
+        pwarp-name: "{pwarp_name}"
+        pwarp-owner-uuid: "{pwarp_owner_uuid}"
+
+pages:
+  main:
+    default-page: true
+    items:
+      back_btn:
+        slot: 45
+        item:
+          material-id: "minecraft:arrow"
+          display-name: "<red>Voltar"
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "teleports_main_menu"
+      prev_btn:
+        slot: 48
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Página Anterior"
+        actions:
+          - type: "previous_page"
+      next_btn:
+        slot: 50
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Próxima Página"
+        actions:
+          - type: "next_page"

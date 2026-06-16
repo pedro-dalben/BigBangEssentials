@@ -17,6 +17,7 @@ import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.teleportation.TeleportLocation;
 import com.pedrodalben.bigbangessentials.teleportation.TeleportUtil;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
+import com.pedrodalben.bigbangessentials.util.PlayerDataMigration;
 import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 
 import net.minecraft.core.BlockPos;
@@ -49,14 +50,33 @@ public class WarpManager {
     private boolean allowPlayerWarps = false;
     private static final Logger LOGGER = LoggerFactory.getLogger(WarpManager.class);
     private static final String WARPS_FILE = "warps.json";
+    private static final String LEGACY_PLAYER_WARPS_FILE = "playerwarps.json";
     
     // Singleton pattern
     private static class SingletonHolder {
         private static final WarpManager INSTANCE = new WarpManager();
     }
     
+    private static WarpManager instanceOverride = null;
+
     public static WarpManager getInstance() {
-        return SingletonHolder.INSTANCE;
+        return instanceOverride != null ? instanceOverride : SingletonHolder.INSTANCE;
+    }
+
+    public static void setInstance(WarpManager override) {
+        if (!isTestingEnvironment()) {
+            throw new IllegalStateException("Cannot override singleton instance in production.");
+        }
+        instanceOverride = override;
+    }
+
+    private static boolean isTestingEnvironment() {
+        for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+            if (element.getClassName().startsWith("org.junit.")) {
+                return true;
+            }
+        }
+        return false;
     }
     
     private final Map<String, TeleportLocation> warps = new ConcurrentHashMap<>();
@@ -133,6 +153,10 @@ public class WarpManager {
     }
 
     // --- Player Warps API ---
+    public java.util.Map<java.util.UUID, java.util.Map<String, TeleportLocation>> getAllPlayerWarps() {
+        return playerWarps;
+    }
+
     public boolean isPlayerWarpsEnabled() {
         return allowPlayerWarps;
     }
@@ -243,14 +267,13 @@ public class WarpManager {
         savePlayerWarps();
         player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.warp.playerwarp_created", warpName, location.getLocationString()));
         LOGGER.info("Player {} created player warp '{}' at {}", player.getName().getString(), warpName, location.getLocationString());
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpCreatedEvent(playerId, warpName));
         return true;
     }
 
-    public boolean deletePlayerWarp(ServerPlayer player, String warpName) {
-        UUID playerId = player.getUUID();
+    public boolean deletePlayerWarp(UUID playerId, String warpName) {
         Map<String, TeleportLocation> warps = playerWarps.get(playerId);
         if (warps == null) {
-            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.not_found", warpName));
             return false;
         }
         
@@ -259,14 +282,23 @@ public class WarpManager {
         // Atomic removal - remove() returns null if key doesn't exist
         TeleportLocation removed = warps.remove(normalizedName);
         if (removed == null) {
-            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.not_found", warpName));
             return false;
         }
         
         savePlayerWarps();
-        player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.warp.playerwarp_deleted", warpName));
-        LOGGER.info("Player {} deleted player warp '{}'", player.getName().getString(), warpName);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpDeletedEvent(playerId, warpName));
         return true;
+    }
+
+    public boolean deletePlayerWarp(ServerPlayer player, String warpName) {
+        UUID playerId = player.getUUID();
+        if (deletePlayerWarp(playerId, warpName)) {
+            player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.warp.playerwarp_deleted", warpName));
+            LOGGER.info("Player {} deleted player warp '{}'", player.getName().getString(), warpName);
+            return true;
+        }
+        player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.not_found", warpName));
+        return false;
     }
 
     public TeleportLocation getPlayerWarp(ServerPlayer player, String warpName) {
@@ -331,7 +363,7 @@ public class WarpManager {
     }
 
     // --- Persistence for player warps ---
-    private static final String PLAYER_WARPS_FILE = "run/playerwarps.json";
+    private static final String PLAYER_WARPS_FILE = "playerwarps.json";
 
     private void savePlayerWarps() {
         try {
@@ -340,7 +372,8 @@ public class WarpManager {
                 serializable.put(entry.getKey().toString(), entry.getValue());
             }
             String json = new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(serializable);
-            java.nio.file.Files.writeString(java.nio.file.Path.of(PLAYER_WARPS_FILE), json);
+            ResourceUtil.ensureDataDirectory();
+            java.nio.file.Files.writeString(ResourceUtil.getDataPath(PLAYER_WARPS_FILE), json);
         } catch (Exception e) {
             System.err.println("[WarpManager] Failed to save player warps: " + e);
         }
@@ -348,15 +381,20 @@ public class WarpManager {
 
     private void loadPlayerWarps() {
         try {
-            java.nio.file.Path path = java.nio.file.Path.of(PLAYER_WARPS_FILE);
-            if (!java.nio.file.Files.exists(path)) return;
+            java.nio.file.Path path = resolveLegacyWarpFile(PLAYER_WARPS_FILE, true);
+            if (path == null || !java.nio.file.Files.exists(path)) return;
+
             String json = java.nio.file.Files.readString(path);
             java.lang.reflect.Type type = new com.google.gson.reflect.TypeToken<Map<String, Map<String, TeleportLocation>>>(){}.getType();
             Map<String, Map<String, TeleportLocation>> loaded = new com.google.gson.Gson().fromJson(json, type);
+            if (loaded == null) {
+                return;
+            }
             playerWarps.clear();
             for (Map.Entry<String, Map<String, TeleportLocation>> entry : loaded.entrySet()) {
                 playerWarps.put(UUID.fromString(entry.getKey()), entry.getValue());
             }
+            LOGGER.info("Loaded {} player warps from {}", playerWarps.values().stream().mapToInt(Map::size).sum(), path);
         } catch (Exception e) {
             System.err.println("[WarpManager] Failed to load player warps: " + e);
         }
@@ -447,6 +485,7 @@ public class WarpManager {
         
         creator.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.warp.created", warpName, location.getLocationString()));
         LOGGER.info("Player {} created warp '{}' at {}", creator.getName().getString(), warpName, location.getLocationString());
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.WarpCreatedEvent(warpName));
         
         return true;
     }
@@ -502,6 +541,7 @@ public class WarpManager {
         if (ConfigManager.getInstance().isLogWarpActionsEnabled()) {
             LOGGER.info("Warp '{}' deleted by {}", warpName, deletedBy);
         }
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.WarpDeletedEvent(warpName));
         return true;
     }
 
@@ -522,6 +562,7 @@ public class WarpManager {
         if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isLogWarpActionsEnabled()) {
             LOGGER.info("Player {} deleted warp '{}'", player.getName().getString(), warpName);
         }
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.WarpDeletedEvent(warpName));
         return true;
     }
     
@@ -662,13 +703,13 @@ public class WarpManager {
      */
     private void loadWarps() {
         try {
-            File file = ResourceUtil.getDataFile(WARPS_FILE);
-            if (!file.exists()) {
+            java.nio.file.Path path = resolveLegacyWarpFile(WARPS_FILE, false);
+            if (path == null || !java.nio.file.Files.exists(path)) {
                 LOGGER.info("No warps file found, starting with empty warps");
                 return;
             }
             
-            String content = java.nio.file.Files.readString(file.toPath());
+            String content = java.nio.file.Files.readString(path);
             if (content.trim().isEmpty()) {
                 return;
             }
@@ -713,7 +754,7 @@ public class WarpManager {
                 }
             }
             
-            LOGGER.info("Loaded {} warps", warps.size());
+            LOGGER.info("Loaded {} warps from {}", warps.size(), path);
             
         } catch (Exception e) {
             LOGGER.error("Failed to load warps from file", e);
@@ -744,12 +785,38 @@ public class WarpManager {
             root.add("config", config);
             
             ResourceUtil.ensureDataDirectory();
-            File file = ResourceUtil.getDataFile(WARPS_FILE);
-            java.nio.file.Files.writeString(file.toPath(), gson.toJson(root));
+            java.nio.file.Files.writeString(ResourceUtil.getDataPath(WARPS_FILE), gson.toJson(root));
             
         } catch (Exception e) {
             LOGGER.error("Failed to save warps to file", e);
         }
+    }
+
+    private java.nio.file.Path resolveLegacyWarpFile(String fileName, boolean includePlayerWarpAliases) {
+        java.util.LinkedHashSet<String> candidates = new java.util.LinkedHashSet<>();
+        candidates.add(ResourceUtil.getDataPath(fileName).toString());
+        candidates.add("run/" + ResourceUtil.DATA_DIR + fileName);
+        candidates.add("run/" + fileName);
+        candidates.add(fileName);
+        candidates.add(ResourceUtil.getConfigPath(fileName).toString());
+
+        if (includePlayerWarpAliases) {
+            for (File candidate : PlayerDataMigration.getLegacyDataFileCandidates(LEGACY_PLAYER_WARPS_FILE)) {
+                candidates.add(candidate.getPath());
+            }
+        } else {
+            for (File candidate : PlayerDataMigration.getLegacyDataFileCandidates(WARPS_FILE)) {
+                candidates.add(candidate.getPath());
+            }
+        }
+
+        for (String candidate : candidates) {
+            java.nio.file.Path path = java.nio.file.Path.of(candidate);
+            if (java.nio.file.Files.exists(path)) {
+                return path;
+            }
+        }
+        return ResourceUtil.getDataPath(fileName);
     }
     
     // Configuration getters/setters

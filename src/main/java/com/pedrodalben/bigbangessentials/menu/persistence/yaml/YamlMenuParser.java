@@ -19,13 +19,13 @@ public class YamlMenuParser {
     private final Yaml yaml = new Yaml();
 
     // Allowed keys for unknown key checks
-    private static final Set<String> ROOT_KEYS = Set.of("id", "schema-version", "size", "title", "flags", "patterns", "pages", "pagination");
+    private static final Set<String> ROOT_KEYS = Set.of("id", "schema-version", "size", "title", "flags", "patterns", "pages", "pagination", "dynamic-item-template");
     private static final Set<String> FLAGS_KEYS = Set.of("cache-rendered-items", "close-on-world-change", "prevent-item-take");
     private static final Set<String> PAGINATION_KEYS = Set.of("enabled", "content-slots", "source");
     private static final Set<String> PAGE_KEYS = Set.of("default-page", "items");
     private static final Set<String> ITEM_KEYS = Set.of("slot", "slots", "item", "actions", "deny-actions", "refresh-on-click", "update-on-click", "close-on-click", "cache-rendered-item", "permanent", "priority", "view-permission", "click-permission", "render-conditions", "click-conditions");
     private static final Set<String> ITEM_SPEC_KEYS = Set.of("material-id", "amount", "display-name", "lore");
-    private static final Set<String> ACTION_KEYS = Set.of("type", "params", "on-success", "on-failure", "on-deny", "delay-ticks", "chance", "fail-fast");
+    private static final Set<String> ACTION_KEYS = Set.of("type", "params", "on-success", "on-failure", "on-deny", "delay-ticks", "chance", "fail-fast", "clicks");
     private static final Set<String> CONDITION_KEYS = Set.of("type", "params", "negate", "failure-message-key");
     private static final Set<String> PERMISSION_KEYS = Set.of("all-of", "all_of", "any-of", "any_of", "none-of", "none_of", "denied-message-key", "denied_message_key", "message");
 
@@ -119,7 +119,38 @@ public class YamlMenuParser {
         List<Integer> contentSlots = getIntList(paginationMap, "content-slots", Collections.emptyList());
         String source = getString(paginationMap, "source", "");
         
-        PaginationSpec pagination = new PaginationSpec(pagEnabled, contentSlots, source, null);
+        MenuItemDefinition dynamicTemplate = null;
+        Map<String, Object> templateMap = getMap(root, "dynamic-item-template", null);
+        if (templateMap != null) {
+            Map<String, Object> templateCopy = new HashMap<>(templateMap);
+            if (!templateCopy.containsKey("slot") && !templateCopy.containsKey("slots")) {
+                templateCopy.put("slot", 0);
+            }
+            dynamicTemplate = parseItem(id, "pagination", "dynamic_template", templateCopy, size, errors, warnings);
+        }
+
+        if (pagEnabled) {
+            if (contentSlots.isEmpty()) {
+                errors.add("Menu '" + id + "': Pagination is enabled but 'content-slots' is empty");
+            }
+            if (source.trim().isEmpty()) {
+                errors.add("Menu '" + id + "': Pagination is enabled but 'source' is empty");
+            }
+            if (dynamicTemplate == null) {
+                errors.add("Menu '" + id + "': Pagination is enabled but 'dynamic-item-template' is missing or invalid");
+            }
+
+            Set<Integer> uniqueContentSlots = new HashSet<>();
+            for (int slot : contentSlots) {
+                if (slot < 0 || slot >= size) {
+                    errors.add("Menu '" + id + "': Pagination content slot " + slot + " is out of bounds for menu size " + size);
+                } else if (!uniqueContentSlots.add(slot)) {
+                    errors.add("Menu '" + id + "': Duplicate pagination content slot " + slot);
+                }
+            }
+        }
+        
+        PaginationSpec pagination = new PaginationSpec(pagEnabled, contentSlots, source, dynamicTemplate);
 
         // Log warnings in debug mode
         boolean debugEnabled = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isDebugLoggingEnabled();
@@ -193,16 +224,19 @@ public class YamlMenuParser {
 
         String materialId = getString(specData, "material-id", "minecraft:stone");
         
-        // Validate material ID format and existence
-        try {
-            ResourceLocation loc = ResourceLocation.parse(materialId);
-            if (!BuiltInRegistries.ITEM.keySet().isEmpty()) {
-                if (!BuiltInRegistries.ITEM.containsKey(loc)) {
-                    errors.add("Menu '" + menuId + "', Item '" + id + "': Unknown material-id '" + materialId + "'");
+        // Validate material ID format and existence (bypass if dynamic placeholder)
+        boolean hasPlaceholder = materialId.contains("{") && materialId.contains("}");
+        if (!hasPlaceholder) {
+            try {
+                ResourceLocation loc = ResourceLocation.parse(materialId);
+                if (!BuiltInRegistries.ITEM.keySet().isEmpty()) {
+                    if (!BuiltInRegistries.ITEM.containsKey(loc)) {
+                        errors.add("Menu '" + menuId + "', Item '" + id + "': Unknown material-id '" + materialId + "'");
+                    }
                 }
+            } catch (Exception e) {
+                errors.add("Menu '" + menuId + "', Item '" + id + "': Invalid material-id format '" + materialId + "'");
             }
-        } catch (Exception e) {
-            errors.add("Menu '" + menuId + "', Item '" + id + "': Invalid material-id format '" + materialId + "'");
         }
 
         int amount = getInt(specData, "amount", 1);
@@ -321,11 +355,21 @@ public class YamlMenuParser {
                 List<ActionSpec> onFailure = parseActions(menuId, pageId, itemId, key + "_onFailure", getList(map, "on-failure", getList(map, "on_failure", Collections.emptyList())), errors, warnings);
                 List<ActionSpec> onDeny = parseActions(menuId, pageId, itemId, key + "_onDeny", getList(map, "on-deny", getList(map, "on_deny", Collections.emptyList())), errors, warnings);
 
+                List<String> clicks = new ArrayList<>();
+                if (map.containsKey("clicks")) {
+                    List<?> rawClicks = getList(map, "clicks", Collections.emptyList());
+                    for (Object rawClick : rawClicks) {
+                        if (rawClick != null) {
+                            clicks.add(rawClick.toString().toUpperCase());
+                        }
+                    }
+                }
+
                 actions.add(new ActionSpec(
                     type, type + "_" + i, 
                     getInt(map, "delay-ticks", getInt(map, "delay_ticks", 0)), 
                     getDouble(map, "chance", 1.0), 
-                    false, failFast, params, onSuccess, onFailure, onDeny, type
+                    false, failFast, params, onSuccess, onFailure, onDeny, type, clicks
                 ));
             } else {
                 errors.add("Menu '" + menuId + "', Item '" + itemId + "', " + key + " index " + i + ": Action must be a Map");

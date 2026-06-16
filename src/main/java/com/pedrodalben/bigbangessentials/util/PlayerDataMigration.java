@@ -9,6 +9,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -39,10 +42,10 @@ public class PlayerDataMigration {
      * @return Number of players migrated
      */
     public static int migrateToPlayerData(String oldFileName, String dataType) {
-        File oldFile = ResourceUtil.getConfigFile(oldFileName);
+        File oldFile = findLegacyDataFile(oldFileName);
 
         // Check if old file exists
-        if (!oldFile.exists()) {
+        if (oldFile == null || !oldFile.exists()) {
             LOGGER.debug("No old {} file to migrate", oldFileName);
             return 0;
         }
@@ -153,10 +156,46 @@ public class PlayerDataMigration {
      * @return true if old file exists and migration is needed
      */
     public static boolean needsMigration(String oldFileName) {
-        File oldFile = ResourceUtil.getConfigFile(oldFileName);
-        File migratedFile = new File(oldFile.getAbsolutePath() + ".migrated");
+        File oldFile = findLegacyDataFile(oldFileName);
+        if (oldFile == null) {
+            return false;
+        }
 
-        // Need migration if old file exists and hasn't been migrated yet
+        File migratedFile = new File(oldFile.getAbsolutePath() + ".migrated");
         return oldFile.exists() && !migratedFile.exists();
+    }
+
+    public static File findLegacyDataFile(String oldFileName) {
+        for (File candidate : getLegacyDataFileCandidates(oldFileName)) {
+            if (candidate.exists() && candidate.isFile()) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    public static List<File> getLegacyDataFileCandidates(String oldFileName) {
+        LinkedHashSet<String> candidatePaths = new LinkedHashSet<>();
+
+        candidatePaths.add(ResourceUtil.getConfigFile(oldFileName).getPath());
+        candidatePaths.add(ResourceUtil.getDataFile(oldFileName).getPath());
+        candidatePaths.add("run/" + ResourceUtil.DATA_DIR + oldFileName);
+        candidatePaths.add("run/" + oldFileName);
+        candidatePaths.add(oldFileName);
+
+        if (oldFileName.contains("playerwarps")) {
+            candidatePaths.add(ResourceUtil.getDataFile("player_warps.json").getPath());
+            candidatePaths.add("run/" + ResourceUtil.DATA_DIR + "player_warps.json");
+            candidatePaths.add("run/player_warps.json");
+            candidatePaths.add("player_warps.json");
+        }
+
+        List<File> candidates = new ArrayList<>();
+        for (String path : candidatePaths) {
+            if (path != null && !path.isBlank()) {
+                candidates.add(new File(path));
+            }
+        }
+        return candidates;
     }
 }

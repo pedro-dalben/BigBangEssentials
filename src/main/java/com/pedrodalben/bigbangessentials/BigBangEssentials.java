@@ -585,6 +585,12 @@ public class BigBangEssentials {
         registry.registerCommand("jumpto", "Teleport to block you're looking at");
         com.pedrodalben.bigbangessentials.teleportation.Misc.MiscTeleportCommands.register(dispatcher);
 
+        // Register teleport menu integration commands
+        registry.registerCommand("teleports", "Open the main teleport menu");
+        registry.registerCommand("menus", "Toggle teleport menus on/off");
+        registry.registerCommand("menuconfig", "Configure display mode for teleport commands");
+        com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuCommands.register(dispatcher);
+
         // ========== ECONOMY COMMANDS ==========
         registry.registerCommand("pay", "Send money to another player");
         registry.registerCommand("balance", "Check your balance");
@@ -675,7 +681,7 @@ public class BigBangEssentials {
         // ========== KIT COMMANDS ==========
         registry.registerCommand("kit", "Claim a kit");
         registry.registerCommand("kits", "List available kits");
-        registry.registerCommand("listkits", "List available kits (alias)");
+        registry.registerCommand("listkits", "List all kits (admin overview)");
         registry.registerCommand("createkit", "Create a new kit", "makekit", "addkit");
         registry.registerCommand("delkit", "Delete a kit");
         registry.registerCommand("kitreset", "Reset a kit cooldown");

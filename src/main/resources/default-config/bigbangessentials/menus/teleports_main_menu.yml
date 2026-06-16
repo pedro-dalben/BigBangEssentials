@@ -1,0 +1,44 @@
+id: "teleports_main_menu"
+size: 27
+title: "<gold>Menu de Teleportes"
+
+pages:
+  main:
+    default-page: true
+    items:
+      warps_btn:
+        slot: 11
+        item:
+          material-id: "minecraft:emerald"
+          display-name: "<yellow>Global Warps"
+          lore:
+            - "<gray>Clique para ver todos os"
+            - "<gray>warps públicos do servidor."
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "warps_menu"
+      homes_btn:
+        slot: 13
+        item:
+          material-id: "minecraft:red_bed"
+          display-name: "<yellow>Minhas Homes"
+          lore:
+            - "<gray>Clique para gerenciar ou"
+            - "<gray>teleportar para suas homes."
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "homes_menu"
+      pwarps_btn:
+        slot: 15
+        item:
+          material-id: "minecraft:player_head"
+          display-name: "<yellow>Player Warps"
+          lore:
+            - "<gray>Clique para ver os warps"
+            - "<gray>públicos criados por players."
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "pwarps_menu"

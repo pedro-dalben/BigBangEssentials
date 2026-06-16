@@ -21,6 +21,20 @@ public class ActionExecutor {
         
         for (ActionSpec spec : actions) {
             future = future.thenCompose(v -> {
+                // Click type filter check (Task 5)
+                String clickName = context.clickType() != null ? context.clickType().name() : "";
+                if (spec.clicks() != null && !spec.clicks().isEmpty()) {
+                    if (!spec.clicks().contains(clickName)) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                } else {
+                    // Block advanced clicks by default unless explicitly allowed
+                    if (context.clickType() != com.pedrodalben.bigbangessentials.menu.model.MenuClickType.LEFT &&
+                        context.clickType() != com.pedrodalben.bigbangessentials.menu.model.MenuClickType.RIGHT) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                }
+
                 MenuActionHandler handler = registry.getHandler(spec.type()).orElse(null);
                 if (handler == null) return CompletableFuture.completedFuture(null);
                 

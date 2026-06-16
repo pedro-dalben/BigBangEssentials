@@ -9,6 +9,7 @@ import net.minecraft.ChatFormatting;
 
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.Map;
 
 /**
  * Advanced chat component utility for creating rich text with hover/click events,
@@ -19,6 +20,34 @@ public class ChatComponentUtil {
     // Pre-compiled regex patterns for performance
     private static final Pattern AMPERSAND_CODE_PATTERN = Pattern.compile("&([0-9a-fk-or])");
     private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
+    private static final Pattern NAMED_TAG_PATTERN = Pattern.compile("<(/?)([a-z_]+)>");
+    private static final Map<String, String> NAMED_TAGS = Map.ofEntries(
+        Map.entry("black", "§0"),
+        Map.entry("dark_blue", "§1"),
+        Map.entry("dark_green", "§2"),
+        Map.entry("dark_aqua", "§3"),
+        Map.entry("dark_red", "§4"),
+        Map.entry("dark_purple", "§5"),
+        Map.entry("gold", "§6"),
+        Map.entry("gray", "§7"),
+        Map.entry("grey", "§7"),
+        Map.entry("dark_gray", "§8"),
+        Map.entry("dark_grey", "§8"),
+        Map.entry("blue", "§9"),
+        Map.entry("green", "§a"),
+        Map.entry("aqua", "§b"),
+        Map.entry("red", "§c"),
+        Map.entry("light_purple", "§d"),
+        Map.entry("yellow", "§e"),
+        Map.entry("white", "§f"),
+        Map.entry("obfuscated", "§k"),
+        Map.entry("bold", "§l"),
+        Map.entry("strikethrough", "§m"),
+        Map.entry("underline", "§n"),
+        Map.entry("underlined", "§n"),
+        Map.entry("italic", "§o"),
+        Map.entry("reset", "§r")
+    );
     
     /**
      * Create a clickable text component that runs a command when clicked.
@@ -160,6 +189,9 @@ public class ChatComponentUtil {
         }
 
         MutableComponent result = Component.empty();
+
+        // Convert named MiniMessage-like tags used by menu YAML files.
+        text = convertNamedTags(text);
         
         // First convert & to § for uniform processing (using pre-compiled pattern)
         text = AMPERSAND_CODE_PATTERN.matcher(text).replaceAll("§$1");
@@ -241,6 +273,31 @@ public class ChatComponentUtil {
         }
         
         return result;
+    }
+
+    private static String convertNamedTags(String text) {
+        Matcher matcher = NAMED_TAG_PATTERN.matcher(text);
+        StringBuffer buffer = new StringBuffer();
+
+        while (matcher.find()) {
+            String slash = matcher.group(1);
+            String tagName = matcher.group(2).toLowerCase(java.util.Locale.ROOT);
+            String replacement = NAMED_TAGS.get(tagName);
+
+            if (replacement == null) {
+                matcher.appendReplacement(buffer, Matcher.quoteReplacement(matcher.group(0)));
+                continue;
+            }
+
+            if (!slash.isEmpty()) {
+                replacement = "§r";
+            }
+
+            matcher.appendReplacement(buffer, Matcher.quoteReplacement(replacement));
+        }
+
+        matcher.appendTail(buffer);
+        return buffer.toString();
     }
     
     /**

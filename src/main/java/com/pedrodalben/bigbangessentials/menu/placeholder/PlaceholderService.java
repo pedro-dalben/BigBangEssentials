@@ -15,6 +15,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 public class PlaceholderService {
     private static final Logger LOGGER = LoggerFactory.getLogger(PlaceholderService.class);
@@ -84,13 +85,18 @@ public class PlaceholderService {
     }
 
     private static String resolveSingle(String id, String params, ServerPlayer player, MenuContext context, MenuSession session, MenuDefinition menu) {
+        // 0. Try local placeholder overrides from context
+        if (context != null && context.placeholderOverrides() != null && context.placeholderOverrides().containsKey(id)) {
+            return context.placeholderOverrides().get(id);
+        }
+
         // 1. Try MenuPlaceholderRegistry
         try {
             if (MenuSystem.getInstance() != null && MenuSystem.getInstance().getPlaceholderRegistry() != null) {
                 Optional<PlaceholderResolver> customResolver = MenuSystem.getInstance().getPlaceholderRegistry().getPlaceholder(id);
                 if (customResolver.isPresent()) {
                     PlaceholderRequest req = new PlaceholderRequest(id + (params != null ? ":" + params : ""), params);
-                    PlaceholderValue value = customResolver.get().resolve(player, context, req).toCompletableFuture().join();
+                    PlaceholderValue value = awaitResolver(customResolver.get(), customResolver.get().resolve(player, context, req), player, id);
                     if (value != null && value.value() != null) {
                         return value.value();
                     }
@@ -180,5 +186,24 @@ public class PlaceholderService {
         } catch (Exception ignored) {}
 
         return null;
+    }
+
+    private static PlaceholderValue awaitResolver(PlaceholderResolver resolver, CompletionStage<PlaceholderValue> stage, ServerPlayer player, String placeholderId) {
+        if (stage == null) {
+            return null;
+        }
+
+        CompletableFuture<PlaceholderValue> future = stage.toCompletableFuture();
+        if (future.isDone()) {
+            return future.join();
+        }
+
+        boolean onServerThread = player != null && player.getServer() != null && player.getServer().isSameThread();
+        if (onServerThread && resolver.mode() == PlaceholderMode.ASYNC) {
+            LOGGER.error("Refusing to block the server thread while resolving async placeholder '{}'", placeholderId);
+            return null;
+        }
+
+        return future.join();
     }
 }

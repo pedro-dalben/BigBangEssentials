@@ -39,8 +39,26 @@ public class HomeManager {
         private static final HomeManager INSTANCE = new HomeManager();
     }
 
+    private static HomeManager instanceOverride = null;
+
     public static HomeManager getInstance() {
-        return SingletonHolder.INSTANCE;
+        return instanceOverride != null ? instanceOverride : SingletonHolder.INSTANCE;
+    }
+
+    public static void setInstance(HomeManager override) {
+        if (!isTestingEnvironment()) {
+            throw new IllegalStateException("Cannot override singleton instance in production.");
+        }
+        instanceOverride = override;
+    }
+
+    private static boolean isTestingEnvironment() {
+        for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+            if (element.getClassName().startsWith("org.junit.")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // NEW: Per-player data storage
@@ -279,6 +297,12 @@ public class HomeManager {
                 location.getLocationString());
         }
 
+        if (isNew) {
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeCreatedEvent(playerId, homeName));
+        } else {
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeUpdatedEvent(playerId, homeName));
+        }
+
         return true;
     }
     
@@ -330,6 +354,8 @@ public class HomeManager {
             LOGGER.info("Player {} deleted home '{}'", player.getName().getString(), homeName);
         }
 
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeDeletedEvent(playerId, homeName));
+
         return true;
     }
     public int getHomeDeleteCooldownSeconds() { return homeDeleteCooldownSeconds; }
@@ -365,6 +391,7 @@ public class HomeManager {
         }
         savePlayerHomes(playerId);
         player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.renamed", oldName, newName));
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeUpdatedEvent(playerId, newName));
         return true;
     }
 

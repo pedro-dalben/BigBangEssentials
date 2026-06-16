@@ -29,4 +29,5 @@ public interface MenuService {
     PageChangeResult previousPage(ServerPlayer player, String menuId);
     Optional<MenuSession> getCurrentSession(UUID playerId);
     Optional<MenuSession> getSession(UUID sessionId);
+    void refreshSessionsUsingSource(String sourceId);
 }

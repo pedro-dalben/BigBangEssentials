@@ -28,4 +28,8 @@ public class MenuSessionStore {
     public Optional<MenuSession> getByPlayerId(UUID playerId) {
         return Optional.ofNullable(sessionsByPlayer.get(playerId));
     }
+
+    public java.util.Collection<MenuSession> getAllSessions() {
+        return sessionsById.values();
+    }
 }

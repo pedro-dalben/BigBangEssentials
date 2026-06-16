@@ -14,5 +14,6 @@ public record ActionSpec(
     List<ActionSpec> onSuccess,
     List<ActionSpec> onFailure,
     List<ActionSpec> onDeny,
-    String auditLabel
+    String auditLabel,
+    List<String> clicks
 ) {}

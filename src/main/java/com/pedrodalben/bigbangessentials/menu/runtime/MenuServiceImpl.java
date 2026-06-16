@@ -9,7 +9,6 @@ import com.pedrodalben.bigbangessentials.menu.session.MenuSession;
 import com.pedrodalben.bigbangessentials.menu.session.MenuSessionStore;
 import com.pedrodalben.bigbangessentials.menu.event.MenuEventListener;
 import com.pedrodalben.bigbangessentials.menu.event.MenuOpenDecision;
-import com.pedrodalben.bigbangessentials.menu.neoforge.NeoForgeMenuContainer;
 import com.pedrodalben.bigbangessentials.menu.neoforge.NeoForgeMenuRenderer;
 
 import java.util.Collection;
@@ -18,11 +17,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.UnaryOperator;
+import java.util.function.Supplier;
 import java.util.ArrayDeque;
 import java.time.Instant;
-
-import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
-import net.minecraft.server.level.ServerPlayer;
 
 public class MenuServiceImpl implements MenuService {
 
@@ -78,83 +75,12 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public CompletionStage<MenuOpenResult> openMenu(ServerPlayer player, String menuId, String pageId, MenuContext context) {
-        return CompletableFuture.supplyAsync(() -> {
-            // Must run sync logic on main thread later, but for now we do standard open flow
-            // Actually, we should post to main thread.
-            return player.getServer().submit(() -> {
-                Optional<MenuDefinition> menuOpt = menuRegistry.getMenu(menuId);
-                if (menuOpt.isEmpty()) {
-                    return MenuOpenResult.NOT_FOUND;
-                }
-
-                MenuDefinition menu = menuOpt.get();
-                MenuOpenDecision decision = eventListener.onMenuOpen(player, menuId, context, menu);
-                if (!decision.allowed()) {
-                    if (decision.redirectMenuId() != null) {
-                        return openMenu(player, decision.redirectMenuId(), context).toCompletableFuture().join();
-                    }
-                    return new MenuOpenResult(false, decision.denyReason() != null ? decision.denyReason() : "Abertura negada.");
-                }
-
-                // Close existing session
-                sessionStore.getByPlayerId(player.getUUID()).ifPresent(sess -> {
-                    closeMenu(player, sess.getMenuId(), MenuCloseReason.REDIRECT);
-                });
-
-                String initialPageId = pageId;
-                if (initialPageId == null) {
-                    initialPageId = menu.pages().values().stream()
-                        .filter(p -> p.defaultPage())
-                        .map(p -> p.id())
-                        .findFirst()
-                        .orElse(menu.pages().keySet().stream().findFirst().orElse("main"));
-                }
-
-                MenuSession session = new MenuSession();
-                session.setSessionId(UUID.randomUUID());
-                session.setPlayerId(player.getUUID());
-                session.setMenuId(menuId);
-                session.setCurrentPageId(initialPageId);
-                session.setCurrentPageIndex(1);
-                session.setOpenedAt(Instant.now());
-                session.setRevision(1);
-                session.setBackStack(new ArrayDeque<>());
-                session.setClosed(false);
-                session.setContext(context);
-
-                renderer.openMenu(player, session, menu, context, this);
-                
-                // container is set in the provider, so we can render
-                // sessionStore save is done before rendering
-                sessionStore.save(session);
-                
-                renderer.renderPage(player, session, menu, context);
-                
-                eventListener.onMenuOpened(player, menuId, session);
-
-                return new MenuOpenResult(true, null);
-            }).join();
-        });
+        return runOnServerThread(player, () -> openMenuSync(player, menuId, pageId, context));
     }
 
     @Override
     public MenuCloseResult closeMenu(ServerPlayer player, String menuId, MenuCloseReason reason) {
-        return player.getServer().submit(() -> {
-            Optional<MenuSession> sessionOpt = sessionStore.getByPlayerId(player.getUUID());
-            if (sessionOpt.isEmpty() || !sessionOpt.get().getMenuId().equals(menuId)) {
-                return new MenuCloseResult(false, "No active session for this menu");
-            }
-            MenuSession session = sessionOpt.get();
-            session.setClosed(true);
-            sessionStore.remove(session.getSessionId());
-            eventListener.onMenuClose(player, menuId, session, reason);
-            
-            if (reason != MenuCloseReason.PLAYER_CLOSE && reason != MenuCloseReason.REDIRECT) {
-                player.closeContainer();
-            }
-            
-            return new MenuCloseResult(true, null);
-        }).join();
+        return runBlockingOnServerThread(player, () -> closeMenuSync(player, menuId, reason));
     }
 
     @Override
@@ -164,19 +90,7 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public MenuRefreshResult refreshCurrentPage(ServerPlayer player) {
-        return player.getServer().submit(() -> {
-            Optional<MenuSession> sessionOpt = sessionStore.getByPlayerId(player.getUUID());
-            if (sessionOpt.isPresent()) {
-                MenuSession session = sessionOpt.get();
-                session.setRevision(session.getRevision() + 1);
-                Optional<MenuDefinition> menuOpt = menuRegistry.getMenu(session.getMenuId());
-                if (menuOpt.isPresent()) {
-                    renderer.renderPage(player, session, menuOpt.get(), new MenuContext(player.getUUID(), "pt_BR", null, null, null, null, null));
-                    return new MenuRefreshResult(true, null);
-                }
-            }
-            return new MenuRefreshResult(false, "No session");
-        }).join();
+        return runBlockingOnServerThread(player, () -> refreshCurrentPageSync(player));
     }
 
     @Override
@@ -186,20 +100,7 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public PageChangeResult goToPage(ServerPlayer player, String menuId, String pageId) {
-        return player.getServer().submit(() -> {
-            Optional<MenuSession> sessionOpt = sessionStore.getByPlayerId(player.getUUID());
-            if (sessionOpt.isPresent()) {
-                MenuSession session = sessionOpt.get();
-                session.setCurrentPageId(pageId);
-                session.setRevision(session.getRevision() + 1);
-                Optional<MenuDefinition> menuOpt = menuRegistry.getMenu(session.getMenuId());
-                if (menuOpt.isPresent()) {
-                    renderer.renderPage(player, session, menuOpt.get(), new MenuContext(player.getUUID(), "pt_BR", null, null, null, null, null));
-                    return new PageChangeResult(true, null);
-                }
-            }
-            return PageChangeResult.NOT_FOUND;
-        }).join();
+        return runBlockingOnServerThread(player, () -> goToPageSync(player, pageId));
     }
 
     @Override
@@ -234,5 +135,146 @@ public class MenuServiceImpl implements MenuService {
     @Override
     public Optional<MenuSession> getSession(UUID sessionId) {
         return sessionStore.getById(sessionId);
+    }
+
+    @Override
+    public void refreshSessionsUsingSource(String sourceId) {
+        net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server == null) return;
+        
+        server.submit(() -> {
+            for (MenuSession session : sessionStore.getAllSessions()) {
+                if (session.isClosed()) continue;
+                Optional<MenuDefinition> menuOpt = menuRegistry.getMenu(session.getMenuId());
+                if (menuOpt.isPresent()) {
+                    MenuDefinition menu = menuOpt.get();
+                    if (menu.pagination() != null && menu.pagination().enabled() && sourceId.equals(menu.pagination().source())) {
+                        ServerPlayer player = server.getPlayerList().getPlayer(session.getPlayerId());
+                        if (player != null) {
+                            session.setRevision(session.getRevision() + 1);
+                            renderer.renderPage(player, session, menu, session.getContext() != null ? session.getContext() : defaultContext(player));
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    private MenuOpenResult openMenuSync(ServerPlayer player, String menuId, String pageId, MenuContext context) {
+        Optional<MenuDefinition> menuOpt = menuRegistry.getMenu(menuId);
+        if (menuOpt.isEmpty()) {
+            return MenuOpenResult.NOT_FOUND;
+        }
+
+        MenuDefinition menu = menuOpt.get();
+        MenuOpenDecision decision = eventListener.onMenuOpen(player, menuId, context, menu);
+        if (!decision.allowed()) {
+            if (decision.redirectMenuId() != null) {
+                return openMenuSync(player, decision.redirectMenuId(), null, context);
+            }
+            return new MenuOpenResult(false, decision.denyReason() != null ? decision.denyReason() : "Abertura negada.");
+        }
+
+        sessionStore.getByPlayerId(player.getUUID()).ifPresent(sess ->
+            closeMenuSync(player, sess.getMenuId(), MenuCloseReason.REDIRECT)
+        );
+
+        String initialPageId = pageId;
+        if (initialPageId == null) {
+            initialPageId = menu.pages().values().stream()
+                .filter(p -> p.defaultPage())
+                .map(p -> p.id())
+                .findFirst()
+                .orElse(menu.pages().keySet().stream().findFirst().orElse("main"));
+        }
+
+        MenuSession session = new MenuSession();
+        session.setSessionId(UUID.randomUUID());
+        session.setPlayerId(player.getUUID());
+        session.setMenuId(menuId);
+        session.setCurrentPageId(initialPageId);
+        session.setCurrentPageIndex(1);
+        session.setOpenedAt(Instant.now());
+        session.setRevision(1);
+        session.setBackStack(new ArrayDeque<>());
+        session.setClosed(false);
+        session.setContext(context);
+
+        renderer.openMenu(player, session, menu, context, this);
+        sessionStore.save(session);
+        renderer.renderPage(player, session, menu, context);
+        eventListener.onMenuOpened(player, menuId, session);
+        return new MenuOpenResult(true, null);
+    }
+
+    private MenuCloseResult closeMenuSync(ServerPlayer player, String menuId, MenuCloseReason reason) {
+        Optional<MenuSession> sessionOpt = sessionStore.getByPlayerId(player.getUUID());
+        if (sessionOpt.isEmpty() || !sessionOpt.get().getMenuId().equals(menuId)) {
+            return new MenuCloseResult(false, "No active session for this menu");
+        }
+
+        MenuSession session = sessionOpt.get();
+        session.setClosed(true);
+        sessionStore.remove(session.getSessionId());
+        eventListener.onMenuClose(player, menuId, session, reason);
+
+        if (reason != MenuCloseReason.PLAYER_CLOSE && reason != MenuCloseReason.REDIRECT) {
+            player.closeContainer();
+        }
+
+        return new MenuCloseResult(true, null);
+    }
+
+    private MenuRefreshResult refreshCurrentPageSync(ServerPlayer player) {
+        Optional<MenuSession> sessionOpt = sessionStore.getByPlayerId(player.getUUID());
+        if (sessionOpt.isPresent()) {
+            MenuSession session = sessionOpt.get();
+            session.setRevision(session.getRevision() + 1);
+            Optional<MenuDefinition> menuOpt = menuRegistry.getMenu(session.getMenuId());
+            if (menuOpt.isPresent()) {
+                renderer.renderPage(player, session, menuOpt.get(), session.getContext() != null ? session.getContext() : defaultContext(player));
+                return new MenuRefreshResult(true, null);
+            }
+        }
+        return new MenuRefreshResult(false, "No session");
+    }
+
+    private PageChangeResult goToPageSync(ServerPlayer player, String pageId) {
+        Optional<MenuSession> sessionOpt = sessionStore.getByPlayerId(player.getUUID());
+        if (sessionOpt.isPresent()) {
+            MenuSession session = sessionOpt.get();
+            session.setCurrentPageId(pageId);
+            session.setRevision(session.getRevision() + 1);
+            Optional<MenuDefinition> menuOpt = menuRegistry.getMenu(session.getMenuId());
+            if (menuOpt.isPresent()) {
+                renderer.renderPage(player, session, menuOpt.get(), session.getContext() != null ? session.getContext() : defaultContext(player));
+                return new PageChangeResult(true, null);
+            }
+        }
+        return PageChangeResult.NOT_FOUND;
+    }
+
+    private <T> CompletionStage<T> runOnServerThread(ServerPlayer player, Supplier<T> action) {
+        if (player == null || player.getServer() == null) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Server unavailable"));
+        }
+        if (player.getServer().isSameThread()) {
+            return CompletableFuture.completedFuture(action.get());
+        }
+        return player.getServer().submit(action::get);
+    }
+
+    private <T> T runBlockingOnServerThread(ServerPlayer player, Supplier<T> action) {
+        if (player == null || player.getServer() == null) {
+            throw new IllegalStateException("Server unavailable");
+        }
+        if (player.getServer().isSameThread()) {
+            return action.get();
+        }
+        return player.getServer().submit(action::get).join();
+    }
+
+    private MenuContext defaultContext(ServerPlayer player) {
+        return new MenuContext(player.getUUID(), "pt_BR", null, null, null, null, null);
     }
 }

@@ -116,9 +116,78 @@ public class WarpCommands {
             || PermissionAPI.hasPermission(id, "bigbangessentials.warps.*");
     }
 
+    private static boolean shouldOpenMenu(ServerPlayer player, String commandType) {
+        if (player == null || !com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.isEnabled()) {
+            return false;
+        }
+        
+        boolean enabled = true;
+        com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode mode;
+
+        if (com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.isAllowPlayerPreferences()) {
+            com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuPreferenceService.PlayerPreference pref =
+                com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuPreferenceService.getInstance().getPreferences(player.getUUID());
+            enabled = pref.teleportMenusEnabled();
+            if ("warps".equals(commandType)) {
+                mode = pref.warpsDisplayMode();
+            } else if ("homes".equals(commandType)) {
+                mode = pref.homesDisplayMode();
+            } else {
+                mode = pref.pwarpsDisplayMode();
+            }
+        } else {
+            if ("warps".equals(commandType)) {
+                mode = com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.getWarpsCommandMode();
+            } else if ("homes".equals(commandType)) {
+                mode = com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.getHomesCommandMode();
+            } else {
+                mode = com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.getPwarpsCommandMode();
+            }
+        }
+
+        if (!enabled) {
+            return false;
+        }
+
+        return mode == com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode.MENU ||
+               mode == com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode.BOTH;
+    }
+
     private static int executeWarpList(CommandSourceStack source, int page) {
         WarpManager wm = WarpManager.getInstance();
         ServerPlayer player = source.getPlayer();
+
+        if (player != null && shouldOpenMenu(player, "warps")) {
+            String menuId = com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.getWarpsMenuId();
+            UUID correlationId = UUID.randomUUID();
+            try {
+                com.pedrodalben.bigbangessentials.menu.api.MenuOpenResult res = com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
+                    player,
+                    menuId,
+                    new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, null, null, correlationId)
+                ).toCompletableFuture().join();
+                
+                if (res != null && res.success()) {
+                    com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode mode =
+                        com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuPreferenceService.getInstance().getPreferences(player.getUUID()).warpsDisplayMode();
+                    if (mode == com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode.MENU) {
+                        return 1;
+                    }
+                } else {
+                    String reason = res != null ? res.error() : "Unknown failure";
+                    com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuIntegration.logMenuFailure(
+                        player.getUUID(), menuId, "/warps", reason, correlationId, null
+                    );
+                }
+            } catch (Exception e) {
+                com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuIntegration.logMenuFailure(
+                    player.getUUID(), menuId, "/warps", "Exception during menu open", correlationId, e
+                );
+                if (!com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.isFallbackToChatIfMenuFails()) {
+                    return 0;
+                }
+            }
+        }
 
         // Build available warp list — filter by per-warp permission if enabled
         List<String> allWarps = new ArrayList<>(wm.getWarpNames());
