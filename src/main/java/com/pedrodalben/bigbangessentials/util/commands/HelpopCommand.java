@@ -80,12 +80,9 @@ public class HelpopCommand {
         // Count staff members who will receive the message
         int staffCount = 0;
         
-        // Send to all staff members
+        // Send only to online operators
         for (ServerPlayer staff : onlinePlayers) {
-            PermissionValidator.PermissionResult staffPermResult = 
-                PermissionValidator.validatePermission(staff.createCommandSourceStack(), "bigbangessentials.helpop.receive");
-            
-            if (staffPermResult.hasPermission()) {
+            if (canReceiveHelpop(staff)) {
                 staffCount++;
                 sendHelpopToStaff(staff, sender, playerName, message, location, timeStamp);
             }
@@ -104,6 +101,14 @@ public class HelpopCommand {
         }
         
         return 1;
+    }
+
+    /**
+     * Returns true when a player should receive helpop notifications.
+     * This is intentionally restricted to operators so normal players do not receive staff alerts.
+     */
+    private static boolean canReceiveHelpop(ServerPlayer player) {
+        return player != null && player.hasPermissions(2);
     }
     
     /**
