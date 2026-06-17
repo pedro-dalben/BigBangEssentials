@@ -30,14 +30,20 @@ public class KitCommands {
 
         LOGGER.info("Registering kit commands...");
         
-        // Register kit command
-        if (config.isCommandEnabled("kit")) {
+        // Register player-facing kit commands. /kit claims kits; /kits only lists them.
+        boolean kitEnabled = config.isCommandEnabled("kit");
+        boolean kitsEnabled = config.isCommandEnabled("kits");
+        if (kitEnabled || kitsEnabled) {
             try {
-                KitCommand.register(dispatcher);
-                LOGGER.info("Kit command registered");
+                boolean registerKitAlias = kitEnabled || kitsEnabled;
+                KitCommand.register(dispatcher, registerKitAlias, kitsEnabled);
+                LOGGER.info("Kit commands registered (kit={}, kits={})", registerKitAlias, kitsEnabled);
+                logRegisteredKitCommandTree(dispatcher, "after kit command registration");
             } catch (Exception e) {
-                LOGGER.error("Failed to register kit command", e);
+                LOGGER.error("Failed to register kit commands", e);
             }
+        } else {
+            LOGGER.info("Kit and kits commands are disabled in config");
         }
         
         // Register createkit command
@@ -81,5 +87,10 @@ public class KitCommands {
         }
 
         LOGGER.info("All kit commands registration completed");
+    }
+
+    public static void logRegisteredKitCommandTree(CommandDispatcher<CommandSourceStack> dispatcher, String phase) {
+        LOGGER.info("Kit command tree {}: {}", phase, KitCommand.describeRootLiteral(dispatcher, "kit"));
+        LOGGER.info("Kit command tree {}: {}", phase, KitCommand.describeRootLiteral(dispatcher, "kits"));
     }
 }

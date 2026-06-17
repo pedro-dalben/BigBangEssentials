@@ -164,26 +164,15 @@ public class Kit {
         String displayName = json.has("displayName") ? json.get("displayName").getAsString() : name;
         String description = json.has("description") ? json.get("description").getAsString() : "";
 
-        // Handle legacy cooldown formats for backward compatibility:
-        // - cooldownHours: preferred format
-        // - cooldownMillis: legacy internal format
-        // - cooldown: legacy seconds format
-        long cooldownMillis = 0;
-        if (json.has("cooldownHours")) {
-            cooldownMillis = Math.max(0, Math.round(json.get("cooldownHours").getAsDouble() * 60d * 60d * 1000d));
-        } else if (json.has("cooldownMillis")) {
-            cooldownMillis = json.get("cooldownMillis").getAsLong();
-        } else if (json.has("cooldown")) {
-            // Convert seconds to milliseconds
-            long cooldownSeconds = json.get("cooldown").getAsLong();
-            cooldownMillis = cooldownSeconds * 1000;
-        }
+        long rawCooldownMillis = parseCooldownMillis(json);
+        boolean oneTimeKit = rawCooldownMillis < 0;
+        long cooldownMillis = Math.max(0, rawCooldownMillis);
 
         // Always set permission node to bigbangessentials.kits.<kitname> if not present
         String permission = json.has("permission") && !json.get("permission").getAsString().isEmpty()
                 ? json.get("permission").getAsString()
                 : ("bigbangessentials.kits." + name.toLowerCase());
-        int maxUses = json.has("maxUses") ? json.get("maxUses").getAsInt() : -1;
+        int maxUses = json.has("maxUses") ? json.get("maxUses").getAsInt() : (oneTimeKit ? 1 : -1);
         boolean enabled = !json.has("enabled") || json.get("enabled").getAsBoolean();
         
         // Deserialize items
@@ -228,6 +217,46 @@ public class Kit {
         
         return new Kit(name, displayName, description, items, cooldownMillis, 
                       permission, maxUses, enabled);
+    }
+
+    private static long parseCooldownMillis(JsonObject json) {
+        if (hasNumericValue(json, "cooldownMillis")) {
+            return millisFromValue(json.get("cooldownMillis").getAsDouble(), 1d);
+        }
+        if (hasNumericValue(json, "cooldownMs")) {
+            return millisFromValue(json.get("cooldownMs").getAsDouble(), 1d);
+        }
+        if (hasNumericValue(json, "cooldownHours")) {
+            return millisFromValue(json.get("cooldownHours").getAsDouble(), 60d * 60d * 1000d);
+        }
+        if (hasNumericValue(json, "cooldownMinutes")) {
+            return millisFromValue(json.get("cooldownMinutes").getAsDouble(), 60d * 1000d);
+        }
+        if (hasNumericValue(json, "cooldownSeconds")) {
+            return millisFromValue(json.get("cooldownSeconds").getAsDouble(), 1000d);
+        }
+        if (hasNumericValue(json, "cooldownTicks")) {
+            return millisFromValue(json.get("cooldownTicks").getAsDouble(), 50d);
+        }
+        if (hasNumericValue(json, "delay")) {
+            return millisFromValue(json.get("delay").getAsDouble(), 1000d);
+        }
+        if (hasNumericValue(json, "cooldown")) {
+            return millisFromValue(json.get("cooldown").getAsDouble(), 1000d);
+        }
+        return 0;
+    }
+
+    private static boolean hasNumericValue(JsonObject json, String key) {
+        return json.has(key) && !json.get(key).isJsonNull() && json.get(key).isJsonPrimitive()
+            && json.get(key).getAsJsonPrimitive().isNumber();
+    }
+
+    private static long millisFromValue(double value, double multiplier) {
+        if (value < 0) {
+            return -1;
+        }
+        return Math.max(0, Math.round(value * multiplier));
     }
     
     @Override

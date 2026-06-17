@@ -88,6 +88,15 @@ public class KitManager {
                                     try {
                                         Kit kit = Kit.fromJson(element.getAsJsonObject());
                                         kits.put(kit.getName(), kit);
+                                        LOGGER.info(
+                                            "Loaded kit '{}' (items={}, cooldown={}ms, maxUses={}, permission='{}', enabled={})",
+                                            kit.getName(),
+                                            kit.getItems().size(),
+                                            kit.getCooldownMillis(),
+                                            kit.getMaxUses(),
+                                            kit.getPermission(),
+                                            kit.isEnabled()
+                                        );
 
                                         // Register kit permission with the permission registry for tab completion
                                         try {
@@ -131,8 +140,20 @@ public class KitManager {
                 parentDir.mkdirs();
             }
             
-            JsonObject config = new JsonObject();
-            config.addProperty("_configVersion", 1);
+            JsonObject config;
+            if (kitsFile.exists()) {
+                try (Reader reader = new FileReader(kitsFile)) {
+                    JsonObject existing = GSON.fromJson(reader, JsonObject.class);
+                    config = existing != null ? existing : new JsonObject();
+                } catch (Exception e) {
+                    LOGGER.warn("Failed to read existing kits.json before saving, rebuilding file: {}", e.getMessage());
+                    config = new JsonObject();
+                }
+            } else {
+                config = new JsonObject();
+            }
+
+            config.addProperty("_configVersion", 2);
             config.addProperty("_configVersion_comment", 
                 "DO NOT MODIFY: This field is used by BigBangEssentials for automatic config updates.");
             
@@ -141,6 +162,10 @@ public class KitManager {
                 kitsArray.add(kit.toJson());
             }
             config.add("kits", kitsArray);
+
+            if (!config.has("menu") || !config.get("menu").isJsonObject()) {
+                config.add("menu", com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuConfig.createDefaultMenuConfig());
+            }
             
             try (Writer writer = new FileWriter(kitsFile)) {
                 GSON.toJson(config, writer);
@@ -277,6 +302,7 @@ public class KitManager {
             }
             
             LOGGER.info("Created/updated kit: {}", kit.getName());
+            refreshKitMenus();
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to create kit '{}': {}", name, e.getMessage(), e);
@@ -301,6 +327,7 @@ public class KitManager {
             }
             
             LOGGER.info("Deleted kit: {}", normalizedName);
+            refreshKitMenus();
             return true;
         }
         return false;
@@ -323,6 +350,10 @@ public class KitManager {
      * Gets all registered kit names.
      */
     public Set<String> getKitNames() {
+        if (!initialized) {
+            LOGGER.warn("KitManager accessed before initialization - performing lazy init");
+            initialize();
+        }
         return new HashSet<>(kits.keySet());
     }
     
@@ -337,6 +368,10 @@ public class KitManager {
      * Gets all available kits.
      */
     public Collection<Kit> getAllKits() {
+        if (!initialized) {
+            LOGGER.warn("KitManager accessed before initialization - performing lazy init");
+            initialize();
+        }
         return new ArrayList<>(kits.values());
     }
     
@@ -384,7 +419,7 @@ public class KitManager {
         }
         
         // Check cooldown (unless player has exemption)
-        if (!hasCooldownExemption(player, kitName)) {
+        if (getCooldownExemptionReason(player, kitName) == null) {
             long remainingCooldown = getRemainingCooldown(player.getUUID(), kitName);
             if (remainingCooldown > 0) {
                 return new KitUsageResult(false, "Kit is still on cooldown for " + formatTime(remainingCooldown));
@@ -401,7 +436,7 @@ public class KitManager {
 
         // Enforce maxKitsPerPlayer (active cooldowns)
         int maxKits = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().getMaxKitsPerPlayer();
-        if (maxKits > 0 && !hasCooldownExemption(player, kitName)) {
+        if (maxKits > 0 && getCooldownExemptionReason(player, kitName) == null) {
             // Count number of kits with active cooldowns for this player
             int activeCooldowns = 0;
             Map<String, Long> cooldownMap = playerCooldowns.get(player.getUUID());
@@ -550,9 +585,24 @@ public class KitManager {
             }
 
             // Update cooldown and usage tracking
-            // Only set cooldown if player doesn't have exemption
-            if (!hasCooldownExemption(player, kitName)) {
-                setCooldown(player.getUUID(), kitName, System.currentTimeMillis() + kit.getCooldownMillis());
+            String cooldownExemption = getCooldownExemptionReason(player, kitName);
+            if (cooldownExemption == null) {
+                if (kit.getCooldownMillis() > 0) {
+                    setCooldown(player.getUUID(), kitName, System.currentTimeMillis() + kit.getCooldownMillis());
+                    LOGGER.info(
+                        "Set kit cooldown: player={}, kit={}, duration={}ms",
+                        player.getName().getString(),
+                        kitName.toLowerCase(),
+                        kit.getCooldownMillis()
+                    );
+                }
+            } else {
+                LOGGER.warn(
+                    "Skipped kit cooldown: player={}, kit={}, reason=exact permission '{}'",
+                    player.getName().getString(),
+                    kitName.toLowerCase(),
+                    cooldownExemption
+                );
             }
             incrementUsage(player.getUUID(), kitName);
 
@@ -569,6 +619,7 @@ public class KitManager {
             if (com.pedrodalben.bigbangessentials.config.ConfigManager.isLogKitUsageEnabled()) {
                 LOGGER.info("Player {} used kit {}", player.getName().getString(), kitName);
             }
+            refreshKitMenus();
             return new KitUsageResult(true, result);
 
         } catch (Exception e) {
@@ -604,6 +655,7 @@ public class KitManager {
             map.remove(kitName.toLowerCase());
         }
         savePlayerData();
+        refreshKitMenus();
     }
 
     /**
@@ -612,6 +664,7 @@ public class KitManager {
     public void resetAllCooldowns(UUID playerId) {
         playerCooldowns.remove(playerId);
         savePlayerData();
+        refreshKitMenus();
     }
 
     private void setCooldown(UUID playerId, String kitName, long cooldownEnd) {
@@ -635,25 +688,29 @@ public class KitManager {
      * Checks both global cooldown exemption and per-kit exemption.
      */
     private boolean hasCooldownExemption(ServerPlayer player, String kitName) {
+        return getCooldownExemptionReason(player, kitName) != null;
+    }
+
+    private String getCooldownExemptionReason(ServerPlayer player, String kitName) {
         UUID playerId = player.getUUID();
         // Check override permission if allowKitOverride is enabled
         if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isAllowKitOverrideEnabled()) {
             if (hasStrictPermission(playerId, "bigbangessentials.kits.override")) {
-                return true;
+                return "bigbangessentials.kits.override";
             }
         }
         // Check global cooldown exemption
         if (hasStrictPermission(playerId, "bigbangessentials.kits.nocooldown")) {
-            return true;
+            return "bigbangessentials.kits.nocooldown";
         }
         
         // Check per-kit cooldown exemption
         String kitNocooldownPermission = "bigbangessentials.kits." + kitName.toLowerCase() + ".nocooldown";
         if (hasStrictPermission(playerId, kitNocooldownPermission)) {
-            return true;
+            return kitNocooldownPermission;
         }
         
-        return false;
+        return null;
     }
 
     /**
@@ -697,6 +754,19 @@ public class KitManager {
         playerUsages.clear();
         initialized = false;
         initialize();
+        refreshKitMenus();
+    }
+
+    private void refreshKitMenus() {
+        try {
+            com.pedrodalben.bigbangessentials.menu.MenuSystem menuSystem =
+                com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance();
+            if (menuSystem != null && menuSystem.getMenuService() != null) {
+                menuSystem.getMenuService().refreshSessionsUsingSource("kits.all");
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Skipping kit menu refresh: {}", e.getMessage());
+        }
     }
     
     /**

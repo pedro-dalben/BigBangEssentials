@@ -83,6 +83,7 @@ public class MenuSystem {
 
         // Register teleport integration actions, providers, etc.
         com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuIntegration.getInstance().register(configDir);
+        com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.getInstance().register(configDir);
 
         // Load all menus
         persistenceService.loadAllMenus();

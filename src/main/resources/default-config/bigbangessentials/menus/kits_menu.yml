@@ -1,0 +1,77 @@
+id: "kits_menu"
+size: 54
+title: "<gold>Kits do Servidor <gray>(<white>{kits:available}<gray>/<white>{kits:total}<gray>)"
+
+pagination:
+  enabled: true
+  source: "kits.all"
+  content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
+
+dynamic-item-template:
+  item:
+    material-id: "{kit_icon}"
+    display-name: "{kit_status_color}{kit_display_name}"
+    lore:
+      - "<gray>Nome: <white>{kit_name}"
+      - "<gray>Itens: <white>{kit_items}"
+      - "<gray>Uso: <white>{kit_usage_display}"
+      - "<gray>Cooldown: <white>{kit_cooldown_display}"
+      - "<gray>Tempo restante: <white>{kit_remaining_display}"
+      - "<gray>Status: {kit_status}"
+      - ""
+      - "<green>Esquerdo: pegar o kit."
+      - "<yellow>Direito: ver detalhes."
+  actions:
+    - type: "claim_kit"
+      params:
+        kit-name: "{kit_name}"
+      clicks: ["LEFT"]
+    - type: "open_kit_preview"
+      params:
+        kit-name: "{kit_name}"
+      clicks: ["RIGHT"]
+
+pages:
+  main:
+    default-page: true
+    items:
+      summary:
+        slot: 4
+        item:
+          material-id: "minecraft:book"
+          display-name: "<yellow>Resumo dos Kits"
+          lore:
+            - "<gray>Total: <white>{kits:total}"
+            - "<gray>Disponíveis: <green>{kits:available}"
+            - "<gray>Em cooldown: <yellow>{kits:cooldown}"
+            - "<gray>Bloqueados: <red>{kits:locked}"
+            - "<gray>Desativados: <dark_gray>{kits:disabled}"
+            - "<gray>Esgotados: <gray>{kits:used}"
+      back_btn:
+        slot: 45
+        item:
+          material-id: "minecraft:arrow"
+          display-name: "<red>Voltar"
+        actions:
+          - type: "back_menu"
+      prev_btn:
+        slot: 48
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Página Anterior"
+        actions:
+          - type: "previous_page"
+      next_btn:
+        slot: 50
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Próxima Página"
+        actions:
+          - type: "next_page"
+      close_btn:
+        slot: 49
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "<red>Fechar"
+        actions:
+          - type: "close_menu"

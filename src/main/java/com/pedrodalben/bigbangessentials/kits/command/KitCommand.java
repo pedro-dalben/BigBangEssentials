@@ -8,6 +8,10 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.pedrodalben.bigbangessentials.kits.Kit;
 import com.pedrodalben.bigbangessentials.kits.KitManager;
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
+import com.pedrodalben.bigbangessentials.menu.MenuSystem;
+import com.pedrodalben.bigbangessentials.menu.api.MenuOpenResult;
+import com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuConfig;
+import com.pedrodalben.bigbangessentials.menu.session.MenuContext;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -16,7 +20,9 @@ import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.stream.Collectors;
 import java.util.concurrent.CompletableFuture;
+import java.util.UUID;
 
 /**
  * /kit [name] [player]
@@ -33,10 +39,42 @@ public class KitCommand {
     private static final Logger LOGGER = LoggerFactory.getLogger(KitCommand.class);
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        register(dispatcher, true, true);
+    }
+
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher,
+                                boolean registerKit,
+                                boolean registerKits) {
         if (!com.pedrodalben.bigbangessentials.config.ConfigManager.isKitSystemEnabled()) return;
 
-        registerKitLiteral(dispatcher, "kit", true);
-        registerKitLiteral(dispatcher, "kits", false);
+        if (registerKit) {
+            removeExistingRootLiteral(dispatcher, "kit");
+            registerKitLiteral(dispatcher, "kit", true);
+        }
+        if (registerKits) {
+            removeExistingRootLiteral(dispatcher, "kits");
+            registerKitLiteral(dispatcher, "kits", true);
+        }
+    }
+
+    private static void removeExistingRootLiteral(CommandDispatcher<CommandSourceStack> dispatcher, String literalName) {
+        boolean removed = dispatcher.getRoot().getChildren().removeIf(node -> node.getName().equals(literalName));
+        if (removed) {
+            LOGGER.warn("Replaced existing /{} command registration with BigBangEssentials kit command", literalName);
+        }
+    }
+
+    public static String describeRootLiteral(CommandDispatcher<CommandSourceStack> dispatcher, String literalName) {
+        var node = dispatcher.getRoot().getChild(literalName);
+        if (node == null) {
+            return "/" + literalName + " is not registered";
+        }
+
+        String children = node.getChildren().stream()
+            .map(child -> child.getName() + "(" + child.getClass().getSimpleName() + ")")
+            .sorted()
+            .collect(Collectors.joining(", "));
+        return "/" + literalName + " children=[" + children + "], command=" + (node.getCommand() != null);
     }
 
     private static void registerKitLiteral(CommandDispatcher<CommandSourceStack> dispatcher,
@@ -92,6 +130,31 @@ public class KitCommand {
     private static int listAvailableKits(CommandContext<CommandSourceStack> ctx) {
         var source = ctx.getSource();
         var player = source.getPlayer();
+
+        if (player != null && KitMenuConfig.isEnabled()) {
+            try {
+                MenuOpenResult result = MenuSystem.getInstance().getMenuService().openMenu(
+                    player,
+                    KitMenuConfig.getMenuId(),
+                    new MenuContext(player.getUUID(), "pt_BR", null, null, null, null, UUID.randomUUID())
+                ).toCompletableFuture().join();
+
+                if (result != null && result.success()) {
+                    return 1;
+                }
+
+                if (!KitMenuConfig.isFallbackToChatIfMenuFails()) {
+                    source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.no_permission_general"));
+                    return 0;
+                }
+            } catch (Exception e) {
+                LOGGER.debug("Failed to open kit menu, falling back to chat list: {}", e.getMessage());
+                if (!KitMenuConfig.isFallbackToChatIfMenuFails()) {
+                    source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.no_permission_general"));
+                    return 0;
+                }
+            }
+        }
 
         if (player != null && !hasKitCommandAccess(player)) {
             source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.no_permission_general"));

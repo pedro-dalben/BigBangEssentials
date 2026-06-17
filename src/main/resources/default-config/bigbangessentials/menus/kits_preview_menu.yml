@@ -1,0 +1,76 @@
+id: "kits_preview_menu"
+size: 54
+title: "<gold>Preview: <white>{kit_display_name}"
+
+pagination:
+  enabled: true
+  source: "kits.preview"
+  content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
+
+dynamic-item-template:
+  item:
+    material-id: "{kit_item_material}"
+    display-name: "{kit_item_display_name}"
+    lore:
+      - "<gray>Quantidade: <white>{kit_item_count}"
+      - "<gray>Posição: <white>{kit_item_index}/{kit_items}"
+      - "<gray>ID: <white>{kit_item_material}"
+      - ""
+      - "<yellow>Visualização do conteúdo do kit."
+
+pages:
+  main:
+    default-page: true
+    items:
+      info:
+        slot: 4
+        item:
+          material-id: "minecraft:chest"
+          display-name: "<yellow>{kit_display_name}"
+          lore:
+            - "<gray>Nome: <white>{kit_name}"
+            - "<gray>Itens: <white>{kit_items}"
+            - "<gray>Cooldown: <white>{kit_cooldown_display}"
+            - "<gray>Tempo restante: <white>{kit_remaining_display}"
+            - "<gray>Status: {kit_status}"
+            - ""
+            - "<gray>{kit_description_short}"
+      back_btn:
+        slot: 45
+        item:
+          material-id: "minecraft:arrow"
+          display-name: "<red>Voltar"
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "kits_menu"
+      take_btn:
+        slot: 49
+        item:
+          material-id: "minecraft:emerald"
+          display-name: "<green>Pegar"
+        actions:
+          - type: "claim_kit"
+            params:
+              kit-name: "{kit_name}"
+      prev_btn:
+        slot: 48
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Página Anterior"
+        actions:
+          - type: "previous_page"
+      next_btn:
+        slot: 50
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Próxima Página"
+        actions:
+          - type: "next_page"
+      close_btn:
+        slot: 53
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "<red>Fechar"
+        actions:
+          - type: "close_menu"

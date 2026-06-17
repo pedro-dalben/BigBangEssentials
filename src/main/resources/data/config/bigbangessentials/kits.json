@@ -1,6 +1,12 @@
 {
-    "_configVersion": 1,
+    "_configVersion": 2,
     "_configVersion_comment": "DO NOT MODIFY: This field is used by BigBangEssentials for automatic config updates. Changing this may cause config corruption.",
+    "menu": {
+        "enabled": true,
+        "fallbackToChatIfMenuFails": true,
+        "autoRefreshOpenMenus": true,
+        "menuId": "kits_menu"
+    },
     "kits": [
         {
             "name": "starter",
