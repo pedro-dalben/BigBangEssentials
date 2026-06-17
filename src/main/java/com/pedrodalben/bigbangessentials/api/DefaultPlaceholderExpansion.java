@@ -109,8 +109,8 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
         try {
             return switch (identifier.toLowerCase()) {
                 // Player identity
-                case "displayname" -> player != null ? player.getDisplayName().getString() : null;
-                case "username", "name" -> player != null ? player.getName().getString() : null;
+                case "displayname", "username", "name" -> player != null ? com.pedrodalben.bigbangessentials.util.commands.NickCommand.getDisplayName(player) : null;
+                case "realname" -> player != null ? player.getName().getString() : null;
                 
                 // Permission system
                 case "prefix" -> getPlayerPrefix(player);
@@ -183,17 +183,17 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
             return null;
         }
 
-        boolean debugEnabled = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isDebugLoggingEnabled();
+        boolean debugEnabled = LOGGER.isDebugEnabled();
         if (debugEnabled) {
-            LOGGER.info(">>> DefaultPlaceholderExpansion.getPlayerPrefix() for: {}", player.getName().getString());
-            LOGGER.info(">>> Player UUID: {}", player.getUUID());
+            LOGGER.debug(">>> DefaultPlaceholderExpansion.getPlayerPrefix() for: {}", player.getName().getString());
+            LOGGER.debug(">>> Player UUID: {}", player.getUUID());
         }
 
         try {
             String prefix = PermissionAPI.getPrefix(player.getUUID());
             if (debugEnabled) {
-                LOGGER.info(">>> PermissionAPI returned prefix: [{}]", prefix);
-                LOGGER.info(">>> Returning prefix: [{}]", prefix);
+                LOGGER.debug(">>> PermissionAPI returned prefix: [{}]", prefix);
+                LOGGER.debug(">>> Returning prefix: [{}]", prefix);
             }
             return prefix;
         } catch (Exception e) {

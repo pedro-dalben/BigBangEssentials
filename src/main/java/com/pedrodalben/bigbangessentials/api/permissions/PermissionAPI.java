@@ -149,6 +149,51 @@ public class PermissionAPI {
 
         return false;
     }
+
+    /**
+     * Returns true if the player has any of the provided permissions as explicit nodes.
+     * This ignores parent-node inheritance so sensitive subcommands do not inherit access
+     * from a broader parent permission.
+     */
+    public static boolean hasAnyExactPermission(UUID uuid, String... permissions) {
+        if (permissions == null || permissions.length == 0) {
+            return false;
+        }
+
+        for (String permission : permissions) {
+            if (hasExactPermission(uuid, permission)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks only explicitly assigned permission nodes, without wildcard expansion.
+     * OP bypass still applies when enabled so server operators keep administrative access.
+     */
+    public static boolean hasExactPermission(UUID uuid, String permission) {
+        if (uuid == null) {
+            LOGGER.warn("PermissionAPI.hasExactPermission: UUID is null");
+            return false;
+        }
+        if (permission == null || permission.trim().isEmpty()) {
+            LOGGER.warn("PermissionAPI.hasExactPermission: Permission string is null or empty");
+            return false;
+        }
+
+        if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isOpsBypassPermissionsEnabled()
+            && isPlayerOpped(uuid)) {
+            return true;
+        }
+
+        if (externalAdapter != null) {
+            return externalAdapter.hasExactPermission(uuid, permission);
+        }
+
+        return manager != null && manager.hasExactPermission(uuid, permission);
+    }
     
     /**
      * Checks if a player is opped by their UUID.

@@ -5,7 +5,7 @@
 > `🔒` = op-only by default · `✅` = available to all players by default  
 > Square brackets `[x]` = optional · Angle brackets `<x>` = required · `|` = or
 >
-> Compatibility note: some rows below still mention legacy permission aliases used by older configs. The runtime accepts both the canonical nodes from `PermissionSystem.md` and the older aliases documented here.
+> Compatibility note: some rows below still mention legacy permission aliases used by older configs. The runtime accepts both the canonical nodes from `PermissionSystem.md` and the older aliases documented here, but legacy child aliases are only honored when assigned explicitly. Parent nodes like `bigbangessentials.spawn` no longer imply `setspawn`.
 
 ---
 
@@ -128,18 +128,18 @@ Sign-based chest shops for automated buy/sell trading.
 ### Server Warps
 | Command | Syntax | Permission | Default | Description |
 |---|---|---|---|---|
-| `/warp` | `/warp <name>` | `bigbangessentials.warp` | ✅ | Teleport to a named warp |
-| `/setwarp` | `/setwarp <name>` | `bigbangessentials.warp.set` | 🔒 | Create a warp at current location |
-| `/delwarp` | `/delwarp <name>` | `bigbangessentials.warp.delete` | 🔒 | Delete a warp |
-| `/warps` | `/warps [page]` | `bigbangessentials.warp.list` | ✅ | List all available warps |
+| `/warp` | `/warp <name>` | `bigbangessentials.teleport.warp` | ✅ | Teleport to a named warp |
+| `/setwarp` | `/setwarp <name>` | `bigbangessentials.teleport.warp.create` | 🔒 | Create a warp at current location |
+| `/delwarp` | `/delwarp <name>` | `bigbangessentials.teleport.warp.delete` | 🔒 | Delete a warp |
+| `/warps` | `/warps [page]` | `bigbangessentials.teleport.warp.list` | ✅ | List all available warps |
 
 ### Player Warps
 | Command | Syntax | Permission | Default | Description |
 |---|---|---|---|---|
-| `/pwarp` | `/pwarp <name>` | `bigbangessentials.pwarp` | ✅ | Teleport to a player warp |
-| `/setpwarp` | `/setpwarp <name>` | `bigbangessentials.pwarp.set` | ✅ | Create your own player warp |
-| `/delpwarp` | `/delpwarp <name>` | `bigbangessentials.pwarp.delete` | ✅ | Delete one of your player warps |
-| `/pwarps` | `/pwarps` | `bigbangessentials.pwarp.list` | ✅ | List your player warps |
+| `/pwarp` | `/pwarp <name>` | `bigbangessentials.teleport.pwarp` | ✅ | Teleport to a player warp |
+| `/setpwarp` | `/setpwarp <name>` | `bigbangessentials.teleport.pwarp.create` | ✅ | Create your own player warp |
+| `/delpwarp` | `/delpwarp <name>` | `bigbangessentials.teleport.pwarp.delete` | ✅ | Delete one of your player warps |
+| `/pwarps` | `/pwarps` | `bigbangessentials.teleport.pwarp.list` | ✅ | List your player warps |
 
 ---
 
@@ -147,8 +147,9 @@ Sign-based chest shops for automated buy/sell trading.
 
 | Command | Syntax | Permission | Default | Description |
 |---|---|---|---|---|
-| `/spawn` | `/spawn` | `bigbangessentials.spawn` | ✅ | Teleport to server spawn |
-| `/setspawn` | `/setspawn` | `bigbangessentials.spawn.set` | 🔒 | Set the server spawn at your location |
+| `/spawn` | `/spawn` | `bigbangessentials.teleport.spawn` | ✅ | Teleport to server spawn |
+| `/setspawn` | `/setspawn` | `bigbangessentials.teleport.spawn.set` | 🔒 | Set the server spawn at your location |
+| `/spawninfo` | `/spawninfo` | `bigbangessentials.teleport.spawn.info` | 🔒 | Show spawn info and admin stats |
 
 ---
 

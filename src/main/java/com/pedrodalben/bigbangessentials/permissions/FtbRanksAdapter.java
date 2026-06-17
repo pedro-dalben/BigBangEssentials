@@ -119,7 +119,7 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
         }
 
         try {
-            Object permissionValue = getPermissionValue(uuid, permission);
+            Object permissionValue = getExactPermissionValue(uuid, permission);
             Boolean result = asBoolean(permissionValue);
             return Boolean.TRUE.equals(result);
         } catch (Exception e) {
@@ -256,6 +256,18 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
             return null;
         }
         return getRankPermissionValue(sortedRanks, node);
+    }
+
+    private Object getExactPermissionValue(UUID uuid, String node) throws Exception {
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                List<?> sortedRanks = getSortedAddedRanks(player);
+                return sortedRanks != null ? getRankPermissionValue(sortedRanks, node) : null;
+            }
+        }
+        return getOfflinePermissionValue(uuid, node);
     }
 
     private Object getPermissionValue(UUID uuid, String node) throws Exception {
