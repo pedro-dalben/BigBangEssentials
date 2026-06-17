@@ -923,6 +923,7 @@
   "commands.bigbangessentials.antioch.success": "§a*BOOM*",
   "commands.bigbangessentials.kittycannon.fired": "§a🐱 KITTY CANNON FIRED! 🐱",
   "commands.bigbangessentials.beezooka.fired": "§aFired §f{0}§a angry bee(s)! 🐝",
+  "commands.bigbangessentials.beezooka.cooldown": "§cYou must wait {0} before using /beezooka again.",
   "commands.bigbangessentials.rest.self": "§aYou have rested. Phantoms will leave you alone.",
   "commands.bigbangessentials.rest.other": "§aReset sleep timer for §f{0}§a.",
   "commands.bigbangessentials.backup.done": "§aBackup complete.",

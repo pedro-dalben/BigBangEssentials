@@ -49,17 +49,29 @@ public class WarpCommands {
     };
     private static final String[] PERMISSION_WARP_OTHERS_COMPAT = {
         PERMISSION_WARP_OTHERS,
-        "bigbangessentials.warp.others"
+        "bigbangessentials.warp.others",
+        "bigbangessentials.teleport.warp.*",
+        "bigbangessentials.warp.*",
+        "bigbangessentials.teleport.*",
+        "bigbangessentials.*"
     };
     private static final String[] PERMISSION_SETWARP_COMPAT = {
         PERMISSION_SETWARP,
         "bigbangessentials.warp.set",
-        "bigbangessentials.teleport.warp.admin"
+        "bigbangessentials.teleport.warp.admin",
+        "bigbangessentials.teleport.warp.*",
+        "bigbangessentials.warp.*",
+        "bigbangessentials.teleport.*",
+        "bigbangessentials.*"
     };
     private static final String[] PERMISSION_DELWARP_COMPAT = {
         PERMISSION_DELWARP,
         "bigbangessentials.warp.delete",
-        "bigbangessentials.teleport.warp.admin"
+        "bigbangessentials.teleport.warp.admin",
+        "bigbangessentials.teleport.warp.*",
+        "bigbangessentials.warp.*",
+        "bigbangessentials.teleport.*",
+        "bigbangessentials.*"
     };
 
     /** Items per page for /warps (Essentials: WARPS_PER_PAGE = 20) */
@@ -98,7 +110,7 @@ public class WarpCommands {
                     .suggests(PLAYER_SUGGESTIONS)
                     .requires(src -> src.hasPermission(3)
                         || src.getPlayer() == null
-                        || PermissionAPI.hasAnyPermission(src.getPlayer().getUUID(), PERMISSION_WARP_OTHERS_COMPAT))
+                        || PermissionAPI.hasAnyExactPermission(src.getPlayer().getUUID(), PERMISSION_WARP_OTHERS_COMPAT))
                     .executes(ctx -> executeWarp(ctx,
                         StringArgumentType.getString(ctx, "name"),
                         StringArgumentType.getString(ctx, "target")))
@@ -288,9 +300,8 @@ public class WarpCommands {
     private static void registerSetWarpCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         for (String alias : new String[]{"setwarp", "createwarp", "addwarp"}) {
             dispatcher.register(Commands.literal(alias)
-                .requires(src -> src.hasPermission(3)
-                    || (src.getPlayer() != null
-                        && PermissionAPI.hasAnyPermission(src.getPlayer().getUUID(), PERMISSION_SETWARP_COMPAT)))
+                .requires(src -> src.getPlayer() == null
+                        || PermissionAPI.hasAnyExactPermission(src.getPlayer().getUUID(), PERMISSION_SETWARP_COMPAT))
                 .then(Commands.argument("name", StringArgumentType.word())
                     .executes(WarpCommands::executeSetWarpHere)
                     .then(Commands.argument("pos", BlockPosArgument.blockPos())
@@ -325,9 +336,8 @@ public class WarpCommands {
     private static void registerDelWarpCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         for (String alias : new String[]{"delwarp", "deletewarp", "removewarp", "rwarp"}) {
             dispatcher.register(Commands.literal(alias)
-                .requires(src -> src.hasPermission(3)
-                    || (src.getPlayer() != null
-                        && PermissionAPI.hasAnyPermission(src.getPlayer().getUUID(), PERMISSION_DELWARP_COMPAT)))
+                .requires(src -> src.getPlayer() == null
+                        || PermissionAPI.hasAnyExactPermission(src.getPlayer().getUUID(), PERMISSION_DELWARP_COMPAT))
                 .then(Commands.argument("name", StringArgumentType.word())
                     .suggests(WARP_SUGGESTIONS)
                     .executes(ctx -> executeDelWarp(ctx, StringArgumentType.getString(ctx, "name")))
@@ -356,8 +366,7 @@ public class WarpCommands {
             return 0;
         }
         // Permission is already checked in requires(), but double-check for clarity
-        if (!source.hasPermission(3)
-                && !PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_DELWARP_COMPAT)) {
+        if (!PermissionAPI.hasAnyExactPermission(player.getUUID(), PERMISSION_DELWARP_COMPAT)) {
             source.sendFailure(MessageUtil.error("commands.bigbangessentials.general.no_permission"));
             return 0;
         }

@@ -1257,7 +1257,7 @@ public class ConfigManager {
         put(MAIN_CONFIG, 22);
         put(ECONOMY_CONFIG, 2);
         put(PERMISSIONS_CONFIG, 5);
-        put(KITS_CONFIG, 1);
+        put(KITS_CONFIG, 2);
         put(DISCORD_AUTH_CONFIG, 6);
         put(TABLIST_CONFIG, 1);
     }};

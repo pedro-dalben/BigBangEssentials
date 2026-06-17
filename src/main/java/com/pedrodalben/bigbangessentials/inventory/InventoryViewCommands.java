@@ -33,57 +33,61 @@ public class InventoryViewCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         // /invsee <player> - View inventory (read-only)
-        dispatcher.register(
-            Commands.literal("invsee")
-                .requires(source -> hasPermission(source,
-                    "bigbangessentials.invsee",
-                    "bigbangessentials.item.invsee"))
-                .then(Commands.argument("target", EntityArgument.player())
-                    .executes(ctx -> viewInventory(ctx, false))
-                )
-        );
+        dispatcher.register(createInventoryViewCommand("invsee", false,
+            "bigbangessentials.invsee",
+            "bigbangessentials.item.invsee"));
 
         // /invseeedit <player> - View and edit inventory
-        dispatcher.register(
-            Commands.literal("invseeedit")
-                .requires(source -> hasPermission(source,
-                    "bigbangessentials.invsee.edit",
-                    "bigbangessentials.item.invsee.edit"))
-                .then(Commands.argument("target", EntityArgument.player())
-                    .executes(ctx -> viewInventory(ctx, true))
-                )
-        );
+        dispatcher.register(createInventoryViewCommand("invseeedit", true,
+            "bigbangessentials.invsee.edit",
+            "bigbangessentials.item.invsee.edit"));
 
         // /enderchest <player> - View ender chest (read-only)
-        dispatcher.register(
-            Commands.literal("enderchest")
-                .requires(source -> hasPermission(source,
-                    "bigbangessentials.enderchest",
-                    "bigbangessentials.item.enderchest",
-                    "bigbangessentials.item.endersee"))
-                .then(Commands.argument("target", EntityArgument.player())
-                    .executes(ctx -> viewEnderChest(ctx, false))
-                )
-        );
+        dispatcher.register(createEnderChestViewCommand("enderchest", false,
+            "bigbangessentials.enderchest",
+            "bigbangessentials.item.enderchest",
+            "bigbangessentials.item.endersee"));
 
         // /enderchestedit <player> - View and edit ender chest
-        dispatcher.register(
-            Commands.literal("enderchestedit")
-                .requires(source -> hasPermission(source,
-                    "bigbangessentials.enderchest.edit",
-                    "bigbangessentials.item.enderchest.edit",
-                    "bigbangessentials.item.endersee.edit"))
-                .then(Commands.argument("target", EntityArgument.player())
-                    .executes(ctx -> viewEnderChest(ctx, true))
-                )
-        );
+        dispatcher.register(createEnderChestViewCommand("enderchestedit", true,
+            "bigbangessentials.enderchest.edit",
+            "bigbangessentials.item.enderchest.edit",
+            "bigbangessentials.item.endersee.edit"));
 
-        // Aliases
-        dispatcher.register(Commands.literal("inv").redirect(dispatcher.getRoot().getChild("invsee")));
-        dispatcher.register(Commands.literal("ec").redirect(dispatcher.getRoot().getChild("enderchest")));
-        dispatcher.register(Commands.literal("ecedit").redirect(dispatcher.getRoot().getChild("enderchestedit")));
+        // Aliases must enforce the same permission gate as the primary command.
+        dispatcher.register(createInventoryViewCommand("inv", false,
+            "bigbangessentials.invsee",
+            "bigbangessentials.item.invsee"));
+        dispatcher.register(createEnderChestViewCommand("ec", false,
+            "bigbangessentials.enderchest",
+            "bigbangessentials.item.enderchest",
+            "bigbangessentials.item.endersee"));
+        dispatcher.register(createEnderChestViewCommand("ecedit", true,
+            "bigbangessentials.enderchest.edit",
+            "bigbangessentials.item.enderchest.edit",
+            "bigbangessentials.item.endersee.edit"));
 
         LOGGER.info("Registered inventory view commands: /invsee, /invseeedit, /enderchest, /enderchestedit");
+    }
+
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> createInventoryViewCommand(
+        String literal, boolean editable, String... permissions
+    ) {
+        return Commands.literal(literal)
+            .requires(source -> hasPermission(source, permissions))
+            .then(Commands.argument("target", EntityArgument.player())
+                .executes(ctx -> viewInventory(ctx, editable))
+            );
+    }
+
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> createEnderChestViewCommand(
+        String literal, boolean editable, String... permissions
+    ) {
+        return Commands.literal(literal)
+            .requires(source -> hasPermission(source, permissions))
+            .then(Commands.argument("target", EntityArgument.player())
+                .executes(ctx -> viewEnderChest(ctx, editable))
+            );
     }
 
     /**

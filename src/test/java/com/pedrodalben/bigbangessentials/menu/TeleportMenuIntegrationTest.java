@@ -3,6 +3,8 @@ package com.pedrodalben.bigbangessentials.menu;
 import com.pedrodalben.bigbangessentials.menu.integration.teleportation.*;
 import com.pedrodalben.bigbangessentials.menu.integration.teleportation.action.*;
 import com.pedrodalben.bigbangessentials.menu.integration.teleportation.provider.*;
+import com.pedrodalben.bigbangessentials.menu.api.MenuOpenResult;
+import com.pedrodalben.bigbangessentials.menu.api.MenuService;
 import com.pedrodalben.bigbangessentials.menu.pagination.MenuDataResult;
 import com.pedrodalben.bigbangessentials.menu.pagination.PaginationRequest;
 import com.pedrodalben.bigbangessentials.menu.session.MenuContext;
@@ -36,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 public class TeleportMenuIntegrationTest {
 
@@ -69,6 +72,7 @@ public class TeleportMenuIntegrationTest {
         WarpManager.setInstance(null);
         HomeManager.setInstance(null);
         PermissionAPI.setExternalAdapter(null);
+        setMenuSystemInstance(null);
     }
 
     @Test
@@ -200,6 +204,41 @@ public class TeleportMenuIntegrationTest {
     }
 
     @Test
+    public void testTeleportHomeActionRightClickOpensDeleteConfirmMenuWithContext() {
+        ServerPlayer player = mock(ServerPlayer.class);
+        when(player.getUUID()).thenReturn(UUID.randomUUID());
+
+        Map<String, TeleportLocation> homes = Map.of("my_home", mock(TeleportLocation.class));
+        when(mockHomeManager.getPlayerHomes(player)).thenReturn(homes);
+
+        MenuService menuService = mock(MenuService.class);
+        when(menuService.openMenu(eq(player), eq("confirm_delete_home"), any(MenuContext.class)))
+            .thenReturn(CompletableFuture.completedFuture(new MenuOpenResult(true, null)));
+
+        MenuSystem testMenuSystem = new MenuSystem();
+        setField(testMenuSystem, "menuService", menuService);
+        setMenuSystemInstance(testMenuSystem);
+
+        TeleportToHomeMenuAction action = new TeleportToHomeMenuAction();
+        ActionContext actContext = new ActionContext(
+            player, mock(MenuSession.class), mock(MenuDefinition.class), mock(MenuPageDefinition.class), mock(MenuItemDefinition.class),
+            MenuClickType.RIGHT, null, Map.of("home-name", "my_home")
+        );
+
+        ActionExecutionResult result = action.executeWithRunner(actContext, player, Runnable::run).toCompletableFuture().join();
+        assertEquals(ActionStatus.SUCCESS, result.status());
+
+        ArgumentCaptor<MenuContext> contextCaptor = ArgumentCaptor.forClass(MenuContext.class);
+        verify(menuService).openMenu(eq(player), eq("confirm_delete_home"), contextCaptor.capture());
+        MenuContext menuContext = contextCaptor.getValue();
+        assertNotNull(menuContext.values());
+        assertEquals("my_home", menuContext.values().get("home_name"));
+        assertNotNull(menuContext.placeholderOverrides());
+        assertEquals("my_home", menuContext.placeholderOverrides().get("home_name"));
+        verify(mockHomeManager, never()).teleportToHome(any(), anyString());
+    }
+
+    @Test
     public void testPreferenceReset() {
         UUID playerId = UUID.randomUUID();
         TeleportMenuPreferenceService.getInstance().resetPreferences(playerId);
@@ -213,5 +252,23 @@ public class TeleportMenuIntegrationTest {
         assertTrue(TeleportMenuConfig.isEnabled());
         assertEquals(CommandDisplayMode.MENU, TeleportMenuConfig.getWarpsCommandMode());
         assertEquals(CommandDisplayMode.MENU, TeleportMenuConfig.getHomesCommandMode());
+    }
+
+    private static void setMenuSystemInstance(MenuSystem menuSystem) {
+        setField(MenuSystem.class, null, "instance", menuSystem);
+    }
+
+    private static void setField(Object target, String fieldName, Object value) {
+        setField(target.getClass(), target, fieldName, value);
+    }
+
+    private static void setField(Class<?> type, Object target, String fieldName, Object value) {
+        try {
+            Field field = type.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to set field " + fieldName, e);
+        }
     }
 }

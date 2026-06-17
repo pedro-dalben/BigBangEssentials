@@ -9,6 +9,7 @@
 Full teleportation suite — homes, warps, player warps, spawn, TPA requests, random teleport, direct TP commands, and utility teleports. All with safe-location detection, delay/warmup, and `/back` support.
 
 Compatibility note: the runtime accepts both the canonical teleport permission nodes from `PermissionSystem.md` and the older aliases used in legacy configs and older docs.
+Legacy child aliases are only honored when assigned explicitly; parent nodes like `bigbangessentials.spawn` do not imply admin subcommands such as `setspawn`.
 
 ---
 
@@ -75,6 +76,7 @@ Set `perWarpPermission: true` in config to require `bigbangessentials.warps.<nam
 |---|---|---|---|
 | `/spawn` | `/spawn [player]` | `bigbangessentials.teleport.spawn` | Teleport to server spawn |
 | `/setspawn` | `/setspawn` | `bigbangessentials.teleport.spawn.set` | Set spawn at current location |
+| `/spawninfo` | `/spawninfo` | `bigbangessentials.teleport.spawn.info` | Show spawn info and admin stats |
 
 ---
 

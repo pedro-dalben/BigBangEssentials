@@ -64,11 +64,13 @@ public class TeleportToHomeMenuAction implements MenuActionHandler {
 
             if (context.clickType() == com.pedrodalben.bigbangessentials.menu.model.MenuClickType.RIGHT) {
                 // Right click: open confirm delete menu
+                java.util.Map<String, Object> values = new java.util.HashMap<>();
+                values.put("home_name", resolved);
                 java.util.Map<String, String> overrides = new java.util.HashMap<>();
                 overrides.put("home_name", resolved);
                 com.pedrodalben.bigbangessentials.menu.session.MenuContext menuCtx = 
                     new com.pedrodalben.bigbangessentials.menu.session.MenuContext(
-                        player.getUUID(), "pt_BR", null, overrides, null, null, null
+                        player.getUUID(), "pt_BR", values, overrides, null, null, null
                     );
                 
                 runner.accept(() -> {

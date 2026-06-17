@@ -310,6 +310,15 @@ public class BigBangEssentials {
                 LOGGER.error("Failed to initialize ChatManager on server start", e);
             }
 
+            try {
+                com.pedrodalben.bigbangessentials.kits.command.KitCommands.logRegisteredKitCommandTree(
+                    event.getServer().getCommands().getDispatcher(),
+                    "after server start"
+                );
+            } catch (Exception e) {
+                LOGGER.warn("Failed to log final kit command tree: {}", e.getMessage());
+            }
+
             // Initialize AfkManager configuration from config file
             try {
                 com.pedrodalben.bigbangessentials.config.ConfigManager configManager = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance();
@@ -694,6 +703,7 @@ public class BigBangEssentials {
         registry.registerCommand("?", "Show available commands (alias)");
         registry.registerCommand("nick", "Change your nickname");
         registry.registerCommand("nickname", "Change your nickname (alias)");
+        registry.registerCommand("changenick", "Change your nickname (alias)");
         registry.registerCommand("anvil", "Open portable anvil");
         registry.registerCommand("workbench", "Open portable crafting table");
         registry.registerCommand("book", "Manage books");

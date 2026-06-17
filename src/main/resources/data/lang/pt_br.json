@@ -925,6 +925,7 @@
   "commands.bigbangessentials.antioch.success": "§a*CABUM*",
   "commands.bigbangessentials.kittycannon.fired": "§a🐱 CANHÃO DE GATINHOS DISPARADO! 🐱",
   "commands.bigbangessentials.beezooka.fired": "§aDisparou §f{0}§a abelha(s) irritada(s)! 🐝",
+  "commands.bigbangessentials.beezooka.cooldown": "§cVocê deve esperar {0} antes de usar o /beezooka novamente.",
   "commands.bigbangessentials.rest.self": "§aVocê descansou. Os Phantoms não incomodarão você.",
   "commands.bigbangessentials.rest.other": "§aRedefiniu o temporizador de sono para §f{0}§a.",
   "commands.bigbangessentials.backup.done": "§aBackup concluído.",

@@ -32,11 +32,19 @@ public class SpawnCommands {
     private static final String[] PERMISSION_SETSPAWN_COMPAT = {
         PERMISSION_SETSPAWN,
         "bigbangessentials.spawn.set",
-        "bigbangessentials.teleport.setspawn"
+        "bigbangessentials.teleport.setspawn",
+        "bigbangessentials.teleport.spawn.*",
+        "bigbangessentials.spawn.*",
+        "bigbangessentials.teleport.*",
+        "bigbangessentials.*"
     };
     private static final String[] PERMISSION_SPAWNINFO_COMPAT = {
         PERMISSION_SPAWNINFO,
-        "bigbangessentials.spawn.info"
+        "bigbangessentials.spawn.info",
+        "bigbangessentials.teleport.spawn.*",
+        "bigbangessentials.spawn.*",
+        "bigbangessentials.teleport.*",
+        "bigbangessentials.*"
     };
     
     // Track last spawn usage per player (UUID -> epoch seconds)
@@ -105,14 +113,8 @@ public class SpawnCommands {
     private static void registerSetSpawnCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("setspawn")
             .requires(source -> {
-                if (source.hasPermission(3)) {
-                    return true;
-                }
                 ServerPlayer player = source.getPlayer();
-                if (player != null) {
-                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETSPAWN_COMPAT);
-                }
-                return false;
+                return player != null && PermissionAPI.hasAnyExactPermission(player.getUUID(), PERMISSION_SETSPAWN_COMPAT);
             })
             .executes(SpawnCommands::executeSetSpawnHere)
             .then(Commands.argument("pos", BlockPosArgument.blockPos())
@@ -137,7 +139,7 @@ public class SpawnCommands {
                 }
                 ServerPlayer player = source.getPlayer();
                 if (player != null) {
-                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SPAWNINFO_COMPAT);
+                    return PermissionAPI.hasAnyExactPermission(player.getUUID(), PERMISSION_SPAWNINFO_COMPAT);
                 }
                 return false;
             })
@@ -258,7 +260,6 @@ public class SpawnCommands {
      * Check if player has permission to set spawn
      */
     private static boolean hasSetSpawnPermission(CommandSourceStack source, ServerPlayer player) {
-        return source.hasPermission(3)
-            || PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETSPAWN_COMPAT);
+        return player != null && PermissionAPI.hasAnyExactPermission(player.getUUID(), PERMISSION_SETSPAWN_COMPAT);
     }
 }

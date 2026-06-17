@@ -169,6 +169,12 @@ public class HomeCommands {
                 }
                 return false; // Console can't use homes
             })
+            .then(Commands.literal("confirm")
+                .executes(HomeCommands::executePendingDelHomeConfirm)
+            )
+            .then(Commands.literal("deny")
+                .executes(HomeCommands::executePendingDelHomeDeny)
+            )
             .then(Commands.argument("name", StringArgumentType.word())
                 .suggests(HOME_SUGGESTIONS)
                 .executes(HomeCommands::executeDelHome)
@@ -433,8 +439,8 @@ public class HomeCommands {
             player.sendSystemMessage(MessageUtil.homeConfirmComponent(
                 homeName,
                 "delete",
-                "/delhome " + homeName + " confirm",
-                "/delhome " + homeName + " deny"
+                "/delhome confirm",
+                "/delhome deny"
             ));
             return 0;
         }
@@ -445,6 +451,42 @@ public class HomeCommands {
                 return 1;
             }
         }
+        return 0;
+    }
+
+    private static int executePendingDelHomeConfirm(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.command.player_only"));
+            return 0;
+        }
+        String pending = pendingDeleteConfirmations.get(player.getUUID());
+        if (pending == null || pending.isBlank()) {
+            player.sendSystemMessage(MessageUtil.warning("commands.bigbangessentials.teleport.home.no_pending_delete", ""));
+            return 0;
+        }
+        pendingDeleteConfirmations.remove(player.getUUID());
+        boolean success = HomeManager.getInstance().deleteHome(player, pending);
+        if (success) {
+            player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.delete_success", pending));
+            return 1;
+        }
+        player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.delete_failed", pending));
+        return 0;
+    }
+
+    private static int executePendingDelHomeDeny(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.command.player_only"));
+            return 0;
+        }
+        String pending = pendingDeleteConfirmations.remove(player.getUUID());
+        if (pending != null && !pending.isBlank()) {
+            player.sendSystemMessage(MessageUtil.info("commands.bigbangessentials.teleport.home.delete_cancelled", pending));
+            return 1;
+        }
+        player.sendSystemMessage(MessageUtil.warning("commands.bigbangessentials.teleport.home.no_pending_delete", ""));
         return 0;
     }
 

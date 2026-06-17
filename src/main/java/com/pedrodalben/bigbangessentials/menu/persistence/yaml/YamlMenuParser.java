@@ -2,6 +2,7 @@ package com.pedrodalben.bigbangessentials.menu.persistence.yaml;
 
 import com.pedrodalben.bigbangessentials.menu.model.*;
 import com.pedrodalben.bigbangessentials.menu.MenuSystem;
+import com.pedrodalben.bigbangessentials.util.ChatComponentUtil;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -72,7 +73,7 @@ public class YamlMenuParser {
         }
 
         String rawTitle = getString(root, "title", "Menu");
-        Component title = Component.literal(rawTitle);
+        Component title = ChatComponentUtil.parseColorCodes(rawTitle);
 
         // Flags
         Map<String, Object> flagsMap = getMap(root, "flags", Collections.emptyMap());
