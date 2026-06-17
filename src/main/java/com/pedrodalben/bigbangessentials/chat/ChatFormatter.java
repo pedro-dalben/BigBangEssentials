@@ -44,13 +44,13 @@ public class ChatFormatter {
      */
     public static Component formatMessage(String template, ServerPlayer player, String message) {
         try {
-            boolean debugEnabled = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isDebugLoggingEnabled();
+            boolean debugEnabled = LOGGER.isDebugEnabled();
 
             if (debugEnabled) {
-                LOGGER.info("=== CHAT FORMATTING DEBUG ===");
-                LOGGER.info("Player: {}, OP: {}", player.getName().getString(), player.hasPermissions(2));
-                LOGGER.info("Original message: [{}]", message);
-                LOGGER.info("Template: [{}]", template);
+                LOGGER.debug("=== CHAT FORMATTING DEBUG ===");
+                LOGGER.debug("Player: {}, OP: {}", player.getName().getString(), player.hasPermissions(2));
+                LOGGER.debug("Original message: [{}]", message);
+                LOGGER.debug("Template: [{}]", template);
             }
 
             // Normalize placeholders to new format
@@ -75,37 +75,37 @@ public class ChatFormatter {
             // Restrict colors in message BEFORE inserting into template
             String restrictedMessage = restrictPlayerMessageColors(message, player);
             if (debugEnabled) {
-                LOGGER.info("After color restriction: [{}]", restrictedMessage);
+                LOGGER.debug("After color restriction: [{}]", restrictedMessage);
             }
 
             // Directly replace {MESSAGE} before PlaceholderAPI processing
             String preFormatted = normalizedTemplate.replace("{MESSAGE}", restrictedMessage);
             if (debugEnabled) {
-                LOGGER.info("After message insertion: [{}]", preFormatted);
+                LOGGER.debug("After message insertion: [{}]", preFormatted);
             }
 
             // Resolve all other placeholders via PlaceholderAPI
             String formatted = com.pedrodalben.bigbangessentials.api.PlaceholderAPI.setPlaceholders(player, preFormatted);
             if (debugEnabled) {
-                LOGGER.info("After placeholder resolution: [{}]", formatted);
+                LOGGER.debug("After placeholder resolution: [{}]", formatted);
             }
 
             // Phase 4: Apply conditional formatting
             formatted = ConditionalFormatter.processConditionals(player, formatted);
             if (debugEnabled) {
-                LOGGER.info("After conditional formatting: [{}]", formatted);
+                LOGGER.debug("After conditional formatting: [{}]", formatted);
             }
 
             // Clean up formatting
             formatted = cleanupFormatting(formatted);
             if (debugEnabled) {
-                LOGGER.info("After cleanup: [{}]", formatted);
+                LOGGER.debug("After cleanup: [{}]", formatted);
             }
 
             // Phase 4: Expand rich text effects (gradients, rainbow) without dropping color markup
             String richTextExpanded = RichTextFormatter.expandRichText(formatted);
             if (debugEnabled) {
-                LOGGER.info("After rich text expansion: [{}]", richTextExpanded);
+                LOGGER.debug("After rich text expansion: [{}]", richTextExpanded);
             }
 
             // Apply Phase 2 enhancements if enabled
@@ -117,7 +117,7 @@ public class ChatFormatter {
             }
 
             if (debugEnabled) {
-                LOGGER.info("=== END CHAT FORMATTING DEBUG ===");
+                LOGGER.debug("=== END CHAT FORMATTING DEBUG ===");
             }
             return result;
 
@@ -136,17 +136,17 @@ public class ChatFormatter {
     private static String restrictPlayerMessageColors(String message, ServerPlayer player) {
         UUID uuid = player.getUUID();
         String result = message;
-        boolean debugEnabled = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isDebugLoggingEnabled();
+        boolean debugEnabled = LOGGER.isDebugEnabled();
 
         if (debugEnabled) {
-            LOGGER.info(">>> Restricting colors for player {} (UUID: {})", player.getName().getString(), uuid);
-            LOGGER.info(">>> Original message: [{}]", message);
+            LOGGER.debug(">>> Restricting colors for player {} (UUID: {})", player.getName().getString(), uuid);
+            LOGGER.debug(">>> Original message: [{}]", message);
         }
 
         // First check if color codes are enabled globally in config
         boolean colorCodesEnabled = com.pedrodalben.bigbangessentials.config.ConfigManager.isColorCodesEnabled();
         if (debugEnabled) {
-            LOGGER.info(">>> Config enable-color-codes: {}", colorCodesEnabled);
+            LOGGER.debug(">>> Config enable-color-codes: {}", colorCodesEnabled);
         }
 
         if (!colorCodesEnabled) {
@@ -154,7 +154,7 @@ public class ChatFormatter {
             result = HEX_PATTERN.matcher(result).replaceAll("");
             result = AMPERSAND_CODE_PATTERN.matcher(result).replaceAll("");
             if (debugEnabled) {
-                LOGGER.info(">>> Color codes DISABLED in config - Stripped all codes: [{}]", result);
+                LOGGER.debug(">>> Color codes DISABLED in config - Stripped all codes: [{}]", result);
             }
             return result;
         }
@@ -165,17 +165,17 @@ public class ChatFormatter {
         boolean hasFormatPerm = PermissionAPI.hasPermission(uuid, "bigbangessentials.chat.format");
         
         if (debugEnabled) {
-            LOGGER.info(">>> Permission Check Results:");
-            LOGGER.info(">>>   - bigbangessentials.chat.color.hex: {}", hasHexPerm);
-            LOGGER.info(">>>   - bigbangessentials.chat.color: {}", hasColorPerm);
-            LOGGER.info(">>>   - bigbangessentials.chat.format: {}", hasFormatPerm);
+            LOGGER.debug(">>> Permission Check Results:");
+            LOGGER.debug(">>>   - bigbangessentials.chat.color.hex: {}", hasHexPerm);
+            LOGGER.debug(">>>   - bigbangessentials.chat.color: {}", hasColorPerm);
+            LOGGER.debug(">>>   - bigbangessentials.chat.format: {}", hasFormatPerm);
         }
 
         if (!hasHexPerm) {
             if (debugEnabled) {
                 String before = result;
                 result = HEX_PATTERN.matcher(result).replaceAll("");
-                LOGGER.info(">>>   Stripped hex codes: [{}] -> [{}]", before, result);
+                LOGGER.debug(">>>   Stripped hex codes: [{}] -> [{}]", before, result);
             } else {
                 result = HEX_PATTERN.matcher(result).replaceAll("");
             }
@@ -185,7 +185,7 @@ public class ChatFormatter {
             if (debugEnabled) {
                 String before = result;
                 result = COLOR_CODE_PATTERN.matcher(result).replaceAll("");
-                LOGGER.info(">>>   Stripped color codes: [{}] -> [{}]", before, result);
+                LOGGER.debug(">>>   Stripped color codes: [{}] -> [{}]", before, result);
             } else {
                 result = COLOR_CODE_PATTERN.matcher(result).replaceAll("");
             }
@@ -195,14 +195,14 @@ public class ChatFormatter {
             if (debugEnabled) {
                 String before = result;
                 result = FORMAT_CODE_PATTERN.matcher(result).replaceAll("");
-                LOGGER.info(">>>   Stripped format codes: [{}] -> [{}]", before, result);
+                LOGGER.debug(">>>   Stripped format codes: [{}] -> [{}]", before, result);
             } else {
                 result = FORMAT_CODE_PATTERN.matcher(result).replaceAll("");
             }
         }
         
         if (debugEnabled) {
-            LOGGER.info(">>> Final restricted message: [{}]", result);
+            LOGGER.debug(">>> Final restricted message: [{}]", result);
         }
         return result;
     }

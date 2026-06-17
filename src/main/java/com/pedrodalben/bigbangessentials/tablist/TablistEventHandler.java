@@ -26,6 +26,16 @@ public class TablistEventHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         MinecraftServer server = player.getServer();
         if (server == null) return;
+
+        // Load custom nickname if it exists
+        String nickname = com.pedrodalben.bigbangessentials.util.commands.NickCommand.getNickname(player.getUUID());
+        if (nickname != null && !nickname.isEmpty()) {
+            String formattedNick = nickname.replace("&", "§");
+            player.setCustomName(com.pedrodalben.bigbangessentials.util.MessageUtil.coloredText(formattedNick));
+            player.setCustomNameVisible(true);
+            TablistManager.getInstance().setCustomName(player.getUUID(), formattedNick);
+        }
+
         TablistManager.getInstance().onPlayerJoin(player, server);
     }
 
@@ -36,6 +46,28 @@ public class TablistEventHandler {
         if (server == null) return;
         TablistManager.getInstance().clearCustomName(player.getUUID());
         TablistManager.getInstance().onPlayerQuit(server);
+    }
+
+    @SubscribeEvent
+    public static void onPlayerNameFormat(PlayerEvent.NameFormat event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            String nickname = com.pedrodalben.bigbangessentials.util.commands.NickCommand.getNickname(player.getUUID());
+            if (nickname != null && !nickname.isEmpty()) {
+                String formattedNick = nickname.replace("&", "§");
+                event.setDisplayname(com.pedrodalben.bigbangessentials.util.MessageUtil.coloredText(formattedNick));
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerTabListNameFormat(PlayerEvent.TabListNameFormat event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            String nickname = com.pedrodalben.bigbangessentials.util.commands.NickCommand.getNickname(player.getUUID());
+            if (nickname != null && !nickname.isEmpty()) {
+                String formattedNick = nickname.replace("&", "§");
+                event.setDisplayName(com.pedrodalben.bigbangessentials.util.MessageUtil.coloredText(formattedNick));
+            }
+        }
     }
 }
 

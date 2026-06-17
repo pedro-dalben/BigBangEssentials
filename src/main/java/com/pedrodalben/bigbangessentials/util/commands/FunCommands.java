@@ -44,6 +44,7 @@ import java.util.Random;
 @SuppressWarnings("resource") // ServerLevel is not AutoCloseable — IDE false positive
 public class FunCommands {
     private static final Logger LOGGER = LoggerFactory.getLogger(FunCommands.class);
+    private static final java.util.Map<java.util.UUID, Long> BEEZOOKA_COOLDOWNS = new java.util.HashMap<>();
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         registerFirework(dispatcher);
@@ -648,6 +649,19 @@ public class FunCommands {
         var player = ctx.getSource().getPlayer();
         if (player == null) { src.sendFailure(MessageUtil.error("commands.bigbangessentials.general.player_only")); return 0; }
 
+        java.util.UUID playerId = player.getUUID();
+        if (!PermissionAPI.hasPermission(playerId, "bigbangessentials.beezooka.bypass")) {
+            long now = System.currentTimeMillis();
+            if (BEEZOOKA_COOLDOWNS.containsKey(playerId)) {
+                long expireTime = BEEZOOKA_COOLDOWNS.get(playerId);
+                if (now < expireTime) {
+                    long timeLeftMs = expireTime - now;
+                    src.sendFailure(MessageUtil.error("commands.bigbangessentials.beezooka.cooldown", formatDuration(timeLeftMs)));
+                    return 0;
+                }
+            }
+        }
+
         ServerLevel level = player.serverLevel();
         int spawned = 0;
         for (int i = 0; i < amount; i++) {
@@ -663,8 +677,22 @@ public class FunCommands {
             }
         }
         final int fs = spawned;
+        if (spawned > 0) {
+            BEEZOOKA_COOLDOWNS.put(playerId, System.currentTimeMillis() + (60 * 60 * 1000L));
+        }
         src.sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.beezooka.fired", fs), false);
         return 1;
+    }
+
+    private static String formatDuration(long ms) {
+        long secs = ms / 1000;
+        if (secs < 60) return secs + "s";
+        long mins = secs / 60; secs %= 60;
+        if (mins < 60) return mins + "m" + (secs > 0 ? secs + "s" : "");
+        long hours = mins / 60; mins %= 60;
+        if (hours < 24) return hours + "h" + (mins > 0 ? mins + "m" : "");
+        long days = hours / 24; hours %= 24;
+        return days + "d" + (hours > 0 ? hours + "h" : "");
     }
 
     // ── /rest [player] ────────────────────────────────────────────────────────

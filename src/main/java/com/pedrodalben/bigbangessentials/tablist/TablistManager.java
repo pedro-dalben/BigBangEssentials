@@ -575,7 +575,7 @@ public class TablistManager {
             PlaceholderUsage usage,
             RefreshContext context
         ) {
-            String playerName = usage.player || usage.displayName ? player.getName().getString() : "";
+            String playerName = usage.player || usage.displayName ? manager.getDisplayName(player) : "";
             String displayName = usage.displayName ? manager.getDisplayName(player) : "";
             PermissionData permissionData = usage.needsPermissionData() ? resolvePermissionData(player) : PermissionData.EMPTY;
 

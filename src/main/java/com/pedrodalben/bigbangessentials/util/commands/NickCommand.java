@@ -43,7 +43,7 @@ public class NickCommand {
         // Load nickname data on registration
         loadNicknameData();
         
-        dispatcher.register(
+        com.mojang.brigadier.tree.LiteralCommandNode<CommandSourceStack> nickCommandNode = dispatcher.register(
             Commands.literal("nick")
                 // /nick <nickname> - Set nickname
                 .then(Commands.argument("nickname", StringArgumentType.greedyString())
@@ -109,6 +109,9 @@ public class NickCommand {
                     return showCurrentNickname(player);
                 })
         );
+
+        dispatcher.register(Commands.literal("nickname").redirect(nickCommandNode));
+        dispatcher.register(Commands.literal("changenick").redirect(nickCommandNode));
         
         // Admin command to set other players' nicknames
         dispatcher.register(
@@ -318,9 +321,15 @@ public class NickCommand {
             String formattedNick = nickname.replace("&", "§");
             player.setCustomName(com.pedrodalben.bigbangessentials.util.MessageUtil.coloredText(formattedNick));
             player.setCustomNameVisible(true);
+            com.pedrodalben.bigbangessentials.tablist.TablistManager.getInstance().setCustomName(player.getUUID(), formattedNick);
         } else {
             player.setCustomName(null);
             player.setCustomNameVisible(false);
+            com.pedrodalben.bigbangessentials.tablist.TablistManager.getInstance().clearCustomName(player.getUUID());
+        }
+
+        if (player.getServer() != null) {
+            com.pedrodalben.bigbangessentials.tablist.TablistManager.getInstance().updateAll(player.getServer());
         }
     }
     
@@ -361,6 +370,14 @@ public class NickCommand {
      */
     public static String getNickname(UUID playerId) {
         return NICKNAMES.get(playerId);
+    }
+    
+    /**
+     * Clear a player's nickname (on disconnect)
+     */
+    public static void clearNickname(UUID playerId) {
+        NICKNAMES.remove(playerId);
+        saveNicknameData();
     }
     
     /**
