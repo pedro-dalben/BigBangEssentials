@@ -1248,6 +1248,7 @@ public class ConfigManager {
     public static final String KITS_CONFIG = "kits.json";
     public static final String DISCORD_AUTH_CONFIG = "discord_auth.json";
     public static final String TABLIST_CONFIG = "tablist.json";
+    public static final String CUSTOM_COMMANDS_CONFIG = "custom_commands.json";
 
     // Config version tracking - increment when structure changes
     private static final String CONFIG_VERSION_KEY = "_configVersion";
@@ -1785,6 +1786,21 @@ public class ConfigManager {
             JsonObject modules = config.getAsJsonObject("modules");
             if (modules.has("chatEnabled")) {
                 return modules.get("chatEnabled").getAsBoolean();
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns true if custom commands module is enabled (modules.customCommandsEnabled).
+     * Defaults to true if not set.
+     */
+    public boolean isCustomCommandsEnabled() {
+        JsonObject config = getConfig(MAIN_CONFIG);
+        if (config.has("modules")) {
+            JsonObject modules = config.getAsJsonObject("modules");
+            if (modules.has("customCommandsEnabled")) {
+                return modules.get("customCommandsEnabled").getAsBoolean();
             }
         }
         return true;

@@ -8,7 +8,8 @@
     "teleportationEnabled": true,
     "moderationEnabled": true,
     "chatEnabled": true,
-    "webDashboardEnabled": true
+    "webDashboardEnabled": true,
+    "customCommandsEnabled": true
   },
   "logging": {
     "enableDebugLogging": false
@@ -192,7 +193,8 @@
     "tempbanip": true,
     "togglejail": true,
     "jails": true,
-    "jailinfo": true
+    "jailinfo": true,
+    "customcmd": true
   },
 
   "economy": {

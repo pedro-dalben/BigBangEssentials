@@ -180,6 +180,11 @@ public class BigBangEssentials {
         registry.registerManager("PermissionSystem", "core",
             com.pedrodalben.bigbangessentials.permissions.PermissionSystem.class);
         
+        // Custom Commands Manager
+        registry.registerManager("CustomCommandManager", "customcommands",
+            com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.class,
+            com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager::getInstance);
+        
         LOGGER.debug("Manager registration complete - {} managers registered", registry.getManagerCount());
     }
     
@@ -264,6 +269,18 @@ public class BigBangEssentials {
             } catch (Exception e) {
                 LOGGER.warn("⚠ Failed to initialize resource pack system: {}", e.getMessage());
                 // Non-critical, continue
+            }
+
+            // Initialize Custom Commands system
+            try {
+                LOGGER.info("⚙ Initializing Custom Commands system...");
+                com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.getInstance().initialize();
+                ManagerRegistry.getInstance().markInitialized("CustomCommandManager");
+                LOGGER.info("✓ Custom Commands system initialized ({} command(s) loaded)",
+                    com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.getInstance().getCommandCount());
+            } catch (Exception e) {
+                LOGGER.error("✗ Custom Commands system failed to initialize: {}", e.getMessage(), e);
+                ManagerRegistry.getInstance().markFailed("CustomCommandManager", e.getMessage());
             }
 
             // Display manager registry diagnostics
@@ -946,6 +963,17 @@ public class BigBangEssentials {
         registry.registerCommand("chestshop", "Sign-based chest shop system");
         registry.registerCommand("cshop", "Sign-based chest shop (alias)");
         com.pedrodalben.bigbangessentials.shop.commands.ShopCommand.register(dispatcher);
+
+        // ========== CUSTOM COMMANDS ==========
+        registry.registerCommand("customcmd", "Manage custom command aliases");
+        com.pedrodalben.bigbangessentials.customcommands.command.CustomCommandCommands.register(dispatcher);
+
+        // Register all user-defined custom commands from custom_commands.json
+        try {
+            com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.getInstance().registerAllCommands(dispatcher);
+        } catch (Exception e) {
+            LOGGER.error("Failed to register custom commands: {}", e.getMessage(), e);
+        }
     }
         /*
          * All command registration and related logic that was previously outside of methods has been moved here as a block comment.
