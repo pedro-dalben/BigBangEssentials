@@ -7,7 +7,6 @@ import com.pedrodalben.bigbangessentials.menu.action.ActionExecutionResult;
 import com.pedrodalben.bigbangessentials.teleportation.Warp.WarpManager;
 import com.pedrodalben.bigbangessentials.menu.placeholder.PlaceholderService;
 import net.minecraft.server.level.ServerPlayer;
-import com.pedrodalben.bigbangessentials.teleportation.TeleportLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,11 +66,8 @@ public class TeleportToPlayerWarpMenuAction implements MenuActionHandler {
             }
 
             // Retrieve the location and re-validate existence (Task 4)
-            java.util.Map<String, TeleportLocation> userWarps = WarpManager.getInstance().getAllPlayerWarps().get(ownerUuid);
-            TeleportLocation location = null;
-            if (userWarps != null) {
-                location = userWarps.get(WarpManager.getInstance().isCaseSensitiveNames() ? resolvedWarp : resolvedWarp.toLowerCase());
-            }
+            com.pedrodalben.bigbangessentials.teleportation.TeleportLocation location =
+                WarpManager.getInstance().getPlayerWarp(ownerUuid, resolvedWarp);
 
             if (location == null) {
                 player.sendSystemMessage(com.pedrodalben.bigbangessentials.util.MessageUtil.error("commands.bigbangessentials.teleport.warp.not_found", resolvedWarp));
@@ -81,12 +77,15 @@ public class TeleportToPlayerWarpMenuAction implements MenuActionHandler {
             if (context.clickType() == com.pedrodalben.bigbangessentials.menu.model.MenuClickType.RIGHT && 
                 player.getUUID().equals(ownerUuid)) {
                 // Open pwarp delete confirmation
+                java.util.Map<String, Object> values = new java.util.HashMap<>();
+                values.put("pwarp_name", resolvedWarp);
+                values.put("pwarp_owner_uuid", ownerUuid.toString());
                 java.util.Map<String, String> overrides = new java.util.HashMap<>();
                 overrides.put("pwarp_name", resolvedWarp);
                 overrides.put("pwarp_owner_uuid", ownerUuid.toString());
                 com.pedrodalben.bigbangessentials.menu.session.MenuContext menuCtx = 
                     new com.pedrodalben.bigbangessentials.menu.session.MenuContext(
-                        player.getUUID(), "pt_BR", null, overrides, null, null, null
+                        player.getUUID(), "pt_BR", values, overrides, null, null, null
                     );
                 
                 runner.accept(() -> {
@@ -94,19 +93,10 @@ public class TeleportToPlayerWarpMenuAction implements MenuActionHandler {
                 });
             } else {
                 // Left click: Teleport
-                int delayTicks = WarpManager.getInstance().getTeleportDelay() * 20;
-                final TeleportLocation finalLoc = location;
+                final UUID finalOwnerUuid = ownerUuid;
                 final String finalWarpName = resolvedWarp;
-                
                 runner.accept(() -> {
-                    com.pedrodalben.bigbangessentials.teleportation.Misc.MiscTeleportManager.getInstance().saveBackLocation(player);
-                    com.pedrodalben.bigbangessentials.teleportation.TeleportUtil.teleportPlayer(player, finalLoc, delayTicks, true).thenAccept(result -> {
-                        if (result.isSuccess()) {
-                            player.sendSystemMessage(com.pedrodalben.bigbangessentials.util.MessageUtil.success("commands.bigbangessentials.teleport.warp.success", finalWarpName));
-                        } else {
-                            player.sendSystemMessage(com.pedrodalben.bigbangessentials.util.MessageUtil.error("commands.bigbangessentials.teleport.warp.failed", finalWarpName, result.getMessage()));
-                        }
-                    });
+                    WarpManager.getInstance().teleportToPlayerWarp(player, finalOwnerUuid, finalWarpName, true);
                 });
             }
             return CompletableFuture.completedFuture(ActionExecutionResult.success());

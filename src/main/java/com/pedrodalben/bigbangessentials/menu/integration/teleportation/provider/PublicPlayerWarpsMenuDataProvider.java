@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -42,12 +43,15 @@ public class PublicPlayerWarpsMenuDataProvider implements MenuDataProvider {
                 }
                 
                 for (Map.Entry<String, TeleportLocation> warpEntry : userEntry.getValue().entrySet()) {
-                    entries.add(new PwarpEntry(warpEntry.getKey(), ownerUuid, ownerName, warpEntry.getValue()));
+                    int visits = warpManager.getPlayerWarpVisits(ownerUuid, warpEntry.getKey());
+                    entries.add(new PwarpEntry(warpEntry.getKey(), ownerUuid, ownerName, warpEntry.getValue(), visits));
                 }
             }
         }
         
-        entries.sort((a, b) -> a.name().compareToIgnoreCase(b.name()));
+        entries.sort(Comparator
+            .comparingInt(PwarpEntry::visits).reversed()
+            .thenComparing(PwarpEntry::name, String.CASE_INSENSITIVE_ORDER));
 
         int totalItems = entries.size();
         int fromIndex = (request.page() - 1) * request.itemsPerPage();
@@ -70,7 +74,7 @@ public class PublicPlayerWarpsMenuDataProvider implements MenuDataProvider {
                 map.put("pwarp_z", String.format(java.util.Locale.ROOT, "%.1f", loc.getZ()));
                 map.put("pwarp_icon", "minecraft:player_head");
                 map.put("pwarp_public", "true");
-                map.put("pwarp_visits", "0");
+                map.put("pwarp_visits", String.valueOf(entry.visits()));
                 map.put("pwarp_created_at", "");
                 items.add(map);
             }
@@ -79,5 +83,5 @@ public class PublicPlayerWarpsMenuDataProvider implements MenuDataProvider {
         return CompletableFuture.completedFuture(new MenuDataResult(items, totalItems));
     }
 
-    private record PwarpEntry(String name, UUID ownerUuid, String ownerName, TeleportLocation location) {}
+    private record PwarpEntry(String name, UUID ownerUuid, String ownerName, TeleportLocation location, int visits) {}
 }

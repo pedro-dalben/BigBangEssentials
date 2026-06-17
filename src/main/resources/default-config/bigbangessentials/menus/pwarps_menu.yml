@@ -15,6 +15,7 @@ dynamic-item-template:
       - "<gray>Dono: <white>{pwarp_owner_name}"
       - "<gray>Mundo: <white>{pwarp_world}"
       - "<gray>Coordenadas: <white>{pwarp_x}, {pwarp_y}, {pwarp_z}"
+      - "<gray>Visitas: <gold>{pwarp_visits}"
       - ""
       - "<green>Clique Esquerdo para teleportar."
       - "<red>Clique Direito (Dono) para deletar."

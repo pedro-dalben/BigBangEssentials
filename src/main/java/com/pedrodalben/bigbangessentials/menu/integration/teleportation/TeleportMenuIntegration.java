@@ -258,6 +258,7 @@ public class TeleportMenuIntegration {
                "      - \"<gray>Dono: <white>{pwarp_owner_name}\"\n" +
                "      - \"<gray>Mundo: <white>{pwarp_world}\"\n" +
                "      - \"<gray>Coordenadas: <white>{pwarp_x}, {pwarp_y}, {pwarp_z}\"\n" +
+               "      - \"<gray>Visitas: <gold>{pwarp_visits}\"\n" +
                "      - \"\"\n" +
                "      - \"<green>Clique Esquerdo para teleportar.\"\n" +
                "      - \"<red>Clique Direito (Dono) para deletar.\"\n" +

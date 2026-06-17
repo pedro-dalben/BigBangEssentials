@@ -165,13 +165,12 @@ public class PwarpCommands {
             context.getSource().sendFailure(com.pedrodalben.bigbangessentials.util.MessageUtil.error("commands.bigbangessentials.jail.prevent_escape"));
             return 0;
         }
-        TeleportLocation location = warpManager.getPlayerWarp(player, warpName);
+        TeleportLocation location = warpManager.getPlayerWarp(player.getUUID(), warpName);
         if (location == null) {
             context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.teleport.warp.not_found", warpName));
             return 0;
         }
-        // Teleport
-        warpManager.teleportToWarp(player, warpName); // Reuse teleport logic (may need adjustment)
+        warpManager.teleportToPlayerWarp(player, player.getUUID(), warpName, true);
         return 1;
     }
 
@@ -240,9 +239,17 @@ public class PwarpCommands {
         if (names.isEmpty()) {
             player.sendSystemMessage(MessageUtil.component(MessageUtil.localize("commands.bigbangessentials.teleport.warp.playerwarps_list_empty")));
         } else {
+            java.util.List<String> sorted = new java.util.ArrayList<>(names);
+            sorted.sort((a, b) -> {
+                int visitsA = warpManager.getPlayerWarpVisits(player.getUUID(), a);
+                int visitsB = warpManager.getPlayerWarpVisits(player.getUUID(), b);
+                int byVisits = Integer.compare(visitsB, visitsA);
+                return byVisits != 0 ? byVisits : a.compareToIgnoreCase(b);
+            });
+
             StringBuilder builder = new StringBuilder();
-            builder.append(MessageUtil.localize("commands.bigbangessentials.teleport.warp.playerwarps_list_header", names.size(), warpManager.getMaxPlayerWarps()));
-            names.stream().sorted().forEach(name -> builder.append("\n").append(name));
+            builder.append(MessageUtil.localize("commands.bigbangessentials.teleport.warp.playerwarps_list_header", sorted.size(), warpManager.getMaxPlayerWarps()));
+            sorted.forEach(name -> builder.append("\n").append(name).append(" (").append(warpManager.getPlayerWarpVisits(player.getUUID(), name)).append(" visitas)"));
             player.sendSystemMessage(MessageUtil.component(builder.toString()));
         }
         return 1;

@@ -44,6 +44,8 @@ public class WarpManager {
     // (savePlayerWarps and loadPlayerWarps are defined only once below)
     // Player warps: UUID -> (warpName -> TeleportLocation)
     private final Map<UUID, Map<String, TeleportLocation>> playerWarps = new ConcurrentHashMap<>();
+    // Player warp visits: UUID -> (warpName -> visitCount)
+    private final Map<UUID, Map<String, Integer>> playerWarpVisits = new ConcurrentHashMap<>();
     private final Map<UUID, CachedWarpLimit> playerWarpLimitCache = new ConcurrentHashMap<>();
     // Player warp config
     private int maxPlayerWarps = 3;
@@ -157,6 +159,38 @@ public class WarpManager {
         return playerWarps;
     }
 
+    public int getPlayerWarpVisits(UUID ownerId, String warpName) {
+        if (ownerId == null || warpName == null) {
+            return 0;
+        }
+        Map<String, Integer> visits = playerWarpVisits.get(ownerId);
+        if (visits == null) {
+            return 0;
+        }
+        return visits.getOrDefault(normalizePlayerWarpName(warpName), 0);
+    }
+
+    public int recordPlayerWarpVisit(UUID ownerId, String warpName) {
+        if (ownerId == null || warpName == null) {
+            return 0;
+        }
+
+        String normalizedName = normalizePlayerWarpName(warpName);
+        Map<String, Integer> visits = playerWarpVisits.computeIfAbsent(ownerId, key -> new ConcurrentHashMap<>());
+        int updated = visits.merge(normalizedName, 1, Integer::sum);
+        savePlayerWarpVisits();
+        return updated;
+    }
+
+    public TeleportLocation getPlayerWarp(UUID ownerId, String warpName) {
+        if (ownerId == null || warpName == null) {
+            return null;
+        }
+        Map<String, TeleportLocation> warps = playerWarps.get(ownerId);
+        if (warps == null) return null;
+        return warps.get(normalizePlayerWarpName(warpName));
+    }
+
     public boolean isPlayerWarpsEnabled() {
         return allowPlayerWarps;
     }
@@ -196,6 +230,10 @@ public class WarpManager {
         if (permMax == -1) {
             playerWarpLimitCache.put(playerId, new CachedWarpLimit(-1, now));
             return -1;
+        }
+        if (permMax == -2) {
+            playerWarpLimitCache.put(playerId, new CachedWarpLimit(configMax, now));
+            return configMax;
         }
 
         // Return the higher value between config and permission
@@ -265,6 +303,8 @@ public class WarpManager {
         }
         
         savePlayerWarps();
+        playerWarpVisits.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>()).putIfAbsent(normalizedName, 0);
+        savePlayerWarpVisits();
         player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.warp.playerwarp_created", warpName, location.getLocationString()));
         LOGGER.info("Player {} created player warp '{}' at {}", player.getName().getString(), warpName, location.getLocationString());
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpCreatedEvent(playerId, warpName));
@@ -286,6 +326,14 @@ public class WarpManager {
         }
         
         savePlayerWarps();
+        Map<String, Integer> visits = playerWarpVisits.get(playerId);
+        if (visits != null) {
+            visits.remove(normalizedName);
+            if (visits.isEmpty()) {
+                playerWarpVisits.remove(playerId);
+            }
+        }
+        savePlayerWarpVisits();
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpDeletedEvent(playerId, warpName));
         return true;
     }
@@ -302,11 +350,7 @@ public class WarpManager {
     }
 
     public TeleportLocation getPlayerWarp(ServerPlayer player, String warpName) {
-        UUID playerId = player.getUUID();
-        Map<String, TeleportLocation> warps = playerWarps.get(playerId);
-        if (warps == null) return null;
-        String normalizedName = caseSensitiveNames ? warpName : warpName.toLowerCase();
-        return warps.get(normalizedName);
+        return getPlayerWarp(player != null ? player.getUUID() : null, warpName);
     }
 
     public List<String> getPlayerWarpNames(ServerPlayer player) {
@@ -325,19 +369,45 @@ public class WarpManager {
             admin.sendSystemMessage(MessageUtil.error("You do not have permission to access other players' warps."));
             return false;
         }
-        Map<String, TeleportLocation> warps = playerWarps.get(targetPlayerId);
-        if (warps == null) {
-            admin.sendSystemMessage(MessageUtil.error("Target player has no warps."));
-            return false;
-        }
-        TeleportLocation location = warps.get(caseSensitiveNames ? warpName : warpName.toLowerCase());
+        TeleportLocation location = getPlayerWarp(targetPlayerId, warpName);
         if (location == null) {
             admin.sendSystemMessage(MessageUtil.error("Warp not found for target player."));
             return false;
         }
-            TeleportUtil.teleportPlayer(admin, location);
+        TeleportUtil.teleportPlayer(admin, location);
         admin.sendSystemMessage(MessageUtil.success("Teleported to target player's warp."));
         return true;
+    }
+
+    public void teleportToPlayerWarp(ServerPlayer player, UUID ownerUuid, String warpName, boolean countVisit) {
+        if (player == null || ownerUuid == null || warpName == null) {
+            return;
+        }
+
+        TeleportLocation location = getPlayerWarp(ownerUuid, warpName);
+        if (location == null) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.not_found", warpName));
+            return;
+        }
+
+        // Save current location for /back command
+        com.pedrodalben.bigbangessentials.teleportation.Misc.MiscTeleportManager.getInstance().saveBackLocation(player);
+
+        int delayTicks = teleportDelay * 20;
+        String finalWarpName = warpName;
+        TeleportUtil.teleportPlayer(player, location, delayTicks, true).thenAccept(result -> {
+            if (result.isSuccess()) {
+                if (countVisit) {
+                    recordPlayerWarpVisit(ownerUuid, finalWarpName);
+                }
+                player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.warp.success", finalWarpName));
+                LOGGER.info("Player {} teleported to player warp '{}' owned by {}", player.getName().getString(), finalWarpName, ownerUuid);
+            } else {
+                player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.failed", finalWarpName, result.getMessage()));
+                LOGGER.warn("Failed to teleport player {} to player warp '{}': {}",
+                    player.getName().getString(), finalWarpName, result.getMessage());
+            }
+        });
     }
 
     /**
@@ -364,8 +434,9 @@ public class WarpManager {
 
     // --- Persistence for player warps ---
     private static final String PLAYER_WARPS_FILE = "playerwarps.json";
+    private static final String PLAYER_WARP_VISITS_FILE = "playerwarp_visits.json";
 
-    private void savePlayerWarps() {
+    private synchronized void savePlayerWarps() {
         try {
             Map<String, Map<String, TeleportLocation>> serializable = new HashMap<>();
             for (Map.Entry<UUID, Map<String, TeleportLocation>> entry : playerWarps.entrySet()) {
@@ -376,6 +447,20 @@ public class WarpManager {
             java.nio.file.Files.writeString(ResourceUtil.getDataPath(PLAYER_WARPS_FILE), json);
         } catch (Exception e) {
             System.err.println("[WarpManager] Failed to save player warps: " + e);
+        }
+    }
+
+    private synchronized void savePlayerWarpVisits() {
+        try {
+            Map<String, Map<String, Integer>> serializable = new HashMap<>();
+            for (Map.Entry<UUID, Map<String, Integer>> entry : playerWarpVisits.entrySet()) {
+                serializable.put(entry.getKey().toString(), entry.getValue());
+            }
+            String json = new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(serializable);
+            ResourceUtil.ensureDataDirectory();
+            java.nio.file.Files.writeString(ResourceUtil.getDataPath(PLAYER_WARP_VISITS_FILE), json);
+        } catch (Exception e) {
+            System.err.println("[WarpManager] Failed to save player warp visits: " + e);
         }
     }
 
@@ -397,6 +482,34 @@ public class WarpManager {
             LOGGER.info("Loaded {} player warps from {}", playerWarps.values().stream().mapToInt(Map::size).sum(), path);
         } catch (Exception e) {
             System.err.println("[WarpManager] Failed to load player warps: " + e);
+        }
+    }
+
+    private void loadPlayerWarpVisits() {
+        try {
+            java.nio.file.Path path = ResourceUtil.getDataPath(PLAYER_WARP_VISITS_FILE);
+            if (!java.nio.file.Files.exists(path)) {
+                return;
+            }
+
+            String json = java.nio.file.Files.readString(path);
+            if (json == null || json.trim().isEmpty()) {
+                return;
+            }
+
+            java.lang.reflect.Type type = new com.google.gson.reflect.TypeToken<Map<String, Map<String, Integer>>>(){}.getType();
+            Map<String, Map<String, Integer>> loaded = new com.google.gson.Gson().fromJson(json, type);
+            if (loaded == null) {
+                return;
+            }
+
+            playerWarpVisits.clear();
+            for (Map.Entry<String, Map<String, Integer>> entry : loaded.entrySet()) {
+                playerWarpVisits.put(UUID.fromString(entry.getKey()), new ConcurrentHashMap<>(entry.getValue()));
+            }
+            LOGGER.info("Loaded player warp visits for {} players from {}", playerWarpVisits.size(), path);
+        } catch (Exception e) {
+            System.err.println("[WarpManager] Failed to load player warp visits: " + e);
         }
     }
     
@@ -861,8 +974,10 @@ public class WarpManager {
         clearMaxPlayerWarpsCache();
         warps.clear();
         playerWarps.clear();
+        playerWarpVisits.clear();
         loadWarps();
         loadPlayerWarps();
+        loadPlayerWarpVisits();
         LOGGER.info("Warp system reloaded: {} warps, {} player warps loaded", warps.size(),
             playerWarps.values().stream().mapToInt(Map::size).sum());
     }
@@ -886,7 +1001,7 @@ public class WarpManager {
             return -1; // Unlimited
         }
 
-        int permMax = -1;
+        int permMax = -2; // -2 means no permission limit found
 
         // Check for permissions bigbangessentials.warp.limit.<amount> from high to low (e.g., 100 down to 1)
         for (int i = 100; i >= 1; i--) {
@@ -907,5 +1022,9 @@ public class WarpManager {
             this.maxWarps = maxWarps;
             this.timestampMs = timestampMs;
         }
+    }
+
+    private String normalizePlayerWarpName(String warpName) {
+        return caseSensitiveNames ? warpName : warpName.toLowerCase();
     }
 }

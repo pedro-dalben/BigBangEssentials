@@ -83,6 +83,7 @@ Provedor que lista apenas as homes do próprio jogador visualizando o menu.
 
 ### 3. `pwarps.public`
 Provedor que lista todos os Player Warps públicos criados por jogadores no servidor.
+* **Ordenação**: do maior número de visitas para o menor, com desempate por nome.
 * **Placeholders Disponíveis**:
   * `{pwarp_id}`: ID de identificação técnica do player warp.
   * `{pwarp_name}`: Nome amigável do pwarp.
@@ -93,9 +94,11 @@ Provedor que lista todos os Player Warps públicos criados por jogadores no serv
   * `{pwarp_x}`, `{pwarp_y}`, `{pwarp_z}`: Coordenadas.
   * `{pwarp_icon}`: Ícone padrão.
   * `{pwarp_public}`: Valor booleano ("true"/"false").
+  * `{pwarp_visits}`: Total de visitas registradas no pwarp.
 
 ### 4. `pwarps.own`
 Provedor que lista apenas os Player Warps criados pelo próprio jogador visualizando o menu.
+* **Ordenação**: do maior número de visitas para o menor, com desempate por nome.
 * Fornece os mesmos placeholders que `pwarps.public`. Utilizado principalmente para menus de edição, gerenciamento ou deleção rápida.
 
 ---

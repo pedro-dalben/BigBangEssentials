@@ -9,6 +9,7 @@ import com.pedrodalben.bigbangessentials.teleportation.TeleportLocation;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +31,9 @@ public class OwnPlayerWarpsMenuDataProvider implements MenuDataProvider {
         }
 
         List<String> sorted = new ArrayList<>(pwarpNames);
-        sorted.sort(String.CASE_INSENSITIVE_ORDER);
+        sorted.sort(Comparator
+            .comparingInt((String name) -> warpManager.getPlayerWarpVisits(player.getUUID(), name)).reversed()
+            .thenComparing(String.CASE_INSENSITIVE_ORDER));
 
         int totalItems = sorted.size();
         int fromIndex = (request.page() - 1) * request.itemsPerPage();
@@ -54,7 +57,7 @@ public class OwnPlayerWarpsMenuDataProvider implements MenuDataProvider {
                     map.put("pwarp_z", String.format(java.util.Locale.ROOT, "%.1f", loc.getZ()));
                     map.put("pwarp_icon", "minecraft:player_head");
                     map.put("pwarp_public", "true");
-                    map.put("pwarp_visits", "0");
+                    map.put("pwarp_visits", String.valueOf(warpManager.getPlayerWarpVisits(player.getUUID(), warpName)));
                     map.put("pwarp_created_at", "");
                     items.add(map);
                 }
