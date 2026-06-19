@@ -1,5 +1,20 @@
 package com.pedrodalben.bigbangessentials.database;
 
+import com.zaxxer.hikari.HikariDataSource;
+import com.pedrodalben.bigbangessentials.database.config.DatabaseConfig;
+import com.pedrodalben.bigbangessentials.database.config.DatabaseConfigLoader;
+import com.pedrodalben.bigbangessentials.database.datasource.MySqlDataSourceFactory;
+import com.pedrodalben.bigbangessentials.database.datasource.SqliteDataSourceFactory;
+import com.pedrodalben.bigbangessentials.database.dialect.DatabaseDialect;
+import com.pedrodalben.bigbangessentials.database.dialect.MySqlDialect;
+import com.pedrodalben.bigbangessentials.database.dialect.SqliteDialect;
+import com.pedrodalben.bigbangessentials.database.exception.DatabaseException;
+import com.pedrodalben.bigbangessentials.database.exception.DatabaseUnavailableException;
+import com.pedrodalben.bigbangessentials.database.execution.DatabaseExecutor;
+import com.pedrodalben.bigbangessentials.database.metrics.DatabaseMetrics;
+import com.pedrodalben.bigbangessentials.database.metrics.DatabaseMetricsSnapshot;
+import com.pedrodalben.bigbangessentials.database.migration.MigrationManager;
+import com.pedrodalben.bigbangessentials.database.migration.MigrationResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,31 +26,299 @@ import java.util.*;
 import java.util.stream.Stream;
 
 /**
- * Manages database discovery and querying for plugin databases.
- * Provides read-only access to SQLite databases with security controls.
+ * Main Database Manager. Handles the persistent connection pools, migrations, 
+ * performance metrics, and also read-only database discovery for the web dashboard.
  */
 public class DatabaseManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseManager.class);
-    private static DatabaseManager instance;
+    private static final DatabaseManager INSTANCE = new DatabaseManager();
+
+    // Infrastructure state
+    private volatile DatabaseState state = DatabaseState.NEW;
+    private DatabaseConfig config;
+    private DatabaseType type;
+    private DatabaseDialect dialect;
+    private HikariDataSource dataSource;
+    private DatabaseExecutor executor;
     
+    private final DatabaseMetrics metrics = new DatabaseMetrics();
+    private final MigrationManager migrationManager = new MigrationManager();
+
+    // Discovery state for Dashboard visualizer
     private final Map<String, DatabaseInfo> discoveredDatabases = new HashMap<>();
     private final Path configDirectory;
-    
+    private volatile boolean discovered = false;
+
+    // Inert constructor
     private DatabaseManager() {
         this.configDirectory = Paths.get("config");
-        discoverDatabases();
+        // Completely inert, no I/O, no connection, no threads
     }
-    
+
     public static DatabaseManager getInstance() {
-        if (instance == null) {
-            instance = new DatabaseManager();
-        }
-        return instance;
+        return INSTANCE;
     }
-    
+
     /**
-     * Database information
+     * Initializes the database subsystem.
+     * This method is thread-safe and idempotent.
+     *
+     * @throws DatabaseException if initialization fails and config.required is true
      */
+    public synchronized void initialize() throws DatabaseException {
+        if (state != DatabaseState.NEW && state != DatabaseState.FAILED && state != DatabaseState.STOPPED) {
+            LOGGER.info("DatabaseManager is already initialized or initializing. Current state: {}", state);
+            return;
+        }
+
+        state = DatabaseState.STARTING;
+        LOGGER.info("Starting DatabaseManager initialization...");
+
+        try {
+            // Load and resolve configuration
+            config = DatabaseConfigLoader.load();
+            
+            if (!config.isEnabled()) {
+                LOGGER.info("Database module is disabled in configuration.");
+                state = DatabaseState.STOPPED;
+                return;
+            }
+
+            type = config.getType();
+
+            // Set dialect and create pool
+            if (type == DatabaseType.SQLITE) {
+                dialect = new SqliteDialect();
+                dataSource = new SqliteDataSourceFactory().create(config);
+            } else if (type == DatabaseType.MYSQL) {
+                dialect = new MySqlDialect();
+                dataSource = new MySqlDataSourceFactory().create(config);
+            } else {
+                throw new DatabaseException("Unsupported database type: " + type);
+            }
+
+            // Create executor
+            executor = new DatabaseExecutor(dataSource, config, type, metrics);
+
+            // Execute migrations
+            state = DatabaseState.MIGRATING;
+            try (Connection conn = dataSource.getConnection()) {
+                migrationManager.runMigrations(conn, dialect, config);
+            }
+
+            // Perform initial health check
+            DatabaseHealth health = getHealth();
+            if (!health.connected()) {
+                throw new DatabaseException("Initial health check failed: " + health.message());
+            }
+
+            state = DatabaseState.READY;
+            LOGGER.info("DatabaseManager initialized successfully. Type: {}, State: {}", type, state);
+
+        } catch (Throwable e) {
+            state = DatabaseState.FAILED;
+            LOGGER.error("CRITICAL: Failed to initialize DatabaseManager: {}", e.getMessage(), e);
+            
+            // Close resource partly initialized
+            closeResourcesSafely();
+
+            if (config != null && config.isRequired()) {
+                throw new DatabaseException("Database is marked as REQUIRED and failed to initialize: " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
+     * Shuts down the database subsystem, closing pools and executors.
+     * Idempotent and thread-safe.
+     */
+    public synchronized void shutdown() {
+        if (state == DatabaseState.STOPPED || state == DatabaseState.NEW) {
+            return;
+        }
+
+        LOGGER.info("Shutting down DatabaseManager...");
+        state = DatabaseState.STOPPING;
+
+        closeResourcesSafely();
+
+        state = DatabaseState.STOPPED;
+        LOGGER.info("DatabaseManager shutdown complete.");
+    }
+
+    private void closeResourcesSafely() {
+        if (executor != null) {
+            try {
+                executor.shutdown();
+            } catch (Exception e) {
+                LOGGER.error("Error shutting down database executor", e);
+            }
+            executor = null;
+        }
+
+        if (dataSource != null) {
+            try {
+                dataSource.close();
+            } catch (Exception e) {
+                LOGGER.error("Error closing Hikari connection pool", e);
+            }
+            dataSource = null;
+        }
+    }
+
+    /**
+     * Executes pending migrations manually with concurrency protection.
+     */
+    public synchronized List<MigrationResult> runPendingMigrations() {
+        if (!isReady()) {
+            throw new DatabaseUnavailableException("Database is not ready to run migrations. Current state: " + state);
+        }
+        
+        try (Connection conn = dataSource.getConnection()) {
+            return migrationManager.runMigrations(conn, dialect, config);
+        } catch (Exception e) {
+            throw new DatabaseException("Failed to execute pending migrations", e);
+        }
+    }
+
+    public boolean isReady() {
+        return state == DatabaseState.READY;
+    }
+
+    public DatabaseState getState() {
+        return state;
+    }
+
+    public DatabaseType getType() {
+        return type;
+    }
+
+    public DatabaseConfig getConfig() {
+        return config;
+    }
+
+    public DatabaseDialect getDialect() {
+        return dialect;
+    }
+
+    public DatabaseMetrics getMetrics() {
+        return metrics;
+    }
+
+    /**
+     * Returns a snapshot of performance metrics.
+     */
+    public DatabaseMetricsSnapshot getMetricsSnapshot() {
+        long queued = executor != null ? executor.getQueuedTaskCount() : 0;
+        return metrics.getSnapshot(queued);
+    }
+
+    /**
+     * Returns the connection pool status metrics to avoid exposing HikariDataSource.
+     */
+    public boolean isPoolActive() {
+        return dataSource != null && !dataSource.isClosed();
+    }
+
+    public int getPoolActiveConnections() {
+        return isPoolActive() ? dataSource.getHikariPoolMXBean().getActiveConnections() : 0;
+    }
+
+    public int getPoolIdleConnections() {
+        return isPoolActive() ? dataSource.getHikariPoolMXBean().getIdleConnections() : 0;
+    }
+
+    public int getPoolTotalConnections() {
+        return isPoolActive() ? dataSource.getHikariPoolMXBean().getTotalConnections() : 0;
+    }
+
+    /**
+     * Get the active database connection pool. Expose package-private/protected internally.
+     */
+    protected HikariDataSource getDataSource() {
+        return dataSource;
+    }
+
+    /**
+     * Returns the asynchronous query executor.
+     *
+     * @return The database query executor
+     * @throws DatabaseUnavailableException if the database is not in READY state
+     */
+    public DatabaseExecutor getExecutor() {
+        if (!isReady()) {
+            throw new DatabaseUnavailableException("Database execution is unavailable. State: " + state);
+        }
+        return executor;
+    }
+
+    /**
+     * Synchronously checks database health and measures latency.
+     */
+    public DatabaseHealth getHealth() {
+        if (dataSource == null || (state != DatabaseState.READY && state != DatabaseState.DEGRADED && state != DatabaseState.MIGRATING && state != DatabaseState.STARTING)) {
+            return new DatabaseHealth(state, type, false, -1, 0, "Database is not connected or initialized", Instant.now());
+        }
+
+        long startTime = System.currentTimeMillis();
+        try (Connection conn = dataSource.getConnection()) {
+            boolean valid = conn.isValid(3); // 3 seconds timeout
+            long latency = System.currentTimeMillis() - startTime;
+            long schemaVersion = migrationManager.getCurrentVersion(conn);
+            
+            DatabaseState currentHealthState = state;
+            if (state == DatabaseState.READY && !valid) {
+                currentHealthState = DatabaseState.DEGRADED;
+            }
+
+            return new DatabaseHealth(
+                currentHealthState,
+                type,
+                valid,
+                latency,
+                schemaVersion,
+                valid ? "Database is healthy" : "Database connection ping failed",
+                Instant.now()
+            );
+        } catch (Exception e) {
+            return new DatabaseHealth(
+                DatabaseState.DEGRADED,
+                type,
+                false,
+                -1,
+                0,
+                "Failed to get connection: " + e.getMessage(),
+                Instant.now()
+            );
+        }
+    }
+
+    /**
+     * Generates a human-readable summary of database health.
+     */
+    public String getHealthSummary() {
+        DatabaseHealth health = getHealth();
+        StringBuilder summary = new StringBuilder();
+        summary.append(String.format("State: %s\n", health.state()));
+        summary.append(String.format("Type: %s\n", health.type() != null ? health.type() : "UNKNOWN"));
+        summary.append(String.format("Connected: %b\n", health.connected()));
+        summary.append(String.format("Latency: %s\n", health.latencyMs() >= 0 ? health.latencyMs() + "ms" : "N/A"));
+        summary.append(String.format("Schema Version: %d\n", health.schemaVersion()));
+        summary.append(String.format("Status Message: %s\n", health.message()));
+        
+        if (isPoolActive()) {
+            summary.append(String.format("Active Connections: %d\n", getPoolActiveConnections()));
+            summary.append(String.format("Idle Connections: %d\n", getPoolIdleConnections()));
+            summary.append(String.format("Total Connections: %d\n", getPoolTotalConnections()));
+        }
+        
+        return summary.toString();
+    }
+
+    // =========================================================================
+    // DISCOVERY & QUERYING FOR WEB DASHBOARD VISUALIZER (Retained API)
+    // =========================================================================
+
     public static class DatabaseInfo {
         private final String id;
         private final String name;
@@ -58,9 +341,6 @@ public class DatabaseManager {
         public Instant getModified() { return modified; }
     }
     
-    /**
-     * Table information
-     */
     public static class TableInfo {
         private final String name;
         private final String type;
@@ -77,9 +357,6 @@ public class DatabaseManager {
         public long getRowCount() { return rowCount; }
     }
     
-    /**
-     * Column information
-     */
     public static class ColumnInfo {
         private final int index;
         private final String name;
@@ -106,9 +383,6 @@ public class DatabaseManager {
         public boolean isPrimaryKey() { return primaryKey; }
     }
     
-    /**
-     * Query result
-     */
     public static class QueryResult {
         private final List<String> columns;
         private final List<Map<String, Object>> rows;
@@ -135,14 +409,12 @@ public class DatabaseManager {
         public long getExecutionTime() { return executionTime; }
     }
     
-    /**
-     * Discover SQLite databases in config directory
-     */
-    public void discoverDatabases() {
+    public synchronized void discoverDatabases() {
         discoveredDatabases.clear();
         
         if (!Files.exists(configDirectory)) {
             LOGGER.warn("Config directory does not exist: {}", configDirectory);
+            discovered = true;
             return;
         }
         
@@ -155,12 +427,10 @@ public class DatabaseManager {
             LOGGER.error("Failed to discover databases", e);
         }
         
+        discovered = true;
         LOGGER.info("Discovered {} database(s)", discoveredDatabases.size());
     }
     
-    /**
-     * Register a discovered database
-     */
     private void registerDatabase(Path dbPath) {
         try {
             if (!Files.exists(dbPath) || !Files.isRegularFile(dbPath)) {
@@ -182,34 +452,30 @@ public class DatabaseManager {
         }
     }
     
-    /**
-     * Generate unique database ID from path
-     */
     private String generateDatabaseId(Path path) {
         String relativePath = configDirectory.relativize(path).toString();
         return relativePath.replace("\\", "/").replace(".db", "")
                           .replace(".sqlite", "").replace(".sqlite3", "");
     }
     
-    /**
-     * Get all discovered databases
-     */
-    public List<DatabaseInfo> getDatabases() {
+    private void ensureDiscovered() {
+        if (!discovered) {
+            discoverDatabases();
+        }
+    }
+    
+    public synchronized List<DatabaseInfo> getDatabases() {
+        ensureDiscovered();
         return new ArrayList<>(discoveredDatabases.values());
     }
     
-    /**
-     * Get database by ID
-     */
-    public DatabaseInfo getDatabase(String databaseId) {
+    public synchronized DatabaseInfo getDatabase(String databaseId) {
+        ensureDiscovered();
         return discoveredDatabases.get(databaseId);
     }
     
-    /**
-     * Get connection to database
-     */
     private Connection getConnection(String databaseId) throws SQLException {
-        DatabaseInfo db = discoveredDatabases.get(databaseId);
+        DatabaseInfo db = getDatabase(databaseId);
         if (db == null) {
             throw new SQLException("Database not found: " + databaseId);
         }
@@ -220,9 +486,6 @@ public class DatabaseManager {
         return conn;
     }
     
-    /**
-     * Get tables in database
-     */
     public List<TableInfo> getTables(String databaseId) throws SQLException {
         List<TableInfo> tables = new ArrayList<>();
         
@@ -234,7 +497,6 @@ public class DatabaseManager {
                     String tableName = rs.getString("TABLE_NAME");
                     String tableType = rs.getString("TABLE_TYPE");
                     
-                    // Get row count
                     long rowCount = 0;
                     try (Statement stmt = conn.createStatement();
                          ResultSet countRs = stmt.executeQuery("SELECT COUNT(*) FROM \"" + tableName + "\"")) {
@@ -253,9 +515,6 @@ public class DatabaseManager {
         return tables;
     }
     
-    /**
-     * Get table schema (columns)
-     */
     public List<ColumnInfo> getTableSchema(String databaseId, String tableName) throws SQLException {
         List<ColumnInfo> columns = new ArrayList<>();
         
@@ -278,19 +537,14 @@ public class DatabaseManager {
         return columns;
     }
     
-    /**
-     * Execute SELECT query with pagination
-     */
     public QueryResult executeQuery(String databaseId, String query, int page, int pageSize) 
             throws SQLException {
         
-        // Validate query is SELECT only
         String trimmedQuery = query.trim().toUpperCase();
         if (!trimmedQuery.startsWith("SELECT")) {
             throw new SQLException("Only SELECT queries are allowed");
         }
         
-        // Prevent dangerous operations
         if (trimmedQuery.contains("ATTACH") || trimmedQuery.contains("PRAGMA")) {
             throw new SQLException("Query contains forbidden operations");
         }
@@ -298,7 +552,6 @@ public class DatabaseManager {
         long startTime = System.currentTimeMillis();
         
         try (Connection conn = getConnection(databaseId)) {
-            // Get total count first
             int totalRows = 0;
             String countQuery = "SELECT COUNT(*) FROM (" + query + ")";
             try (Statement countStmt = conn.createStatement();
@@ -308,7 +561,6 @@ public class DatabaseManager {
                 }
             }
             
-            // Execute paginated query
             int offset = (page - 1) * pageSize;
             String paginatedQuery = query + " LIMIT " + pageSize + " OFFSET " + offset;
             
@@ -321,12 +573,10 @@ public class DatabaseManager {
                 ResultSetMetaData meta = rs.getMetaData();
                 int columnCount = meta.getColumnCount();
                 
-                // Get column names
                 for (int i = 1; i <= columnCount; i++) {
                     columns.add(meta.getColumnName(i));
                 }
                 
-                // Get rows
                 while (rs.next()) {
                     Map<String, Object> row = new LinkedHashMap<>();
                     for (int i = 1; i <= columnCount; i++) {
@@ -344,9 +594,6 @@ public class DatabaseManager {
         }
     }
     
-    /**
-     * Export table data as CSV
-     */
     public String exportTableAsCSV(String databaseId, String tableName) throws SQLException {
         StringBuilder csv = new StringBuilder();
         
@@ -357,14 +604,12 @@ public class DatabaseManager {
             ResultSetMetaData meta = rs.getMetaData();
             int columnCount = meta.getColumnCount();
             
-            // Header row
             for (int i = 1; i <= columnCount; i++) {
                 if (i > 1) csv.append(",");
                 csv.append(escapeCSV(meta.getColumnName(i)));
             }
             csv.append("\n");
             
-            // Data rows
             while (rs.next()) {
                 for (int i = 1; i <= columnCount; i++) {
                     if (i > 1) csv.append(",");
@@ -378,9 +623,6 @@ public class DatabaseManager {
         return csv.toString();
     }
     
-    /**
-     * Escape CSV value
-     */
     private String escapeCSV(String value) {
         if (value == null) return "";
         if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
@@ -389,9 +631,6 @@ public class DatabaseManager {
         return value;
     }
     
-    /**
-     * Get database statistics
-     */
     public Map<String, Object> getDatabaseStats(String databaseId) throws SQLException {
         Map<String, Object> stats = new HashMap<>();
         
@@ -406,15 +645,12 @@ public class DatabaseManager {
         stats.put("modified", db.getModified().toString());
         
         try (Connection conn = getConnection(databaseId)) {
-            // Get table count
             List<TableInfo> tables = getTables(databaseId);
             stats.put("tableCount", tables.size());
             
-            // Get total row count
             long totalRows = tables.stream().mapToLong(TableInfo::getRowCount).sum();
             stats.put("totalRows", totalRows);
             
-            // Get database version
             try (Statement stmt = conn.createStatement();
                  ResultSet rs = stmt.executeQuery("SELECT sqlite_version()")) {
                 if (rs.next()) {
@@ -426,9 +662,6 @@ public class DatabaseManager {
         return stats;
     }
     
-    /**
-     * Format file size in human-readable format
-     */
     private String formatFileSize(long bytes) {
         if (bytes < 1024) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(1024));

@@ -172,6 +172,21 @@ dependencies {
     compileOnly 'curse.maven:architectury-api-419699:5786327'
     compileOnly 'curse.maven:ftb-ranks-314905:6522073'
 
+    // Database support: HikariCP connection pool
+    implementation 'com.zaxxer:HikariCP:5.1.0'
+    jarJar(group: 'com.zaxxer', name: 'HikariCP', version: '[5.1.0,6.0.0)')
+    additionalRuntimeClasspath 'com.zaxxer:HikariCP:5.1.0'
+
+    // Database support: SQLite driver
+    implementation 'org.xerial:sqlite-jdbc:3.46.0.0'
+    jarJar(group: 'org.xerial', name: 'sqlite-jdbc', version: '[3.46.0.0,3.47.0.0)')
+    additionalRuntimeClasspath 'org.xerial:sqlite-jdbc:3.46.0.0'
+
+    // Database support: MySQL driver
+    implementation 'com.mysql:mysql-connector-j:9.1.0'
+    jarJar(group: 'com.mysql', name: 'mysql-connector-j', version: '[9.1.0,10.0.0)')
+    additionalRuntimeClasspath 'com.mysql:mysql-connector-j:9.1.0'
+
     // Alternative: if you want them available during testing, use runtimeOnly
     // runtimeOnly fg.deobf("dev.architectury:architectury-neoforge:VERSION")
     // runtimeOnly fg.deobf("dev.ftb.mods:ftb-library-neoforge:VERSION")

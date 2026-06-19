@@ -180,6 +180,11 @@ public class BigBangEssentials {
         registry.registerManager("PermissionSystem", "core",
             com.pedrodalben.bigbangessentials.permissions.PermissionSystem.class);
         
+        // Database Manager
+        registry.registerManager("DatabaseManager", "database",
+            com.pedrodalben.bigbangessentials.database.DatabaseManager.class,
+            com.pedrodalben.bigbangessentials.database.DatabaseManager::getInstance);
+        
         // Custom Commands Manager
         registry.registerManager("CustomCommandManager", "customcommands",
             com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.class,
@@ -212,6 +217,22 @@ public class BigBangEssentials {
             } catch (Exception e) {
                 LOGGER.error("✗ CRITICAL: Permission system failed to initialize!", e);
                 ManagerRegistry.getInstance().markFailed("PermissionSystem", e.getMessage());
+            }
+
+            // Initialize Database Manager
+            try {
+                LOGGER.info("⚙ Initializing Database Manager...");
+                com.pedrodalben.bigbangessentials.database.DatabaseManager.getInstance().initialize();
+                ManagerRegistry.getInstance().markInitialized("DatabaseManager");
+                LOGGER.info("✓ Database Manager initialized successfully");
+            } catch (Exception e) {
+                LOGGER.error("✗ CRITICAL: Database Manager failed to initialize!", e);
+                ManagerRegistry.getInstance().markFailed("DatabaseManager", e.getMessage());
+                // If required, fail server startup
+                var mgr = com.pedrodalben.bigbangessentials.database.DatabaseManager.getInstance();
+                if (mgr.getConfig() != null && mgr.getConfig().isRequired()) {
+                    throw new RuntimeException("Database is required but failed to initialize: " + e.getMessage(), e);
+                }
             }
 
             // Initialize Vault API (after permissions, before chat/economy features)
@@ -493,6 +514,14 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.teleportation.TeleportRequests.TeleportRequestManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown Teleport Request Manager", e);
+            }
+
+            // Shutdown Database Manager
+            try {
+                LOGGER.info("Shutting down Database Manager...");
+                com.pedrodalben.bigbangessentials.database.DatabaseManager.getInstance().shutdown();
+            } catch (Exception e) {
+                LOGGER.error("Failed to shutdown Database Manager", e);
             }
 
             LOGGER.info("════════════════════════════════════════════════════════════════");

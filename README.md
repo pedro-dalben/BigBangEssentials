@@ -26,11 +26,13 @@ BigBangEssentials brings essential server management, player utilities, and adva
 - **Permission System**: LuckPerms, FTB Ranks, and built-in support.
 - **Item Management**: Item spawning, repair, enchant, clearinventory, powertool.
 - **Utility Systems**: Nicknames, MOTD, near, ping, depth, helpop, rules, suicide, etc.
-- **API & Placeholder System**: PlaceholderAPI integration, custom placeholders, REST API endpoints.
+- **Database Infrastructure**: SQLite/MySQL support, HikariCP pool, async executor, versioned migrations.
+- **APIs & Placeholder System**: PlaceholderAPI integration, custom placeholders, REST API endpoints.
 
 ## 📖 Documentation
 
 Start at [Home](https://github.com/pedro-dalben/BigBangEssentials/wiki/Home) for a complete, config-driven documentation hub. All major systems are documented and standardized to match the codebase and config files:
+  - [DatabaseInfrastructure](docs/database.md)
   - [EconomySystem](https://github.com/pedro-dalben/BigBangEssentials/wiki/EconomySystem)
   - [ChatSystem](https://github.com/pedro-dalben/BigBangEssentials/wiki/ChatSystem)
   - [ModerationSystem](https://github.com/pedro-dalben/BigBangEssentials/wiki/ModerationSystem)
