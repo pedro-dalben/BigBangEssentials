@@ -32,8 +32,24 @@ public class Platform {
         return provider.isModLoaded(modId);
     }
 
-    public static Collection<String> getLoadedMods() {
-        return provider.getLoadedMods();
+    public static String getModName(String modId) {
+        return provider.getModName(modId);
+    }
+
+    public static String getModVersion(String modId) {
+        return provider.getModVersion(modId);
+    }
+
+    public static String getLoaderName() {
+        return provider.getLoaderName();
+    }
+
+    public static String getLoaderVersion() {
+        return provider.getLoaderVersion();
+    }
+
+    public static Collection<PlatformProvider.ModInfo> getMods() {
+        return provider.getMods();
     }
 
     public static CompoundTag getPersistentData(Entity entity) {

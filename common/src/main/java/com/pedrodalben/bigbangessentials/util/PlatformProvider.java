@@ -11,6 +11,12 @@ public interface PlatformProvider {
     Path getConfigDir();
     Path getGameDir();
     boolean isModLoaded(String modId);
-    Collection<String> getLoadedMods();
+    String getModName(String modId);
+    String getModVersion(String modId);
+    String getLoaderName();
+    String getLoaderVersion();
+    Collection<ModInfo> getMods();
     CompoundTag getPersistentData(Entity entity);
+
+    record ModInfo(String id, String name, String version) {}
 }

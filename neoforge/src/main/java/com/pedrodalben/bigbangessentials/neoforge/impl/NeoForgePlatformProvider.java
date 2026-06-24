@@ -34,9 +34,33 @@ public class NeoForgePlatformProvider implements PlatformProvider {
     }
 
     @Override
-    public Collection<String> getLoadedMods() {
+    public String getModName(String modId) {
+        return ModList.get().getModContainerById(modId)
+                .map(container -> container.getModInfo().getDisplayName())
+                .orElse(null);
+    }
+
+    @Override
+    public String getModVersion(String modId) {
+        return ModList.get().getModContainerById(modId)
+                .map(container -> container.getModInfo().getVersion().toString())
+                .orElse(null);
+    }
+
+    @Override
+    public String getLoaderName() {
+        return "NeoForge";
+    }
+
+    @Override
+    public String getLoaderVersion() {
+        return getModVersion("neoforge");
+    }
+
+    @Override
+    public Collection<ModInfo> getMods() {
         return ModList.get().getMods().stream()
-                .map(mod -> mod.getModId())
+                .map(info -> new ModInfo(info.getModId(), info.getDisplayName(), info.getVersion().toString()))
                 .toList();
     }
 

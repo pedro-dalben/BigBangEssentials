@@ -38,9 +38,37 @@ public class FabricPlatformProvider implements PlatformProvider {
     }
 
     @Override
-    public Collection<String> getLoadedMods() {
+    public String getModName(String modId) {
+        return FabricLoader.getInstance().getModContainer(modId)
+                .map(container -> container.getMetadata().getName())
+                .orElse(null);
+    }
+
+    @Override
+    public String getModVersion(String modId) {
+        return FabricLoader.getInstance().getModContainer(modId)
+                .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                .orElse(null);
+    }
+
+    @Override
+    public String getLoaderName() {
+        return "Fabric";
+    }
+
+    @Override
+    public String getLoaderVersion() {
+        return getModVersion("fabricloader");
+    }
+
+    @Override
+    public Collection<ModInfo> getMods() {
         return FabricLoader.getInstance().getAllMods().stream()
-                .map(mod -> mod.getMetadata().getId())
+                .map(container -> new ModInfo(
+                        container.getMetadata().getId(),
+                        container.getMetadata().getName(),
+                        container.getMetadata().getVersion().getFriendlyString()
+                ))
                 .toList();
     }
 
