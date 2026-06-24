@@ -3,9 +3,6 @@ package com.pedrodalben.bigbangessentials.scheduler;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +13,6 @@ import java.util.List;
  * Task scheduler that executes scheduled tasks based on cron expressions
  * Runs every second and checks if any tasks need to be executed
  */
-@EventBusSubscriber(modid = "bigbangessentials")
 public class TaskScheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger(TaskScheduler.class);
     private static TaskScheduler INSTANCE;
@@ -45,10 +41,9 @@ public class TaskScheduler {
     /**
      * Server tick event handler
      */
-    @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
+    public static void onServerTick(MinecraftServer serverInstance) {
         if (server == null) {
-            server = event.getServer();
+            server = serverInstance;
         }
         
         tickCounter++;

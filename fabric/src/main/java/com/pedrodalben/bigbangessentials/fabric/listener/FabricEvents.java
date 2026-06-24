@@ -10,6 +10,11 @@ import net.minecraft.server.level.ServerPlayer;
 public class FabricEvents {
 
     public static void register() {
+        // Server Tick Event (Task Scheduler)
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+            com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(server);
+        });
+
         // Player Logged Out Event
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             JobsEventListener.onPlayerLoggedOut(handler.getPlayer());

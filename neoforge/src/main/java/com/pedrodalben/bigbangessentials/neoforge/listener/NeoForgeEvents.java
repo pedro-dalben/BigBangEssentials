@@ -16,6 +16,7 @@ import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 public class NeoForgeEvents {
 
@@ -52,6 +53,11 @@ public class NeoForgeEvents {
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         BigBangEssentials.GameEvents.onRegisterCommands(event.getDispatcher());
+    }
+
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(event.getServer());
     }
 
     @SubscribeEvent
