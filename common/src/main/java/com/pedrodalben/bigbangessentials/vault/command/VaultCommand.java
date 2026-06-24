@@ -117,7 +117,7 @@ public class VaultCommand {
         int[] count = {0};
         try {
             net.minecraft.server.MinecraftServer server =
-                net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+                com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 for (net.minecraft.server.level.ServerPlayer player : server.getPlayerList().getPlayers()) {
                     java.util.UUID id = player.getUUID();

@@ -579,14 +579,10 @@ public class MessageUtil {
      * This version also removes the legacy 'lang' directory if it exists in the server root.
      */
     private static File getBigBangEssentialsLangCustomDir() {
-        // Use FMLPaths.GAMEDIR if available, else fallback to user.dir
+        // Use Platform.getGameDir() if available, else fallback to user.dir
         File langDir;
         try {
-            // Try to use FMLPaths if available (Forge/NeoForge)
-            Class<?> fmlPathsClass = Class.forName("net.neoforged.fml.loading.FMLPaths");
-            java.lang.reflect.Method gamedirMethod = fmlPathsClass.getMethod("GAMEDIR");
-            Object gamedirPath = gamedirMethod.invoke(null);
-            java.nio.file.Path serverRoot = (java.nio.file.Path) gamedirPath.getClass().getMethod("get").invoke(gamedirPath);
+            java.nio.file.Path serverRoot = Platform.getGameDir();
             langDir = serverRoot.resolve("bigbangessentials").resolve("languages").resolve("custom").toFile();
             // Remove legacy 'lang' directory if it exists
             File legacyLangDir = serverRoot.resolve("bigbangessentials").resolve("lang").toFile();

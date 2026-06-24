@@ -13,7 +13,7 @@ import net.minecraft.network.chat.MutableComponent;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import com.pedrodalben.bigbangessentials.util.PermissionValidator;
-import net.neoforged.fml.ModList;
+import com.pedrodalben.bigbangessentials.util.Platform;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -135,7 +135,7 @@ public class ListCommand {
         }
 
         // Check if LuckPerms is available
-        boolean useLuckPerms = ModList.get().isLoaded("luckperms") && isLuckPermsAvailable();
+        boolean useLuckPerms = Platform.isModLoaded("luckperms") && isLuckPermsAvailable();
 
         if (useLuckPerms) {
             // Group players by LuckPerms groups with weight sorting
@@ -412,7 +412,7 @@ public class ListCommand {
      */
     private static String getLuckPermsGroupInfo(ServerPlayer player) {
         try {
-            if (ModList.get().isLoaded("luckperms") && isLuckPermsAvailable()) {
+            if (Platform.isModLoaded("luckperms") && isLuckPermsAvailable()) {
                 net.luckperms.api.LuckPerms luckPerms = net.luckperms.api.LuckPermsProvider.get();
                 net.luckperms.api.model.user.User lpUser = luckPerms.getUserManager().getUser(player.getUUID());
 
