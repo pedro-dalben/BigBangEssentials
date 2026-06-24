@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
-import net.neoforged.fml.loading.FMLPaths;
+import com.pedrodalben.bigbangessentials.util.Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -510,7 +510,7 @@ public class CustomLanguageManager {
      */
     private static Path resolveModDataPath(String... parts) {
         // Always resolve to the server root directory, not the working directory
-        Path serverRoot = FMLPaths.GAMEDIR.get();
+        Path serverRoot = Platform.getGameDir();
         Path bigBangEssentialsDir = serverRoot.resolve("bigbangessentials");
         for (String part : parts) {
             bigBangEssentialsDir = bigBangEssentialsDir.resolve(part);
