@@ -10,8 +10,6 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
-
 /**
  * /tablist — Admin command to manage the tablist at runtime.
  *
@@ -44,7 +42,7 @@ public class TablistCommand {
             .then(Commands.literal("reload")
                 .executes(ctx -> {
                     TablistManager.getInstance().loadConfig();
-                    var server = ServerLifecycleHooks.getCurrentServer();
+                    var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
                     if (server != null) TablistManager.getInstance().updateAll(server);
                     ctx.getSource().sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.tablist.reloaded"), false);
                     return 1;
@@ -54,7 +52,7 @@ public class TablistCommand {
             .then(Commands.literal("enable")
                 .executes(ctx -> {
                     TablistManager.getInstance().setEnabled(true);
-                    var server = ServerLifecycleHooks.getCurrentServer();
+                    var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
                     if (server != null) TablistManager.getInstance().updateAll(server);
                     ctx.getSource().sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.tablist.enabled"), false);
                     return 1;
@@ -65,7 +63,7 @@ public class TablistCommand {
                 .executes(ctx -> {
                     TablistManager.getInstance().setEnabled(false);
                     // Send empty header/footer to all players to restore vanilla appearance
-                    var server = ServerLifecycleHooks.getCurrentServer();
+                    var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
                     if (server != null) {
                         var emptyPacket = new net.minecraft.network.protocol.game.ClientboundTabListPacket(
                             Component.empty(), Component.empty());
@@ -112,7 +110,7 @@ public class TablistCommand {
                             // A full reload from disk will reset this
                             TablistManager tablist = TablistManager.getInstance();
                             tablist.setHeaderOverride(text);
-                            var server = ServerLifecycleHooks.getCurrentServer();
+                            var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
                             if (server != null) tablist.updateAll(server);
                             ctx.getSource().sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.tablist.header_set"), false);
                             return 1;
@@ -125,7 +123,7 @@ public class TablistCommand {
                             String text = StringArgumentType.getString(ctx, "text");
                             TablistManager tablist = TablistManager.getInstance();
                             tablist.setFooterOverride(text);
-                            var server = ServerLifecycleHooks.getCurrentServer();
+                            var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
                             if (server != null) tablist.updateAll(server);
                             ctx.getSource().sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.tablist.footer_set"), false);
                             return 1;

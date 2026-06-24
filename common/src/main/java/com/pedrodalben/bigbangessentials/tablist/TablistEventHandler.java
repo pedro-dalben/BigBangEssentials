@@ -6,8 +6,6 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
-
 /**
  * Event handler that drives the TablistManager tick, join, and quit updates.
  */
@@ -16,7 +14,7 @@ public class TablistEventHandler {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server == null) return;
         TablistManager.getInstance().onTick(server);
     }
