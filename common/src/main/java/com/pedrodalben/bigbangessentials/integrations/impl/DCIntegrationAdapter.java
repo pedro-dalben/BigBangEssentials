@@ -2,7 +2,7 @@ package com.pedrodalben.bigbangessentials.integrations.impl;
 
 import com.pedrodalben.bigbangessentials.integrations.ChatIntegrationAdapter;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.fml.ModList;
+import com.pedrodalben.bigbangessentials.util.Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +29,7 @@ public class DCIntegrationAdapter implements ChatIntegrationAdapter {
 
     @Override
     public boolean initialize() {
-        dcIntegrationLoaded = ModList.get().isLoaded("dcintegration");
+        dcIntegrationLoaded = Platform.isModLoaded("dcintegration");
 
         if (!dcIntegrationLoaded) {
             LOGGER.debug("DCIntegration mod not found, integration disabled");
