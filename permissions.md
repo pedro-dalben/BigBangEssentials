@@ -29,6 +29,7 @@
 16. [Web Dashboard](#web-dashboard)
 17. [Permissions Management](#permissions-management)
 18. [Miscellaneous](#miscellaneous)
+19. [Jobs & Professions](#jobs--professions)
 
 ---
 
@@ -481,6 +482,49 @@ Each tag is protected by `bigbangessentials.tag.<name>` and can be granted indiv
 | `/recipe` | `/recipe [item]` | `bigbangessentials.recipe` | ✅ | Unlock and show crafting recipe for held or named item |
 | `/tpauto` | `/tpauto [on\|off] [player]` | `bigbangessentials.tpauto` / `.tpauto.others` | ✅ | Auto-accept all incoming teleport requests |
 
+
+---
+
+## Jobs & Professions
+
+Jobs and Professions system with levels, skills, daily limit tracking, and admin tools.
+
+### Player Commands
+| Command | Syntax | Permission | Default | Description |
+|---|---|---|---|---|
+| `/jobs` | `/jobs` | `jobs.command.jobs` | ✅ | View your jobs summary profile and daily earnings |
+| `/jobs list` | `/jobs list` | `jobs.command.list` | ✅ | List all available jobs, their statuses and commands |
+| `/jobs entrar` | `/jobs entrar <job>` | `jobs.command.entrar` | ✅ | Enter/Join a profession |
+| `/jobs join` | alias for `/jobs entrar` | same | ✅ | Alias |
+| `/jobs sair` | `/jobs sair <job>` | `jobs.command.sair` | ✅ | Leave a profession |
+| `/jobs leave` | alias for `/jobs sair` | same | ✅ | Alias |
+| `/jobs info` | `/jobs info [job]` | `jobs.command.info` | ✅ | Show detailed information on actions/rewards for a job |
+| `/jobs progresso` | `/jobs progresso [job]` | `jobs.command.info` | ✅ | View detailed XP progression bar for a job |
+| `/jobs habilidades` | `/jobs habilidades <job>` | `jobs.command.habilidades` | ✅ | View passive skill trees for a job |
+| `/jobs skills` | alias for `/jobs habilidades` | same | ✅ | Alias |
+| `/jobs habilidade` | `/jobs habilidade <job> desbloquear <skill>` | `jobs.command.habilidades` | ✅ | Upgrade a passive skill using skill points |
+| `/jobs ganhos` | `/jobs ganhos` | `jobs.command.ganhos` | ✅ | Show daily earnings, limits, multipliers, and reset time |
+| `/jobs top` | `/jobs top <job>` | `jobs.command.top` | ✅ | View leaderboard for the highest levels in a job |
+| `/jobs notificacoes` | `/jobs notificacoes <on\|off>` | `jobs.command.jobs` | ✅ | Toggle actionbar notifications on/off |
+| `/jobs ajuda` | `/jobs ajuda` | none | ✅ | Show jobs help menu |
+
+### Admin Commands
+| Command | Syntax | Permission | Default | Description |
+|---|---|---|---|---|
+| `/jobsadmin reload` | `/jobsadmin reload` | `jobs.admin.reload` | 🔒 | Reload jobs and professions configurations |
+| `/jobsadmin info` | `/jobsadmin info <player> [job]` | `jobs.admin.info` | 🔒 | View another player's jobs profile or detailed job stats |
+| `/jobsadmin entrar` | `/jobsadmin entrar <player> <job>` | `jobs.admin.modify` | 🔒 | Force a player to join a profession |
+| `/jobsadmin sair` | `/jobsadmin sair <player> <job>` | `jobs.admin.modify` | 🔒 | Force a player to leave a profession |
+| `/jobsadmin setlevel` | `/jobsadmin setlevel <player> <job> <level>` | `jobs.admin.modify` | 🔒 | Set a player's job level |
+| `/jobsadmin addxp` | `/jobsadmin addxp <player> <job> <xp>` | `jobs.admin.modify` | 🔒 | Add XP to a player's job (triggers level-ups) |
+| `/jobsadmin removexp` | `/jobsadmin removexp <player> <job> <xp>` | `jobs.admin.modify` | 🔒 | Remove XP from a player's job |
+| `/jobsadmin reset` | `/jobsadmin reset <player> [job]` | `jobs.admin.reset` | 🔒 | Reset progress of one or all of a player's jobs |
+| `/jobsadmin resetganhos` | `/jobsadmin resetganhos <player>` | `jobs.admin.reset` | 🔒 | Reset a player's daily earnings |
+| `/jobsadmin pontos` | `/jobsadmin pontos <player> <job> <adicionar\|remover> <qty>` | `jobs.admin.modify` | 🔒 | Add or remove skill points for a player's job |
+| `/jobsadmin desbloquear` | `/jobsadmin desbloquear <player> <job>` | `jobs.admin.modify` | 🔒 | Grant permission/unlock access to a job for a player |
+| `/jobsadmin bloquear` | `/jobsadmin bloquear <player> <job>` | `jobs.admin.modify` | 🔒 | Revoke permission/lock access to a job for a player |
+| `/jobsadmin debug` | `/jobsadmin debug <on\|off>` | `jobs.admin.debug` | 🔒 | Toggle global administrative debug mode |
+
 ---
 
 ## 📊 Command Count Summary
@@ -504,7 +548,8 @@ Each tag is protected by `bigbangessentials.tag.<name>` and can be granted indiv
 | Web Dashboard | 2 |
 | Permissions Management | 2 |
 | Miscellaneous | 22 |
-| **Total** | **~172** |
+| Jobs & Professions | 27 |
+| **Total** | **~199** |
 
 ---
 

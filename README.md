@@ -18,6 +18,7 @@ BigBangEssentials brings essential server management, player utilities, and adva
 ## ✨ Core Systems & Features
 
 - **Economy System**: Player balances, payments, kits, and shop support.
+- **Jobs & Professions**: Choice of professions, XP/Level progression, passive skill trees, daily earnings limits, VIP multiplier support, and robust anti-exploit protections.
 - **Chat & Messaging**: Private messages, mail, ignore/socialspy, AFK system.
 - **Moderation**: Ban, kick, mute, jail, vanish, freeze, sudo, player data.
 - **Teleportation**: Homes, warps, spawn, teleport requests, back system.
@@ -33,6 +34,7 @@ BigBangEssentials brings essential server management, player utilities, and adva
 
 Start at [Home](https://github.com/pedro-dalben/BigBangEssentials/wiki/Home) for a complete, config-driven documentation hub. All major systems are documented and standardized to match the codebase and config files:
   - [DatabaseInfrastructure](docs/database.md)
+  - [Jobs & Professions](docs/jobs.md)
   - [EconomySystem](https://github.com/pedro-dalben/BigBangEssentials/wiki/EconomySystem)
   - [ChatSystem](https://github.com/pedro-dalben/BigBangEssentials/wiki/ChatSystem)
   - [ModerationSystem](https://github.com/pedro-dalben/BigBangEssentials/wiki/ModerationSystem)

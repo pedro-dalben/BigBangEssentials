@@ -10,6 +10,7 @@ Welcome to the official documentation hub for **BigBangEssentials v1.0.2.6** —
 |---|---|
 | [**Commands Reference**](CommandsReference) | Every command — syntax, permission, aliases |
 | [Economy System](EconomySystem) | Balances, pay, baltop, ChestShop, Vault API |
+| [Jobs & Professions](JobsSystem) | Choice of professions, progression, passive skills, daily limits, anti-exploit |
 | [Chat System](ChatSystem) | Formatting, channels, rich text, AFK broadcasts |
 | [AFK System](AFKSystem) | Auto-AFK, kick, tablist indicator, config |
 | [Moderation System](ModerationSystem) | Ban, mute, jail, freeze, vanish |
