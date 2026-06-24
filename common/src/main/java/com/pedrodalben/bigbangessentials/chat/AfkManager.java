@@ -174,7 +174,7 @@ public class AfkManager {
             onPlayerGoAfk(playerUuid, reason);
             // Notify Discord integrations
             try {
-                net.minecraft.server.MinecraftServer srv = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+                net.minecraft.server.MinecraftServer srv = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
                 if (srv != null) {
                     ServerPlayer p = srv.getPlayerList().getPlayer(playerUuid);
                     if (p != null) com.pedrodalben.bigbangessentials.integrations.ChatIntegrationManager.broadcastAfkEvent(p, true, reason);
@@ -186,7 +186,7 @@ public class AfkManager {
             onPlayerReturnFromAfk(playerUuid);
             // Notify Discord integrations
             try {
-                net.minecraft.server.MinecraftServer srv = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+                net.minecraft.server.MinecraftServer srv = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
                 if (srv != null) {
                     ServerPlayer p = srv.getPlayerList().getPlayer(playerUuid);
                     if (p != null) com.pedrodalben.bigbangessentials.integrations.ChatIntegrationManager.broadcastAfkEvent(p, false, null);
@@ -241,7 +241,7 @@ public class AfkManager {
         
         try {
             // Get player reference
-            net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server == null) return;
             
             ServerPlayer player = server.getPlayerList().getPlayer(playerUuid);
@@ -282,7 +282,7 @@ public class AfkManager {
         
         try {
             // Get player reference
-            net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server == null) return;
             
             ServerPlayer player = server.getPlayerList().getPlayer(playerUuid);

@@ -73,7 +73,7 @@ public class AfkTablistHandler {
     @SuppressWarnings("unused") // Public API method for admin/reload
     public static void updateAllPlayersTablistNames() {
         try {
-            net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                     updatePlayerTablistName(player);
