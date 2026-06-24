@@ -298,9 +298,9 @@ public class HomeManager {
         }
 
         if (isNew) {
-            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeCreatedEvent(playerId, homeName));
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeCreatedEvent(playerId, homeName));
         } else {
-            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeUpdatedEvent(playerId, homeName));
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeUpdatedEvent(playerId, homeName));
         }
 
         return true;
@@ -354,7 +354,7 @@ public class HomeManager {
             LOGGER.info("Player {} deleted home '{}'", player.getName().getString(), homeName);
         }
 
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeDeletedEvent(playerId, homeName));
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeDeletedEvent(playerId, homeName));
 
         return true;
     }
@@ -391,7 +391,7 @@ public class HomeManager {
         }
         savePlayerHomes(playerId);
         player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.renamed", oldName, newName));
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeUpdatedEvent(playerId, newName));
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeUpdatedEvent(playerId, newName));
         return true;
     }
 

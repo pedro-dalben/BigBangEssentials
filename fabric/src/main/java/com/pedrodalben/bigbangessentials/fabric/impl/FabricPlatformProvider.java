@@ -76,4 +76,27 @@ public class FabricPlatformProvider implements PlatformProvider {
     public CompoundTag getPersistentData(Entity entity) {
         return ((FabricEntityDataAccessor) entity).bbEssentials$getPersistentData();
     }
+
+    private static final Collection<Object> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    @Override
+    public void postEvent(Object event) {
+        for (Object listener : listeners) {
+            for (java.lang.reflect.Method method : listener.getClass().getDeclaredMethods()) {
+                if (method.getParameterCount() == 1 && method.getParameterTypes()[0].isAssignableFrom(event.getClass())) {
+                    try {
+                        method.setAccessible(true);
+                        method.invoke(listener, event);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public void registerEventListener(Object listener) {
+        listeners.add(listener);
+    }
 }

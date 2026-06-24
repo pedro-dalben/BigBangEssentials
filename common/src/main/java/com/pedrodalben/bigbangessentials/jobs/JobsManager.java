@@ -263,7 +263,7 @@ public class JobsManager {
             JobRewardCalculateEvent calcEvent = new JobRewardCalculateEvent(
                     player.getUUID(), jobId, baseReward, levelMultiplier, skillMultiplier, permissionMultiplier, tempMultiplier
             );
-            NeoForge.EVENT_BUS.post(calcEvent);
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(calcEvent);
             if (calcEvent.isCanceled()) {
                 if (data.isDebugMode() || globalDebugMode) {
                     player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
@@ -304,7 +304,7 @@ public class JobsManager {
                 data.setDailyEarnings(jobId, newEarnings);
                 repository.savePlayerJobEarnings(player.getUUID(), jobId, data.getCurrentCycleStart(), newEarnings);
 
-                NeoForge.EVENT_BUS.post(new JobRewardPaidEvent(player.getUUID(), jobId, allowedPayout));
+                com.pedrodalben.bigbangessentials.util.Platform.postEvent(new JobRewardPaidEvent(player.getUUID(), jobId, allowedPayout));
 
                 // Send debug info if active
                 if (data.isDebugMode() || globalDebugMode) {
@@ -340,7 +340,7 @@ public class JobsManager {
 
             if (finalXp > 0.0 && (!limitReached || config.isContinueXpAfterLimit())) {
                 JobExperienceGainEvent xpEvent = new JobExperienceGainEvent(player.getUUID(), jobId, finalXp);
-                NeoForge.EVENT_BUS.post(xpEvent);
+                com.pedrodalben.bigbangessentials.util.Platform.postEvent(xpEvent);
                 if (!xpEvent.isCanceled()) {
                     addExperience(player, data, jobId, xpEvent.getAmount());
                 } else if (data.isDebugMode() || globalDebugMode) {

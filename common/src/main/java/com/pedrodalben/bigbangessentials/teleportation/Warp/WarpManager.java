@@ -307,7 +307,7 @@ public class WarpManager {
         savePlayerWarpVisits();
         player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.warp.playerwarp_created", warpName, location.getLocationString()));
         LOGGER.info("Player {} created player warp '{}' at {}", player.getName().getString(), warpName, location.getLocationString());
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpCreatedEvent(playerId, warpName));
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpCreatedEvent(playerId, warpName));
         return true;
     }
 
@@ -334,7 +334,7 @@ public class WarpManager {
             }
         }
         savePlayerWarpVisits();
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpDeletedEvent(playerId, warpName));
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpDeletedEvent(playerId, warpName));
         return true;
     }
 
@@ -598,7 +598,7 @@ public class WarpManager {
         
         creator.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.warp.created", warpName, location.getLocationString()));
         LOGGER.info("Player {} created warp '{}' at {}", creator.getName().getString(), warpName, location.getLocationString());
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.WarpCreatedEvent(warpName));
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.WarpCreatedEvent(warpName));
         
         return true;
     }
@@ -654,7 +654,7 @@ public class WarpManager {
         if (ConfigManager.getInstance().isLogWarpActionsEnabled()) {
             LOGGER.info("Warp '{}' deleted by {}", warpName, deletedBy);
         }
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.WarpDeletedEvent(warpName));
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.WarpDeletedEvent(warpName));
         return true;
     }
 
@@ -675,7 +675,7 @@ public class WarpManager {
         if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isLogWarpActionsEnabled()) {
             LOGGER.info("Player {} deleted warp '{}'", player.getName().getString(), warpName);
         }
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.WarpDeletedEvent(warpName));
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.WarpDeletedEvent(warpName));
         return true;
     }
     

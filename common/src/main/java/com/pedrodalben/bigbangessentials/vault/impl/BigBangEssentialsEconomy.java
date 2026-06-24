@@ -114,7 +114,7 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
             if (!ok)
                 return fail(amount, playerId, "Insufficient funds");
             // Fire the same event the rest of the mod uses
-            NeoForge.EVENT_BUS.post(new EconomyWithdrawEvent(playerId, amount));
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(new EconomyWithdrawEvent(playerId, amount));
             return new EconomyResponse(amount, getBalance(playerId), EconomyResponse.ResponseType.SUCCESS, "");
         } catch (Exception e) {
             LOGGER.error("VaultEconomy: withdrawPlayer error for {}: {}", playerId, e.getMessage());
@@ -137,7 +137,7 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
             if (!ok)
                 return fail(amount, playerId, "Deposit rejected (max balance reached?)");
             // Fire the same event the rest of the mod uses
-            NeoForge.EVENT_BUS.post(new EconomyDepositEvent(playerId, amount));
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(new EconomyDepositEvent(playerId, amount));
             return new EconomyResponse(amount, getBalance(playerId), EconomyResponse.ResponseType.SUCCESS, "");
         } catch (Exception e) {
             LOGGER.error("VaultEconomy: depositPlayer error for {}: {}", playerId, e.getMessage());

@@ -38,7 +38,7 @@ public class KitMenuIntegration {
         menuSystem.getPlaceholderRegistry().registerPlaceholder("kits", new KitPlaceholderResolver());
 
         if (!eventBusRegistered) {
-            NeoForge.EVENT_BUS.register(this);
+            com.pedrodalben.bigbangessentials.util.Platform.registerEventListener(this);
             eventBusRegistered = true;
         }
         LOGGER.info("Kit menu integration registered (menuId={}, autoRefresh={})",

@@ -44,7 +44,7 @@ public class JobMessageService {
                         player.sendSystemMessage(Component.literal(
                                 String.format("§cVocê atingiu o limite diário de $%.2f da profissão %s. Você continuará recebendo XP, mas não receberá mais dinheiro até o próximo reset.", dailyLimit, jobName)
                         ));
-                        NeoForge.EVENT_BUS.post(new JobDailyLimitReachedEvent(player.getUUID(), jobId, dailyLimit, currentEarnings));
+                        com.pedrodalben.bigbangessentials.util.Platform.postEvent(new JobDailyLimitReachedEvent(player.getUUID(), jobId, dailyLimit, currentEarnings));
                     } else {
                         player.sendSystemMessage(Component.literal(
                                 String.format("§eVocê atingiu %d%% do limite diário ($%.2f) da profissão %s.", triggered, dailyLimit, jobName)

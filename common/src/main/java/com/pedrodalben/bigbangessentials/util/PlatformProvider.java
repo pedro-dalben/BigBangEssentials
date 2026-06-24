@@ -17,6 +17,8 @@ public interface PlatformProvider {
     String getLoaderVersion();
     Collection<ModInfo> getMods();
     CompoundTag getPersistentData(Entity entity);
+    void postEvent(Object event);
+    void registerEventListener(Object listener);
 
     record ModInfo(String id, String name, String version) {}
 }

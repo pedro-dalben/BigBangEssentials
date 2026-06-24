@@ -51,9 +51,10 @@ tasks.named('processResources').configure {
     dependsOn 'copyBuildNumber'
     
     // Expand properties in fabric.mod.json
-    inputs.property "version", project.version
+    def versionValue = project.version.toString()
+    inputs.property "version", versionValue
     filesMatching("fabric.mod.json") {
-        expand "version": project.version
+        expand "version": versionValue
     }
 }
 

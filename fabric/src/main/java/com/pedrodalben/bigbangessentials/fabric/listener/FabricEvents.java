@@ -15,6 +15,17 @@ public class FabricEvents {
             com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(server);
         });
 
+        // Server Chat Event
+        net.fabricmc.fabric.api.message.v1.ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
+            boolean[] allow = {true};
+            com.pedrodalben.bigbangessentials.chat.ChatHandler.handleChat(
+                sender,
+                message.signedContent(),
+                () -> allow[0] = false
+            );
+            return allow[0];
+        });
+
         // Player Logged Out Event
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             JobsEventListener.onPlayerLoggedOut(handler.getPlayer());

@@ -46,7 +46,7 @@ public class JobExperienceService {
             JobsManager.getInstance().getRepository().savePlayerJob(player.getUUID(), jobId, progress);
 
             // Level Up event
-            NeoForge.EVENT_BUS.post(new JobLevelUpEvent(player.getUUID(), jobId, result.getNewLevel(), result.getSkillPointsGained()));
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(new JobLevelUpEvent(player.getUUID(), jobId, result.getNewLevel(), result.getSkillPointsGained()));
 
             // Play sound
             try {

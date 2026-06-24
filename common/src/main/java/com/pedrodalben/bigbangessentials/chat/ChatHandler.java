@@ -5,9 +5,6 @@ import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import com.pedrodalben.bigbangessentials.util.ChatDebugUtil;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.ServerChatEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +14,6 @@ import org.slf4j.LoggerFactory;
  * This handler intercepts chat messages and applies the configured
  * chat format template before broadcasting to other players.
  */
-@EventBusSubscriber(modid = "bigbangessentials")
 public class ChatHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatHandler.class);
     
@@ -82,18 +78,15 @@ public class ChatHandler {
         playerChannelMap.remove(playerUUID);
     }
 
-    @SubscribeEvent
-    public static void onServerChat(ServerChatEvent event) {
+    public static void handleChat(ServerPlayer player, String rawMessage, Runnable cancelCallback) {
         try {
-            ServerPlayer player = event.getPlayer();
-            String rawMessage = event.getRawText();
-            String playerName = player.getName().getString();
+                                    String playerName = player.getName().getString();
 
             // Check if player is muted
             boolean isMuted = MuteManager.isMuted(player);
             ChatDebugUtil.debug("ChatHandler - Checking mute for %s, result: %s", playerName, isMuted);
             if (isMuted) {
-                event.setCanceled(true);
+                cancelCallback.run();
                 player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.chat.muted"));
                 return;
             }
@@ -101,7 +94,7 @@ public class ChatHandler {
             // Phase 3: Apply anti-spam filters
             AntiSpamManager.FilterResult filterResult = AntiSpamManager.getInstance().filterMessage(player, rawMessage);
             if (!filterResult.allowed) {
-                event.setCanceled(true);
+                cancelCallback.run();
                 if (filterResult.denyReason != null) {
                     player.sendSystemMessage(net.minecraft.network.chat.Component.literal(filterResult.denyReason));
                 }
@@ -124,7 +117,7 @@ public class ChatHandler {
                         }
                     }
                     if (!hasAny) {
-                        event.setCanceled(true);
+                        cancelCallback.run();
                         player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.chat.no_permission"));
                         return;
                     }
@@ -138,7 +131,7 @@ public class ChatHandler {
                     String[] split = trimmed.substring(1).split(" ", 2);
                     String command = split[0].toLowerCase();
                     if (chatManager.isCommandMuted(command)) {
-                        event.setCanceled(true);
+                        cancelCallback.run();
                         player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.chat.command_muted", command));
                         return;
                     }
@@ -232,7 +225,7 @@ public class ChatHandler {
                 // Get the configured chat format for group/world
                 String chatFormat = chatManager.getChatFormat(group, world);
                 // Cancel the original event to apply custom formatting
-                event.setCanceled(true);
+                cancelCallback.run();
                 // Format the message using our custom formatter
                 Component formattedMessage = ChatFormatter.formatMessage(chatFormat, player, message);
                 // Get channel config for dynamic routing
@@ -265,7 +258,7 @@ public class ChatHandler {
                 }
 
                 if (requiredPermission != null && !com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), requiredPermission)) {
-                    event.setCanceled(true);
+                    cancelCallback.run();
                     player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.chat.no_permission"));
                     return;
                 }
@@ -399,7 +392,7 @@ public class ChatHandler {
 
         } catch (Exception e) {
             LOGGER.error("Error handling chat event for player {}: {}", 
-                event.getPlayer().getName().getString(), e.getMessage(), e);
+                player.getName().getString(), e.getMessage(), e);
             // Don't cancel the event on error - let vanilla handle it
         }
     }

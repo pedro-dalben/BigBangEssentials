@@ -142,12 +142,7 @@ public class ChannelCommands {
             // Set temporary channel override for this player
             ChatHandler.setTemporaryChannel(player.getUUID(), channelName);
             try {
-                // Trigger chat by posting chat event - ChatHandler will process it
-                @SuppressWarnings("UnstableApiUsage")
-                net.neoforged.neoforge.event.ServerChatEvent chatEvent =
-                    new net.neoforged.neoforge.event.ServerChatEvent(player, message,
-                        net.minecraft.network.chat.Component.literal(message));
-                net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(chatEvent);
+                ChatHandler.handleChat(player, message, () -> {});
             } finally {
                 // Clear the temporary override
                 ChatHandler.clearTemporaryChannel(player.getUUID());

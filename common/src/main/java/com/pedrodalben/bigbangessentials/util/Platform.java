@@ -55,4 +55,12 @@ public class Platform {
     public static CompoundTag getPersistentData(Entity entity) {
         return provider.getPersistentData(entity);
     }
+
+    public static void postEvent(Object event) {
+        provider.postEvent(event);
+    }
+
+    public static void registerEventListener(Object listener) {
+        provider.registerEventListener(listener);
+    }
 }

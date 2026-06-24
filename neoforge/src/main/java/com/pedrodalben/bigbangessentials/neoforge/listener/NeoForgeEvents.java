@@ -13,12 +13,22 @@ import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
+import net.neoforged.neoforge.event.ServerChatEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 public class NeoForgeEvents {
+
+    @SubscribeEvent
+    public static void onServerChat(ServerChatEvent event) {
+        com.pedrodalben.bigbangessentials.chat.ChatHandler.handleChat(
+            event.getPlayer(),
+            event.getRawText(),
+            () -> event.setCanceled(true)
+        );
+    }
 
     @SubscribeEvent
     public static void onServerStarting(ServerStartingEvent event) {

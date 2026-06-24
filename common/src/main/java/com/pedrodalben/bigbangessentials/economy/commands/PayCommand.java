@@ -189,7 +189,7 @@ public class PayCommand {
                 "commands.bigbangessentials.transaction.received", netAmount,
                 sender.getGameProfile().getName(), fee));
 
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(
             new com.pedrodalben.bigbangessentials.economy.events.EconomyTransactionEvent(
                 com.pedrodalben.bigbangessentials.economy.events.EconomyTransactionEvent.Type.PAY,
                 sender.getUUID(), finalRecipientUUID, netAmount,

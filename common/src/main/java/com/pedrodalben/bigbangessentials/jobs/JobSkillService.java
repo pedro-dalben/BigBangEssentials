@@ -69,7 +69,7 @@ public class JobSkillService {
 
         // Fire Skill Unlock Event
         JobSkillUnlockEvent event = new JobSkillUnlockEvent(player.getUUID(), jobDef.id, skill.id, currentRank + 1);
-        NeoForge.EVENT_BUS.post(event);
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(event);
         if (event.isCanceled()) {
             return UnlockValidationResult.CANCELLED;
         }

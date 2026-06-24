@@ -30,7 +30,7 @@ public class JobProgressService {
 
         // Fire Join Event
         JobJoinEvent joinEvent = new JobJoinEvent(player.getUUID(), jobDef.id);
-        NeoForge.EVENT_BUS.post(joinEvent);
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(joinEvent);
         if (joinEvent.isCanceled()) {
             return false;
         }
@@ -53,7 +53,7 @@ public class JobProgressService {
 
         // Fire Leave Event
         JobLeaveEvent leaveEvent = new JobLeaveEvent(player.getUUID(), jobDef.id);
-        NeoForge.EVENT_BUS.post(leaveEvent);
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(leaveEvent);
         if (leaveEvent.isCanceled()) {
             return false;
         }

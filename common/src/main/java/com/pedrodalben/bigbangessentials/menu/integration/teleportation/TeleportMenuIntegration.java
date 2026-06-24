@@ -52,7 +52,7 @@ public class TeleportMenuIntegration {
         menuSystem.getPlaceholderRegistry().registerPlaceholder("teleport", new TeleportPlaceholderResolver());
 
         // 5. Register Event Listener
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(this);
+        com.pedrodalben.bigbangessentials.util.Platform.registerEventListener(this);
     }
 
     private void setupDefaultMenus(Path dir) {

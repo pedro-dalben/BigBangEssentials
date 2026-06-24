@@ -68,7 +68,7 @@ public class EconomyServiceImpl implements EconomyService {
         boolean success = EconomyManager.getInstance().addBalance(playerId, BigDecimal.valueOf(amount));
         
         if (success) {
-            NeoForge.EVENT_BUS.post(new EconomyDepositEvent(playerId, amount));
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(new EconomyDepositEvent(playerId, amount));
         }
         return success;
     }
@@ -81,7 +81,7 @@ public class EconomyServiceImpl implements EconomyService {
         boolean success = EconomyManager.getInstance().subtractBalance(playerId, BigDecimal.valueOf(amount));
         
         if (success) {
-            NeoForge.EVENT_BUS.post(new EconomyWithdrawEvent(playerId, amount));
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(new EconomyWithdrawEvent(playerId, amount));
         }
         return success;
     }

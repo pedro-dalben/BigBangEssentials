@@ -68,4 +68,16 @@ public class NeoForgePlatformProvider implements PlatformProvider {
     public CompoundTag getPersistentData(Entity entity) {
         return entity.getPersistentData();
     }
+
+    @Override
+    public void postEvent(Object event) {
+        if (event instanceof net.neoforged.bus.api.Event neoEvent) {
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(neoEvent);
+        }
+    }
+
+    @Override
+    public void registerEventListener(Object listener) {
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(listener);
+    }
 }
