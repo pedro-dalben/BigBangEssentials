@@ -473,7 +473,7 @@ private final ScheduledExecutorService scheduler = Executors.newScheduledThreadP
      */
     private ServerPlayer getPlayerById(UUID playerId) {
         // Get the current server instance
-        net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server == null) {
             return null;
         }

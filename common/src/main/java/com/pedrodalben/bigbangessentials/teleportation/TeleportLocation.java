@@ -6,8 +6,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
-
 /**
  * Represents a teleportation location with world, position, and rotation data
  */
@@ -80,7 +78,7 @@ public class TeleportLocation {
                 worldKey = ResourceLocation.fromNamespaceAndPath("minecraft", worldName);
             }
 
-            var server = ServerLifecycleHooks.getCurrentServer();
+            var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server == null) return null;
 
             return server.getLevel(
