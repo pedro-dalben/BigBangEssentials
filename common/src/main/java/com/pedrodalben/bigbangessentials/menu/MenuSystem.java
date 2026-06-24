@@ -17,7 +17,7 @@ import com.pedrodalben.bigbangessentials.menu.runtime.MenuActionRegistryImpl;
 import com.pedrodalben.bigbangessentials.menu.runtime.MenuConditionRegistryImpl;
 import com.pedrodalben.bigbangessentials.menu.runtime.MenuPlaceholderRegistryImpl;
 import com.pedrodalben.bigbangessentials.menu.runtime.MenuDataProviderRegistryImpl;
-import net.neoforged.fml.loading.FMLPaths;
+import com.pedrodalben.bigbangessentials.util.Platform;
 import java.nio.file.Path;
 
 public class MenuSystem {
@@ -78,7 +78,7 @@ public class MenuSystem {
 
         menuService = new MenuServiceImpl(registry, sessionStore, listener, renderer);
         
-        Path configDir = FMLPaths.CONFIGDIR.get().resolve("bigbangessentials").resolve("menus");
+        Path configDir = Platform.getConfigDir().resolve("bigbangessentials").resolve("menus");
         persistenceService = new YamlMenuPersistenceService(configDir, registry);
 
         // Register teleport integration actions, providers, etc.

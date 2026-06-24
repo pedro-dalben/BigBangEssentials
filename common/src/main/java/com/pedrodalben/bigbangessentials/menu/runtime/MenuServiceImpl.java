@@ -139,7 +139,7 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public void refreshSessionsUsingSource(String sourceId) {
-        net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server == null) return;
         
         server.submit(() -> {

@@ -400,7 +400,7 @@ public class TeleportMenuIntegration {
     @net.neoforged.bus.api.SubscribeEvent
     public void onHomeCreated(com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeCreatedEvent event) {
         if (TeleportMenuConfig.isAutoRefreshOpenMenus()) {
-            net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 ServerPlayer player = server.getPlayerList().getPlayer(event.getPlayerId());
                 if (player != null) {
@@ -413,7 +413,7 @@ public class TeleportMenuIntegration {
     @net.neoforged.bus.api.SubscribeEvent
     public void onHomeDeleted(com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeDeletedEvent event) {
         if (TeleportMenuConfig.isAutoRefreshOpenMenus()) {
-            net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 ServerPlayer player = server.getPlayerList().getPlayer(event.getPlayerId());
                 if (player != null) {
@@ -426,7 +426,7 @@ public class TeleportMenuIntegration {
     @net.neoforged.bus.api.SubscribeEvent
     public void onHomeUpdated(com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeUpdatedEvent event) {
         if (TeleportMenuConfig.isAutoRefreshOpenMenus()) {
-            net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 ServerPlayer player = server.getPlayerList().getPlayer(event.getPlayerId());
                 if (player != null) {
@@ -440,7 +440,7 @@ public class TeleportMenuIntegration {
     public void onPlayerWarpCreated(com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpCreatedEvent event) {
         if (TeleportMenuConfig.isAutoRefreshOpenMenus()) {
             MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("pwarps.public");
-            net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 ServerPlayer owner = server.getPlayerList().getPlayer(event.getOwnerId());
                 if (owner != null) {
@@ -454,7 +454,7 @@ public class TeleportMenuIntegration {
     public void onPlayerWarpDeleted(com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpDeletedEvent event) {
         if (TeleportMenuConfig.isAutoRefreshOpenMenus()) {
             MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("pwarps.public");
-            net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 ServerPlayer owner = server.getPlayerList().getPlayer(event.getOwnerId());
                 if (owner != null) {
@@ -468,7 +468,7 @@ public class TeleportMenuIntegration {
     public void onPlayerWarpUpdated(com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.PlayerWarpUpdatedEvent event) {
         if (TeleportMenuConfig.isAutoRefreshOpenMenus()) {
             MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("pwarps.public");
-            net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 ServerPlayer owner = server.getPlayerList().getPlayer(event.getOwnerId());
                 if (owner != null) {
