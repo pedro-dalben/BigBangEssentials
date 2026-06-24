@@ -161,7 +161,7 @@ public final class ShopParser {
                                            UUID ownerUUID) {
         String name = null;
         if (ownerUUID != null) {
-            var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 var p = server.getPlayerList().getPlayer(ownerUUID);
                 if (p != null) name = p.getName().getString();

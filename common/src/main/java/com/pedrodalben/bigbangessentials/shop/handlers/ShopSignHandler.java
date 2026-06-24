@@ -96,7 +96,7 @@ public class ShopSignHandler {
                 BlockPos pos = new BlockPos(x, y, z);
 
                 // Get the level via the server
-                var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+                var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
                 if (server == null) continue;
                 ServerLevel level = server.getAllLevels().iterator().next(); // fallback
                 for (ServerLevel sl : server.getAllLevels()) {
