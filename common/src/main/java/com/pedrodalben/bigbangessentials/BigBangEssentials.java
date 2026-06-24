@@ -4,16 +4,8 @@ import com.pedrodalben.bigbangessentials.config.ConfigSplitter;
 import com.pedrodalben.bigbangessentials.core.ManagerRegistry;
 import com.pedrodalben.bigbangessentials.permissions.PermissionSystem;
 import com.pedrodalben.bigbangessentials.util.ResourceUtil;
-import net.neoforged.fml.common.Mod;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.commands.CommandSourceStack;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import net.neoforged.neoforge.event.server.ServerStartingEvent;
-import net.neoforged.neoforge.event.server.ServerStartedEvent;
-import net.neoforged.neoforge.event.server.ServerStoppingEvent;
-import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +18,6 @@ import com.pedrodalben.bigbangessentials.util.MessageUtil;
 
 
 
-@Mod("bigbangessentials")
 public class BigBangEssentials {
     private static final Logger LOGGER = LoggerFactory.getLogger(BigBangEssentials.class);
     
@@ -37,8 +28,13 @@ public class BigBangEssentials {
     private static final String MINECRAFT_VERSION = "1.21.1-1.21.10";
     private static final String NEOFORGE_VERSION = "21.1.179+";
 
-    @SuppressWarnings("unused") // modEventBus parameter required by NeoForge @Mod constructor
-    public BigBangEssentials(IEventBus modEventBus) {
+    private static BigBangEssentials instance;
+
+    public static void init() {
+        instance = new BigBangEssentials();
+    }
+
+    public BigBangEssentials() {
         long startTime = System.currentTimeMillis();
         
         // Enhanced initialization logging with version and build info
@@ -48,9 +44,6 @@ public class BigBangEssentials {
         LOGGER.info("╚════════════════════════════════════════════════════════════════╝");
         LOGGER.info("");
         LOGGER.info("Initializing {} systems...", MOD_NAME);
-
-        NeoForge.EVENT_BUS.register(GameEvents.class);
-        LOGGER.info("Registered BigBangEssentials game event handlers");
 
         // Move legacy config files into world/serverconfig before any manager loads them.
         try {
@@ -200,8 +193,7 @@ public class BigBangEssentials {
     
     public static class GameEvents {
         
-        @SubscribeEvent
-        public static void onServerStarting(ServerStartingEvent event) {
+        public static void onServerStarting(net.minecraft.server.MinecraftServer server) {
             LOGGER.info("════════════════════════════════════════════════════════════════");
             LOGGER.info("Server starting - initializing BigBangEssentials systems...");
             LOGGER.info("════════════════════════════════════════════════════════════════");
@@ -326,8 +318,7 @@ public class BigBangEssentials {
             LOGGER.info("════════════════════════════════════════════════════════════════");
         }
         
-        @SubscribeEvent
-        public static void onServerStarted(ServerStartedEvent event) {
+        public static void onServerStarted(net.minecraft.server.MinecraftServer server) {
             LOGGER.info("Server started - initializing chat system...");
 
             // Initialize chat integration adapters (SDLink, DCIntegration, DiscordSRV, etc.)
@@ -355,7 +346,7 @@ public class BigBangEssentials {
 
             try {
                 com.pedrodalben.bigbangessentials.kits.command.KitCommands.logRegisteredKitCommandTree(
-                    event.getServer().getCommands().getDispatcher(),
+                    server.getCommands().getDispatcher(),
                     "after server start"
                 );
             } catch (Exception e) {
@@ -377,7 +368,7 @@ public class BigBangEssentials {
             
             // Apply nicknames to all online players
             try {
-                com.pedrodalben.bigbangessentials.util.commands.NickCommand.applyNicknamesToOnlinePlayers(event.getServer());
+                com.pedrodalben.bigbangessentials.util.commands.NickCommand.applyNicknamesToOnlinePlayers(server);
                 LOGGER.info("Player nicknames applied successfully");
             } catch (Exception e) {
                 LOGGER.error("Failed to apply player nicknames on server start", e);
@@ -392,10 +383,9 @@ public class BigBangEssentials {
             }
         }
         
-        @SubscribeEvent
-        public static void onPlayerLoggedIn(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+        public static void onPlayerLoggedIn(net.minecraft.server.level.ServerPlayer player) {
             // Check if we should notify admins about config splitting
-            if (ConfigSplitter.shouldNotifyAdmins() && event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            if (ConfigSplitter.shouldNotifyAdmins()) {
                 // Check if player has permission (OP or wildcard permission)
                 if (player.hasPermissions(4) ||
                     com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), "*") ||
@@ -440,8 +430,7 @@ public class BigBangEssentials {
             }
         }
 
-        @SubscribeEvent
-        public static void onServerStopping(ServerStoppingEvent event) {
+        public static void onServerStopping(net.minecraft.server.MinecraftServer server) {
             LOGGER.info("════════════════════════════════════════════════════════════════");
             LOGGER.info("Server stopping - shutting down BigBangEssentials systems...");
             LOGGER.info("════════════════════════════════════════════════════════════════");
@@ -555,10 +544,8 @@ public class BigBangEssentials {
             */
         }
 
-        @SubscribeEvent
-        public static void onRegisterCommands(RegisterCommandsEvent event) {
+        public static void onRegisterCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
             LOGGER.info("Registering BigBangEssentials commands...");
-            CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
             CommandRegistry registry = CommandRegistry.getInstance();
             
             // Remove vanilla /msg, /tell, /w commands so we can override them
