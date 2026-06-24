@@ -939,12 +939,7 @@ public class PlayerDataCollector {
      */
     private String getModName(String namespace) {
         try {
-            // Try to get mod info from NeoForge mod list (use var for wildcard capture)
-            var modContainerOpt = net.neoforged.fml.ModList.get().getModContainerById(namespace);
-
-            if (modContainerOpt.isPresent()) {
-                return modContainerOpt.get().getModInfo().getDisplayName();
-            }
+            return com.pedrodalben.bigbangessentials.util.Platform.getModName(namespace);
         } catch (Exception e) {
             LOGGER.debug("Could not get mod name for namespace: {}", namespace);
         }

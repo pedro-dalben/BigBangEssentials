@@ -47,19 +47,16 @@ public class ServerDataCollector {
             profile.addProperty("motd", server.getMotd());
             profile.addProperty("minecraftVersion", server.getServerVersion());
             
-            // Get NeoForge version dynamically from mod list
-            String neoforgeVersion = "Unknown";
+            // Get loader version dynamically
+            String loaderVersion = "Unknown";
             try {
-                var neoforgeModOpt = net.neoforged.fml.ModList.get().getModContainerById("neoforge");
-                if (neoforgeModOpt.isPresent()) {
-                    neoforgeVersion = "NeoForge " + neoforgeModOpt.get().getModInfo().getVersion().toString();
-                }
+                loaderVersion = com.pedrodalben.bigbangessentials.util.Platform.getLoaderName() + " " + com.pedrodalben.bigbangessentials.util.Platform.getLoaderVersion();
             } catch (Exception e) {
-                LOGGER.warn("Could not determine NeoForge version: {}", e.getMessage());
-                neoforgeVersion = "NeoForge (version unavailable)";
+                LOGGER.warn("Could not determine loader version: {}", e.getMessage());
+                loaderVersion = "Loader (version unavailable)";
             }
-            profile.addProperty("modVersion", neoforgeVersion);
-            profile.addProperty("neoforgeVersion", neoforgeVersion);
+            profile.addProperty("modVersion", loaderVersion);
+            profile.addProperty("neoforgeVersion", loaderVersion);
             
             profile.addProperty("gameVersion", "1.21.1");
             profile.addProperty("difficulty", server.getWorldData().getDifficulty().getKey());
@@ -78,11 +75,11 @@ public class ServerDataCollector {
             // Installed mods
             JsonArray mods = new JsonArray();
             try {
-                net.neoforged.fml.ModList.get().getMods().forEach(modInfo -> {
+                com.pedrodalben.bigbangessentials.util.Platform.getMods().forEach(modInfo -> {
                     JsonObject mod = new JsonObject();
-                    mod.addProperty("id", modInfo.getModId());
-                    mod.addProperty("name", modInfo.getDisplayName());
-                    mod.addProperty("version", modInfo.getVersion().toString());
+                    mod.addProperty("id", modInfo.id());
+                    mod.addProperty("name", modInfo.name());
+                    mod.addProperty("version", modInfo.version());
                     mods.add(mod);
                 });
                 profile.add("mods", mods);

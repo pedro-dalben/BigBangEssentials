@@ -609,7 +609,7 @@ public class FileManagementHandler implements HttpHandler {
         JsonObject response = new JsonObject();
         try {
             net.minecraft.server.MinecraftServer srv =
-                net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+                com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
 
             // TPS
             if (srv != null) {
@@ -681,7 +681,7 @@ public class FileManagementHandler implements HttpHandler {
             }
 
             net.minecraft.server.MinecraftServer srv =
-                net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+                com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (srv == null) {
                 response.addProperty("success", false);
                 response.addProperty("error", "Server not available");

@@ -13,7 +13,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,7 +103,7 @@ public class CommandExecutionHandler implements HttpHandler {
             return;
         }
         
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server == null) {
             sendJsonResponse(exchange, 503, createErrorResponse("Server not available"));
             return;
@@ -198,7 +197,7 @@ public class CommandExecutionHandler implements HttpHandler {
         Map<String, String> params = parseQueryParams(exchange.getRequestURI().getQuery());
         String input = params.getOrDefault("input", "").toLowerCase();
         
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server == null) {
             sendJsonResponse(exchange, 503, createErrorResponse("Server not available"));
             return;

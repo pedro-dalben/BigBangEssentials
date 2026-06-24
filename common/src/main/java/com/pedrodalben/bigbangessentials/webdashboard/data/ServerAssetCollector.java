@@ -64,9 +64,9 @@ public class ServerAssetCollector {
             if (!itemId.getNamespace().equals("minecraft")) {
                 // Try to get mod name
                 try {
-                    var modContainer = net.neoforged.fml.ModList.get().getModContainerById(itemId.getNamespace());
-                    if (modContainer.isPresent()) {
-                        itemData.addProperty("modName", modContainer.get().getModInfo().getDisplayName());
+                    String modName = com.pedrodalben.bigbangessentials.util.Platform.getModName(itemId.getNamespace());
+                    if (modName != null) {
+                        itemData.addProperty("modName", modName);
                     }
                 } catch (Exception e) {
                     // Mod not found, skip
@@ -143,10 +143,13 @@ public class ServerAssetCollector {
         // Try to get mod info
         if (!namespace.equals("minecraft")) {
             try {
-                var modContainer = net.neoforged.fml.ModList.get().getModContainerById(namespace);
-                if (modContainer.isPresent()) {
-                    result.addProperty("modName", modContainer.get().getModInfo().getDisplayName());
-                    result.addProperty("modVersion", modContainer.get().getModInfo().getVersion().toString());
+                String modName = com.pedrodalben.bigbangessentials.util.Platform.getModName(namespace);
+                String modVersion = com.pedrodalben.bigbangessentials.util.Platform.getModVersion(namespace);
+                if (modName != null) {
+                    result.addProperty("modName", modName);
+                }
+                if (modVersion != null) {
+                    result.addProperty("modVersion", modVersion);
                 }
             } catch (Exception e) {
                 LOGGER.debug("Could not get mod info for namespace: {}", namespace);

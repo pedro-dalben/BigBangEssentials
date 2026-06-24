@@ -2,8 +2,7 @@ package com.pedrodalben.bigbangessentials.webdashboard.security;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import com.pedrodalben.bigbangessentials.util.Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +41,7 @@ public class DiscordAuthProvider {
      * Loads SDLink API classes: MinecraftAccount and CacheManager
      */
     private void initialize() {
-        sdLinkAvailable = ModList.get().isLoaded("sdlink");
+        sdLinkAvailable = Platform.isModLoaded("sdlink");
         
         if (sdLinkAvailable) {
             try {
@@ -94,7 +93,7 @@ public class DiscordAuthProvider {
         
         try {
             // Get Minecraft server
-            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            MinecraftServer server = Platform.getCurrentServer();
             if (server == null) {
                 LOGGER.warn("Server not available, cannot retrieve linked account");
                 return null;
@@ -358,7 +357,7 @@ public class DiscordAuthProvider {
         try {
             // First, try to get the Discord ID from verifiedaccounts.json
             SDLinkDataReader dataReader = new SDLinkDataReader(
-                ServerLifecycleHooks.getCurrentServer().getServerDirectory()
+                Platform.getCurrentServer().getServerDirectory()
             );
             
             String discordId = dataReader.getDiscordId(minecraftUuid);
