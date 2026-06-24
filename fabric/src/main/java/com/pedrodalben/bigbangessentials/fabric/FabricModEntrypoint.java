@@ -18,6 +18,9 @@ public class FabricModEntrypoint implements ModInitializer {
         // Initialize common systems
         BigBangEssentials.init();
 
+        // Register Fabric-specific events
+        com.pedrodalben.bigbangessentials.fabric.listener.FabricEvents.register();
+
         // Register Server Lifecycle events
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             FabricPlatformProvider.setServer(server);

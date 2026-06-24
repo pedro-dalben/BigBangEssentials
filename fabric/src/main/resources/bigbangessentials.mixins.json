@@ -3,7 +3,10 @@
   "package": "com.pedrodalben.bigbangessentials.fabric.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "EntityPersistentDataMixin"
+    "EntityPersistentDataMixin",
+    "BlockItemMixin",
+    "MobMixin",
+    "FishingHookMixin"
   ],
   "client": [],
   "injectors": {
