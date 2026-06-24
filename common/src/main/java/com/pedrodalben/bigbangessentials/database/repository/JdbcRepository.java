@@ -26,13 +26,19 @@ import com.pedrodalben.bigbangessentials.database.execution.DatabaseExecutor;
  * </pre>
  */
 public abstract class JdbcRepository {
-    protected final DatabaseExecutor database;
+    private DatabaseExecutor database;
 
     protected JdbcRepository() {
-        this.database = DatabaseManager.getInstance().getExecutor();
     }
 
     protected JdbcRepository(DatabaseExecutor database) {
         this.database = database;
+    }
+
+    protected DatabaseExecutor getDatabase() {
+        if (this.database == null) {
+            this.database = DatabaseManager.getInstance().getExecutor();
+        }
+        return this.database;
     }
 }

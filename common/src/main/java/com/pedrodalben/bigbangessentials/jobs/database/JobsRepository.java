@@ -30,7 +30,7 @@ public class JobsRepository extends JdbcRepository {
         }
 
         String sql = "SELECT job_id, level, xp, skill_points, active FROM bbe_player_jobs WHERE uuid = ?";
-        return database.queryList("loadPlayerJobs", sql,
+        return getDatabase().queryList("loadPlayerJobs", sql,
                 stmt -> stmt.setString(1, uuid.toString()),
                 rs -> {
                     String jobId = rs.getString("job_id").toLowerCase();
@@ -69,7 +69,7 @@ public class JobsRepository extends JdbcRepository {
             sql = "INSERT OR REPLACE INTO bbe_player_jobs (uuid, job_id, level, xp, skill_points, active) VALUES (?, ?, ?, ?, ?, ?)";
         }
 
-        return database.executeUpdate("savePlayerJob", sql,
+        return getDatabase().executeUpdate("savePlayerJob", sql,
                 stmt -> {
                     stmt.setString(1, uuid.toString());
                     stmt.setString(2, jobId.toLowerCase());
@@ -87,7 +87,7 @@ public class JobsRepository extends JdbcRepository {
         }
 
         String sql = "SELECT skill_id, rank FROM bbe_player_job_skills WHERE uuid = ? AND job_id = ?";
-        return database.queryList("loadPlayerJobSkills", sql,
+        return getDatabase().queryList("loadPlayerJobSkills", sql,
                 stmt -> {
                     stmt.setString(1, uuid.toString());
                     stmt.setString(2, jobId.toLowerCase());
@@ -119,7 +119,7 @@ public class JobsRepository extends JdbcRepository {
             sql = "INSERT OR REPLACE INTO bbe_player_job_skills (uuid, job_id, skill_id, rank) VALUES (?, ?, ?, ?)";
         }
 
-        return database.executeUpdate("savePlayerJobSkill", sql,
+        return getDatabase().executeUpdate("savePlayerJobSkill", sql,
                 stmt -> {
                     stmt.setString(1, uuid.toString());
                     stmt.setString(2, jobId.toLowerCase());
@@ -135,7 +135,7 @@ public class JobsRepository extends JdbcRepository {
         }
 
         String sql = "SELECT job_id, amount FROM bbe_player_job_earnings WHERE uuid = ? AND cycle_start = ?";
-        return database.queryList("loadPlayerJobEarnings", sql,
+        return getDatabase().queryList("loadPlayerJobEarnings", sql,
                 stmt -> {
                     stmt.setString(1, uuid.toString());
                     stmt.setLong(2, cycleStart);
@@ -167,7 +167,7 @@ public class JobsRepository extends JdbcRepository {
             sql = "INSERT OR REPLACE INTO bbe_player_job_earnings (uuid, job_id, cycle_start, amount) VALUES (?, ?, ?, ?)";
         }
 
-        return database.executeUpdate("savePlayerJobEarnings", sql,
+        return getDatabase().executeUpdate("savePlayerJobEarnings", sql,
                 stmt -> {
                     stmt.setString(1, uuid.toString());
                     stmt.setString(2, jobId.toLowerCase());
@@ -183,7 +183,7 @@ public class JobsRepository extends JdbcRepository {
         }
 
         String sql = "SELECT uuid, level, xp FROM bbe_player_jobs WHERE job_id = ? ORDER BY level DESC, xp DESC LIMIT 10";
-        return database.queryList("loadRanking", sql,
+        return getDatabase().queryList("loadRanking", sql,
                 stmt -> stmt.setString(1, jobId.toLowerCase()),
                 rs -> {
                     UUID uuid = UUID.fromString(rs.getString("uuid"));
