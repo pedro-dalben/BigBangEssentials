@@ -29,7 +29,7 @@ public class JobAdminCommandService {
     }
 
     public void savePlayerData(UUID uuid, PlayerJobsData data) {
-        ServerPlayer player = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(uuid);
+        ServerPlayer player = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer().getPlayerList().getPlayer(uuid);
         JobsManager.getInstance().savePlayerData(uuid).thenRun(() -> {
             if (player == null) {
                 JobsManager.getInstance().getPlayerDataCache().remove(uuid);
@@ -52,7 +52,7 @@ public class JobAdminCommandService {
             progress.setLevel(result.getNewLevel());
             progress.setSkillPoints(progress.getSkillPoints() + result.getSkillPointsGained());
             
-            MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 String name = server.getProfileCache().get(data.getUuid()).map(GameProfile::getName).orElse(data.getUuid().toString());
                 JobLevelService.getInstance().executeLevelUpRewards(server, name, jobDef, currentLevel, result.getNewLevel());
