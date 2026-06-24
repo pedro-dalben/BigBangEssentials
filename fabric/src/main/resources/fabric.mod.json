@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "bigbangessentials",
+  "version": "${version}",
+  "name": "BigBangEssentials",
+  "description": "BigBangEssentials is a mod that adds many useful commands and features to Minecraft servers.",
+  "authors": [
+    "pedrodalben"
+  ],
+  "contact": {
+    "homepage": "https://github.com/pedro-dalben/BigBangEssentials"
+  },
+  "license": "All Rights Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.pedrodalben.bigbangessentials.fabric.FabricModEntrypoint"
+    ]
+  },
+  "mixins": [
+    "bigbangessentials.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "minecraft": "1.21.1",
+    "fabric-api": "*"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.pedrodalben.bigbangessentials.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "EntityPersistentDataMixin"
+  ],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
