@@ -199,7 +199,7 @@ public class JailManager {
         }
 
         // Store original location
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
@@ -244,7 +244,7 @@ public class JailManager {
             saveJailedPlayers();
             
             // Teleport back to original location if online
-            MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 ServerPlayer player = server.getPlayerList().getPlayer(playerId);
                 if (player != null) {

@@ -125,7 +125,7 @@ public class VanishManager {
         saveData();
         
         // Hide player from others
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             ServerPlayer vanishedPlayer = server.getPlayerList().getPlayer(playerId);
             if (vanishedPlayer != null) {
@@ -152,7 +152,7 @@ public class VanishManager {
         saveData();
         
         // Show player to others
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             ServerPlayer unvanishedPlayer = server.getPlayerList().getPlayer(playerId);
             if (unvanishedPlayer != null) {
@@ -189,7 +189,7 @@ public class VanishManager {
     viewerPriorities.put(playerId, viewerPriority);
         
         // Show all vanished players to this player
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             ServerPlayer observer = server.getPlayerList().getPlayer(playerId);
             if (observer != null) {
@@ -214,7 +214,7 @@ public class VanishManager {
     viewerPriorities.remove(playerId);
         
         // Hide all vanished players from this player
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             ServerPlayer observer = server.getPlayerList().getPlayer(playerId);
             if (observer != null) {
@@ -318,7 +318,7 @@ public class VanishManager {
     boolean hideFromTabList = com.pedrodalben.bigbangessentials.config.ConfigManager.isHideFromTabListEnabled();
         if (!hideFromTabList) return;
 
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server == null) return;
 
         UUID vanishedId = vanishedPlayer.getUUID();
@@ -338,7 +338,7 @@ public class VanishManager {
      * Show a player to all other players
      */
     private void showPlayerToOthers(ServerPlayer unvanishedPlayer) {
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server == null) return;
         
         for (ServerPlayer otherPlayer : server.getPlayerList().getPlayers()) {

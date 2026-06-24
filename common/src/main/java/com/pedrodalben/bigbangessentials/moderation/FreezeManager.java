@@ -100,7 +100,7 @@ public class FreezeManager {
         FreezeEntry freeze = new FreezeEntry(playerName, playerId, reason, frozenBy);
 
         // Store current position if online
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
@@ -135,7 +135,7 @@ public class FreezeManager {
             saveData();
             
             // Notify player if online
-            MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 ServerPlayer player = server.getPlayerList().getPlayer(playerId);
                 if (player != null) {
@@ -162,7 +162,7 @@ public class FreezeManager {
      * Freeze all players on the server
      */
     public int freezeAllPlayers(String reason, String frozenBy) {
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server == null) return 0;
         
         int count = 0;
@@ -183,7 +183,7 @@ public class FreezeManager {
         int count = frozenPlayers.size();
         
         // Notify all online frozen players
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             for (UUID playerId : frozenPlayers.keySet()) {
                 ServerPlayer player = server.getPlayerList().getPlayer(playerId);

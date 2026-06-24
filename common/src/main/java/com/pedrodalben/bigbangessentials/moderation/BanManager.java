@@ -204,7 +204,7 @@ public class BanManager {
         playerBans.put(playerId, ban);
         saveBans();
         // Kick player if online
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
@@ -257,7 +257,7 @@ public class BanManager {
         saveBans();
 
         // Kick player if online
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player != null) {
@@ -309,7 +309,7 @@ public class BanManager {
         saveIPBans();
 
         // Kick all players with this IP
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             List<ServerPlayer> playersToKick = new ArrayList<>();
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -346,7 +346,7 @@ public class BanManager {
         saveIPBans();
 
         // Kick all players with this IP
-        MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
         if (server != null) {
             for (ServerPlayer player : new ArrayList<>(server.getPlayerList().getPlayers())) {
                 if (getPlayerIP(player).equals(ipAddress)) {
@@ -370,7 +370,7 @@ public class BanManager {
         if (removed != null) {
             saveBans();
             // Broadcast to staff if enabled
-            MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null && com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isBroadcastBansEnabled()) {
                 String staffPerm = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().getStaffNotificationPermission();
                 String staffMsg = "[BigBangEssentials] Player " + removed.playerName + " was unbanned.";
