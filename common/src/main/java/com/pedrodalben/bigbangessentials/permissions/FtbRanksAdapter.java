@@ -11,8 +11,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import com.pedrodalben.bigbangessentials.util.Platform;
 import com.mojang.authlib.GameProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +57,7 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
     private Method permissionValueAsStringMethod;
 
     public FtbRanksAdapter() {
-        this.ftbRanksLoaded = ModList.get().isLoaded("ftbranks");
+        this.ftbRanksLoaded = Platform.isModLoaded("ftbranks");
         if (ftbRanksLoaded) {
             try {
                 Class<?> ftbRanksAPIClass = Class.forName("dev.ftb.mods.ftbranks.api.FTBRanksAPI");
@@ -93,7 +92,7 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
         }
 
         try {
-            var server = ServerLifecycleHooks.getCurrentServer();
+            var server = Platform.getCurrentServer();
             if (server == null) {
                 return getDefaultPermissionValue(permission);
             }
@@ -259,7 +258,7 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
     }
 
     private Object getExactPermissionValue(UUID uuid, String node) throws Exception {
-        var server = ServerLifecycleHooks.getCurrentServer();
+        var server = Platform.getCurrentServer();
         if (server != null) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
@@ -271,7 +270,7 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
     }
 
     private Object getPermissionValue(UUID uuid, String node) throws Exception {
-        var server = ServerLifecycleHooks.getCurrentServer();
+        var server = Platform.getCurrentServer();
         if (server == null) {
             return null;
         }
@@ -502,7 +501,7 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
         }
 
         try {
-            var server = ServerLifecycleHooks.getCurrentServer();
+            var server = Platform.getCurrentServer();
             ServerPlayer player = server != null ? server.getPlayerList().getPlayer(uuid) : null;
             List<?> sortedRanks = player != null ? getSortedAddedRanks(player) : getSortedAddedRanks(uuid);
             if (sortedRanks == null || sortedRanks.isEmpty()) {

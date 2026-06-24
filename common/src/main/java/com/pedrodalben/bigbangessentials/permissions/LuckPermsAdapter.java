@@ -5,7 +5,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import net.neoforged.fml.ModList;
+import com.pedrodalben.bigbangessentials.util.Platform;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.model.user.User;
@@ -25,7 +25,7 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
     private static final long USER_LOAD_TIMEOUT = 5; // seconds
 
     public LuckPermsAdapter() {
-        this.luckPermsLoaded = ModList.get().isLoaded("luckperms");
+        this.luckPermsLoaded = Platform.isModLoaded("luckperms");
         if (luckPermsLoaded) {
             try {
                 this.luckPermsApi = LuckPermsProvider.get();

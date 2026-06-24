@@ -200,7 +200,7 @@ public class PermissionAPI {
      */
     private static boolean isPlayerOpped(UUID uuid) {
         try {
-            net.minecraft.server.MinecraftServer server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server != null) {
                 // Try to get the player directly and check their permission level
                 net.minecraft.server.level.ServerPlayer player = server.getPlayerList().getPlayer(uuid);
