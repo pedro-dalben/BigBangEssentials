@@ -5,7 +5,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.pedrodalben.bigbangessentials.BigBangEssentialsManager;
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
+import com.pedrodalben.bigbangessentials.database.api.PlayerPreferencesStorage;
 import com.pedrodalben.bigbangessentials.util.PlayerDataStore;
 import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,12 +27,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * TagManager - Stores chat tag definitions and each player's selected tag.
- *
- * <p>Tag definitions are global and persisted in {@code world/serverconfig/bigbangessentials/tags.json}.</p>
- * <p>Each player's selected tag is persisted separately in {@code bigbangessentials/playerdata/tags/}.</p>
- */
 public class TagManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(TagManager.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -44,8 +40,10 @@ public class TagManager {
     private final PlayerDataStore selectedTagStore = new PlayerDataStore("tags");
     private final File tagsFile = ResourceUtil.getConfigFile(TAGS_FILE_NAME);
     private final Object fileLock = new Object();
+    private PlayerPreferencesStorage dbStorage;
 
     private TagManager() {
+        this.dbStorage = BigBangEssentialsManager.getInstance().getPreferencesStorage();
         reload();
     }
 
@@ -60,9 +58,6 @@ public class TagManager {
         return instance;
     }
 
-    /**
-     * Reload tag definitions from disk.
-     */
     public void reload() {
         synchronized (fileLock) {
             tags.clear();
@@ -70,17 +65,11 @@ public class TagManager {
         }
     }
 
-    /**
-     * Returns true if a tag exists.
-     */
     public boolean hasTag(String tagName) {
         String normalized = normalizeTagName(tagName);
         return normalized != null && tags.containsKey(normalized);
     }
 
-    /**
-     * Returns the raw format for a tag or null if not found.
-     */
     public String getTagFormat(String tagName) {
         String normalized = normalizeTagName(tagName);
         if (normalized == null) {
@@ -89,9 +78,6 @@ public class TagManager {
         return tags.get(normalized);
     }
 
-    /**
-     * Returns the permission node for a tag.
-     */
     public static String getPermissionNode(String tagName) {
         String normalized = normalizeTagName(tagName);
         if (normalized == null || normalized.isEmpty()) {
@@ -100,9 +86,6 @@ public class TagManager {
         return "bigbangessentials.tag." + normalized;
     }
 
-    /**
-     * Create or update a tag definition.
-     */
     public boolean upsertTag(String tagName, String format) {
         String normalized = normalizeTagName(tagName);
         if (!isValidTagName(normalized) || !isValidTagFormat(format)) {
@@ -117,9 +100,6 @@ public class TagManager {
         return true;
     }
 
-    /**
-     * Deletes a tag definition.
-     */
     public boolean deleteTag(String tagName) {
         String normalized = normalizeTagName(tagName);
         if (!isValidTagName(normalized)) {
@@ -136,18 +116,12 @@ public class TagManager {
         return true;
     }
 
-    /**
-     * Returns all tag names sorted alphabetically.
-     */
     public List<String> getAllTagNames() {
         List<String> result = new ArrayList<>(tags.keySet());
         Collections.sort(result);
         return result;
     }
 
-    /**
-     * Returns the tags the player can currently use.
-     */
     public List<String> getAccessibleTagNames(UUID playerId) {
         List<String> result = new ArrayList<>();
         for (String tagName : getAllTagNames()) {
@@ -158,10 +132,16 @@ public class TagManager {
         return result;
     }
 
-    /**
-     * Returns the currently selected tag name for a player, or null if none.
-     */
     public String getSelectedTagName(UUID playerId) {
+        String dbTag = loadSelectedTagFromDatabase(playerId);
+        if (dbTag != null) {
+            String normalized = normalizeTagName(dbTag);
+            if (normalized != null && tags.containsKey(normalized)) {
+                return normalized;
+            }
+            return null;
+        }
+
         JsonObject data = selectedTagStore.load(playerId);
         if (data == null || !data.has(SELECTED_TAG_KEY)) {
             return null;
@@ -182,9 +162,15 @@ public class TagManager {
         return normalized;
     }
 
-    /**
-     * Returns the selected tag format without any trailing separator.
-     */
+    private String loadSelectedTagFromDatabase(UUID playerId) {
+        if (dbStorage == null) return null;
+        try {
+            return dbStorage.loadTag(playerId).get();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public String getSelectedTagFormat(UUID playerId) {
         String tagName = getSelectedTagName(playerId);
         if (tagName == null) {
@@ -195,10 +181,6 @@ public class TagManager {
         return format != null ? format : "";
     }
 
-    /**
-     * Returns the selected tag text for chat.
-     * Keeps the tag color local by appending a reset after the tag content.
-     */
     public String getSelectedChatTag(ServerPlayer player) {
         if (player == null) {
             return "";
@@ -214,12 +196,9 @@ public class TagManager {
             return "";
         }
 
-        return ensureTrailingSpace(format) + "§r";
+        return ensureTrailingSpace(format) + "\u00a7r";
     }
 
-    /**
-     * Returns the selected tag name if it is still accessible to the player.
-     */
     public String getSelectedAccessibleTagName(ServerPlayer player) {
         if (player == null) {
             return null;
@@ -233,9 +212,6 @@ public class TagManager {
         return canUseTag(player.getUUID(), tagName) ? tagName : null;
     }
 
-    /**
-     * Returns true if the player has permission for the tag.
-     */
     public boolean canUseTag(UUID playerId, String tagName) {
         String normalized = normalizeTagName(tagName);
         if (normalized == null || !tags.containsKey(normalized)) {
@@ -244,9 +220,6 @@ public class TagManager {
         return PermissionAPI.hasPermission(playerId, getPermissionNode(normalized));
     }
 
-    /**
-     * Select a tag for a player.
-     */
     public boolean selectTag(UUID playerId, String tagName) {
         String normalized = normalizeTagName(tagName);
         if (normalized == null || !tags.containsKey(normalized) || !canUseTag(playerId, normalized)) {
@@ -256,19 +229,26 @@ public class TagManager {
         JsonObject data = selectedTagStore.load(playerId);
         data.addProperty(SELECTED_TAG_KEY, normalized);
         selectedTagStore.save(playerId, data);
+
+        saveSelectedTagToDatabase(playerId, normalized);
         return true;
     }
 
-    /**
-     * Clears a player's selected tag.
-     */
     public void clearSelectedTag(UUID playerId) {
         selectedTagStore.delete(playerId);
+        deleteSelectedTagFromDatabase(playerId);
     }
 
-    /**
-     * Apply a selected chat tag to a template if the template does not already contain an explicit tag placeholder.
-     */
+    private void saveSelectedTagToDatabase(UUID playerId, String tagName) {
+        if (dbStorage == null) return;
+        dbStorage.saveTag(playerId, tagName);
+    }
+
+    private void deleteSelectedTagFromDatabase(UUID playerId) {
+        if (dbStorage == null) return;
+        dbStorage.deleteTag(playerId);
+    }
+
     public String applyChatTags(ServerPlayer player, String template) {
         if (player == null || template == null || template.isEmpty()) {
             return template;
@@ -279,7 +259,6 @@ public class TagManager {
             return template;
         }
 
-        // If the user placed a tag placeholder manually, do not inject a second copy.
         if (template.contains("{bigbangessentials_tag")) {
             return template;
         }
@@ -291,9 +270,6 @@ public class TagManager {
         return result;
     }
 
-    /**
-     * Validate a tag name for safe storage and permission generation.
-     */
     public static boolean isValidTagName(String tagName) {
         if (tagName == null) {
             return false;
@@ -315,9 +291,6 @@ public class TagManager {
         return true;
     }
 
-    /**
-     * Validate a tag format string.
-     */
     public static boolean isValidTagFormat(String format) {
         if (format == null) {
             return false;

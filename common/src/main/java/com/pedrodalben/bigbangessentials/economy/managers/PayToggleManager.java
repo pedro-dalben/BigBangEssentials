@@ -1,151 +1,87 @@
-
 package com.pedrodalben.bigbangessentials.economy.managers;
+
+import com.pedrodalben.bigbangessentials.BigBangEssentialsManager;
+import com.pedrodalben.bigbangessentials.config.ConfigManager;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.api.PlayerPreferencesStorage;
+import com.pedrodalben.bigbangessentials.database.api.PlayerPreferencesStorage.PlayerPreferences;
+import com.pedrodalben.bigbangessentials.database.repository.JdbcPlayerPreferencesStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.util.Map;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import java.lang.reflect.Type;
 
 public class PayToggleManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(PayToggleManager.class);
-    
-    // Thread-safe singleton using Bill Pugh Singleton Pattern
+
     private static class SingletonHolder {
         private static final PayToggleManager INSTANCE = new PayToggleManager();
     }
-    
+
     public static PayToggleManager getInstance() {
         return SingletonHolder.INSTANCE;
     }
 
     private final ConcurrentHashMap<UUID, Boolean> paytoggleCache = new ConcurrentHashMap<>();
-    private final File togglesFile = com.pedrodalben.bigbangessentials.util.ResourceUtil.getDataFile("paytoggles.json");
-    private final Gson gson = new Gson();
-    // Use daemon thread to prevent blocking JVM shutdown
-private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-    Thread t = new Thread(r, "PayToggle-Save");
-    t.setDaemon(true);
-    return t;
-});
-    private final AtomicBoolean saveQueued = new AtomicBoolean(false);
-    @SuppressWarnings("unused") // Reserved for future direct config access
-    private final ConfigManager configManager = ConfigManager.getInstance();
+    private final PlayerPreferencesStorage storage;
 
     private PayToggleManager() {
-        // Don't initialize config in constructor to avoid circular dependency
-        // Will be lazy-loaded when needed
-        loadToggles();
-        saveExecutor.scheduleAtFixedRate(this::saveTogglesAtomic, 5, 5, TimeUnit.MINUTES);
-    }
-    
-
-
-    private void loadToggles() {
-        if (!togglesFile.getParentFile().exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            togglesFile.getParentFile().mkdirs();
+        this.storage = BigBangEssentialsManager.getInstance().getPreferencesStorage();
+        if (storage != null) {
+            loadTogglesFromDatabase();
         }
-        if (!togglesFile.exists()) return;
-        try (FileReader reader = new FileReader(togglesFile)) {
-            Type type = new TypeToken<Map<String, Boolean>>(){}.getType();
-            Map<String, Boolean> data = gson.fromJson(reader, type);
-            if (data != null) {
-                for (Map.Entry<String, Boolean> entry : data.entrySet()) {
-                    paytoggleCache.put(UUID.fromString(entry.getKey()), entry.getValue());
-                }
+    }
+
+    private void loadTogglesFromDatabase() {
+        storage.loadPreferences(UUID.randomUUID()).whenComplete((prefs, err) -> {
+            if (err != null) {
+                LOGGER.warn("Pay toggle DB not available yet, using defaults: {}", err.getMessage());
             }
-        } catch (Exception e) {
-            LOGGER.error("Failed to load pay toggles", e);
-        }
-    }
-
-    private void saveTogglesAtomic() {
-        if (!togglesFile.getParentFile().exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            togglesFile.getParentFile().mkdirs();
-        }
-        try {
-            File tempFile = new File(togglesFile.getAbsolutePath() + ".tmp");
-            try (FileWriter writer = new FileWriter(tempFile)) {
-                Map<String, Boolean> data = new ConcurrentHashMap<>();
-                for (Map.Entry<UUID, Boolean> entry : paytoggleCache.entrySet()) {
-                    data.put(entry.getKey().toString(), entry.getValue());
-                }
-                gson.toJson(data, writer);
-            }
-            Files.move(tempFile.toPath(), togglesFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (IOException e) {
-            LOGGER.error("Failed to save pay toggles", e);
-        }
-    }
-
-    private void queueAsyncSave() {
-        if (saveQueued.compareAndSet(false, true)) {
-            saveExecutor.execute(() -> {
-                try {
-                    saveTogglesAtomic();
-                } finally {
-                    saveQueued.set(false);
-                }
-            });
-        }
+        });
     }
 
     public boolean getPayToggle(UUID player) {
-        return paytoggleCache.computeIfAbsent(player, 
-            uuid -> com.pedrodalben.bigbangessentials.config.ConfigManager.getPayToggleDefault());
+        return paytoggleCache.computeIfAbsent(player,
+            uuid -> {
+                if (storage == null) {
+                    return ConfigManager.getPayToggleDefault();
+                }
+                try {
+                    return storage.loadPreferences(uuid)
+                            .thenApply(PlayerPreferences::payToggle)
+                            .get();
+                } catch (Exception e) {
+                    return ConfigManager.getPayToggleDefault();
+                }
+            });
     }
 
     public void setPayToggle(UUID player, boolean enabled) {
         paytoggleCache.put(player, enabled);
-        queueAsyncSave();
+        if (storage != null) {
+            storage.loadPreferences(player).thenCompose(prefs ->
+                    storage.savePreferences(player, new PlayerPreferences(
+                            prefs.vanishMode(), prefs.godMode(), prefs.flyMode(),
+                            prefs.tpToggle(), prefs.msgToggle(), enabled,
+                            prefs.socialspy(), prefs.teleportMenusEnabled(),
+                            prefs.warpsDisplayMode(), prefs.homesDisplayMode(),
+                            prefs.pwarpsDisplayMode(), prefs.lastLocation()
+                    ))
+            ).exceptionally(err -> {
+                LOGGER.error("Failed to save pay toggle for {}: {}", player, err.getMessage());
+                return null;
+            });
+        }
     }
 
-    @SuppressWarnings("unused") // Public API method
-    public Map<UUID, Boolean> getAllToggles() {
+    @SuppressWarnings("unused")
+    public ConcurrentHashMap<UUID, Boolean> getAllToggles() {
         return new ConcurrentHashMap<>(paytoggleCache);
     }
 
-    /**
-     * Shutdown the PayToggleManager and clean up resources.
-     * Saves any pending data and terminates the executor service.
-     */
     public void shutdown() {
-        try {
-            // Save any pending data immediately
-            saveTogglesAtomic();
-            
-            // Shutdown executor service
-            saveExecutor.shutdown();
-            try {
-                if (!saveExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
-                    LOGGER.warn("PayToggleManager executor did not terminate gracefully, forcing shutdown...");
-                    saveExecutor.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                LOGGER.warn("Interrupted while waiting for PayToggleManager executor shutdown");
-                saveExecutor.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-            
-            LOGGER.info("PayToggleManager shutdown complete.");
-        } catch (Exception e) {
-            LOGGER.error("Error during PayToggleManager shutdown", e);
-        }
+        LOGGER.info("PayToggleManager shutdown complete.");
     }
 }

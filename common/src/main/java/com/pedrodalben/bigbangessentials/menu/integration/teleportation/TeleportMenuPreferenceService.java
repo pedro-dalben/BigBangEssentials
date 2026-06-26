@@ -1,15 +1,16 @@
 package com.pedrodalben.bigbangessentials.menu.integration.teleportation;
 
-import com.google.gson.JsonObject;
-import com.pedrodalben.bigbangessentials.util.PlayerDataStore;
+import com.pedrodalben.bigbangessentials.BigBangEssentialsManager;
+import com.pedrodalben.bigbangessentials.database.api.PlayerPreferencesStorage;
+import com.pedrodalben.bigbangessentials.database.api.PlayerPreferencesStorage.PlayerPreferences;
 import java.util.UUID;
 
 public class TeleportMenuPreferenceService {
     private static TeleportMenuPreferenceService instance;
-    private final PlayerDataStore dataStore;
+    private PlayerPreferencesStorage dbStorage;
 
     private TeleportMenuPreferenceService() {
-        this.dataStore = new PlayerDataStore("menupreferences");
+        this.dbStorage = BigBangEssentialsManager.getInstance().getPreferencesStorage();
     }
 
     public static synchronized TeleportMenuPreferenceService getInstance() {
@@ -20,55 +21,61 @@ public class TeleportMenuPreferenceService {
     }
 
     public PlayerPreference getPreferences(UUID playerId) {
-        JsonObject data = dataStore.load(playerId);
-        if (data == null || data.entrySet().isEmpty()) {
-            return new PlayerPreference(
-                true,
-                TeleportMenuConfig.getWarpsCommandMode(),
-                TeleportMenuConfig.getHomesCommandMode(),
-                TeleportMenuConfig.getPwarpsCommandMode()
-            );
-        }
-
-        boolean enabled = data.has("teleport-menus-enabled") ? data.get("teleport-menus-enabled").getAsBoolean() : true;
-        
-        CommandDisplayMode warpsMode = TeleportMenuConfig.getWarpsCommandMode();
-        if (data.has("warps-display-mode")) {
+        if (dbStorage != null) {
             try {
-                warpsMode = CommandDisplayMode.valueOf(data.get("warps-display-mode").getAsString().toUpperCase());
-            } catch (Exception ignored) {}
-        }
-        
-        CommandDisplayMode homesMode = TeleportMenuConfig.getHomesCommandMode();
-        if (data.has("homes-display-mode")) {
-            try {
-                homesMode = CommandDisplayMode.valueOf(data.get("homes-display-mode").getAsString().toUpperCase());
-            } catch (Exception ignored) {}
-        }
-        
-        CommandDisplayMode pwarpsMode = TeleportMenuConfig.getPwarpsCommandMode();
-        if (data.has("pwarps-display-mode")) {
-            try {
-                pwarpsMode = CommandDisplayMode.valueOf(data.get("pwarps-display-mode").getAsString().toUpperCase());
+                PlayerPreferences prefs = dbStorage.loadPreferences(playerId).get();
+                if (prefs != null && !isDefaultPreferences(prefs)) {
+                    return new PlayerPreference(
+                        prefs.teleportMenusEnabled(),
+                        prefs.warpsDisplayMode() != null ? prefs.warpsDisplayMode() : TeleportMenuConfig.getWarpsCommandMode(),
+                        prefs.homesDisplayMode() != null ? prefs.homesDisplayMode() : TeleportMenuConfig.getHomesCommandMode(),
+                        prefs.pwarpsDisplayMode() != null ? prefs.pwarpsDisplayMode() : TeleportMenuConfig.getPwarpsCommandMode()
+                    );
+                }
             } catch (Exception ignored) {}
         }
 
-        return new PlayerPreference(enabled, warpsMode, homesMode, pwarpsMode);
+        return new PlayerPreference(
+            true,
+            TeleportMenuConfig.getWarpsCommandMode(),
+            TeleportMenuConfig.getHomesCommandMode(),
+            TeleportMenuConfig.getPwarpsCommandMode()
+        );
+    }
+
+    private boolean isDefaultPreferences(PlayerPreferences prefs) {
+        return prefs.teleportMenusEnabled() && prefs.warpsDisplayMode() == null
+                && prefs.homesDisplayMode() == null && prefs.pwarpsDisplayMode() == null;
     }
 
     public void setPreferences(UUID playerId, PlayerPreference pref) {
-        JsonObject data = new JsonObject();
-        data.addProperty("teleport-menus-enabled", pref.teleportMenusEnabled());
-        data.addProperty("warps-display-mode", pref.warpsDisplayMode().name());
-        data.addProperty("homes-display-mode", pref.homesDisplayMode().name());
-        data.addProperty("pwarps-display-mode", pref.pwarpsDisplayMode().name());
-        dataStore.save(playerId, data);
-        dataStore.flush(playerId);
+        if (dbStorage == null) return;
+
+        dbStorage.loadPreferences(playerId).thenCompose(current ->
+            dbStorage.savePreferences(playerId, new PlayerPreferences(
+                current.vanishMode(), current.godMode(), current.flyMode(),
+                current.tpToggle(), current.msgToggle(), current.payToggle(),
+                current.socialspy(), pref.teleportMenusEnabled(),
+                pref.warpsDisplayMode(), pref.homesDisplayMode(),
+                pref.pwarpsDisplayMode(), current.lastLocation()
+            ))
+        );
     }
 
     public void resetPreferences(UUID playerId) {
-        dataStore.save(playerId, new JsonObject());
-        dataStore.flush(playerId);
+        if (dbStorage == null) return;
+
+        dbStorage.loadPreferences(playerId).thenCompose(current ->
+            dbStorage.savePreferences(playerId, new PlayerPreferences(
+                current.vanishMode(), current.godMode(), current.flyMode(),
+                current.tpToggle(), current.msgToggle(), current.payToggle(),
+                current.socialspy(), true,
+                TeleportMenuConfig.getWarpsCommandMode(),
+                TeleportMenuConfig.getHomesCommandMode(),
+                TeleportMenuConfig.getPwarpsCommandMode(),
+                current.lastLocation()
+            ))
+        );
     }
 
     public record PlayerPreference(

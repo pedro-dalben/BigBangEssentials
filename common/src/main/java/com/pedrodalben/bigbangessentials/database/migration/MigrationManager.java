@@ -5,6 +5,7 @@ import com.pedrodalben.bigbangessentials.database.dialect.DatabaseDialect;
 import com.pedrodalben.bigbangessentials.database.exception.MigrationException;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V001CreateDatabaseInfrastructure;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V002CreateJobsTables;
+import com.pedrodalben.bigbangessentials.database.migration.migrations.V003CreatePlayerPreferencesTables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +24,7 @@ public class MigrationManager {
         // Register migrations in order
         registeredMigrations.add(new V001CreateDatabaseInfrastructure());
         registeredMigrations.add(new V002CreateJobsTables());
-        // Future migrations should be registered here
+        registeredMigrations.add(new V003CreatePlayerPreferencesTables());
     }
 
     /**

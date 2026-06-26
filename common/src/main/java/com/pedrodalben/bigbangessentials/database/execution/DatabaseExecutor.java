@@ -135,6 +135,31 @@ public class DatabaseExecutor {
     }
 
     /**
+     * Executes a query returning an Optional of the mapped single row.
+     */
+    public <T> CompletableFuture<java.util.Optional<T>> querySingle(String sql, StatementBinder binder, RowMapper<T> mapper) {
+        return querySingle(sql, sql, binder, mapper);
+    }
+
+    public <T> CompletableFuture<java.util.Optional<T>> querySingle(String operationName, String sql, StatementBinder binder, RowMapper<T> mapper) {
+        return submit(operationName, () -> {
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(sql)) {
+                if (binder != null) {
+                    binder.bind(stmt);
+                }
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        T result = mapper.map(rs);
+                        return java.util.Optional.ofNullable(result);
+                    }
+                    return java.util.Optional.empty();
+                }
+            }
+        });
+    }
+
+    /**
      * Executes a query mapping a single row.
      */
     public <T> CompletableFuture<T> queryOne(String sql, StatementBinder binder, RowMapper<T> mapper) {

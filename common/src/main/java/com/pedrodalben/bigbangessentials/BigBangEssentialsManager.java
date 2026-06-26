@@ -1,9 +1,10 @@
-
 package com.pedrodalben.bigbangessentials;
 
-// import com.pedrodalben.bigbangessentials.api.TeleportService;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyService;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyServiceImpl;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.api.PlayerPreferencesStorage;
+import com.pedrodalben.bigbangessentials.database.repository.JdbcPlayerPreferencesStorage;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
@@ -17,17 +18,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Thread-safe singleton manager for BigBangEssentials services and player data.
- */
 public class BigBangEssentialsManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(BigBangEssentialsManager.class);
 
-    // Thread-safe singleton using Bill Pugh pattern
     private static class SingletonHolder {
         private static final BigBangEssentialsManager INSTANCE = new BigBangEssentialsManager();
     }
@@ -36,115 +34,98 @@ public class BigBangEssentialsManager {
         return SingletonHolder.INSTANCE;
     }
 
-    // Thread-safe player data storage
     private final Map<UUID, PlayerData> playerDataMap = new ConcurrentHashMap<>();
-    // Service APIs
     private EconomyService economyService;
+    private PlayerPreferencesStorage preferencesStorage;
 
     private static final String PLAYERDATA_DIR = com.pedrodalben.bigbangessentials.util.ResourceUtil.DATA_DIR + "playerdata/";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    /**
-     * Private constructor for singleton pattern.
-     */
-    @SuppressWarnings("deprecation") // EconomyServiceImpl maintained for backward API compatibility
     private BigBangEssentialsManager() {
-        // Initialize EconomyServiceImpl with persistent storage
-        // Note: This is for API compatibility - actual economy is handled by EconomyManager
         this.economyService = new EconomyServiceImpl(
             com.pedrodalben.bigbangessentials.util.ResourceUtil.getDataPath("balances.json")
         );
+        if (DatabaseManager.getInstance().isReady()) {
+            this.preferencesStorage = new JdbcPlayerPreferencesStorage();
+        }
     }
 
-    /**
-     * Registers a command (stub for future expansion).
-     * @param command Command object
-     */
-    @SuppressWarnings("unused") // Public API method
+    public void setPreferencesStorage(PlayerPreferencesStorage storage) {
+        this.preferencesStorage = storage;
+    }
+
+    public PlayerPreferencesStorage getPreferencesStorage() {
+        if (preferencesStorage == null && DatabaseManager.getInstance().isReady()) {
+            preferencesStorage = new JdbcPlayerPreferencesStorage();
+        }
+        return preferencesStorage;
+    }
+
+    @SuppressWarnings("unused")
     public void registerCommand(Object command) {
-        // Implementation for registering commands
     }
 
-    /**
-     * Gets or creates player data for a given player.
-     * @param playerId Player UUID
-     * @return PlayerData instance
-     */
     public PlayerData getPlayerData(UUID playerId) {
         return playerDataMap.computeIfAbsent(playerId, k -> new PlayerData());
     }
 
-
-
-    /**
-     * Sets the economy service.
-     * @param service EconomyService implementation
-     */
-    @SuppressWarnings("unused") // Public API method
+    @SuppressWarnings("unused")
     public void setEconomyService(EconomyService service) {
         this.economyService = service;
     }
 
-    /**
-     * Gets the economy service.
-     * @return EconomyService
-     */
     public EconomyService getEconomyService() {
         return economyService;
     }
 
-    /**
-     * Player data for homes, warps, teleportation, and non-economy settings.
-     * Note: Economy data (balance, pay toggles) is handled by EconomyManager separately.
-     */
-    @SuppressWarnings("unused") // Public API class with intentional getters/setters
+    @SuppressWarnings("unused")
     public static class PlayerData {
         public Map<String, Object> homes = new ConcurrentHashMap<>();
         public Map<String, Object> warps = new ConcurrentHashMap<>();
-        @SuppressWarnings("MismatchedQueryAndUpdateOfCollection") // Used for future mail system
+        @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
         public Map<String, Object> mail = new ConcurrentHashMap<>();
-        
-        // Non-economy toggles and settings
+
         private boolean vanishMode = false;
         private boolean godMode = false;
         private boolean flyMode = false;
         private String lastLocation = null;
-        
-        // Teleportation settings  
         private boolean tpToggle = true;
         private boolean msgToggle = true;
-        
-        // Social features
         private final java.util.List<String> ignoreList = new java.util.ArrayList<>();
 
-        // Getters and setters - Public API
         public boolean isVanishMode() { return vanishMode; }
         public void setVanishMode(boolean vanish) { this.vanishMode = vanish; }
-        
+
         public boolean isGodMode() { return godMode; }
         public void setGodMode(boolean god) { this.godMode = god; }
-        
+
         public boolean isFlyMode() { return flyMode; }
         public void setFlyMode(boolean fly) { this.flyMode = fly; }
-        
+
         public String getLastLocation() { return lastLocation; }
         public void setLastLocation(String location) { this.lastLocation = location; }
-        
+
         public boolean isTpToggle() { return tpToggle; }
         public void setTpToggle(boolean enabled) { this.tpToggle = enabled; }
-        
+
         public boolean isMsgToggle() { return msgToggle; }
         public void setMsgToggle(boolean enabled) { this.msgToggle = enabled; }
-        
+
         public java.util.List<String> getIgnoreList() { return ignoreList; }
         public void addToIgnoreList(String player) { ignoreList.add(player); }
         public void removeFromIgnoreList(String player) { ignoreList.remove(player); }
     }
 
-    @SuppressWarnings("unused") // Public API method
+    @SuppressWarnings("unused")
     public void savePlayerData(UUID playerId) {
         PlayerData data = playerDataMap.get(playerId);
         if (data == null) return;
+
+        savePlayerDataToJson(playerId, data);
+        savePlayerDataToDatabase(playerId, data);
+    }
+
+    private void savePlayerDataToJson(UUID playerId, PlayerData data) {
         try {
             Path dir = Paths.get(PLAYERDATA_DIR);
             if (!Files.exists(dir)) Files.createDirectories(dir);
@@ -157,29 +138,91 @@ public class BigBangEssentialsManager {
         }
     }
 
-    @SuppressWarnings("unused") // Public API method
+    private void savePlayerDataToDatabase(UUID playerId, PlayerData data) {
+        PlayerPreferencesStorage storage = getPreferencesStorage();
+        if (storage == null) return;
+
+        storage.updateToggle(playerId, "vanishMode", data.vanishMode);
+        storage.updateToggle(playerId, "godMode", data.godMode);
+        storage.updateToggle(playerId, "flyMode", data.flyMode);
+        storage.updateToggle(playerId, "tpToggle", data.tpToggle);
+        storage.updateToggle(playerId, "msgToggle", data.msgToggle);
+
+        if (data.lastLocation != null) {
+            storage.loadPreferences(playerId).thenCompose(prefs -> {
+                PlayerPreferencesStorage.PlayerPreferences updated = new PlayerPreferencesStorage.PlayerPreferences(
+                        prefs.vanishMode(), prefs.godMode(), prefs.flyMode(),
+                        prefs.tpToggle(), prefs.msgToggle(), prefs.payToggle(),
+                        prefs.socialspy(), prefs.teleportMenusEnabled(),
+                        prefs.warpsDisplayMode(), prefs.homesDisplayMode(),
+                        prefs.pwarpsDisplayMode(), data.lastLocation
+                );
+                return storage.savePreferences(playerId, updated);
+            });
+        }
+
+        for (String ignoredName : data.ignoreList) {
+            try {
+                UUID ignoredUuid = UUID.fromString(ignoredName);
+                storage.addIgnoredPlayer(playerId, ignoredUuid);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @SuppressWarnings("unused")
     public void loadPlayerData(UUID playerId) {
+        loadPlayerDataFromJson(playerId);
+        loadPlayerDataFromDatabase(playerId);
+    }
+
+    private void loadPlayerDataFromJson(UUID playerId) {
         try {
             Path dir = Paths.get(PLAYERDATA_DIR);
             File file = dir.resolve(playerId + ".json").toFile();
             if (!file.exists()) return;
             try (Reader reader = new FileReader(file)) {
                 PlayerData data = GSON.fromJson(reader, PlayerData.class);
-                playerDataMap.put(playerId, data);
+                if (data != null) {
+                    playerDataMap.put(playerId, data);
+                }
             }
         } catch (IOException e) {
             LOGGER.error("Failed to load player data for {}", playerId, e);
         }
     }
 
-    @SuppressWarnings("unused") // Public API method
+    private void loadPlayerDataFromDatabase(UUID playerId) {
+        PlayerPreferencesStorage storage = getPreferencesStorage();
+        if (storage == null) return;
+
+        storage.loadPreferences(playerId).thenAccept(dbPrefs -> {
+            PlayerData data = playerDataMap.computeIfAbsent(playerId, k -> new PlayerData());
+            data.setVanishMode(dbPrefs.vanishMode());
+            data.setGodMode(dbPrefs.godMode());
+            data.setFlyMode(dbPrefs.flyMode());
+            data.setTpToggle(dbPrefs.tpToggle());
+            data.setMsgToggle(dbPrefs.msgToggle());
+            if (dbPrefs.lastLocation() != null) {
+                data.setLastLocation(dbPrefs.lastLocation());
+            }
+
+            storage.loadIgnoreList(playerId).thenAccept(ignoreList -> {
+                data.ignoreList.clear();
+                for (UUID ignored : ignoreList) {
+                    data.ignoreList.add(ignored.toString());
+                }
+            });
+        });
+    }
+
+    @SuppressWarnings("unused")
     public void saveAllPlayerData() {
         for (UUID uuid : playerDataMap.keySet()) {
             savePlayerData(uuid);
         }
     }
 
-    @SuppressWarnings("unused") // Public API method
+    @SuppressWarnings("unused")
     public void loadAllPlayerData() {
         try {
             Path dir = Paths.get(PLAYERDATA_DIR);
@@ -189,7 +232,7 @@ public class BigBangEssentialsManager {
                     try (Reader reader = new FileReader(p.toFile())) {
                         PlayerData data = GSON.fromJson(reader, PlayerData.class);
                         String fileName = p.getFileName().toString();
-                        String uuidStr = fileName.substring(0, fileName.length() - 5); // remove .json
+                        String uuidStr = fileName.substring(0, fileName.length() - 5);
                         UUID uuid = UUID.fromString(uuidStr);
                         playerDataMap.put(uuid, data);
                     } catch (Exception e) {

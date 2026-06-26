@@ -13,8 +13,10 @@ import com.pedrodalben.bigbangessentials.database.exception.DatabaseUnavailableE
 import com.pedrodalben.bigbangessentials.database.execution.DatabaseExecutor;
 import com.pedrodalben.bigbangessentials.database.metrics.DatabaseMetrics;
 import com.pedrodalben.bigbangessentials.database.metrics.DatabaseMetricsSnapshot;
+import com.pedrodalben.bigbangessentials.database.migration.LegacyJsonPlayerPreferencesImporter;
 import com.pedrodalben.bigbangessentials.database.migration.MigrationManager;
 import com.pedrodalben.bigbangessentials.database.migration.MigrationResult;
+import com.pedrodalben.bigbangessentials.database.repository.JdbcPlayerPreferencesStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,6 +115,7 @@ public class DatabaseManager {
             }
 
             state = DatabaseState.READY;
+            runLegacyImport();
             LOGGER.info("DatabaseManager initialized successfully. Type: {}, State: {}", type, state);
 
         } catch (Throwable e) {
@@ -144,6 +147,19 @@ public class DatabaseManager {
 
         state = DatabaseState.STOPPED;
         LOGGER.info("DatabaseManager shutdown complete.");
+    }
+
+    private void runLegacyImport() {
+        try {
+            var storage = new JdbcPlayerPreferencesStorage();
+            var importer = new LegacyJsonPlayerPreferencesImporter(storage);
+            var summary = importer.importAll().get(30, java.util.concurrent.TimeUnit.SECONDS);
+            if (summary.total() > 0) {
+                LOGGER.info("Legacy JSON import completed: {}", summary);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Legacy JSON import skipped or failed: {}", e.getMessage());
+        }
     }
 
     private void closeResourcesSafely() {
