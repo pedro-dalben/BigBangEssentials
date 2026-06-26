@@ -71,7 +71,7 @@ public class TeleportRequestCommands {
                         .requires(source -> {
                             if (source.getEntity() instanceof ServerPlayer player) {
                                 boolean hasPerm = PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_TPA_COMPAT);
-                                LOGGER.info("[TPA] Checking permission {} for {}: {}", PERMISSION_TPA, player.getName().getString(), hasPerm);
+                                LOGGER.debug("[TPA] Checking permission {} for {}: {}", PERMISSION_TPA, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
                             return false; // Console can't use teleport requests
@@ -90,7 +90,7 @@ public class TeleportRequestCommands {
                         .requires(source -> {
                             if (source.getEntity() instanceof ServerPlayer player) {
                                 boolean hasPerm = PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_TPAHERE_COMPAT);
-                                LOGGER.info("[TPAHERE] Checking permission {} for {}: {}", PERMISSION_TPAHERE, player.getName().getString(), hasPerm);
+                                LOGGER.debug("[TPAHERE] Checking permission {} for {}: {}", PERMISSION_TPAHERE, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
                             return false; // Console can't use teleport requests
@@ -109,7 +109,7 @@ public class TeleportRequestCommands {
                         .requires(source -> {
                             if (source.getEntity() instanceof ServerPlayer player) {
                                 boolean hasPerm = PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_ACCEPT_COMPAT);
-                                LOGGER.info("[TPACCEPT] Checking permission {} for {}: {}", PERMISSION_ACCEPT, player.getName().getString(), hasPerm);
+                                LOGGER.debug("[TPACCEPT] Checking permission {} for {}: {}", PERMISSION_ACCEPT, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
                             return false; // Console can't use teleport requests
@@ -125,7 +125,7 @@ public class TeleportRequestCommands {
                         .requires(source -> {
                             if (source.getEntity() instanceof ServerPlayer player) {
                                 boolean hasPerm = PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_DENY_COMPAT);
-                                LOGGER.info("[TPDENY] Checking permission {} for {}: {}", PERMISSION_DENY, player.getName().getString(), hasPerm);
+                                LOGGER.debug("[TPDENY] Checking permission {} for {}: {}", PERMISSION_DENY, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
                             return false; // Console can't use teleport requests
@@ -272,7 +272,7 @@ public class TeleportRequestCommands {
                 .requires(source -> {
                     if (source.getEntity() instanceof ServerPlayer player) {
                         boolean hasPerm = PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_CANCEL_COMPAT);
-                        LOGGER.info("[TPCANCEL] Checking permission {} for {}: {}", PERMISSION_CANCEL, player.getName().getString(), hasPerm);
+                        LOGGER.debug("[TPCANCEL] Checking permission {} for {}: {}", PERMISSION_CANCEL, player.getName().getString(), hasPerm);
                         return hasPerm;
                     }
                     return false; // Console can't use teleport requests

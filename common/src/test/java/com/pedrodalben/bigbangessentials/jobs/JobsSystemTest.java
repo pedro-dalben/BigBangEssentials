@@ -63,6 +63,12 @@ class JobsSystemTest {
         when(mockPlayer.getUUID()).thenReturn(playerId);
         when(mockPlayer.getName()).thenReturn(net.minecraft.network.chat.Component.literal("TestPlayer"));
 
+        // Setup Platform Provider Mock
+        com.pedrodalben.bigbangessentials.util.PlatformProvider mockProvider = mock(com.pedrodalben.bigbangessentials.util.PlatformProvider.class);
+        Field providerField = com.pedrodalben.bigbangessentials.util.Platform.class.getDeclaredField("provider");
+        providerField.setAccessible(true);
+        providerField.set(null, mockProvider);
+
         // Setup Permission API Mock
         mockPermAdapter = mock(ExternalPermissionAdapter.class);
         PermissionAPI.setExternalAdapter(mockPermAdapter);
@@ -87,6 +93,10 @@ class JobsSystemTest {
         PermissionAPI.setExternalAdapter(null);
         JobsManager.getInstance().getPlayerDataCache().clear();
         JobsManager.setGlobalDebugMode(false);
+
+        Field providerField = com.pedrodalben.bigbangessentials.util.Platform.class.getDeclaredField("provider");
+        providerField.setAccessible(true);
+        providerField.set(null, null);
     }
 
     private void injectConfig(JobsConfig cfg) throws Exception {

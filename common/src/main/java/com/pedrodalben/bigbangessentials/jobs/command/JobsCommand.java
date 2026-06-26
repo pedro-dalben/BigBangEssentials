@@ -160,7 +160,28 @@ public class JobsCommand {
     }
 
     private static int executeSummary(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player != null) {
+            try {
+                var result = com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
+                    player,
+                    "jobs_menu",
+                    new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, "jobs", null, java.util.UUID.randomUUID())
+                ).toCompletableFuture().join();
+                if (result != null && result.success()) {
+                    return 1;
+                }
+            } catch (Exception e) {
+                // Fallback to text
+            }
+        }
+
+        // Fallback or console execution
+        if (player == null) {
+            ctx.getSource().sendFailure(Component.literal("Apenas jogadores podem ver o menu gráfico."));
+            return 0;
+        }
+
         PlayerJobsData data = JobsManager.getInstance().getPlayerData(player.getUUID());
         JobsConfig cfg = JobsManager.getInstance().getConfig();
 

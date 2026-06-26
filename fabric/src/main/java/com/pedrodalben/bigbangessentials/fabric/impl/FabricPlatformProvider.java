@@ -82,7 +82,13 @@ public class FabricPlatformProvider implements PlatformProvider {
     @Override
     public void postEvent(Object event) {
         for (Object listener : listeners) {
-            for (java.lang.reflect.Method method : listener.getClass().getDeclaredMethods()) {
+            java.lang.reflect.Method[] methods;
+            try {
+                methods = listener.getClass().getDeclaredMethods();
+            } catch (Throwable t) {
+                continue;
+            }
+            for (java.lang.reflect.Method method : methods) {
                 if (method.getParameterCount() == 1 && method.getParameterTypes()[0].isAssignableFrom(event.getClass())) {
                     try {
                         method.setAccessible(true);

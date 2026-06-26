@@ -68,6 +68,7 @@ public class NeoForgeEvents {
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
         com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(event.getServer());
+        com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
     }
 
     @SubscribeEvent

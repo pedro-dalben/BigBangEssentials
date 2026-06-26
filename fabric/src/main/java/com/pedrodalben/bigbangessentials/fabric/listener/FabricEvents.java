@@ -10,9 +10,10 @@ import net.minecraft.server.level.ServerPlayer;
 public class FabricEvents {
 
     public static void register() {
-        // Server Tick Event (Task Scheduler)
+        // Server Tick Event (Task Scheduler + Kit Menu Refresh)
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
             com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(server);
+            com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
         });
 
         // Server Chat Event

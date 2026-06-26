@@ -61,4 +61,5 @@ tasks.named('processResources').configure {
 // Merge common classes and resources into the final Fabric mod jar
 tasks.named('jar', Jar) {
     from project(":common").sourceSets.main.output
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

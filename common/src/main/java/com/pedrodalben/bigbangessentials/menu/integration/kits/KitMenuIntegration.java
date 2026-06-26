@@ -1,9 +1,6 @@
 package com.pedrodalben.bigbangessentials.menu.integration.kits;
 
 import com.pedrodalben.bigbangessentials.menu.MenuSystem;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,8 +13,7 @@ public class KitMenuIntegration {
     private static final int REFRESH_INTERVAL_TICKS = 20;
 
     private static KitMenuIntegration instance;
-    private int tickCounter = 0;
-    private boolean eventBusRegistered = false;
+    private static int tickCounter = 0;
 
     public static synchronized KitMenuIntegration getInstance() {
         if (instance == null) {
@@ -37,10 +33,6 @@ public class KitMenuIntegration {
         menuSystem.getActionRegistry().registerActionHandler("open_kit_preview", new OpenKitPreviewMenuAction());
         menuSystem.getPlaceholderRegistry().registerPlaceholder("kits", new KitPlaceholderResolver());
 
-        if (!eventBusRegistered) {
-            com.pedrodalben.bigbangessentials.util.Platform.registerEventListener(this);
-            eventBusRegistered = true;
-        }
         LOGGER.info("Kit menu integration registered (menuId={}, autoRefresh={})",
             KitMenuConfig.getMenuId(), KitMenuConfig.isAutoRefreshOpenMenus());
     }
@@ -244,8 +236,7 @@ public class KitMenuIntegration {
             """;
     }
 
-    @SubscribeEvent
-    public void onServerTick(ServerTickEvent.Post event) {
+    public static void onTick() {
         if (!KitMenuConfig.isAutoRefreshOpenMenus()) {
             return;
         }

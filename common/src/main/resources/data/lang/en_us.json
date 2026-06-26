@@ -1052,5 +1052,22 @@
   "bigbangessentials.moderation.invalid_duration": "§cInvalid duration: §f{0}§c. Use 30s, 5m, 2h, 1d, 1w.",
   "bigbangessentials.moderation.invalid_ip": "§cInvalid IP address format: §f{0}§c.",
   "bigbangessentials.moderation.ban_message": "§cYou have been banned.\n§eReason: §f{0}\n§eBanned by: §f{1}",
-  "bigbangessentials.moderation.tempban_message": "§cYou have been temporarily banned.\n§eReason: §f{0}\n§eDuration: §f{1}\n§eBanned by: §f{2}"
+  "bigbangessentials.moderation.tempban_message": "§cYou have been temporarily banned.\n§eReason: §f{0}\n§eDuration: §f{1}\n§eBanned by: §f{2}",
+  "commands.bigbangessentials.teleport.spawn.set": "§aSpawn set at §f{0}§a.",
+  "commands.bigbangessentials.teleport.spawn.success": "§aTeleported to spawn!",
+  "commands.bigbangessentials.teleport.spawn.cleared": "§aGlobal spawn has been removed.",
+  "commands.bigbangessentials.teleport.spawn.cooldown": "§cPlease wait §f{0}§c seconds before using /spawn again.",
+  "commands.bigbangessentials.teleport.spawn.critical_failure": "§cCritical error while teleporting to spawn.",
+  "commands.bigbangessentials.teleport.spawn.distance_exceeded": "§cYou are too far from spawn (max: §f{0}§c blocks).",
+  "commands.bigbangessentials.teleport.spawn.failed": "§cFailed to teleport to spawn: §f{0}§c.",
+  "commands.bigbangessentials.teleport.spawn.fallback_failed": "§cFailed to teleport to fallback spawn: §f{0}§c.",
+  "commands.bigbangessentials.teleport.spawn.fallback_success": "§aTeleported to fallback spawn.",
+  "commands.bigbangessentials.teleport.spawn.info": "§eWorld spawn: §f{0}",
+  "commands.bigbangessentials.teleport.spawn.info_not_set": "§eWorld spawn: §7Not set.",
+  "commands.bigbangessentials.teleport.spawn.invalid_location": "§cInvalid spawn location.",
+  "commands.bigbangessentials.teleport.spawn.moved_to_safety": "§eYou have been moved to a safe location near spawn.",
+  "commands.bigbangessentials.teleport.spawn.no_end": "§cSpawn cannot be set in the End.",
+  "commands.bigbangessentials.teleport.spawn.no_nether": "§cSpawn cannot be set in the Nether.",
+  "commands.bigbangessentials.teleport.spawn.unsafe": "§cThe spawn location is not safe.",
+  "commands.bigbangessentials.teleport.spawn.unsafe_location": "§cUnsafe location for spawn."
 }

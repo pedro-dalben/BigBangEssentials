@@ -305,7 +305,6 @@ public class ChatHandler {
                                 com.pedrodalben.bigbangessentials.util.MessageUtil.localize(noPlayersMessage)
                             ));
                         }
-                        // Always log to server console so chat appears in logs
                         if (isConsoleLoggingEnabled()) {
                             LOGGER.info("[{}] (radius:{}) <{}> {}", channel, radius, playerName, message);
                         }
@@ -316,7 +315,6 @@ public class ChatHandler {
                                 target.sendSystemMessage(formattedMessage);
                             }
                         }
-                        // Always log to server console
                         if (isConsoleLoggingEnabled()) {
                             LOGGER.info("[{}] <{}> {}", channel, playerName, message);
                         }
@@ -325,16 +323,9 @@ public class ChatHandler {
                         for (ServerPlayer target : playerList.getPlayers()) {
                             target.sendSystemMessage(formattedMessage);
                         }
-                        // Always log to server console
                         if (isConsoleLoggingEnabled()) {
                             LOGGER.info("[{}] <{}> {}", channel, playerName, message);
                         }
-                    }
-
-                    // Also send to server console as a system message so it appears exactly
-                    // like vanilla chat in the dedicated server terminal
-                    if (server != null && isConsoleLoggingEnabled()) {
-                        server.sendSystemMessage(formattedMessage);
                     }
                 }
 
