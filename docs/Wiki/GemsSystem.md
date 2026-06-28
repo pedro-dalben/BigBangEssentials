@@ -42,18 +42,24 @@ CAPTURED  RELEASED  EXPIRED
 
 ---
 
-## Durability & Write-Ahead-Logic (Atomic Writes)
-Operations must write to disk *before* updating in-memory cache or returning success:
-1. Validate transaction logic.
-2. Generate state snapshot and transaction log entry.
-3. Write new state to temporary file `gems_state.json.tmp`.
-4. Perform atomic move/rename from `gems_state.json.tmp` to `gems_state.json`.
-5. Append entry to `gems_transactions.jsonl` (write-ahead logging).
-6. Update in-memory cache.
-7. Publish event.
-8. Return operation result to client.
+## Durability & Copy-on-Write Transaction Model
 
-This flow prevents in-memory/on-disk discrepancies if a crash occurs mid-operation.
+The Gems system utilizes a **State authoritative + ledger reconciliável** approach.
+- **Authoritative State:** `gems_state.json` is the sole source of truth.
+- **Audit Log:** `gems_transactions.jsonl` is a chronological append-only log of transactions, used for auditing (it is not a WAL journal).
+- **Concurrency Isolation:** Operations utilize a `ReentrantReadWriteLock` to isolate read/write access.
+
+### Persistence Mutation Order (Copy-on-Write)
+All modifying operations (credit, debit, setBalance, reserve, capture, release, renew) follow a Copy-on-Write (CoW) workflow to prevent runtime state divergence in the case of disk or process failures:
+1. Clone the current state deeply (`currentState.cloneState()`), ensuring reservations and balances maps are duplicated.
+2. Apply mutations exclusively to the cloned state snapshot.
+3. Save the cloned state síncronamente to the temp file `gems_state.json.tmp`.
+4. Perform an atomic move (`Files.move`) renaming `gems_state.json.tmp` to `gems_state.json`.
+5. Only after the disk write succeeds:
+   - Swap the in-memory reference: `currentState = nextState`.
+   - Log the transaction to the append-only ledger (`gems_transactions.jsonl`).
+   - Add the record to the idempotency cache.
+   - Fire life-cycle events.
 
 ---
 
