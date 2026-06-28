@@ -54,4 +54,12 @@ public final class GemReservation {
     public void setCapturedAt(Long capturedAt) { this.capturedAt = capturedAt; }
     public Long getReleasedAt() { return releasedAt; }
     public void setReleasedAt(Long releasedAt) { this.releasedAt = releasedAt; }
+
+    public GemReservation copy() {
+        return new GemReservation(
+            this.reservationId, this.playerUuid, this.amount, this.status,
+            this.source, this.purpose, this.idempotencyKey, this.externalReference,
+            this.metadata, this.createdAt, this.expiresAt, this.capturedAt, this.releasedAt
+        );
+    }
 }

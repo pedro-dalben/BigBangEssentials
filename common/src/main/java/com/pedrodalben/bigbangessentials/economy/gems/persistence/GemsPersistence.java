@@ -26,6 +26,15 @@ public class GemsPersistence {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Gson GSON_MIN = new GsonBuilder().create(); // For ledger single-line entries
 
+    public static GemsPersistenceFailpoint activeFailpoint = null;
+
+    private void checkFailpoint(GemsPersistenceFailpoint expected) {
+        if (activeFailpoint == expected) {
+            LOGGER.warn("TRIGGERING CRASH FAILPOINT: {}", expected);
+            throw new RuntimeException("Crash Injection Failpoint: " + expected);
+        }
+    }
+
     private static final String CONFIG_FILE = "gems.json";
     private static final String STATE_FILE = "gems_state.json";
     private static final String STATE_TMP_FILE = "gems_state.json.tmp";
@@ -160,6 +169,8 @@ public class GemsPersistence {
             return;
         }
 
+        checkFailpoint(GemsPersistenceFailpoint.BEFORE_WRITE_TEMP);
+
         state.revision++;
         File tmpFile = getFile(STATE_TMP_FILE);
         File stateFile = getFile(STATE_FILE);
@@ -173,6 +184,9 @@ public class GemsPersistence {
             LOGGER.error("Failed to write temporary Gems state file", e);
             throw new RuntimeException("Persistence failure during Gems state save (write step)", e);
         }
+
+        checkFailpoint(GemsPersistenceFailpoint.AFTER_WRITE_TEMP);
+        checkFailpoint(GemsPersistenceFailpoint.BEFORE_ATOMIC_MOVE);
 
         // Atomic move / replace
         try {
@@ -189,6 +203,8 @@ public class GemsPersistence {
                 throw new RuntimeException("Persistence failure during Gems state save (atomic copy step)", ex);
             }
         }
+
+        checkFailpoint(GemsPersistenceFailpoint.AFTER_ATOMIC_MOVE);
 
         // Create backup if enabled
         if (config.persistence.createBackups) {
@@ -228,6 +244,8 @@ public class GemsPersistence {
             return;
         }
 
+        checkFailpoint(GemsPersistenceFailpoint.BEFORE_APPEND_LEDGER);
+
         File file = getFile(LEDGER_FILE);
         ResourceUtil.ensureDataDirectory();
 
@@ -238,6 +256,8 @@ public class GemsPersistence {
             LOGGER.error("Failed to append transaction to ledger", e);
             throw new RuntimeException("Persistence failure: failed to write to Gems ledger", e);
         }
+
+        checkFailpoint(GemsPersistenceFailpoint.AFTER_APPEND_LEDGER);
 
         // Trim/Prune the ledger if it exceeds maxTransactionLogEntries
         // We do this periodically or on every mutation. Pruning on every mutation can be slow, 

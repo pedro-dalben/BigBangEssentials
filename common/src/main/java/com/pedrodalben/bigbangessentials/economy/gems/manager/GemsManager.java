@@ -66,6 +66,13 @@ public class GemsManager {
         return persistence.isGemsEnabled();
     }
 
+    private void checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint expected) {
+        if (com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistence.activeFailpoint == expected) {
+            LOGGER.warn("TRIGGERING CRASH FAILPOINT: {}", expected);
+            throw new RuntimeException("Crash Injection Failpoint: " + expected);
+        }
+    }
+
     public GemCurrencyDescriptor getCurrencyDescriptor() {
         GemConfig.Display display = persistence.getConfig().display;
         return new GemCurrencyDescriptor(
@@ -216,18 +223,22 @@ public class GemsManager {
             if (newTotal > persistence.getConfig().balances.maxBalance) {
                 return GemOperationResult.fail(GemOperationFailure.MAX_BALANCE_EXCEEDED, "Transaction exceeds maximum allowed balance");
             }
-
             long held = calculateHeldBalance(currentState, request.playerUuid());
 
-            // Persist step
-            currentState.balances.put(request.playerUuid().toString(), newTotal);
+            // Clone state for transaction isolation (Copy-on-Write)
+            GemsState nextState = currentState.cloneState();
+            nextState.balances.put(request.playerUuid().toString(), newTotal);
             UUID transactionId = UUID.randomUUID();
             long timestamp = System.currentTimeMillis();
 
-            // Atomic save state
-            persistence.saveState(currentState);
+            // Save state first (disk authoritative write)
+            persistence.saveState(nextState);
 
-            // Write ledger
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
+
+            // Once write succeeds, update in-memory reference and log ledger
+            currentState = nextState;
+
             GemTransaction tx = new GemTransaction(
                 transactionId, timestamp, GemTransactionType.CREDIT, request.playerUuid(), request.amount(),
                 currentTotal, newTotal, held, held, currentTotal - held, newTotal - held,
@@ -246,6 +257,7 @@ public class GemsManager {
             GemBalanceView newView = new GemBalanceView(request.playerUuid(), newTotal, held, newTotal - held);
 
             // Post event
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_EVENT_PUBLISH);
             postEventSafely(new GemBalanceChangedEvent(
                 request.playerUuid(), request.amount(), request.source(), request.purpose(),
                 transactionId, null, request.idempotencyKey(),
@@ -300,15 +312,20 @@ public class GemsManager {
                 return GemOperationResult.fail(GemOperationFailure.NEGATIVE_AMOUNT, "Balance went negative");
             }
 
-            // Persist step
-            currentState.balances.put(request.playerUuid().toString(), newTotal);
+            // Clone state for transaction isolation (Copy-on-Write)
+            GemsState nextState = currentState.cloneState();
+            nextState.balances.put(request.playerUuid().toString(), newTotal);
             UUID transactionId = UUID.randomUUID();
             long timestamp = System.currentTimeMillis();
 
-            // Atomic save state
-            persistence.saveState(currentState);
+            // Save state first (disk authoritative write)
+            persistence.saveState(nextState);
 
-            // Write ledger
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
+
+            // Once write succeeds, update in-memory reference and log ledger
+            currentState = nextState;
+
             GemTransaction tx = new GemTransaction(
                 transactionId, timestamp, GemTransactionType.DEBIT, request.playerUuid(), request.amount(),
                 currentTotal, newTotal, held, held, available, newTotal - held,
@@ -327,6 +344,7 @@ public class GemsManager {
             GemBalanceView newView = new GemBalanceView(request.playerUuid(), newTotal, held, newTotal - held);
 
             // Post event
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_EVENT_PUBLISH);
             postEventSafely(new GemBalanceChangedEvent(
                 request.playerUuid(), request.amount(), request.source(), request.purpose(),
                 transactionId, null, request.idempotencyKey(),
@@ -362,12 +380,19 @@ public class GemsManager {
                 return GemOperationResult.fail(GemOperationFailure.INSUFFICIENT_AVAILABLE_BALANCE, "Cannot set balance below held (reserved) balance");
             }
 
-            // Persist step
-            currentState.balances.put(request.playerUuid().toString(), request.amount());
+            // Clone state for transaction isolation (Copy-on-Write)
+            GemsState nextState = currentState.cloneState();
+            nextState.balances.put(request.playerUuid().toString(), request.amount());
             UUID transactionId = UUID.randomUUID();
             long timestamp = System.currentTimeMillis();
 
-            persistence.saveState(currentState);
+            // Save state first (disk authoritative write)
+            persistence.saveState(nextState);
+
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
+
+            // Once write succeeds, update in-memory reference and log ledger
+            currentState = nextState;
 
             GemTransaction tx = new GemTransaction(
                 transactionId, timestamp, GemTransactionType.ADMIN_SET, request.playerUuid(), request.amount(),
@@ -381,6 +406,7 @@ public class GemsManager {
             GemBalanceView newView = new GemBalanceView(request.playerUuid(), request.amount(), held, request.amount() - held);
 
             // Post event
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_EVENT_PUBLISH);
             postEventSafely(new GemBalanceChangedEvent(
                 request.playerUuid(), request.amount(), tx.source(), tx.purpose(),
                 transactionId, null, null,
@@ -447,9 +473,17 @@ public class GemsManager {
                 request.metadata(), timestamp, expiresAt, null, null
             );
 
-            // Persist step
-            currentState.reservations.put(reservationId.toString(), reservation);
-            persistence.saveState(currentState);
+            // Clone state for transaction isolation (Copy-on-Write)
+            GemsState nextState = currentState.cloneState();
+            nextState.reservations.put(reservationId.toString(), reservation);
+
+            // Save state first (disk authoritative write)
+            persistence.saveState(nextState);
+
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
+
+            // Once write succeeds, update in-memory reference
+            currentState = nextState;
 
             long heldAfter = heldBefore + request.amount();
             long availableAfter = currentTotal - heldAfter;
@@ -474,6 +508,7 @@ public class GemsManager {
             GemBalanceView newView = new GemBalanceView(request.playerUuid(), currentTotal, heldAfter, availableAfter);
 
             // Post event
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_EVENT_PUBLISH);
             postEventSafely(new GemReservationCreatedEvent(
                 request.playerUuid(), request.amount(), request.source(), request.purpose(),
                 transactionId, reservationId, request.idempotencyKey(),
@@ -545,15 +580,20 @@ public class GemsManager {
             long heldBefore = calculateHeldBalance(currentState, reservation.getPlayerUuid());
             long newTotal = currentTotal - reservation.getAmount();
 
-            // Update reservation status
-            reservation.setStatus(GemReservationStatus.CAPTURED);
-            reservation.setCapturedAt(System.currentTimeMillis());
+            // Clone state for transaction isolation (Copy-on-Write)
+            GemsState nextState = currentState.cloneState();
+            GemReservation nextReservation = nextState.reservations.get(request.reservationId().toString());
+            nextReservation.setStatus(GemReservationStatus.CAPTURED);
+            nextReservation.setCapturedAt(System.currentTimeMillis());
+            nextState.balances.put(nextReservation.getPlayerUuid().toString(), newTotal);
 
-            // Deduct total balance
-            currentState.balances.put(reservation.getPlayerUuid().toString(), newTotal);
+            // Save state first (disk authoritative write)
+            persistence.saveState(nextState);
 
-            // Persist step
-            persistence.saveState(currentState);
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
+
+            // Once write succeeds, update in-memory reference
+            currentState = nextState;
 
             long heldAfter = heldBefore - reservation.getAmount();
             UUID transactionId = UUID.randomUUID();
@@ -578,6 +618,7 @@ public class GemsManager {
             GemBalanceView newView = new GemBalanceView(reservation.getPlayerUuid(), newTotal, heldAfter, newTotal - heldAfter);
 
             // Post event
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_EVENT_PUBLISH);
             postEventSafely(new GemReservationCapturedEvent(
                 reservation.getPlayerUuid(), reservation.getAmount(), request.source(), request.purpose(),
                 transactionId, reservation.getReservationId(), request.idempotencyKey(),
@@ -629,12 +670,19 @@ public class GemsManager {
             long currentTotal = getBalanceTotal(currentState, reservation.getPlayerUuid());
             long heldBefore = calculateHeldBalance(currentState, reservation.getPlayerUuid());
 
-            // Transition status
-            reservation.setStatus(GemReservationStatus.RELEASED);
-            reservation.setReleasedAt(System.currentTimeMillis());
+            // Clone state for transaction isolation (Copy-on-Write)
+            GemsState nextState = currentState.cloneState();
+            GemReservation nextReservation = nextState.reservations.get(request.reservationId().toString());
+            nextReservation.setStatus(GemReservationStatus.RELEASED);
+            nextReservation.setReleasedAt(System.currentTimeMillis());
 
-            // Save state
-            persistence.saveState(currentState);
+            // Save state first (disk authoritative write)
+            persistence.saveState(nextState);
+
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
+
+            // Once write succeeds, update in-memory reference
+            currentState = nextState;
 
             long heldAfter = heldBefore - reservation.getAmount();
             UUID transactionId = UUID.randomUUID();
@@ -652,6 +700,7 @@ public class GemsManager {
             GemBalanceView newView = new GemBalanceView(reservation.getPlayerUuid(), currentTotal, heldAfter, currentTotal - heldAfter);
 
             // Post event
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_EVENT_PUBLISH);
             postEventSafely(new GemReservationReleasedEvent(
                 reservation.getPlayerUuid(), reservation.getAmount(), request.source(), request.purpose(),
                 transactionId, reservation.getReservationId(), null,
@@ -700,10 +749,18 @@ public class GemsManager {
             long held = calculateHeldBalance(currentState, reservation.getPlayerUuid());
             long newExpiresAt = System.currentTimeMillis() + (leaseSeconds * 1000L);
 
-            reservation.setExpiresAt(newExpiresAt);
+            // Clone state for transaction isolation (Copy-on-Write)
+            GemsState nextState = currentState.cloneState();
+            GemReservation nextReservation = nextState.reservations.get(request.reservationId().toString());
+            nextReservation.setExpiresAt(newExpiresAt);
 
-            // Save state
-            persistence.saveState(currentState);
+            // Save state first (disk authoritative write)
+            persistence.saveState(nextState);
+
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
+
+            // Once write succeeds, update in-memory reference
+            currentState = nextState;
 
             UUID transactionId = UUID.randomUUID();
             long timestamp = System.currentTimeMillis();
@@ -962,9 +1019,10 @@ public class GemsManager {
             if (shuttingDown || !isGemsEnabled() || dataIntegrityError) return;
 
             long currentTime = System.currentTimeMillis();
+            GemsState nextState = currentState.cloneState();
             boolean stateChanged = false;
 
-            for (GemReservation res : currentState.reservations.values()) {
+            for (GemReservation res : nextState.reservations.values()) {
                 if (res.getStatus() == GemReservationStatus.ACTIVE && res.getExpiresAt() <= currentTime) {
                     res.setStatus(GemReservationStatus.EXPIRED);
                     res.setReleasedAt(currentTime);
@@ -972,8 +1030,8 @@ public class GemsManager {
 
                     // Log ledger
                     UUID transactionId = UUID.randomUUID();
-                    long currentTotal = getBalanceTotal(currentState, res.getPlayerUuid());
-                    long heldBefore = calculateHeldBalance(currentState, res.getPlayerUuid()) + res.getAmount(); // approximation of held before this expiration
+                    long currentTotal = getBalanceTotal(nextState, res.getPlayerUuid());
+                    long heldBefore = calculateHeldBalance(nextState, res.getPlayerUuid()) + res.getAmount(); // approximation of held before this expiration
                     long heldAfter = heldBefore - res.getAmount();
 
                     GemTransaction tx = new GemTransaction(
@@ -985,6 +1043,7 @@ public class GemsManager {
                     persistence.appendTransaction(tx);
 
                     // Post event
+                    checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_EVENT_PUBLISH);
                     postEventSafely(new GemReservationExpiredEvent(
                         res.getPlayerUuid(), res.getAmount(), res.getSource(), res.getPurpose(),
                         transactionId, res.getReservationId(), res.getIdempotencyKey(),
@@ -996,7 +1055,9 @@ public class GemsManager {
             }
 
             if (stateChanged) {
-                persistence.saveState(currentState);
+                persistence.saveState(nextState);
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
+                currentState = nextState;
             }
         } catch (Exception e) {
             LOGGER.error("Error running reservations cleanup task", e);
