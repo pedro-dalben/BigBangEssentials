@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "revision": 2,
+  "balances": {
+    "370c5d05-d7df-4865-a406-6a0e7d70d8c7": 100
+  },
+  "reservations": {},
+  "pendingAuditEntries": [],
+  "idempotencyRecords": {
+    "09cb340d-00db-4bb1-b3e6-11c5cbd0efa6": {
+      "transactionId": "19647556-333e-4274-a338-56b40f02e9ca",
+      "operationType": "CREDIT",
+      "requestFingerprint": "3c42405e924c4517279c752abc758ca5d05e84c462e9614bd3c3595c486624a9",
+      "playerUuid": "370c5d05-d7df-4865-a406-6a0e7d70d8c7",
+      "amount": 100,
+      "resultStatus": "SUCCESS",
+      "createdAt": 1782622337042
+    }
+  }
+}
