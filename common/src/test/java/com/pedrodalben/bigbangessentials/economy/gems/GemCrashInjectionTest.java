@@ -45,130 +45,432 @@ class GemCrashInjectionTest {
         }
     }
 
-    @Test
-    void testCrashBeforeStateWriteRollsBackReservation() {
-        UUID playerId = UUID.randomUUID();
-        GemsManager.getInstance().credit(new GemCreditRequest(playerId, 100L, "test", "init", null, null, null, Map.of()));
+    private UUID initPlayer(long amount) {
+        UUID id = UUID.randomUUID();
+        GemsManager.getInstance().credit(new GemCreditRequest(id, amount, "test", "init", null, null, null, Map.of()));
+        return id;
+    }
 
-        // Set failpoint before state file write
+    private void assertInvariants(UUID playerId, long expectedTotal, long expectedHeld) {
+        GemBalanceView view = GemsManager.getInstance().getBalanceView(playerId);
+        assertEquals(expectedTotal, view.totalBalance());
+        assertEquals(expectedHeld, view.heldBalance());
+        assertEquals(expectedTotal - expectedHeld, view.availableBalance());
+    }
+
+    // ── BEFORE_WRITE_TEMP ──
+
+    @Test
+    void testCrashBeforeWriteTempOnReserve() {
+        UUID playerId = initPlayer(100L);
         GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_WRITE_TEMP;
 
-        GemReservationRequest request = new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of());
-        
-        GemReservationResult result = GemsManager.getInstance().reserve(request);
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
         assertFalse(result.success());
         assertEquals(GemOperationFailure.PERSISTENCE_FAILURE, result.failure());
+        assertInvariants(playerId, 100L, 0L);
 
-        // Memory should not have changed because of Copy-on-Write
-        GemBalanceView viewBeforeReload = GemsManager.getInstance().getBalanceView(playerId);
-        assertEquals(100L, viewBeforeReload.totalBalance());
-        assertEquals(0L, viewBeforeReload.heldBalance());
-
-        // Reload to simulate recovery
         GemsPersistence.activeFailpoint = null;
         GemsManager.getInstance().reload();
-
-        // On reload, verify no reservation was persisted
-        GemBalanceView viewAfterReload = GemsManager.getInstance().getBalanceView(playerId);
-        assertEquals(100L, viewAfterReload.totalBalance());
-        assertEquals(0L, viewAfterReload.heldBalance());
+        assertInvariants(playerId, 100L, 0L);
         assertTrue(GemsManager.getInstance().getActiveReservations(playerId).isEmpty());
     }
 
     @Test
-    void testCrashBeforeCacheSwapKeepsOldMemoryButSavesState() {
-        UUID playerId = UUID.randomUUID();
-        GemsManager.getInstance().credit(new GemCreditRequest(playerId, 100L, "test", "init", null, null, null, Map.of()));
-
-        // Set failpoint before cache swap
-        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_CACHE_SWAP;
-
-        GemReservationRequest request = new GemReservationRequest(playerId, 40L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of());
-
-        GemReservationResult result = GemsManager.getInstance().reserve(request);
-        assertFalse(result.success());
-        assertEquals(GemOperationFailure.PERSISTENCE_FAILURE, result.failure());
-
-        // Since failpoint triggered before cache swap, memory remains unchanged (0 held)
-        GemBalanceView viewBeforeReload = GemsManager.getInstance().getBalanceView(playerId);
-        assertEquals(100L, viewBeforeReload.totalBalance());
-        assertEquals(0L, viewBeforeReload.heldBalance());
-
-        // Reload from disk to simulate crash recovery
-        GemsPersistence.activeFailpoint = null;
-        GemsManager.getInstance().reload();
-
-        // Since state file was updated, reloading must correctly compute 40L held balance
-        GemBalanceView viewAfterReload = GemsManager.getInstance().getBalanceView(playerId);
-        assertEquals(100L, viewAfterReload.totalBalance());
-        assertEquals(40L, viewAfterReload.heldBalance());
-        assertEquals(60L, viewAfterReload.availableBalance());
-        assertFalse(GemsManager.getInstance().getActiveReservations(playerId).isEmpty());
-    }
-
-    @Test
-    void testCrashBeforeAppendLedgerSwapsMemoryAndSavesState() {
-        UUID playerId = UUID.randomUUID();
-        GemsManager.getInstance().credit(new GemCreditRequest(playerId, 100L, "test", "init", null, null, null, Map.of()));
-
-        // Set failpoint before ledger append
-        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_APPEND_LEDGER;
-
-        GemReservationRequest request = new GemReservationRequest(playerId, 40L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of());
-
-        GemReservationResult result = GemsManager.getInstance().reserve(request);
-        assertFalse(result.success());
-        assertEquals(GemOperationFailure.PERSISTENCE_FAILURE, result.failure());
-
-        // Since failpoint triggered after cache swap, in-memory reference was swapped (40 held)
-        GemBalanceView viewBeforeReload = GemsManager.getInstance().getBalanceView(playerId);
-        assertEquals(100L, viewBeforeReload.totalBalance());
-        assertEquals(40L, viewBeforeReload.heldBalance());
-
-        // Reload from disk to simulate crash recovery
-        GemsPersistence.activeFailpoint = null;
-        GemsManager.getInstance().reload();
-
-        // Reloaded state still has 40L held
-        GemBalanceView viewAfterReload = GemsManager.getInstance().getBalanceView(playerId);
-        assertEquals(100L, viewAfterReload.totalBalance());
-        assertEquals(40L, viewAfterReload.heldBalance());
-        assertEquals(60L, viewAfterReload.availableBalance());
-    }
-
-    @Test
-    void testCrashDuringCapturePreventsBalanceLoss() {
-        UUID playerId = UUID.randomUUID();
-        GemsManager.getInstance().credit(new GemCreditRequest(playerId, 100L, "test", "init", null, null, null, Map.of()));
-
-        GemReservationResult resResult = GemsManager.getInstance().reserve(
-            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of())
-        );
-        assertTrue(resResult.success());
-        UUID reservationId = resResult.reservationId();
-
-        // Fail before writing capture state
+    void testCrashBeforeWriteTempOnCredit() {
+        UUID playerId = initPlayer(100L);
         GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_WRITE_TEMP;
 
-        GemCaptureRequest captureRequest = new GemCaptureRequest(reservationId, "test", "capture", null, null, null, Map.of());
-        GemOperationResult captureResult = GemsManager.getInstance().capture(captureRequest);
-        assertFalse(captureResult.success());
-        assertEquals(GemOperationFailure.PERSISTENCE_FAILURE, captureResult.failure());
+        GemOperationResult result = GemsManager.getInstance().credit(
+            new GemCreditRequest(playerId, 50L, "test", "credit", null, null, null, Map.of()));
+        assertFalse(result.success());
+        assertInvariants(playerId, 100L, 0L);
 
-        // State not updated in memory
-        GemBalanceView viewBeforeReload = GemsManager.getInstance().getBalanceView(playerId);
-        assertEquals(100L, viewBeforeReload.totalBalance());
-        assertEquals(30L, viewBeforeReload.heldBalance());
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 100L, 0L);
+    }
 
-        // Reload and check state is preserved correctly as ACTIVE reservation
+    @Test
+    void testCrashBeforeWriteTempOnCapture() {
+        UUID playerId = initPlayer(100L);
+        GemReservationResult res = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(res.success());
+        UUID reservationId = res.reservationId();
+
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_WRITE_TEMP;
+        GemOperationResult capResult = GemsManager.getInstance().capture(
+            new GemCaptureRequest(reservationId, "test", "capture", null, null, null, Map.of()));
+        assertFalse(capResult.success());
+        assertInvariants(playerId, 100L, 30L);
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 100L, 30L);
+        assertEquals(GemReservationStatus.ACTIVE, GemsManager.getInstance().findReservation(reservationId).orElseThrow().getStatus());
+    }
+
+    // ── AFTER_WRITE_TEMP (temp written, but atomic move not done) ──
+
+    @Test
+    void testCrashAfterWriteTempOnReserve() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.AFTER_WRITE_TEMP;
+
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(result.success());
+        assertEquals(GemOperationFailure.PERSISTENCE_FAILURE, result.failure());
+        assertInvariants(playerId, 100L, 0L);
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 100L, 0L);
+    }
+
+    // ── BEFORE_ATOMIC_MOVE ──
+
+    @Test
+    void testCrashBeforeAtomicMoveOnReserve() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_ATOMIC_MOVE;
+
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(result.success());
+        assertInvariants(playerId, 100L, 0L);
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 100L, 0L);
+    }
+
+    // ── AFTER_ATOMIC_MOVE (atomic move succeeded → state saved to disk, but cache not swapped) ──
+
+    @Test
+    void testCrashAfterAtomicMoveOnReserve() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.AFTER_ATOMIC_MOVE;
+
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(result.success());
+        // Cache not swapped yet → held=0 in memory
+        assertInvariants(playerId, 100L, 0L);
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        // Atomic move persisted state to disk → after reload, reservation exists
+        assertInvariants(playerId, 100L, 30L);
+    }
+
+    // ── BEFORE_CACHE_SWAP (disk has new state, memory has old) ──
+
+    @Test
+    void testCrashBeforeCacheSwapOnReserve() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_CACHE_SWAP;
+
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 40L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(result.success());
+        assertInvariants(playerId, 100L, 0L);
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 100L, 40L);
+    }
+
+    @Test
+    void testCrashBeforeCacheSwapOnDebit() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_CACHE_SWAP;
+
+        GemOperationResult result = GemsManager.getInstance().debit(
+            new GemDebitRequest(playerId, 30L, "test", "debit", null, null, null, Map.of()));
+        assertFalse(result.success());
+        assertInvariants(playerId, 100L, 0L);
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 70L, 0L);
+    }
+
+    @Test
+    void testCrashBeforeCacheSwapOnCapture() {
+        UUID playerId = initPlayer(100L);
+        GemReservationResult res = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(res.success());
+        UUID rid = res.reservationId();
+
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_CACHE_SWAP;
+        GemOperationResult capResult = GemsManager.getInstance().capture(
+            new GemCaptureRequest(rid, "test", "capture", null, null, null, Map.of()));
+        assertFalse(capResult.success());
+        assertInvariants(playerId, 100L, 30L);
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 70L, 0L);
+        assertEquals(GemReservationStatus.CAPTURED, GemsManager.getInstance().findReservation(rid).orElseThrow().getStatus());
+    }
+
+    // ── AFTER_CACHE_SWAP ──
+
+    @Test
+    void testCrashAfterCacheSwapOnCredit() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.AFTER_CACHE_SWAP;
+
+        GemOperationResult result = GemsManager.getInstance().credit(
+            new GemCreditRequest(playerId, 50L, "test", "credit", null, null, null, Map.of()));
+        assertFalse(result.success());
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 150L, 0L);
+    }
+
+    @Test
+    void testCrashAfterCacheSwapOnReserve() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.AFTER_CACHE_SWAP;
+
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 40L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(result.success());
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 100L, 40L);
+    }
+
+    // ── BEFORE_APPEND_LEDGER ──
+
+    @Test
+    void testCrashBeforeAppendLedgerOnReserve() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_APPEND_LEDGER;
+
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 40L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(result.success());
+        assertInvariants(playerId, 100L, 40L);
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 100L, 40L);
+    }
+
+    // ── AFTER_APPEND_LEDGER ──
+
+    @Test
+    void testCrashAfterAppendLedgerOnReserve() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.AFTER_APPEND_LEDGER;
+
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 40L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(result.success());
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 100L, 40L);
+    }
+
+    @Test
+    void testCrashAfterAppendLedgerOnCapture() {
+        UUID playerId = initPlayer(100L);
+        GemReservationResult res = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(res.success());
+        UUID rid = res.reservationId();
+
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.AFTER_APPEND_LEDGER;
+        GemOperationResult capResult = GemsManager.getInstance().capture(
+            new GemCaptureRequest(rid, "test", "capture", null, null, null, Map.of()));
+        assertFalse(capResult.success());
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 70L, 0L);
+        assertEquals(GemReservationStatus.CAPTURED, GemsManager.getInstance().findReservation(rid).orElseThrow().getStatus());
+    }
+
+    // ── BEFORE_IDEMPOTENCY_REGISTRY_UPDATE ──
+
+    @Test
+    void testCrashBeforeIdempotencyRegistryUpdateOnReserve() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_IDEMPOTENCY_REGISTRY_UPDATE;
+
+        String key = "idem-key-before-reg";
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", key, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(result.success());
+
         GemsPersistence.activeFailpoint = null;
         GemsManager.getInstance().reload();
 
-        GemBalanceView viewAfterReload = GemsManager.getInstance().getBalanceView(playerId);
-        assertEquals(100L, viewAfterReload.totalBalance());
-        assertEquals(30L, viewAfterReload.heldBalance());
+        // Should have the reservation persisted but the idempotency registry rebuilt from ledger
+        assertInvariants(playerId, 100L, 30L);
 
-        GemReservation reservation = GemsManager.getInstance().findReservation(reservationId).orElseThrow();
-        assertEquals(GemReservationStatus.ACTIVE, reservation.getStatus());
+        GemReservationResult retry = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", key, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(retry.success());
+        assertInvariants(playerId, 100L, 30L);
+    }
+
+    // ── AFTER_IDEMPOTENCY_REGISTRY_UPDATE ──
+
+    @Test
+    void testCrashAfterIdempotencyRegistryUpdateOnReserve() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.AFTER_IDEMPOTENCY_REGISTRY_UPDATE;
+
+        String key = "idem-key-after-reg";
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", key, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(result.success());
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+
+        assertInvariants(playerId, 100L, 30L);
+        GemReservationResult retry = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", key, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(retry.success());
+        assertInvariants(playerId, 100L, 30L);
+    }
+
+    // ── BEFORE_EVENT_PUBLISH ──
+
+    @Test
+    void testCrashBeforeEventPublishOnDebit() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_EVENT_PUBLISH;
+
+        GemOperationResult result = GemsManager.getInstance().debit(
+            new GemDebitRequest(playerId, 40L, "test", "debit", null, null, null, Map.of()));
+        assertFalse(result.success());
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 60L, 0L);
+    }
+
+    // ── AFTER_EVENT_PUBLISH ──
+
+    @Test
+    void testCrashAfterEventPublishOnCredit() {
+        UUID playerId = initPlayer(100L);
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.AFTER_EVENT_PUBLISH;
+
+        GemOperationResult result = GemsManager.getInstance().credit(
+            new GemCreditRequest(playerId, 50L, "test", "credit", null, null, null, Map.of()));
+        assertFalse(result.success());
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 150L, 0L);
+    }
+
+    // ── Crash recovery during release ──
+
+    @Test
+    void testCrashDuringReleaseBeforeCacheSwap() {
+        UUID playerId = initPlayer(100L);
+        GemReservationResult res = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(res.success());
+        UUID rid = res.reservationId();
+
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_CACHE_SWAP;
+        GemOperationResult relResult = GemsManager.getInstance().release(
+            new GemReleaseRequest(rid, "test", "release", null, "test", null, null, Map.of()));
+        assertFalse(relResult.success());
+        assertInvariants(playerId, 100L, 30L);
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 100L, 0L);
+        assertEquals(GemReservationStatus.RELEASED, GemsManager.getInstance().findReservation(rid).orElseThrow().getStatus());
+    }
+
+    @Test
+    void testCrashDuringCaptureBeforeCacheSwapDeduplication() {
+        UUID playerId = initPlayer(100L);
+        GemReservationResult res = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(res.success());
+        UUID rid = res.reservationId();
+
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_CACHE_SWAP;
+        GemOperationResult capResult = GemsManager.getInstance().capture(
+            new GemCaptureRequest(rid, "test", "cap", null, null, null, Map.of()));
+        assertFalse(capResult.success());
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 70L, 0L);
+
+        GemOperationResult capRetry = GemsManager.getInstance().capture(
+            new GemCaptureRequest(rid, "test", "cap", null, null, null, Map.of()));
+        assertTrue(capRetry.success());
+        assertEquals(GemReservationStatus.CAPTURED, GemsManager.getInstance().findReservation(rid).orElseThrow().getStatus());
+        assertInvariants(playerId, 70L, 0L);
+    }
+
+    // ── Idempotent retry after crash ──
+
+    @Test
+    void testIdempotentRetryAfterCrashOnReserve() {
+        UUID playerId = initPlayer(100L);
+        String key = "retry-after-crash-key";
+
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_CACHE_SWAP;
+        GemReservationResult result = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", key, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(result.success());
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+
+        GemReservationResult retry = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", key, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(retry.success());
+        assertInvariants(playerId, 100L, 30L);
+
+        GemReservationResult doubleRetry = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", key, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(doubleRetry.success());
+        assertInvariants(playerId, 100L, 30L);
+    }
+
+    @Test
+    void testIdempotentRetryAfterCrashOnRelease() {
+        UUID playerId = initPlayer(100L);
+        GemReservationResult res = GemsManager.getInstance().reserve(
+            new GemReservationRequest(playerId, 30L, "test", "reserve", null, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(res.success());
+        UUID rid = res.reservationId();
+        String key = "retry-release-after-crash";
+
+        GemsPersistence.activeFailpoint = GemsPersistenceFailpoint.BEFORE_CACHE_SWAP;
+        GemOperationResult relResult = GemsManager.getInstance().release(
+            new GemReleaseRequest(rid, "test", "release", null, "test", key, null, Map.of()));
+        assertFalse(relResult.success());
+
+        GemsPersistence.activeFailpoint = null;
+        GemsManager.getInstance().reload();
+        assertInvariants(playerId, 100L, 0L);
+
+        GemOperationResult relRetry = GemsManager.getInstance().release(
+            new GemReleaseRequest(rid, "test", "release", null, "test", key, null, Map.of()));
+        assertTrue(relRetry.success());
+        assertInvariants(playerId, 100L, 0L);
     }
 }
