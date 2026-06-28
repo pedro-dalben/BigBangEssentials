@@ -2,6 +2,7 @@ package com.pedrodalben.bigbangessentials.economy.gems.persistence;
 
 import com.pedrodalben.bigbangessentials.economy.gems.domain.GemReservation;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -14,6 +15,7 @@ public class GemsState {
     public Map<String, Long> balances = new ConcurrentHashMap<>();
     public Map<String, GemReservation> reservations = new ConcurrentHashMap<>();
     public List<PendingAuditEntry> pendingAuditEntries = new ArrayList<>();
+    public Map<String, IdempotencyPersistedRecord> idempotencyRecords = new LinkedHashMap<>();
 
     public static class PendingAuditEntry {
         public UUID transactionId;
@@ -37,6 +39,32 @@ public class GemsState {
         }
     }
 
+    public static class IdempotencyPersistedRecord {
+        public String transactionId;
+        public String operationType;
+        public String requestFingerprint;
+        public UUID playerUuid;
+        public long amount;
+        public UUID reservationId;
+        public String resultStatus;
+        public long createdAt;
+
+        public IdempotencyPersistedRecord() {}
+
+        public IdempotencyPersistedRecord(String transactionId, String operationType, String requestFingerprint,
+                                          UUID playerUuid, long amount, UUID reservationId,
+                                          String resultStatus, long createdAt) {
+            this.transactionId = transactionId;
+            this.operationType = operationType;
+            this.requestFingerprint = requestFingerprint;
+            this.playerUuid = playerUuid;
+            this.amount = amount;
+            this.reservationId = reservationId;
+            this.resultStatus = resultStatus;
+            this.createdAt = createdAt;
+        }
+    }
+
     public GemsState cloneState() {
         GemsState copy = new GemsState();
         copy.schemaVersion = this.schemaVersion;
@@ -50,6 +78,9 @@ public class GemsState {
         }
         if (this.pendingAuditEntries != null) {
             copy.pendingAuditEntries = new ArrayList<>(this.pendingAuditEntries);
+        }
+        if (this.idempotencyRecords != null) {
+            copy.idempotencyRecords = new LinkedHashMap<>(this.idempotencyRecords);
         }
         return copy;
     }

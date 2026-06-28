@@ -108,9 +108,13 @@ GemOperationResult result = gemsService.release(new GemReleaseRequest(
     "PLAYER_REGION_RESIZE",
     actorUuid,
     "cancel_reason",
+    "idempotency-key",           // Idempotency key — guarantees safe retry after crash
+    "external-ref",
     Map.of()
 ));
 ```
+
+`GemReleaseRequest` now includes an `idempotencyKey` field. The release operation uses `checkIdempotencyWithStateFallback()` to check for duplicate requests. If the same key with the same reservation was already processed, it returns the original success result without modifying state. This ensures safe retries after crashes — the caller can retry `release()` with the same `idempotencyKey` without risk of double-release or data corruption.
 
 ### 4. Renew
 Extend the reservation lease:
@@ -118,7 +122,13 @@ Extend the reservation lease:
 GemReservationResult result = gemsService.renew(new GemRenewRequest(
     reservationId,
     Duration.ofMinutes(10), // Extension time
-    "extending_for_long_transaction",
+    "bigbangregions",
+    "PLAYER_REGION_RESIZE",
+    actorUuid,
+    "idempotency-key",           // Idempotency key — guarantees safe retry
+    "external-ref",
     Map.of()
 ));
 ```
+
+`GemRenewRequest` now includes an `idempotencyKey` field. Like `release()`, the renew operation uses `checkIdempotencyWithStateFallback()` to ensure safe retries. The renewed lease duration is capped by the maximum lease configured in `gems.json`.

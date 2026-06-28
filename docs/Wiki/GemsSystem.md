@@ -21,6 +21,24 @@ A player's balance consists of:
 
 The available balance can never drop below zero.
 
+### Idempotency Persistence
+The Gems system persists idempotency records directly in `gems_state.json` under `idempotencyRecords`. Each record contains:
+- `transactionId`: UUID of the original transaction.
+- `operationType`: The operation performed (CREDIT, DEBIT, RESERVE, CAPTURE, RELEASE, RENEW).
+- `requestFingerprint`: SHA-256 hash of the full request payload for conflict detection.
+- `playerUuid`, `amount`, `reservationId`: Key operation parameters.
+- `resultStatus`: `"SUCCESS"` if the operation completed.
+- `createdAt`: Timestamp.
+
+This guarantees that idempotency survives server crashes — even if the ledger append fails after state persistence, the next request with the same `idempotencyKey` will find the persisted record in `currentState.idempotencyRecords` via `checkIdempotencyWithStateFallback()`.
+
+### Pending Audit Entries for Ledger Recovery
+The system uses `pendingAuditEntries` in `gems_state.json` to handle the case where state has been persisted but the ledger append failed:
+- Before every mutation, a `PendingAuditEntry` is added to `nextState.pendingAuditEntries` with the transaction type, player UUID, revision, and reservation ID.
+- After the state is saved and the reference swapped, the ledger append is attempted.
+- If the ledger append succeeds, `reconcilePendingAuditEntry()` removes the pending entry from state and saves the clean state.
+- If the ledger append fails, the pending entry remains in the state. On next boot, `recover()` scans `pendingAuditEntries` and appends each unreconciled entry to the ledger, ensuring no audit trail is lost.
+
 ### Reservation States
 A reservation goes through the following lifecycle:
 ```
@@ -51,28 +69,36 @@ The Gems system utilizes a **State authoritative + ledger reconciliável** appro
 
 ### Persistence Mutation Order (Copy-on-Write)
 All modifying operations (credit, debit, setBalance, reserve, capture, release, renew) follow a Copy-on-Write (CoW) workflow to prevent runtime state divergence in the case of disk or process failures:
-1. Clone the current state deeply (`currentState.cloneState()`), ensuring reservations and balances maps are duplicated.
-2. Apply mutations exclusively to the cloned state snapshot.
-3. Save the cloned state síncronamente to the temp file `gems_state.json.tmp`.
-4. Perform an atomic move (`Files.move`) renaming `gems_state.json.tmp` to `gems_state.json`.
-5. Only after the disk write succeeds:
+
+1. Clone the current state deeply (`currentState.cloneState()`), ensuring reservations, balances, idempotencyRecords, and pendingAuditEntries maps are duplicated.
+2. Apply mutations exclusively to the cloned state snapshot (nextState).
+3. Add an `IdempotencyPersistedRecord` to `nextState.idempotencyRecords` with the operation fingerprint (SHA-256 of all request fields including idempotencyKey). This guarantees idempotency survives crashes — even if the ledger append fails, the idempotency record is already on disk in the state.
+4. Add a `PendingAuditEntry` to `nextState.pendingAuditEntries` recording the transaction for later ledger reconciliation.
+5. Save the cloned state synchronously to the temp file `gems_state.json.tmp`.
+6. Perform an atomic move (`Files.move`) renaming `gems_state.json.tmp` to `gems_state.json`.
+7. Only after the disk write succeeds:
    - Swap the in-memory reference: `currentState = nextState`.
-   - Log the transaction to the append-only ledger (`gems_transactions.jsonl`).
-   - Add the record to the idempotency cache.
-   - Fire life-cycle events.
+   - Append the transaction to the audit log (`gems_transactions.jsonl`).
+   - If the ledger append succeeds: reconcile the pending audit entry (remove it from state and save the clean state).
+   - If the ledger append fails: the `PendingAuditEntry` remains in the state; the next `recover()` will reconcile it.
+   - Add the record to the in-memory idempotency registry.
+   - Fire domain life-cycle events.
 
 ---
 
 ## Recovery Protocol on Server Boot
 During system boot, `BigBangEssentials` executes the recovery protocol:
+
 1. Load `gems_state.json`.
-2. Validate schema and file integrity.
-3. Recalculate `heldBalance` for each player by scanning all `ACTIVE` reservations.
-4. Verify that for every player, `heldBalance <= totalBalance`.
-5. Identify any `ACTIVE` reservations that have exceeded their expiration time (`expiresAt < currentTime`).
-6. For each expired reservation:
-   - Transition to `EXPIRED`.
-   - Append `RESERVATION_EXPIRED` to the transaction log.
-   - Restore the available balance.
-7. Save the corrected, cleaned-up state back to `gems_state.json`.
-8. Log a recovery report detailing loaded balances, active reservations, and expired cleanups.
+2. Validate `schemaVersion == 1` and file integrity.
+3. Scan all reservations: if `ACTIVE` and `expiresAt < currentTime`, transition to `EXPIRED`, append `RESERVATION_EXPIRED` to the transaction log, and restore the available balance.
+4. Recalculate `heldBalance` for each player from non-expired `ACTIVE` reservations only.
+5. Validate invariants: no negative balances, `heldBalance <= totalBalance` for every player.
+6. If any invariant is violated, set `dataIntegrityError = true` (blocks all mutations until repair).
+7. **Reconcile pending audit entries:** For each `PendingAuditEntry` in `state.pendingAuditEntries` that is not yet reconciled, append the corresponding transaction to the ledger. This ensures no audit entries are lost when the ledger append failed after state persistence.
+8. If the state was modified (expired reservations or reconciled entries), save the cleaned-up state to `gems_state.json`.
+9. **Rebuild the idempotency registry** (`loadIdempotencyFromLedger`):
+   - First, load persisted `IdempotencyPersistedRecord` entries from `currentState.idempotencyRecords`.
+   - Then, scan `gems_transactions.jsonl` for `idempotencyKey` fields (state records take precedence).
+   - Finally, register all `ACTIVE` reservations that have an `idempotencyKey` from `currentState.reservations`.
+10. Log a recovery report detailing loaded balances, active reservations, expired cleanups, reconciled entries, and idempotency keys loaded.

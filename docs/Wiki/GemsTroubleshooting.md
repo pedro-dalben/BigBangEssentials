@@ -29,6 +29,20 @@ Manually cancel a stuck reservation and release the locked funds back to the pla
 - **Permission:** `bigbangessentials.gems.admin.release`
 - *Note:* The literal `"confirm"` suffix is strictly required.
 
+> ⚠️ **CRITICAL SAFETY WARNING**
+>
+> Never execute:
+> ```
+> /gems admin reservation release <reservationId> confirm
+> ```
+> without first confirming that the external consumer (e.g., BigBang Regions) does **NOT** have an operation in one of these states:
+>
+> - `PAYMENT_RESERVED`
+> - `RESIZE_APPLIED`
+> - `PAYMENT_CAPTURE_PENDING`
+>
+> If a release is forced while the consumer has an active operation in one of these states, the consumer may later attempt a `capture()` on a now-RELEASED reservation, causing a `RESERVATION_NOT_ACTIVE` failure. The player's Gems would already be returned to their available balance, but the consumer's workflow would be in an inconsistent state. Always verify the consumer's operation state before using force release.
+
 ---
 
 ## Recovery and Backup Scenarios

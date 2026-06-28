@@ -341,4 +341,19 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
     public LuckPerms getApi() {
         return luckPermsApi;
     }
+
+    public boolean setupPlayerAsVip(UUID uuid, String playerName) {
+        if (!luckPermsLoaded || luckPermsApi == null) return false;
+        try {
+            User user = getOrLoadUser(uuid);
+            if (user == null) return false;
+            user.data().add(net.luckperms.api.node.types.InheritanceNode.builder("vip").build());
+            luckPermsApi.getUserManager().saveUser(user);
+            LOGGER.info("Successfully set up VIP for player '{}' ({})", playerName, uuid);
+            return true;
+        } catch (Exception e) {
+            LOGGER.error("Failed to set up VIP for player '{}' ({})", playerName, uuid, e);
+            return false;
+        }
+    }
 }
