@@ -106,6 +106,31 @@ public class GemsManager {
         return held;
     }
 
+    public String format(long amount) {
+        if (!isGemsEnabled()) {
+            return amount + " ✦";
+        }
+        GemConfig.Display display = persistence.getConfig().display;
+        String formattedAmount;
+        if (".".equals(display.thousandsSeparator)) {
+            formattedAmount = String.format(Locale.GERMANY, "%,d", amount);
+        } else if (",".equals(display.thousandsSeparator)) {
+            formattedAmount = String.format(Locale.US, "%,d", amount);
+        } else {
+            formattedAmount = String.format(Locale.getDefault(), "%,d", amount);
+            if (display.thousandsSeparator != null && !display.thousandsSeparator.isEmpty()) {
+                char groupingSeparator = new java.text.DecimalFormatSymbols(Locale.getDefault()).getGroupingSeparator();
+                formattedAmount = formattedAmount.replace(String.valueOf(groupingSeparator), display.thousandsSeparator);
+            }
+        }
+
+        if (display.symbolBeforeAmount) {
+            return display.symbol + " " + formattedAmount;
+        } else {
+            return formattedAmount + " " + display.symbol;
+        }
+    }
+
     public GemBalanceView getBalanceView(UUID playerUuid) {
         stateLock.readLock().lock();
         try {
@@ -113,6 +138,21 @@ public class GemsManager {
             long held = calculateHeldBalance(currentState, playerUuid);
             long available = total - held;
             return new GemBalanceView(playerUuid, total, held, available);
+        } finally {
+            stateLock.readLock().unlock();
+        }
+    }
+
+    public List<GemReservation> getActiveReservations(UUID playerUuid) {
+        stateLock.readLock().lock();
+        try {
+            List<GemReservation> list = new ArrayList<>();
+            for (GemReservation res : currentState.reservations.values()) {
+                if (playerUuid.equals(res.getPlayerUuid()) && res.getStatus() == GemReservationStatus.ACTIVE) {
+                    list.add(res);
+                }
+            }
+            return list;
         } finally {
             stateLock.readLock().unlock();
         }

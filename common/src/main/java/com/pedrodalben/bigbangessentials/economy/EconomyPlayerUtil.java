@@ -24,4 +24,13 @@ public class EconomyPlayerUtil {
         if (profile != null) return Optional.of(profile.getId());
         return Optional.empty();
     }
+
+    // Lookup name by UUID (online or offline)
+    public static Optional<String> getNameByUUID(MinecraftServer server, UUID uuid) {
+        ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+        if (player != null) return Optional.of(player.getGameProfile().getName());
+        var profile = server.getProfileCache().get(uuid).orElse(null);
+        if (profile != null) return Optional.of(profile.getName());
+        return Optional.empty();
+    }
 }

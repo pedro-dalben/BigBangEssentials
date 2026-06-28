@@ -60,6 +60,12 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
         // Economy placeholders
         placeholders.add("balance");
         placeholders.add("balance_formatted");
+        placeholders.add("gems");
+        placeholders.add("gems_formatted");
+        placeholders.add("gems_available");
+        placeholders.add("gems_held");
+        placeholders.add("gems_currency_name");
+        placeholders.add("gems_currency_symbol");
         
         // Server placeholders
         placeholders.add("server_name");
@@ -139,6 +145,12 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
                 // Economy
                 case "balance" -> getBalance(player);
                 case "balance_formatted" -> getFormattedBalance(player);
+                case "gems" -> getGems(player);
+                case "gems_formatted" -> getFormattedGems(player);
+                case "gems_available" -> getAvailableGems(player);
+                case "gems_held" -> getHeldGems(player);
+                case "gems_currency_name" -> getGemsCurrencyName();
+                case "gems_currency_symbol" -> getGemsCurrencySymbol();
                 
                 // Server
                 case "server_name" -> getServerName(player);
@@ -351,6 +363,86 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
             LOGGER.debug("Error getting formatted balance for player {}: {}", player.getName().getString(), e.getMessage());
         }
         return "0.00";
+    }
+    
+    private String getGems(@Nullable ServerPlayer player) {
+        if (player == null) return "0";
+        try {
+            var manager = com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance();
+            if (manager != null) {
+                var balance = manager.getBalanceView(player.getUUID());
+                return String.valueOf(balance.totalBalance());
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Error getting gems for player {}: {}", player.getName().getString(), e.getMessage());
+        }
+        return "0";
+    }
+
+    private String getFormattedGems(@Nullable ServerPlayer player) {
+        if (player == null) return "0 ✦";
+        try {
+            var manager = com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance();
+            if (manager != null) {
+                var balance = manager.getBalanceView(player.getUUID());
+                return manager.format(balance.totalBalance());
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Error getting formatted gems for player {}: {}", player.getName().getString(), e.getMessage());
+        }
+        return "0 ✦";
+    }
+
+    private String getAvailableGems(@Nullable ServerPlayer player) {
+        if (player == null) return "0";
+        try {
+            var manager = com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance();
+            if (manager != null) {
+                var balance = manager.getBalanceView(player.getUUID());
+                return String.valueOf(balance.availableBalance());
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Error getting available gems for player {}: {}", player.getName().getString(), e.getMessage());
+        }
+        return "0";
+    }
+
+    private String getHeldGems(@Nullable ServerPlayer player) {
+        if (player == null) return "0";
+        try {
+            var manager = com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance();
+            if (manager != null) {
+                var balance = manager.getBalanceView(player.getUUID());
+                return String.valueOf(balance.heldBalance());
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Error getting held gems for player {}: {}", player.getName().getString(), e.getMessage());
+        }
+        return "0";
+    }
+
+    private String getGemsCurrencyName() {
+        try {
+            var manager = com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance();
+            if (manager != null) {
+                return manager.getCurrencyDescriptor().plural();
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Error getting gems currency name: {}", e.getMessage());
+        }
+        return "Gemas";
+    }
+
+    private String getGemsCurrencySymbol() {
+        try {
+            var manager = com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance();
+            if (manager != null) {
+                return manager.getCurrencyDescriptor().symbol();
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Error getting gems currency symbol: {}", e.getMessage());
+        }
+        return "✦";
     }
     
     /**

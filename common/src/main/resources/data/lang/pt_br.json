@@ -1,5 +1,5 @@
 {
-  "_langVersion": "103",
+  "_langVersion": "200",
   "_language": "pt_br",
   "_language_name": "Português (Brasil)",
   "_language_name_en": "Portuguese (Brazil)",
@@ -1064,5 +1064,21 @@
   "commands.bigbangessentials.teleport.spawn.no_end": "§cO spawn não pode ser definido no End.",
   "commands.bigbangessentials.teleport.spawn.no_nether": "§cO spawn não pode ser definido no Nether.",
   "commands.bigbangessentials.teleport.spawn.unsafe": "§cO local do spawn não é seguro.",
-  "commands.bigbangessentials.teleport.spawn.unsafe_location": "§cLocalização insegura para o spawn."
+  "commands.bigbangessentials.teleport.spawn.unsafe_location": "§cLocalização insegura para o spawn.",
+  "commands.bigbangessentials.gems.balance": "§eTotal: §f{0}§e | Disponível: §f{1}§e | Reservado: §f{2}",
+  "commands.bigbangessentials.gems.disabled": "§cO sistema de gems está desativado.",
+  "commands.bigbangessentials.gems.invalid_amount": "§cQuantia inválida. A quantia deve ser um número inteiro positivo.",
+  "commands.bigbangessentials.gems.give_success": "§aDeu §f{0} {1}§a para §f{2}§a.",
+  "commands.bigbangessentials.gems.take_success": "§aRetirou §f{0} {1}§a de §f{2}§a.",
+  "commands.bigbangessentials.gems.set_success": "§aDefiniu o saldo de gems de §f{0}§a para §f{1} {2}§a.",
+  "commands.bigbangessentials.gems.reset_success": "§aRedefiniu o saldo de gems de §f{0}§a para o saldo inicial.",
+  "commands.bigbangessentials.gems.admin.verify_result": "§6Resultado da Verificação de Gems: §f{0}",
+  "commands.bigbangessentials.gems.admin.repair_success": "§aEstado da carteira de Gems reparado com sucesso.",
+  "commands.bigbangessentials.gems.admin.reload_success": "§aConfiguração e estado das Gems recarregados com sucesso.",
+  "commands.bigbangessentials.gems.admin.release_success": "§aReserva §f{0}§a liberada manualmente.",
+  "commands.bigbangessentials.gems.history.header": "§6Histórico de Gems de §e{0} §7(Página §f{1}§7/§f{2}§7):",
+  "commands.bigbangessentials.gems.history.item": "§7- §f{0}§7: §e{1}§7 | Antes: §f{2}§7 | Depois: §f{3}§7 | Origem: §f{4}§7 | Motivo: §f{5}",
+  "commands.bigbangessentials.gems.reservations.header": "§6Reservas ativas de §e{0}§7:",
+  "commands.bigbangessentials.gems.reservations.item": "§7- ID: §f{0}§7 | Quantidade: §e{1}§7 | Expira em: §f{2}s§7 | Origem: §f{3}",
+  "commands.bigbangessentials.gems.reservation.inspect": "§6Reserva §e{0}§7:\n§7Jogador: §f{1}\n§7Quantidade: §e{2}\n§7Status: §f{3}\n§7Origem: §f{4}\n§7Motivo: §f{5}\n§7Expira em: §f{6}s\n§7Chave Idempotente: §f{7}\n§7Referência Externa: §f{8}\n§7Metadados: §f{9}"
 }

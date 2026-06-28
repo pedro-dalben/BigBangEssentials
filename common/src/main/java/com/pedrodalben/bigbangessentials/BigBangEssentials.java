@@ -443,12 +443,18 @@ public class BigBangEssentials {
                 LOGGER.error("Failed to save permissions on shutdown", e);
             }
 
-            // Shutdown Economy Managers (these have executors that need proper shutdown)
             try {
                 LOGGER.info("Shutting down Economy Manager...");
                 com.pedrodalben.bigbangessentials.economy.managers.EconomyManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown Economy Manager", e);
+            }
+
+            try {
+                LOGGER.info("Shutting down Gems Manager...");
+                com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance().shutdown();
+            } catch (Exception e) {
+                LOGGER.error("Failed to shutdown Gems Manager", e);
             }
 
             try {
@@ -581,6 +587,10 @@ public class BigBangEssentials {
     private static void registerAllCommands(CommandDispatcher<CommandSourceStack> dispatcher, CommandRegistry registry) {
         // Register the root command first (/neoe and /bigbangessentials)
         com.pedrodalben.bigbangessentials.commands.ModRootCommand.register(dispatcher);
+        
+        // Register Gems commands
+        registry.registerCommand("gems", "Gems wallet system command", "gemas");
+        com.pedrodalben.bigbangessentials.economy.gems.command.GemsCommand.register(dispatcher);
         
         // ========== TELEPORTATION COMMANDS ==========
         // Register warp commands
