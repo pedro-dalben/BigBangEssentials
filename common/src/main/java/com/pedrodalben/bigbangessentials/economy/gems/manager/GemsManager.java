@@ -1129,34 +1129,16 @@ public class GemsManager {
                         expiredCount++;
                         LOGGER.info("Expired active reservation {} for player {} during recovery.", res.getReservationId(), res.getPlayerUuid());
 
-                        // Append EXPIRED transaction to ledger
-                        try {
-                            long totalVal = getBalanceTotal(state, res.getPlayerUuid());
-                            long currentHeld = calculatedHeldBalances.getOrDefault(res.getPlayerUuid(), 0L);
-                            GemTransaction tx = new GemTransaction(
-                                UUID.randomUUID(),
-                                currentTime,
-                                GemTransactionType.RESERVATION_EXPIRED,
-                                res.getPlayerUuid(),
-                                res.getAmount(),
-                                totalVal, // balanceBefore
-                                totalVal, // balanceAfter
-                                currentHeld + res.getAmount(), // heldBefore
-                                currentHeld, // heldAfter
-                                totalVal - (currentHeld + res.getAmount()), // availableBefore
-                                totalVal - currentHeld, // availableAfter
-                                null,
-                                res.getSource(),
-                                res.getPurpose(),
-                                res.getReservationId(),
-                                res.getIdempotencyKey(),
-                                res.getExternalReference(),
-                                res.getMetadata()
-                            );
-                            persistence.appendTransaction(tx);
-                        } catch (Exception ex) {
-                            LOGGER.error("Failed to append expiration transaction to ledger", ex);
-                        }
+                        // P0 flow: add pendingAuditEntry (state-first, ledger appended by reconciliation below)
+                        UUID txId = UUID.randomUUID();
+                        long totalVal = getBalanceTotal(state, res.getPlayerUuid());
+                        long heldBefore = calculatedHeldBalances.getOrDefault(res.getPlayerUuid(), 0L);
+                        long heldAfter = heldBefore;
+                        addPendingAuditEntry(state, txId, state.revision + 1, "RESERVATION_EXPIRED",
+                            res.getPlayerUuid(), res.getAmount(), totalVal, totalVal,
+                            heldBefore + res.getAmount(), heldAfter,
+                            res.getReservationId(), res.getSource(), res.getPurpose(),
+                            res.getIdempotencyKey(), null, res.getExternalReference(), null, currentTime);
                     } else {
                         calculatedHeldBalances.merge(res.getPlayerUuid(), res.getAmount(), Long::sum);
                     }
