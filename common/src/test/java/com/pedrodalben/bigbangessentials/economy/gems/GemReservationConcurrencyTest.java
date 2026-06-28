@@ -13,6 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.pedrodalben.bigbangessentials.economy.gems.domain.GemReservation;
 import com.pedrodalben.bigbangessentials.economy.gems.domain.GemReservationStatus;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -257,5 +258,249 @@ class GemReservationConcurrencyTest {
         GemBalanceView balance = GemsManager.getInstance().getBalanceView(playerId);
         assertEquals(100L, balance.totalBalance());
         assertEquals(0L, balance.heldBalance());
+    }
+
+    // ── Additional concurrency scenarios ──
+
+    @Test
+    void testConcurrentReserveAndDebit() throws InterruptedException {
+        UUID playerId = UUID.randomUUID();
+        GemsManager.getInstance().credit(new GemCreditRequest(playerId, 100L, "test", "init", null, null, null, Map.of()));
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch finishLatch = new CountDownLatch(2);
+
+        AtomicInteger reserveSuccess = new AtomicInteger(0);
+        AtomicInteger debitSuccess = new AtomicInteger(0);
+
+        executor.submit(() -> {
+            try {
+                startLatch.await();
+                GemReservationResult r = GemsManager.getInstance().reserve(new GemReservationRequest(
+                    playerId, 30L, "test", "concurrent", UUID.randomUUID().toString(), null, Duration.ofSeconds(60), Map.of()));
+                if (r.success()) reserveSuccess.incrementAndGet();
+            } catch (Exception ignored) {} finally { finishLatch.countDown(); }
+        });
+
+        executor.submit(() -> {
+            try {
+                startLatch.await();
+                GemOperationResult d = GemsManager.getInstance().debit(new GemDebitRequest(
+                    playerId, 40L, "test", "concurrent", null, UUID.randomUUID().toString(), null, Map.of()));
+                if (d.success()) debitSuccess.incrementAndGet();
+            } catch (Exception ignored) {} finally { finishLatch.countDown(); }
+        });
+
+        startLatch.countDown();
+        finishLatch.await(5, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        int totalOps = reserveSuccess.get() + debitSuccess.get();
+        assertTrue(totalOps >= 1, "At least one operation must succeed");
+
+        GemBalanceView balance = GemsManager.getInstance().getBalanceView(playerId);
+        long expectedTotal = 100L - (debitSuccess.get() * 40L);
+        assertEquals(expectedTotal, balance.totalBalance());
+        assertTrue(balance.heldBalance() <= balance.totalBalance());
+        assertTrue(balance.availableBalance() >= 0);
+    }
+
+    @Test
+    void testConcurrentReserveAndAdminTake() throws InterruptedException {
+        UUID playerId = UUID.randomUUID();
+        GemsManager.getInstance().credit(new GemCreditRequest(playerId, 100L, "test", "init", null, null, null, Map.of()));
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch finishLatch = new CountDownLatch(2);
+
+        AtomicInteger reserveOk = new AtomicInteger(0);
+        AtomicInteger takeOk = new AtomicInteger(0);
+
+        executor.submit(() -> {
+            try {
+                startLatch.await();
+                GemReservationResult r = GemsManager.getInstance().reserve(new GemReservationRequest(
+                    playerId, 80L, "test", "concurrent", UUID.randomUUID().toString(), null, Duration.ofSeconds(60), Map.of()));
+                if (r.success()) reserveOk.incrementAndGet();
+            } catch (Exception ignored) {} finally { finishLatch.countDown(); }
+        });
+
+        executor.submit(() -> {
+            try {
+                startLatch.await();
+                GemOperationResult t = GemsManager.getInstance().debit(new GemDebitRequest(
+                    playerId, 60L, "admin-command", "ADMIN_TAKE", null, UUID.randomUUID().toString(), null, Map.of()));
+                if (t.success()) takeOk.incrementAndGet();
+            } catch (Exception ignored) {} finally { finishLatch.countDown(); }
+        });
+
+        startLatch.countDown();
+        finishLatch.await(5, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        int successCount = reserveOk.get() + takeOk.get();
+        assertTrue(successCount >= 1, "At least one operation must succeed");
+
+        GemBalanceView balance = GemsManager.getInstance().getBalanceView(playerId);
+        assertTrue(balance.totalBalance() >= 0);
+        assertTrue(balance.heldBalance() <= balance.totalBalance());
+        assertTrue(balance.availableBalance() >= 0);
+        assertEquals(balance.totalBalance(), balance.heldBalance() + balance.availableBalance());
+    }
+
+    @Test
+    void testConcurrentRenewAndReloadExpireCleanup() throws InterruptedException {
+        UUID playerId = UUID.randomUUID();
+        GemsManager.getInstance().credit(new GemCreditRequest(playerId, 100L, "test", "init", null, null, null, Map.of()));
+
+        // Create reservation with very short lease (1 second)
+        GemReservationResult res = GemsManager.getInstance().reserve(new GemReservationRequest(
+            playerId, 30L, "test", "concurrent", UUID.randomUUID().toString(), null, Duration.ofSeconds(1), Map.of()));
+        assertTrue(res.success());
+        UUID rid = res.reservationId();
+
+        // Wait for lease to expire
+        Thread.sleep(1100);
+
+        // Simulate restart to trigger expiration recovery
+        GemsManager.getInstance().reload();
+
+        // After recovery, reservation should be expired
+        GemBalanceView balance = GemsManager.getInstance().getBalanceView(playerId);
+        assertEquals(100L, balance.totalBalance());
+        assertEquals(0L, balance.heldBalance());
+
+        GemReservation reservation = GemsManager.getInstance().findReservation(rid).orElseThrow();
+        assertEquals(GemReservationStatus.EXPIRED, reservation.getStatus());
+    }
+
+    @Test
+    void testConcurrentIdempotentReserveSameKey() throws InterruptedException {
+        UUID playerId = UUID.randomUUID();
+        GemsManager.getInstance().credit(new GemCreditRequest(playerId, 100L, "test", "init", null, null, null, Map.of()));
+
+        String sharedKey = "shared-concurrent-key";
+        int threadCount = 5;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch finishLatch = new CountDownLatch(threadCount);
+        ConcurrentLinkedQueue<GemReservationResult> results = new ConcurrentLinkedQueue<>();
+
+        for (int i = 0; i < threadCount; i++) {
+            executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    results.add(GemsManager.getInstance().reserve(new GemReservationRequest(
+                        playerId, 30L, "test", "concurrent", sharedKey, null, Duration.ofSeconds(60), Map.of())));
+                } catch (Exception ignored) {} finally { finishLatch.countDown(); }
+            });
+        }
+
+        startLatch.countDown();
+        finishLatch.await(5, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        assertEquals(threadCount, results.size());
+
+        // All threads use same key + same payload → all should succeed (idempotent)
+        int successCount = 0;
+        UUID firstReservationId = null;
+        for (GemReservationResult r : results) {
+            assertTrue(r.success(), "Same key + same payload should be idempotent");
+            successCount++;
+            if (firstReservationId == null) firstReservationId = r.reservationId();
+            else assertEquals(firstReservationId, r.reservationId());
+        }
+
+        assertInvariants(playerId, 100L, 30L);
+    }
+
+    @Test
+    void testConcurrentIdempotentReserveDifferentPayload() throws InterruptedException {
+        UUID playerId = UUID.randomUUID();
+        GemsManager.getInstance().credit(new GemCreditRequest(playerId, 100L, "test", "init", null, null, null, Map.of()));
+
+        int threadCount = 3;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch finishLatch = new CountDownLatch(threadCount);
+        ConcurrentLinkedQueue<GemReservationResult> results = new ConcurrentLinkedQueue<>();
+        String sharedKey = "shared-diff-payload-key";
+
+        for (int i = 0; i < threadCount; i++) {
+            final long amt = 30L * (i + 1);
+            executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    results.add(GemsManager.getInstance().reserve(new GemReservationRequest(
+                        playerId, amt, "test", "concurrent", sharedKey, null, Duration.ofSeconds(60), Map.of())));
+                } catch (Exception ignored) {} finally { finishLatch.countDown(); }
+            });
+        }
+
+        startLatch.countDown();
+        finishLatch.await(5, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        assertEquals(threadCount, results.size());
+
+        int successCount = 0;
+        int conflictCount = 0;
+        for (GemReservationResult r : results) {
+            if (r.success()) successCount++;
+            else if (r.failure() == GemOperationFailure.IDEMPOTENCY_CONFLICT) conflictCount++;
+        }
+        assertEquals(1, successCount, "Exactly 1 should succeed (first with correct payload)");
+        assertEquals(threadCount - 1, conflictCount, "Remaining should get IDEMPOTENCY_CONFLICT");
+
+        assertInvariants(playerId, 100L, 30L);
+    }
+
+    @Test
+    void testShutdownDuringReserve() throws InterruptedException {
+        UUID playerId = initPlayer(100L);
+
+        GemsManager.getInstance().shutdown();
+
+        GemOperationResult result = GemsManager.getInstance().credit(new GemCreditRequest(playerId, 50L, "test", "shutdown", null, null, null, Map.of()));
+        assertFalse(result.success());
+        assertEquals(GemOperationFailure.SHUTTING_DOWN, result.failure());
+
+        GemReservationResult resResult = GemsManager.getInstance().reserve(new GemReservationRequest(
+            playerId, 30L, "test", "shutdown", null, null, Duration.ofSeconds(60), Map.of()));
+        assertFalse(resResult.success());
+        assertEquals(GemOperationFailure.SHUTTING_DOWN, resResult.failure());
+    }
+
+    @Test
+    void testShutdownDuringCapture() throws InterruptedException {
+        UUID playerId = initPlayer(100L);
+        GemReservationResult res = GemsManager.getInstance().reserve(new GemReservationRequest(
+            playerId, 30L, "test", "shutdown", null, null, Duration.ofSeconds(60), Map.of()));
+        assertTrue(res.success());
+        UUID rid = res.reservationId();
+
+        GemsManager.getInstance().shutdown();
+
+        GemOperationResult capResult = GemsManager.getInstance().capture(new GemCaptureRequest(rid, "test", "shutdown", null, null, null, Map.of()));
+        assertFalse(capResult.success());
+        assertEquals(GemOperationFailure.SHUTTING_DOWN, capResult.failure());
+    }
+
+    // ── Invariants helper ──
+
+    private void assertInvariants(UUID playerId, long expectedTotal, long expectedHeld) {
+        GemBalanceView view = GemsManager.getInstance().getBalanceView(playerId);
+        assertEquals(expectedTotal, view.totalBalance());
+        assertEquals(expectedHeld, view.heldBalance());
+        assertEquals(expectedTotal - expectedHeld, view.availableBalance());
+    }
+
+    private UUID initPlayer(long amount) {
+        UUID id = UUID.randomUUID();
+        GemsManager.getInstance().credit(new GemCreditRequest(id, amount, "test", "init", null, null, null, Map.of()));
+        return id;
     }
 }

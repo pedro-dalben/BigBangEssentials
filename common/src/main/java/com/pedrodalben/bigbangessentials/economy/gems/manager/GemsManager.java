@@ -1096,12 +1096,24 @@ public class GemsManager {
                         long amount = obj.get("amount").getAsLong();
                         UUID txId = UUID.fromString(obj.get("transactionId").getAsString());
                         UUID resId = obj.has("reservationId") && !obj.get("reservationId").isJsonNull() ? UUID.fromString(obj.get("reservationId").getAsString()) : null;
-                        String type = obj.get("type").getAsString();
+                        String ledgerType = obj.get("type").getAsString();
                         String source = obj.get("source").getAsString();
                         String purpose = obj.has("purpose") && !obj.get("purpose").isJsonNull() ? obj.get("purpose").getAsString() : null;
 
+                        // Map ledger transaction types to registry operation types
+                        String registryType;
+                        switch (ledgerType) {
+                            case "CREDIT": registryType = "CREDIT"; break;
+                            case "DEBIT": registryType = "DEBIT"; break;
+                            case "RESERVATION_CREATED": registryType = "RESERVE"; break;
+                            case "RESERVATION_CAPTURED": registryType = "CAPTURE"; break;
+                            case "RESERVATION_RELEASED": registryType = "RELEASE"; break;
+                            case "RESERVATION_RENEWED": registryType = "RENEW"; break;
+                            default: registryType = ledgerType; break;
+                        }
+
                         idempotencyRegistry.put(key, new IdempotencyRecord(
-                            playerUuid, amount, txId, resId, true, type, source, purpose
+                            playerUuid, amount, txId, resId, true, registryType, source, purpose
                         ));
                     }
                 } catch (Exception ignored) {}
@@ -1310,6 +1322,7 @@ public class GemsManager {
             persistence.setGemsEnabled(true); // reset
             this.currentState = null;
             this.dataIntegrityError = false;
+            this.shuttingDown = false;
 
             // Load config again
             persistence.loadConfig();
