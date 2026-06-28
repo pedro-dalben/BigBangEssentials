@@ -233,8 +233,9 @@ public class GemsManager {
             long timestamp = System.currentTimeMillis();
 
             // Persist idempotency record and pending audit entry in state BEFORE disk write
+            String fingerprint = null;
             if (request.idempotencyKey() != null) {
-                String fingerprint = computeFingerprint("CREDIT", request.playerUuid(), request.amount(),
+                fingerprint = computeFingerprint("CREDIT", request.playerUuid(), request.amount(),
                     request.source(), request.purpose(), null, null, request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
@@ -242,7 +243,9 @@ public class GemsManager {
                         request.playerUuid(), request.amount(), null, "SUCCESS", timestamp));
             }
             addPendingAuditEntry(nextState, transactionId, nextState.revision + 1, "CREDIT",
-                request.playerUuid(), null, timestamp);
+                request.playerUuid(), request.amount(), currentTotal, newTotal,
+                held, held, null, request.source(), request.purpose(),
+                request.idempotencyKey(), fingerprint, request.externalReference(), request.actorUuid(), timestamp);
 
             // Save state first (disk authoritative write)
             persistence.saveState(nextState);
@@ -343,8 +346,9 @@ public class GemsManager {
             long timestamp = System.currentTimeMillis();
 
             // Persist idempotency record and pending audit entry in state BEFORE disk write
+            String fingerprint = null;
             if (request.idempotencyKey() != null) {
-                String fingerprint = computeFingerprint("DEBIT", request.playerUuid(), request.amount(),
+                fingerprint = computeFingerprint("DEBIT", request.playerUuid(), request.amount(),
                     request.source(), request.purpose(), null, null, request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
@@ -352,7 +356,9 @@ public class GemsManager {
                         request.playerUuid(), request.amount(), null, "SUCCESS", timestamp));
             }
             addPendingAuditEntry(nextState, transactionId, nextState.revision + 1, "DEBIT",
-                request.playerUuid(), null, timestamp);
+                request.playerUuid(), request.amount(), currentTotal, newTotal,
+                held, held, null, request.source(), request.purpose(),
+                request.idempotencyKey(), fingerprint, request.externalReference(), request.actorUuid(), timestamp);
 
             // Save state first (disk authoritative write)
             persistence.saveState(nextState);
@@ -435,7 +441,9 @@ public class GemsManager {
 
             // Add pending audit entry (admin set is a financial mutation)
             addPendingAuditEntry(nextState, transactionId, nextState.revision + 1, "ADMIN_SET",
-                request.playerUuid(), null, timestamp);
+                request.playerUuid(), request.amount(), currentTotal, request.amount(),
+                held, held, null, request.source(), request.purpose(),
+                null, null, null, request.actorUuid(), timestamp);
 
             // Save state first (disk authoritative write)
             persistence.saveState(nextState);
@@ -536,17 +544,25 @@ public class GemsManager {
             GemsState nextState = currentState.cloneState();
             nextState.reservations.put(reservationId.toString(), reservation);
 
+            // Generate transactionId FIRST — same UUID used for idempotency, pending audit, and ledger
+            UUID transactionId = UUID.randomUUID();
+            long heldAfter = heldBefore + request.amount();
+            long availableAfter = currentTotal - heldAfter;
+
             // Persist idempotency record in state BEFORE disk write
+            String fingerprint = null;
             if (request.idempotencyKey() != null) {
-                String fingerprint = computeFingerprint("RESERVE", request.playerUuid(), request.amount(),
+                fingerprint = computeFingerprint("RESERVE", request.playerUuid(), request.amount(),
                     request.source(), request.purpose(), null, request.lease(), request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
-                        UUID.randomUUID().toString(), "RESERVE", fingerprint,
+                        transactionId.toString(), "RESERVE", fingerprint,
                         request.playerUuid(), request.amount(), reservationId, "SUCCESS", timestamp));
             }
-            addPendingAuditEntry(nextState, UUID.randomUUID(), nextState.revision + 1, "RESERVATION_CREATED",
-                request.playerUuid(), reservationId, timestamp);
+            addPendingAuditEntry(nextState, transactionId, nextState.revision + 1, "RESERVATION_CREATED",
+                request.playerUuid(), request.amount(), currentTotal, currentTotal,
+                heldBefore, heldAfter, reservationId, request.source(), request.purpose(),
+                request.idempotencyKey(), fingerprint, request.externalReference(), null, timestamp);
 
             // Save state first (disk authoritative write)
             persistence.saveState(nextState);
@@ -558,11 +574,7 @@ public class GemsManager {
 
             checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
 
-            long heldAfter = heldBefore + request.amount();
-            long availableAfter = currentTotal - heldAfter;
-
-            // Log ledger
-            UUID transactionId = UUID.randomUUID();
+            // Log ledger (same transactionId as idempotency record)
             GemTransaction tx = new GemTransaction(
                 transactionId, timestamp, GemTransactionType.RESERVATION_CREATED, request.playerUuid(), request.amount(),
                 currentTotal, currentTotal, heldBefore, heldAfter, availableBefore, availableAfter,
@@ -668,17 +680,25 @@ public class GemsManager {
             nextReservation.setCapturedAt(System.currentTimeMillis());
             nextState.balances.put(nextReservation.getPlayerUuid().toString(), newTotal);
 
+            // Generate transactionId FIRST — same UUID used everywhere
+            UUID transactionId = UUID.randomUUID();
+            long timestamp = System.currentTimeMillis();
+            long heldAfter = heldBefore - reservation.getAmount();
+
             // Persist idempotency record in state BEFORE disk write
+            String fingerprint = null;
             if (request.idempotencyKey() != null) {
-                String fingerprint = computeFingerprint("CAPTURE", reservation.getPlayerUuid(), reservation.getAmount(),
+                fingerprint = computeFingerprint("CAPTURE", reservation.getPlayerUuid(), reservation.getAmount(),
                     request.source(), request.purpose(), request.reservationId(), null, request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
-                        UUID.randomUUID().toString(), "CAPTURE", fingerprint,
-                        reservation.getPlayerUuid(), reservation.getAmount(), reservation.getReservationId(), "SUCCESS", System.currentTimeMillis()));
+                        transactionId.toString(), "CAPTURE", fingerprint,
+                        reservation.getPlayerUuid(), reservation.getAmount(), reservation.getReservationId(), "SUCCESS", timestamp));
             }
-            addPendingAuditEntry(nextState, UUID.randomUUID(), nextState.revision + 1, "RESERVATION_CAPTURED",
-                reservation.getPlayerUuid(), reservation.getReservationId(), System.currentTimeMillis());
+            addPendingAuditEntry(nextState, transactionId, nextState.revision + 1, "RESERVATION_CAPTURED",
+                reservation.getPlayerUuid(), reservation.getAmount(), currentTotal, newTotal,
+                heldBefore, heldAfter, reservation.getReservationId(), request.source(), request.purpose(),
+                request.idempotencyKey(), fingerprint, request.externalReference(), request.actorUuid(), timestamp);
 
             // Save state first (disk authoritative write)
             persistence.saveState(nextState);
@@ -689,10 +709,6 @@ public class GemsManager {
             currentState = nextState;
 
             checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
-
-            long heldAfter = heldBefore - reservation.getAmount();
-            UUID transactionId = UUID.randomUUID();
-            long timestamp = System.currentTimeMillis();
 
             // Log ledger
             GemTransaction tx = new GemTransaction(
@@ -797,17 +813,25 @@ public class GemsManager {
             nextReservation.setStatus(GemReservationStatus.RELEASED);
             nextReservation.setReleasedAt(System.currentTimeMillis());
 
+            // Generate transactionId FIRST — same UUID used everywhere
+            UUID transactionId = UUID.randomUUID();
+            long timestamp = System.currentTimeMillis();
+            long heldAfter = heldBefore - reservation.getAmount();
+
             // Persist idempotency record in state BEFORE disk write
+            String fingerprint = null;
             if (request.idempotencyKey() != null) {
-                String fingerprint = computeFingerprint("RELEASE", reservation.getPlayerUuid(), reservation.getAmount(),
+                fingerprint = computeFingerprint("RELEASE", reservation.getPlayerUuid(), reservation.getAmount(),
                     request.source(), request.purpose(), request.reservationId(), null, request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
-                        UUID.randomUUID().toString(), "RELEASE", fingerprint,
-                        reservation.getPlayerUuid(), reservation.getAmount(), reservation.getReservationId(), "SUCCESS", System.currentTimeMillis()));
+                        transactionId.toString(), "RELEASE", fingerprint,
+                        reservation.getPlayerUuid(), reservation.getAmount(), reservation.getReservationId(), "SUCCESS", timestamp));
             }
-            addPendingAuditEntry(nextState, UUID.randomUUID(), nextState.revision + 1, "RESERVATION_RELEASED",
-                reservation.getPlayerUuid(), reservation.getReservationId(), System.currentTimeMillis());
+            addPendingAuditEntry(nextState, transactionId, nextState.revision + 1, "RESERVATION_RELEASED",
+                reservation.getPlayerUuid(), reservation.getAmount(), currentTotal, currentTotal,
+                heldBefore, heldAfter, reservation.getReservationId(), request.source(), request.purpose(),
+                request.idempotencyKey(), fingerprint, request.externalReference(), request.actorUuid(), timestamp);
 
             // Save state first (disk authoritative write)
             persistence.saveState(nextState);
@@ -818,10 +842,6 @@ public class GemsManager {
             currentState = nextState;
 
             checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
-
-            long heldAfter = heldBefore - reservation.getAmount();
-            UUID transactionId = UUID.randomUUID();
-            long timestamp = System.currentTimeMillis();
 
             // Log ledger
             GemTransaction tx = new GemTransaction(
@@ -923,17 +943,24 @@ public class GemsManager {
             GemReservation nextReservation = nextState.reservations.get(request.reservationId().toString());
             nextReservation.setExpiresAt(newExpiresAt);
 
+            // Generate transactionId FIRST — same UUID used everywhere
+            UUID transactionId = UUID.randomUUID();
+            long timestamp = System.currentTimeMillis();
+
             // Persist idempotency record and pending audit entry in state BEFORE disk write
+            String fingerprint = null;
             if (request.idempotencyKey() != null) {
-                String fingerprint = computeFingerprint("RENEW", reservation.getPlayerUuid(), reservation.getAmount(),
+                fingerprint = computeFingerprint("RENEW", reservation.getPlayerUuid(), reservation.getAmount(),
                     request.source(), request.purpose(), request.reservationId(), request.lease(), request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
-                        UUID.randomUUID().toString(), "RENEW", fingerprint,
-                        reservation.getPlayerUuid(), reservation.getAmount(), reservation.getReservationId(), "SUCCESS", System.currentTimeMillis()));
+                        transactionId.toString(), "RENEW", fingerprint,
+                        reservation.getPlayerUuid(), reservation.getAmount(), reservation.getReservationId(), "SUCCESS", timestamp));
             }
-            addPendingAuditEntry(nextState, UUID.randomUUID(), nextState.revision + 1, "RESERVATION_RENEWED",
-                reservation.getPlayerUuid(), reservation.getReservationId(), System.currentTimeMillis());
+            addPendingAuditEntry(nextState, transactionId, nextState.revision + 1, "RESERVATION_RENEWED",
+                reservation.getPlayerUuid(), reservation.getAmount(), currentTotal, currentTotal,
+                held, held, reservation.getReservationId(), request.source(), request.purpose(),
+                request.idempotencyKey(), fingerprint, request.externalReference(), request.actorUuid(), timestamp);
 
             // Save state first (disk authoritative write)
             persistence.saveState(nextState);
@@ -944,9 +971,6 @@ public class GemsManager {
             currentState = nextState;
 
             checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
-
-            UUID transactionId = UUID.randomUUID();
-            long timestamp = System.currentTimeMillis();
 
             // Log ledger
             GemTransaction tx = new GemTransaction(
@@ -1139,17 +1163,31 @@ public class GemsManager {
                 for (GemsState.PendingAuditEntry pending : state.pendingAuditEntries) {
                     try {
                         if (pending.reconciled) continue;
+                        Map<String, String> meta = new HashMap<>();
+                        meta.put("reconciled", "true");
+                        if (pending.requestFingerprint != null) {
+                            meta.put("originalFingerprint", pending.requestFingerprint);
+                        }
                         GemTransaction tx = new GemTransaction(
                             pending.transactionId, pending.createdAt,
                             GemTransactionType.valueOf(pending.type),
-                            pending.playerUuid, 0L,
-                            0L, 0L, 0L, 0L, 0L, 0L,
-                            null, "bigbangessentials", "RECONCILIATION",
-                            pending.reservationId, null, null, Map.of("reconciled", "true")
+                            pending.playerUuid, pending.amount,
+                            pending.balanceBefore, pending.balanceAfter,
+                            pending.heldBefore, pending.heldAfter,
+                            pending.balanceBefore - pending.heldBefore,
+                            pending.balanceAfter - pending.heldAfter,
+                            pending.actorUuid,
+                            pending.source != null ? pending.source : "bigbangessentials",
+                            pending.purpose != null ? pending.purpose : "RECONCILIATION",
+                            pending.reservationId,
+                            pending.idempotencyKey,
+                            pending.externalReference,
+                            meta
                         );
                         persistence.appendTransaction(tx);
                         pending.reconciled = true;
-                        LOGGER.info("Reconciled pending audit entry: {} for reservation {}", pending.type, pending.reservationId);
+                        LOGGER.info("Reconciled pending audit entry: {} ({}) for player {} amount {}",
+                            pending.type, pending.transactionId, pending.playerUuid, pending.amount);
                     } catch (Exception ex) {
                         LOGGER.error("Failed to reconcile pending audit entry", ex);
                         remaining.add(pending);
@@ -1274,18 +1312,48 @@ public class GemsManager {
             long currentTime = System.currentTimeMillis();
             GemsState nextState = currentState.cloneState();
             boolean stateChanged = false;
+            List<UUID> expiredIds = new ArrayList<>();
 
             for (GemReservation res : nextState.reservations.values()) {
                 if (res.getStatus() == GemReservationStatus.ACTIVE && res.getExpiresAt() <= currentTime) {
                     res.setStatus(GemReservationStatus.EXPIRED);
                     res.setReleasedAt(currentTime);
                     stateChanged = true;
+                    expiredIds.add(res.getReservationId());
 
-                    // Log ledger
                     UUID transactionId = UUID.randomUUID();
                     long currentTotal = getBalanceTotal(nextState, res.getPlayerUuid());
-                    long heldBefore = calculateHeldBalance(nextState, res.getPlayerUuid()) + res.getAmount(); // approximation of held before this expiration
+                    long heldBefore = calculateHeldBalance(nextState, res.getPlayerUuid()) + res.getAmount();
                     long heldAfter = heldBefore - res.getAmount();
+
+                    // P0 flow: add pending audit entry BEFORE saveState
+                    addPendingAuditEntry(nextState, transactionId, nextState.revision + 1, "RESERVATION_EXPIRED",
+                        res.getPlayerUuid(), res.getAmount(), currentTotal, currentTotal,
+                        heldBefore, heldAfter, res.getReservationId(), res.getSource(), res.getPurpose(),
+                        res.getIdempotencyKey(), null, res.getExternalReference(), null, currentTime);
+
+                    LOGGER.info("Expiring reservation {} for player {}.", res.getReservationId(), res.getPlayerUuid());
+                }
+            }
+
+            if (stateChanged) {
+                // 1. Save state FIRST (disk authoritative write)
+                persistence.saveState(nextState);
+
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
+
+                // 2. Swap cache
+                currentState = nextState;
+
+                // 3. Then append to ledger for each expired reservation
+                for (UUID rid : expiredIds) {
+                    GemReservation res = currentState.reservations.get(rid.toString());
+                    if (res == null || res.getStatus() != GemReservationStatus.EXPIRED) continue;
+
+                    long currentTotal = getBalanceTotal(currentState, res.getPlayerUuid());
+                    long heldBefore = calculateHeldBalance(currentState, res.getPlayerUuid()) + res.getAmount();
+                    long heldAfter = heldBefore - res.getAmount();
+                    UUID transactionId = UUID.randomUUID();
 
                     GemTransaction tx = new GemTransaction(
                         transactionId, currentTime, GemTransactionType.RESERVATION_EXPIRED, res.getPlayerUuid(), res.getAmount(),
@@ -1293,24 +1361,17 @@ public class GemsManager {
                         null, res.getSource(), res.getPurpose(), res.getReservationId(),
                         res.getIdempotencyKey(), res.getExternalReference(), res.getMetadata()
                     );
-                    persistence.appendTransaction(tx);
 
-                    // Post event
+                    persistence.appendTransaction(tx);
+                    reconcilePendingAuditEntry(transactionId);
+
                     checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_EVENT_PUBLISH);
                     postEventSafely(new GemReservationExpiredEvent(
                         res.getPlayerUuid(), res.getAmount(), res.getSource(), res.getPurpose(),
                         transactionId, res.getReservationId(), res.getIdempotencyKey(),
                         currentTotal, currentTotal, heldBefore, heldAfter
                     ));
-
-                    LOGGER.info("Automatically expired reservation {} for player {}.", res.getReservationId(), res.getPlayerUuid());
                 }
-            }
-
-            if (stateChanged) {
-                persistence.saveState(nextState);
-                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
-                currentState = nextState;
             }
         } catch (Exception e) {
             LOGGER.error("Error running reservations cleanup task", e);
@@ -1549,12 +1610,19 @@ public class GemsManager {
 
     // PENDING AUDIT ENTRY CREATION AND RECONCILIATION
     private void addPendingAuditEntry(GemsState state, UUID transactionId, long revision, String type,
-                                      UUID playerUuid, UUID reservationId, long createdAt) {
+                                      UUID playerUuid, long amount, long balanceBefore, long balanceAfter,
+                                      long heldBefore, long heldAfter,
+                                      UUID reservationId, String source, String purpose,
+                                      String idempotencyKey, String requestFingerprint,
+                                      String externalReference, UUID actorUuid, long createdAt) {
         if (state.pendingAuditEntries == null) {
             state.pendingAuditEntries = new ArrayList<>();
         }
         state.pendingAuditEntries.add(new GemsState.PendingAuditEntry(
-            transactionId, revision, type, playerUuid, reservationId, createdAt
+            transactionId, revision, type, playerUuid,
+            amount, balanceBefore, balanceAfter, heldBefore, heldAfter,
+            reservationId, source, purpose,
+            idempotencyKey, requestFingerprint, externalReference, actorUuid, createdAt
         ));
     }
 

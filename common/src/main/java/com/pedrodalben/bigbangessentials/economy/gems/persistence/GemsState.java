@@ -22,18 +22,45 @@ public class GemsState {
         public long revision;
         public String type;
         public UUID playerUuid;
+        public long amount;
+        public long balanceBefore;
+        public long balanceAfter;
+        public long heldBefore;
+        public long heldAfter;
         public UUID reservationId;
+        public String source;
+        public String purpose;
+        public String idempotencyKey;
+        public String requestFingerprint;
+        public String externalReference;
+        public UUID actorUuid;
         public long createdAt;
         public boolean reconciled;
 
         public PendingAuditEntry() {}
 
-        public PendingAuditEntry(UUID transactionId, long revision, String type, UUID playerUuid, UUID reservationId, long createdAt) {
+        public PendingAuditEntry(UUID transactionId, long revision, String type, UUID playerUuid,
+                                 long amount, long balanceBefore, long balanceAfter,
+                                 long heldBefore, long heldAfter,
+                                 UUID reservationId, String source, String purpose,
+                                 String idempotencyKey, String requestFingerprint,
+                                 String externalReference, UUID actorUuid, long createdAt) {
             this.transactionId = transactionId;
             this.revision = revision;
             this.type = type;
             this.playerUuid = playerUuid;
+            this.amount = amount;
+            this.balanceBefore = balanceBefore;
+            this.balanceAfter = balanceAfter;
+            this.heldBefore = heldBefore;
+            this.heldAfter = heldAfter;
             this.reservationId = reservationId;
+            this.source = source;
+            this.purpose = purpose;
+            this.idempotencyKey = idempotencyKey;
+            this.requestFingerprint = requestFingerprint;
+            this.externalReference = externalReference;
+            this.actorUuid = actorUuid;
             this.createdAt = createdAt;
             this.reconciled = false;
         }
