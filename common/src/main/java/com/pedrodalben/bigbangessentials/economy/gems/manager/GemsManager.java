@@ -1145,7 +1145,13 @@ public class GemsManager {
                 }
             }
 
-            // 2. Validate player balances and verify held balance limits
+            // 2. State-first: persist expirations + pending audit entries BEFORE any ledger append
+            if (stateChanged) {
+                persistence.saveState(state);
+                LOGGER.info("Persisted {} expired reservations with pending audit entries.", expiredCount);
+            }
+
+            // 3. Validate player balances and verify held balance limits
             for (Map.Entry<String, Long> entry : state.balances.entrySet()) {
                 UUID playerUuid;
                 try {
@@ -1170,7 +1176,7 @@ public class GemsManager {
                 }
             }
 
-            // 3. Reconcile pending audit entries (state persisted but ledger append may have failed)
+            // 4. Reconcile pending audit entries (state persisted but ledger append may have failed)
             boolean hadPendingEntries = state.pendingAuditEntries != null && !state.pendingAuditEntries.isEmpty();
             if (hadPendingEntries) {
                 LOGGER.info("Found {} pending audit entries to reconcile.", state.pendingAuditEntries.size());
