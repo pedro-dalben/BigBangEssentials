@@ -201,13 +201,23 @@ public class GemsManager {
 
         stateLock.writeLock().lock();
         try {
-            // Idempotency check with persisted state fallback
+            // Compute fingerprint early (before idempotency check) for validation
+            String fingerprint = request.idempotencyKey() != null ? computeFingerprint(
+                "CREDIT", request.playerUuid(), request.amount(),
+                request.source(), request.purpose(), null, null, request.externalReference(), request.metadata()) : null;
+
+            // Idempotency check with persisted state fallback and fingerprint validation
             if (request.idempotencyKey() != null) {
                 IdempotencyRecord record = checkIdempotencyWithStateFallback(request.idempotencyKey(), request.playerUuid(), request.amount(), "CREDIT");
                 if (record != null) {
                     if (record.playerUuid.equals(request.playerUuid()) && record.amount == request.amount() && "CREDIT".equals(record.type)) {
-                        GemBalanceView view = getBalanceView(request.playerUuid());
-                        return GemOperationResult.succeed(record.transactionId, null, view, "idempotent_success");
+                        // Validate fingerprint: same key + same fingerprint → idempotent success
+                        if (isFingerprintMatching(request.idempotencyKey(), fingerprint)) {
+                            GemBalanceView view = getBalanceView(request.playerUuid());
+                            return GemOperationResult.succeed(record.transactionId, null, view, "idempotent_success");
+                        }
+                        // Same key + different fingerprint → conflict
+                        return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key fingerprint mismatch");
                     }
                     return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key conflict");
                 }
@@ -233,10 +243,7 @@ public class GemsManager {
             long timestamp = System.currentTimeMillis();
 
             // Persist idempotency record and pending audit entry in state BEFORE disk write
-            String fingerprint = null;
             if (request.idempotencyKey() != null) {
-                fingerprint = computeFingerprint("CREDIT", request.playerUuid(), request.amount(),
-                    request.source(), request.purpose(), null, null, request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
                         transactionId.toString(), "CREDIT", fingerprint,
@@ -312,13 +319,21 @@ public class GemsManager {
 
         stateLock.writeLock().lock();
         try {
-            // Idempotency check with persisted state fallback
+            // Compute fingerprint early for idempotency validation
+            String fingerprint = request.idempotencyKey() != null ? computeFingerprint(
+                "DEBIT", request.playerUuid(), request.amount(),
+                request.source(), request.purpose(), null, null, request.externalReference(), request.metadata()) : null;
+
+            // Idempotency check with persisted state fallback and fingerprint validation
             if (request.idempotencyKey() != null) {
                 IdempotencyRecord record = checkIdempotencyWithStateFallback(request.idempotencyKey(), request.playerUuid(), request.amount(), "DEBIT");
                 if (record != null) {
                     if (record.playerUuid.equals(request.playerUuid()) && record.amount == request.amount() && "DEBIT".equals(record.type)) {
-                        GemBalanceView view = getBalanceView(request.playerUuid());
-                        return GemOperationResult.succeed(record.transactionId, null, view, "idempotent_success");
+                        if (isFingerprintMatching(request.idempotencyKey(), fingerprint)) {
+                            GemBalanceView view = getBalanceView(request.playerUuid());
+                            return GemOperationResult.succeed(record.transactionId, null, view, "idempotent_success");
+                        }
+                        return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key fingerprint mismatch");
                     }
                     return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key conflict");
                 }
@@ -346,10 +361,7 @@ public class GemsManager {
             long timestamp = System.currentTimeMillis();
 
             // Persist idempotency record and pending audit entry in state BEFORE disk write
-            String fingerprint = null;
             if (request.idempotencyKey() != null) {
-                fingerprint = computeFingerprint("DEBIT", request.playerUuid(), request.amount(),
-                    request.source(), request.purpose(), null, null, request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
                         transactionId.toString(), "DEBIT", fingerprint,
@@ -510,13 +522,21 @@ public class GemsManager {
 
         stateLock.writeLock().lock();
         try {
-            // Idempotency check with persisted state fallback
+            // Compute fingerprint early for idempotency validation
+            String fingerprint = request.idempotencyKey() != null ? computeFingerprint(
+                "RESERVE", request.playerUuid(), request.amount(),
+                request.source(), request.purpose(), null, request.lease(), request.externalReference(), request.metadata()) : null;
+
+            // Idempotency check with persisted state fallback and fingerprint validation
             if (request.idempotencyKey() != null) {
                 IdempotencyRecord record = checkIdempotencyWithStateFallback(request.idempotencyKey(), request.playerUuid(), request.amount(), "RESERVE");
                 if (record != null) {
                     if (record.playerUuid.equals(request.playerUuid()) && record.amount == request.amount() && "RESERVE".equals(record.type) && record.reservationId != null) {
-                        GemBalanceView view = getBalanceView(request.playerUuid());
-                        return GemReservationResult.succeed(record.reservationId, view, "idempotent_success");
+                        if (isFingerprintMatching(request.idempotencyKey(), fingerprint)) {
+                            GemBalanceView view = getBalanceView(request.playerUuid());
+                            return GemReservationResult.succeed(record.reservationId, view, "idempotent_success");
+                        }
+                        return GemReservationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key fingerprint mismatch");
                     }
                     return GemReservationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key conflict");
                 }
@@ -549,11 +569,8 @@ public class GemsManager {
             long heldAfter = heldBefore + request.amount();
             long availableAfter = currentTotal - heldAfter;
 
-            // Persist idempotency record in state BEFORE disk write
-            String fingerprint = null;
+            // Persist idempotency record in state BEFORE disk write (fingerprint already computed)
             if (request.idempotencyKey() != null) {
-                fingerprint = computeFingerprint("RESERVE", request.playerUuid(), request.amount(),
-                    request.source(), request.purpose(), null, request.lease(), request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
                         transactionId.toString(), "RESERVE", fingerprint,
@@ -630,13 +647,21 @@ public class GemsManager {
                 return GemOperationResult.fail(GemOperationFailure.RESERVATION_NOT_FOUND, "Reservation not found");
             }
 
-            // Idempotency check for capture with persisted state fallback
+            // Compute fingerprint early for idempotency validation
+            String fingerprint = request.idempotencyKey() != null ? computeFingerprint(
+                "CAPTURE", reservation.getPlayerUuid(), reservation.getAmount(),
+                request.source(), request.purpose(), request.reservationId(), null, request.externalReference(), request.metadata()) : null;
+
+            // Idempotency check for capture with persisted state fallback and fingerprint validation
             if (request.idempotencyKey() != null) {
                 IdempotencyRecord record = checkIdempotencyWithStateFallback(request.idempotencyKey(), reservation.getPlayerUuid(), reservation.getAmount(), "CAPTURE");
                 if (record != null) {
                     if (record.reservationId.equals(request.reservationId()) && "CAPTURE".equals(record.type)) {
-                        GemBalanceView view = getBalanceView(reservation.getPlayerUuid());
-                        return GemOperationResult.succeed(record.transactionId, request.reservationId(), view, "idempotent_success");
+                        if (isFingerprintMatching(request.idempotencyKey(), fingerprint)) {
+                            GemBalanceView view = getBalanceView(reservation.getPlayerUuid());
+                            return GemOperationResult.succeed(record.transactionId, request.reservationId(), view, "idempotent_success");
+                        }
+                        return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key fingerprint mismatch");
                     }
                     return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key conflict");
                 }
@@ -685,11 +710,8 @@ public class GemsManager {
             long timestamp = System.currentTimeMillis();
             long heldAfter = heldBefore - reservation.getAmount();
 
-            // Persist idempotency record in state BEFORE disk write
-            String fingerprint = null;
+            // Persist idempotency record in state BEFORE disk write (fingerprint already computed)
             if (request.idempotencyKey() != null) {
-                fingerprint = computeFingerprint("CAPTURE", reservation.getPlayerUuid(), reservation.getAmount(),
-                    request.source(), request.purpose(), request.reservationId(), null, request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
                         transactionId.toString(), "CAPTURE", fingerprint,
@@ -773,13 +795,21 @@ public class GemsManager {
                 return GemOperationResult.fail(GemOperationFailure.RESERVATION_NOT_FOUND, "Reservation not found");
             }
 
-            // Idempotency check by key with persisted state fallback
+            // Compute fingerprint early for idempotency validation
+            String fingerprint = request.idempotencyKey() != null ? computeFingerprint(
+                "RELEASE", reservation.getPlayerUuid(), reservation.getAmount(),
+                request.source(), request.purpose(), request.reservationId(), null, request.externalReference(), request.metadata()) : null;
+
+            // Idempotency check by key with persisted state fallback and fingerprint validation
             if (request.idempotencyKey() != null) {
                 IdempotencyRecord record = checkIdempotencyWithStateFallback(request.idempotencyKey(), reservation.getPlayerUuid(), reservation.getAmount(), "RELEASE");
                 if (record != null) {
                     if (record.reservationId.equals(request.reservationId()) && "RELEASE".equals(record.type)) {
-                        GemBalanceView view = getBalanceView(reservation.getPlayerUuid());
-                        return GemOperationResult.succeed(record.transactionId, request.reservationId(), view, "idempotent_success");
+                        if (isFingerprintMatching(request.idempotencyKey(), fingerprint)) {
+                            GemBalanceView view = getBalanceView(reservation.getPlayerUuid());
+                            return GemOperationResult.succeed(record.transactionId, request.reservationId(), view, "idempotent_success");
+                        }
+                        return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key fingerprint mismatch");
                     }
                     return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key conflict");
                 }
@@ -818,11 +848,8 @@ public class GemsManager {
             long timestamp = System.currentTimeMillis();
             long heldAfter = heldBefore - reservation.getAmount();
 
-            // Persist idempotency record in state BEFORE disk write
-            String fingerprint = null;
+            // Persist idempotency record in state BEFORE disk write (fingerprint already computed)
             if (request.idempotencyKey() != null) {
-                fingerprint = computeFingerprint("RELEASE", reservation.getPlayerUuid(), reservation.getAmount(),
-                    request.source(), request.purpose(), request.reservationId(), null, request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
                         transactionId.toString(), "RELEASE", fingerprint,
@@ -918,13 +945,21 @@ public class GemsManager {
                 return GemOperationResult.fail(GemOperationFailure.RESERVATION_NOT_FOUND, "Reservation not found");
             }
 
-            // Idempotency check by key with persisted state fallback
+            // Compute fingerprint early for idempotency validation
+            String fingerprint = request.idempotencyKey() != null ? computeFingerprint(
+                "RENEW", reservation.getPlayerUuid(), reservation.getAmount(),
+                request.source(), request.purpose(), request.reservationId(), request.lease(), request.externalReference(), request.metadata()) : null;
+
+            // Idempotency check by key with persisted state fallback and fingerprint validation
             if (request.idempotencyKey() != null) {
                 IdempotencyRecord record = checkIdempotencyWithStateFallback(request.idempotencyKey(), reservation.getPlayerUuid(), reservation.getAmount(), "RENEW");
                 if (record != null) {
                     if (record.reservationId.equals(request.reservationId()) && "RENEW".equals(record.type)) {
-                        GemBalanceView view = getBalanceView(reservation.getPlayerUuid());
-                        return GemOperationResult.succeed(record.transactionId, request.reservationId(), view, "idempotent_success");
+                        if (isFingerprintMatching(request.idempotencyKey(), fingerprint)) {
+                            GemBalanceView view = getBalanceView(reservation.getPlayerUuid());
+                            return GemOperationResult.succeed(record.transactionId, request.reservationId(), view, "idempotent_success");
+                        }
+                        return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key fingerprint mismatch");
                     }
                     return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key conflict");
                 }
@@ -947,11 +982,8 @@ public class GemsManager {
             UUID transactionId = UUID.randomUUID();
             long timestamp = System.currentTimeMillis();
 
-            // Persist idempotency record and pending audit entry in state BEFORE disk write
-            String fingerprint = null;
+            // Persist idempotency record and pending audit entry in state BEFORE disk write (fingerprint already computed)
             if (request.idempotencyKey() != null) {
-                fingerprint = computeFingerprint("RENEW", reservation.getPlayerUuid(), reservation.getAmount(),
-                    request.source(), request.purpose(), request.reservationId(), request.lease(), request.externalReference(), request.metadata());
                 nextState.idempotencyRecords.put(request.idempotencyKey(),
                     new GemsState.IdempotencyPersistedRecord(
                         transactionId.toString(), "RENEW", fingerprint,
@@ -1157,7 +1189,8 @@ public class GemsManager {
             }
 
             // 3. Reconcile pending audit entries (state persisted but ledger append may have failed)
-            if (state.pendingAuditEntries != null && !state.pendingAuditEntries.isEmpty()) {
+            boolean hadPendingEntries = state.pendingAuditEntries != null && !state.pendingAuditEntries.isEmpty();
+            if (hadPendingEntries) {
                 LOGGER.info("Found {} pending audit entries to reconcile.", state.pendingAuditEntries.size());
                 List<GemsState.PendingAuditEntry> remaining = new ArrayList<>();
                 for (GemsState.PendingAuditEntry pending : state.pendingAuditEntries) {
@@ -1194,9 +1227,7 @@ public class GemsManager {
                     }
                 }
                 state.pendingAuditEntries = remaining;
-                if (!remaining.isEmpty()) {
-                    stateChanged = true;
-                }
+                stateChanged = true; // Persist cleanup even when all reconciled
             }
 
             if (stateChanged) {
@@ -1312,21 +1343,21 @@ public class GemsManager {
             long currentTime = System.currentTimeMillis();
             GemsState nextState = currentState.cloneState();
             boolean stateChanged = false;
-            List<UUID> expiredIds = new ArrayList<>();
+            Map<UUID, UUID> expiredTxIds = new LinkedHashMap<>();
 
             for (GemReservation res : nextState.reservations.values()) {
                 if (res.getStatus() == GemReservationStatus.ACTIVE && res.getExpiresAt() <= currentTime) {
                     res.setStatus(GemReservationStatus.EXPIRED);
                     res.setReleasedAt(currentTime);
                     stateChanged = true;
-                    expiredIds.add(res.getReservationId());
 
                     UUID transactionId = UUID.randomUUID();
+                    expiredTxIds.put(res.getReservationId(), transactionId);
                     long currentTotal = getBalanceTotal(nextState, res.getPlayerUuid());
                     long heldBefore = calculateHeldBalance(nextState, res.getPlayerUuid()) + res.getAmount();
                     long heldAfter = heldBefore - res.getAmount();
 
-                    // P0 flow: add pending audit entry BEFORE saveState
+                    // P0 flow: add pending audit entry BEFORE saveState (same transactionId)
                     addPendingAuditEntry(nextState, transactionId, nextState.revision + 1, "RESERVATION_EXPIRED",
                         res.getPlayerUuid(), res.getAmount(), currentTotal, currentTotal,
                         heldBefore, heldAfter, res.getReservationId(), res.getSource(), res.getPurpose(),
@@ -1345,15 +1376,16 @@ public class GemsManager {
                 // 2. Swap cache
                 currentState = nextState;
 
-                // 3. Then append to ledger for each expired reservation
-                for (UUID rid : expiredIds) {
+                // 3. Then append to ledger for each expired reservation (same transactionId as pending)
+                for (Map.Entry<UUID, UUID> entry : expiredTxIds.entrySet()) {
+                    UUID rid = entry.getKey();
+                    UUID transactionId = entry.getValue();
                     GemReservation res = currentState.reservations.get(rid.toString());
                     if (res == null || res.getStatus() != GemReservationStatus.EXPIRED) continue;
 
                     long currentTotal = getBalanceTotal(currentState, res.getPlayerUuid());
                     long heldBefore = calculateHeldBalance(currentState, res.getPlayerUuid()) + res.getAmount();
                     long heldAfter = heldBefore - res.getAmount();
-                    UUID transactionId = UUID.randomUUID();
 
                     GemTransaction tx = new GemTransaction(
                         transactionId, currentTime, GemTransactionType.RESERVATION_EXPIRED, res.getPlayerUuid(), res.getAmount(),
@@ -1600,10 +1632,11 @@ public class GemsManager {
         return null;
     }
 
-    private boolean fingerprintMatches(String idempotencyKey, String expectedFingerprint) {
-        if (idempotencyKey == null || currentState == null || currentState.idempotencyRecords == null) return false;
+    private boolean isFingerprintMatching(String idempotencyKey, String expectedFingerprint) {
+        if (idempotencyKey == null) return true;
+        if (currentState == null || currentState.idempotencyRecords == null) return true;
         GemsState.IdempotencyPersistedRecord persisted = currentState.idempotencyRecords.get(idempotencyKey);
-        if (persisted == null) return true; // No persisted record means first attempt — no conflict possible
+        if (persisted == null) return true; // No persisted record yet — first attempt, no conflict
         if (persisted.requestFingerprint == null) return true; // Legacy record without fingerprint
         return expectedFingerprint != null && expectedFingerprint.equals(persisted.requestFingerprint);
     }

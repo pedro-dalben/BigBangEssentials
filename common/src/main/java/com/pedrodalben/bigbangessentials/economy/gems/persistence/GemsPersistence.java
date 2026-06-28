@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.pedrodalben.bigbangessentials.economy.gems.config.GemConfig;
+import com.pedrodalben.bigbangessentials.economy.gems.domain.GemTransaction;
 import com.pedrodalben.bigbangessentials.economy.gems.config.GemConfigValidator;
 import com.pedrodalben.bigbangessentials.economy.gems.domain.GemReservation;
 import com.pedrodalben.bigbangessentials.economy.gems.domain.GemTransaction;
@@ -44,6 +45,8 @@ public class GemsPersistence {
     private final File baseDir;
     private GemConfig config;
     private boolean gemsEnabled = false;
+    private Set<String> appendedTransactionIds = null;
+    private boolean transactionIdsLoaded = false;
 
     public GemsPersistence() {
         this(null);
@@ -238,9 +241,20 @@ public class GemsPersistence {
 
     /**
      * Appends a transaction to the ledger file gems_transactions.jsonl.
+     * Idempotent by transactionId: if the ID already exists, the append is skipped.
      */
     public synchronized void appendTransaction(GemTransaction tx) {
-        if (!isGemsEnabled()) {
+        if (!isGemsEnabled()) return;
+
+        // Lazy-load known transaction IDs from ledger
+        if (!transactionIdsLoaded) {
+            loadKnownTransactionIds();
+        }
+
+        // Idempotency check by transactionId
+        String txIdStr = tx.transactionId() != null ? tx.transactionId().toString() : null;
+        if (txIdStr != null && appendedTransactionIds.contains(txIdStr)) {
+            LOGGER.debug("Transaction {} already appended to ledger. Skipping duplicate.", txIdStr);
             return;
         }
 
@@ -257,15 +271,40 @@ public class GemsPersistence {
             throw new RuntimeException("Persistence failure: failed to write to Gems ledger", e);
         }
 
+        if (txIdStr != null) {
+            appendedTransactionIds.add(txIdStr);
+        }
+
         checkFailpoint(GemsPersistenceFailpoint.AFTER_APPEND_LEDGER);
 
-        // Trim/Prune the ledger if it exceeds maxTransactionLogEntries
-        // We do this periodically or on every mutation. Pruning on every mutation can be slow, 
-        // but let's implement a quick check/cleanup if size gets too large (e.g., exceeds limit * 1.2).
         int maxEntries = config.persistence.maxTransactionLogEntries;
         if (maxEntries > 0) {
             checkAndTrimLedger(file, maxEntries);
         }
+    }
+
+    private void loadKnownTransactionIds() {
+        appendedTransactionIds = new HashSet<>();
+        File file = getFile(LEDGER_FILE);
+        if (!file.exists()) {
+            transactionIdsLoaded = true;
+            return;
+        }
+        try (BufferedReader reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                try {
+                    JsonObject obj = JsonParser.parseString(line).getAsJsonObject();
+                    if (obj.has("transactionId") && !obj.get("transactionId").isJsonNull()) {
+                        appendedTransactionIds.add(obj.get("transactionId").getAsString());
+                    }
+                } catch (Exception ignored) {}
+            }
+        } catch (IOException e) {
+            LOGGER.warn("Failed to load known transaction IDs from ledger", e);
+        }
+        transactionIdsLoaded = true;
+        LOGGER.debug("Loaded {} known transaction IDs from ledger.", appendedTransactionIds.size());
     }
 
     private void checkAndTrimLedger(File ledgerFile, int maxEntries) {

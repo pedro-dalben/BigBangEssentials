@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "balances": {
+    "28e2c20d-e567-4d27-a536-7d9c08a330eb": 100
+  },
+  "reservations": {},
+  "pendingAuditEntries": [
+    {
+      "transactionId": "9c1ca31e-e4a1-4596-a4a5-5575bf4dacb8",
+      "revision": 1,
+      "type": "CREDIT",
+      "playerUuid": "28e2c20d-e567-4d27-a536-7d9c08a330eb",
+      "amount": 100,
+      "balanceBefore": 0,
+      "balanceAfter": 100,
+      "heldBefore": 0,
+      "heldAfter": 0,
+      "source": "test-source",
+      "purpose": "TEST",
+      "idempotencyKey": "7fa7a7e9-8549-4df8-b0ab-7fac033df423",
+      "requestFingerprint": "40e891f1aa5a1adf57ad7d49714cd0f9df5a1722986481a519bf478bce6fe443",
+      "createdAt": 1782619267008,
+      "reconciled": false
+    }
+  ],
+  "idempotencyRecords": {
+    "7fa7a7e9-8549-4df8-b0ab-7fac033df423": {
+      "transactionId": "9c1ca31e-e4a1-4596-a4a5-5575bf4dacb8",
+      "operationType": "CREDIT",
+      "requestFingerprint": "40e891f1aa5a1adf57ad7d49714cd0f9df5a1722986481a519bf478bce6fe443",
+      "playerUuid": "28e2c20d-e567-4d27-a536-7d9c08a330eb",
+      "amount": 100,
+      "resultStatus": "SUCCESS",
+      "createdAt": 1782619267008
+    }
+  }
+}
