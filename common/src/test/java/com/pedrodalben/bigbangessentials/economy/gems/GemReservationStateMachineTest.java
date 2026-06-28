@@ -100,7 +100,7 @@ class GemReservationStateMachineTest {
         ));
 
         GemOperationResult releaseRes = GemsManager.getInstance().release(new GemReleaseRequest(
-            res.reservationId(), "test-source", "TEST", null, "manual abort", Map.of()
+            res.reservationId(), "test-source", "TEST", null, "manual abort", null, null, Map.of()
         ));
 
         assertTrue(releaseRes.success());
@@ -131,7 +131,7 @@ class GemReservationStateMachineTest {
         )).success());
 
         GemOperationResult releaseRes = GemsManager.getInstance().release(new GemReleaseRequest(
-            res.reservationId(), "test-source", "TEST", null, "manual abort", Map.of()
+            res.reservationId(), "test-source", "TEST", null, "manual abort", null, null, Map.of()
         ));
         assertFalse(releaseRes.success());
         assertEquals(GemOperationFailure.RESERVATION_ALREADY_CAPTURED, releaseRes.failure());

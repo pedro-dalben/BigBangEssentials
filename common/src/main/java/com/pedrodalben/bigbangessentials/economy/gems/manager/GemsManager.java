@@ -239,6 +239,8 @@ public class GemsManager {
             // Once write succeeds, update in-memory reference and log ledger
             currentState = nextState;
 
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
+
             GemTransaction tx = new GemTransaction(
                 transactionId, timestamp, GemTransactionType.CREDIT, request.playerUuid(), request.amount(),
                 currentTotal, newTotal, held, held, currentTotal - held, newTotal - held,
@@ -247,11 +249,15 @@ public class GemsManager {
             );
             persistence.appendTransaction(tx);
 
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_APPEND_LEDGER);
+
             // Save to idempotency registry
             if (request.idempotencyKey() != null) {
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_IDEMPOTENCY_REGISTRY_UPDATE);
                 idempotencyRegistry.put(request.idempotencyKey(), new IdempotencyRecord(
                     request.playerUuid(), request.amount(), transactionId, null, true, "CREDIT", request.source(), request.purpose()
                 ));
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_IDEMPOTENCY_REGISTRY_UPDATE);
             }
 
             GemBalanceView newView = new GemBalanceView(request.playerUuid(), newTotal, held, newTotal - held);
@@ -263,6 +269,7 @@ public class GemsManager {
                 transactionId, null, request.idempotencyKey(),
                 currentTotal, newTotal, held, held
             ));
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_EVENT_PUBLISH);
 
             return GemOperationResult.succeed(transactionId, null, newView, "credit_success");
 
@@ -323,8 +330,10 @@ public class GemsManager {
 
             checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_CACHE_SWAP);
 
-            // Once write succeeds, update in-memory reference and log ledger
+            // Once write succeeds, update in-memory reference
             currentState = nextState;
+
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
 
             GemTransaction tx = new GemTransaction(
                 transactionId, timestamp, GemTransactionType.DEBIT, request.playerUuid(), request.amount(),
@@ -334,11 +343,15 @@ public class GemsManager {
             );
             persistence.appendTransaction(tx);
 
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_APPEND_LEDGER);
+
             // Save to idempotency registry
             if (request.idempotencyKey() != null) {
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_IDEMPOTENCY_REGISTRY_UPDATE);
                 idempotencyRegistry.put(request.idempotencyKey(), new IdempotencyRecord(
                     request.playerUuid(), request.amount(), transactionId, null, true, "DEBIT", request.source(), request.purpose()
                 ));
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_IDEMPOTENCY_REGISTRY_UPDATE);
             }
 
             GemBalanceView newView = new GemBalanceView(request.playerUuid(), newTotal, held, newTotal - held);
@@ -350,6 +363,7 @@ public class GemsManager {
                 transactionId, null, request.idempotencyKey(),
                 currentTotal, newTotal, held, held
             ));
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_EVENT_PUBLISH);
 
             return GemOperationResult.succeed(transactionId, null, newView, "debit_success");
 
@@ -394,6 +408,8 @@ public class GemsManager {
             // Once write succeeds, update in-memory reference and log ledger
             currentState = nextState;
 
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
+
             GemTransaction tx = new GemTransaction(
                 transactionId, timestamp, GemTransactionType.ADMIN_SET, request.playerUuid(), request.amount(),
                 currentTotal, request.amount(), held, held, currentTotal - held, request.amount() - held,
@@ -402,6 +418,8 @@ public class GemsManager {
                 null, null, request.metadata()
             );
             persistence.appendTransaction(tx);
+
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_APPEND_LEDGER);
 
             GemBalanceView newView = new GemBalanceView(request.playerUuid(), request.amount(), held, request.amount() - held);
 
@@ -412,6 +430,7 @@ public class GemsManager {
                 transactionId, null, null,
                 currentTotal, request.amount(), held, held
             ));
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_EVENT_PUBLISH);
 
             return GemOperationResult.succeed(transactionId, null, newView, "set_success");
 
@@ -485,6 +504,8 @@ public class GemsManager {
             // Once write succeeds, update in-memory reference
             currentState = nextState;
 
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
+
             long heldAfter = heldBefore + request.amount();
             long availableAfter = currentTotal - heldAfter;
 
@@ -498,11 +519,15 @@ public class GemsManager {
             );
             persistence.appendTransaction(tx);
 
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_APPEND_LEDGER);
+
             // Save to idempotency registry
             if (request.idempotencyKey() != null) {
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_IDEMPOTENCY_REGISTRY_UPDATE);
                 idempotencyRegistry.put(request.idempotencyKey(), new IdempotencyRecord(
                     request.playerUuid(), request.amount(), transactionId, reservationId, true, "RESERVE", request.source(), request.purpose()
                 ));
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_IDEMPOTENCY_REGISTRY_UPDATE);
             }
 
             GemBalanceView newView = new GemBalanceView(request.playerUuid(), currentTotal, heldAfter, availableAfter);
@@ -514,6 +539,7 @@ public class GemsManager {
                 transactionId, reservationId, request.idempotencyKey(),
                 currentTotal, currentTotal, heldBefore, heldAfter
             ));
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_EVENT_PUBLISH);
 
             return GemReservationResult.succeed(reservationId, newView, "reserve_success");
 
@@ -595,6 +621,8 @@ public class GemsManager {
             // Once write succeeds, update in-memory reference
             currentState = nextState;
 
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
+
             long heldAfter = heldBefore - reservation.getAmount();
             UUID transactionId = UUID.randomUUID();
             long timestamp = System.currentTimeMillis();
@@ -608,11 +636,15 @@ public class GemsManager {
             );
             persistence.appendTransaction(tx);
 
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_APPEND_LEDGER);
+
             // Save to idempotency registry
             if (request.idempotencyKey() != null) {
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_IDEMPOTENCY_REGISTRY_UPDATE);
                 idempotencyRegistry.put(request.idempotencyKey(), new IdempotencyRecord(
                     reservation.getPlayerUuid(), reservation.getAmount(), transactionId, reservation.getReservationId(), true, "CAPTURE", request.source(), request.purpose()
                 ));
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_IDEMPOTENCY_REGISTRY_UPDATE);
             }
 
             GemBalanceView newView = new GemBalanceView(reservation.getPlayerUuid(), newTotal, heldAfter, newTotal - heldAfter);
@@ -624,6 +656,7 @@ public class GemsManager {
                 transactionId, reservation.getReservationId(), request.idempotencyKey(),
                 currentTotal, newTotal, heldBefore, heldAfter
             ));
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_EVENT_PUBLISH);
 
             return GemOperationResult.succeed(transactionId, reservation.getReservationId(), newView, "capture_success");
 
@@ -640,6 +673,13 @@ public class GemsManager {
         if (!isGemsEnabled()) return GemOperationResult.fail(GemOperationFailure.DISABLED, "Gems system is disabled");
         if (dataIntegrityError) return GemOperationResult.fail(GemOperationFailure.DATA_INTEGRITY_FAILURE, "Gems state integrity check failed");
 
+        if (request.source() != null && !isValidIdentifier(request.source())) {
+            return GemOperationResult.fail(GemOperationFailure.UNAUTHORIZED_SOURCE, "Invalid source format");
+        }
+        if (request.purpose() != null && !isValidIdentifier(request.purpose())) {
+            return GemOperationResult.fail(GemOperationFailure.UNKNOWN, "Invalid purpose format");
+        }
+
         stateLock.writeLock().lock();
         try {
             GemReservation reservation = currentState.reservations.get(request.reservationId().toString());
@@ -647,7 +687,19 @@ public class GemsManager {
                 return GemOperationResult.fail(GemOperationFailure.RESERVATION_NOT_FOUND, "Reservation not found");
             }
 
-            // Release is idempotent: if already released, return success
+            // Idempotency check by key
+            if (request.idempotencyKey() != null) {
+                IdempotencyRecord record = idempotencyRegistry.get(request.idempotencyKey());
+                if (record != null) {
+                    if (record.reservationId.equals(request.reservationId()) && "RELEASE".equals(record.type)) {
+                        GemBalanceView view = getBalanceView(reservation.getPlayerUuid());
+                        return GemOperationResult.succeed(record.transactionId, request.reservationId(), view, "idempotent_success");
+                    }
+                    return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key conflict");
+                }
+            }
+
+            // Release is idempotent by status: if already released, return success
             if (reservation.getStatus() == GemReservationStatus.RELEASED) {
                 GemBalanceView view = getBalanceView(reservation.getPlayerUuid());
                 return GemOperationResult.succeed(UUID.randomUUID(), request.reservationId(), view, "already_released");
@@ -657,7 +709,6 @@ public class GemsManager {
                 return GemOperationResult.fail(GemOperationFailure.RESERVATION_ALREADY_CAPTURED, "Reservation is already captured and cannot be released");
             }
 
-            // If it is EXPIRED, releasing doesn't do anything because the cleanup has already restored the balance
             if (reservation.getStatus() == GemReservationStatus.EXPIRED) {
                 GemBalanceView view = getBalanceView(reservation.getPlayerUuid());
                 return GemOperationResult.succeed(UUID.randomUUID(), request.reservationId(), view, "expired_cannot_release");
@@ -684,6 +735,8 @@ public class GemsManager {
             // Once write succeeds, update in-memory reference
             currentState = nextState;
 
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
+
             long heldAfter = heldBefore - reservation.getAmount();
             UUID transactionId = UUID.randomUUID();
             long timestamp = System.currentTimeMillis();
@@ -693,9 +746,20 @@ public class GemsManager {
                 transactionId, timestamp, GemTransactionType.RESERVATION_RELEASED, reservation.getPlayerUuid(), reservation.getAmount(),
                 currentTotal, currentTotal, heldBefore, heldAfter, currentTotal - heldBefore, currentTotal - heldAfter,
                 request.actorUuid(), request.source(), request.purpose(), reservation.getReservationId(),
-                null, null, request.metadata()
+                request.idempotencyKey(), request.externalReference(), request.metadata()
             );
             persistence.appendTransaction(tx);
+
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_APPEND_LEDGER);
+
+            // Save to idempotency registry
+            if (request.idempotencyKey() != null) {
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_IDEMPOTENCY_REGISTRY_UPDATE);
+                idempotencyRegistry.put(request.idempotencyKey(), new IdempotencyRecord(
+                    reservation.getPlayerUuid(), reservation.getAmount(), transactionId, reservation.getReservationId(), true, "RELEASE", request.source(), request.purpose()
+                ));
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_IDEMPOTENCY_REGISTRY_UPDATE);
+            }
 
             GemBalanceView newView = new GemBalanceView(reservation.getPlayerUuid(), currentTotal, heldAfter, currentTotal - heldAfter);
 
@@ -703,9 +767,10 @@ public class GemsManager {
             checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_EVENT_PUBLISH);
             postEventSafely(new GemReservationReleasedEvent(
                 reservation.getPlayerUuid(), reservation.getAmount(), request.source(), request.purpose(),
-                transactionId, reservation.getReservationId(), null,
+                transactionId, reservation.getReservationId(), request.idempotencyKey(),
                 currentTotal, currentTotal, heldBefore, heldAfter
             ));
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_EVENT_PUBLISH);
 
             return GemOperationResult.succeed(transactionId, reservation.getReservationId(), newView, "release_success");
 
@@ -726,6 +791,13 @@ public class GemsManager {
             return GemOperationResult.fail(GemOperationFailure.DISABLED, "External lease renewal is disabled by configuration");
         }
 
+        if (request.source() != null && !isValidIdentifier(request.source())) {
+            return GemOperationResult.fail(GemOperationFailure.UNAUTHORIZED_SOURCE, "Invalid source format");
+        }
+        if (request.purpose() != null && !isValidIdentifier(request.purpose())) {
+            return GemOperationResult.fail(GemOperationFailure.UNKNOWN, "Invalid purpose format");
+        }
+
         long defaultLease = persistence.getConfig().reservations.defaultLeaseSeconds;
         long maxLease = persistence.getConfig().reservations.maxLeaseSeconds;
         long leaseSeconds = request.lease() != null ? request.lease().toSeconds() : defaultLease;
@@ -739,6 +811,18 @@ public class GemsManager {
             GemReservation reservation = currentState.reservations.get(request.reservationId().toString());
             if (reservation == null) {
                 return GemOperationResult.fail(GemOperationFailure.RESERVATION_NOT_FOUND, "Reservation not found");
+            }
+
+            // Idempotency check by key
+            if (request.idempotencyKey() != null) {
+                IdempotencyRecord record = idempotencyRegistry.get(request.idempotencyKey());
+                if (record != null) {
+                    if (record.reservationId.equals(request.reservationId()) && "RENEW".equals(record.type)) {
+                        GemBalanceView view = getBalanceView(reservation.getPlayerUuid());
+                        return GemOperationResult.succeed(record.transactionId, request.reservationId(), view, "idempotent_success");
+                    }
+                    return GemOperationResult.fail(GemOperationFailure.IDEMPOTENCY_CONFLICT, "Idempotency key conflict");
+                }
             }
 
             if (reservation.getStatus() != GemReservationStatus.ACTIVE) {
@@ -762,6 +846,8 @@ public class GemsManager {
             // Once write succeeds, update in-memory reference
             currentState = nextState;
 
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_CACHE_SWAP);
+
             UUID transactionId = UUID.randomUUID();
             long timestamp = System.currentTimeMillis();
 
@@ -769,15 +855,23 @@ public class GemsManager {
             GemTransaction tx = new GemTransaction(
                 transactionId, timestamp, GemTransactionType.RESERVATION_RENEWED, reservation.getPlayerUuid(), reservation.getAmount(),
                 currentTotal, currentTotal, held, held, currentTotal - held, currentTotal - held,
-                null, request.source(), request.purpose(), reservation.getReservationId(),
-                null, null, request.metadata()
+                request.actorUuid(), request.source(), request.purpose(), reservation.getReservationId(),
+                request.idempotencyKey(), request.externalReference(), request.metadata()
             );
             persistence.appendTransaction(tx);
 
-            GemBalanceView newView = new GemBalanceView(reservation.getPlayerUuid(), currentTotal, held, currentTotal - held);
+            checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_APPEND_LEDGER);
 
-            // We do not have a dedicated GemReservationRenewedEvent, but we can fire a balance view update or similar if needed.
-            // Requirement doesn't mandate a renew event, but let's be safe.
+            // Save to idempotency registry
+            if (request.idempotencyKey() != null) {
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.BEFORE_IDEMPOTENCY_REGISTRY_UPDATE);
+                idempotencyRegistry.put(request.idempotencyKey(), new IdempotencyRecord(
+                    reservation.getPlayerUuid(), reservation.getAmount(), transactionId, reservation.getReservationId(), true, "RENEW", request.source(), request.purpose()
+                ));
+                checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint.AFTER_IDEMPOTENCY_REGISTRY_UPDATE);
+            }
+
+            GemBalanceView newView = new GemBalanceView(reservation.getPlayerUuid(), currentTotal, held, currentTotal - held);
 
             return GemOperationResult.succeed(transactionId, reservation.getReservationId(), newView, "renew_success");
 
@@ -935,6 +1029,35 @@ public class GemsManager {
                     LOGGER.error("Data inconsistency: Player {} has held balance ({}) greater than total balance ({}). Blocking updates.", 
                                  playerUuid, heldBal, totalBal);
                     this.dataIntegrityError = true;
+                }
+            }
+
+            // 3. Reconcile pending audit entries (state persisted but ledger append may have failed)
+            if (state.pendingAuditEntries != null && !state.pendingAuditEntries.isEmpty()) {
+                LOGGER.info("Found {} pending audit entries to reconcile.", state.pendingAuditEntries.size());
+                List<GemsState.PendingAuditEntry> remaining = new ArrayList<>();
+                for (GemsState.PendingAuditEntry pending : state.pendingAuditEntries) {
+                    try {
+                        if (pending.reconciled) continue;
+                        GemTransaction tx = new GemTransaction(
+                            pending.transactionId, pending.createdAt,
+                            GemTransactionType.valueOf(pending.type),
+                            pending.playerUuid, 0L,
+                            0L, 0L, 0L, 0L, 0L, 0L,
+                            null, "bigbangessentials", "RECONCILIATION",
+                            pending.reservationId, null, null, Map.of("reconciled", "true")
+                        );
+                        persistence.appendTransaction(tx);
+                        pending.reconciled = true;
+                        LOGGER.info("Reconciled pending audit entry: {} for reservation {}", pending.type, pending.reservationId);
+                    } catch (Exception ex) {
+                        LOGGER.error("Failed to reconcile pending audit entry", ex);
+                        remaining.add(pending);
+                    }
+                }
+                state.pendingAuditEntries = remaining;
+                if (!remaining.isEmpty()) {
+                    stateChanged = true;
                 }
             }
 

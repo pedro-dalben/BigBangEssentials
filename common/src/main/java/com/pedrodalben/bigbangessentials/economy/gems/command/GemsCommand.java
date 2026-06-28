@@ -464,22 +464,10 @@ public class GemsCommand {
             return 0;
         }
 
-        long startingBalance = 0;
-        try {
-            startingBalance = GemsManager.getInstance().getBalanceView(uuidOpt.get()).totalBalance(); // wait
-            // Better to load starting balance from config directly
-            var service = BigBangEssentialsApi.gems();
-            if (service.isPresent()) {
-                // Actually, we can reload or check config starting balance
-                startingBalance = GemsManager.getInstance().getBalanceView(uuidOpt.get()).totalBalance();
-            }
-        } catch (Exception ignored) {}
-
-        // Set to starting balance
-        long fallbackStarting = 0; // fallback
+        long startingBalance = GemsManager.getInstance().getConfig().balances.startingBalance;
 
         GemSetBalanceRequest request = new GemSetBalanceRequest(
-            uuidOpt.get(), fallbackStarting, "admin-command", "ADMIN_RESET", getActorUuid(ctx.getSource()),
+            uuidOpt.get(), startingBalance, "admin-command", "ADMIN_RESET", getActorUuid(ctx.getSource()),
             reason, Map.of("reason", reason)
         );
 
@@ -490,7 +478,7 @@ public class GemsCommand {
             // Notify player if online
             ServerPlayer targetPlayer = ctx.getSource().getServer().getPlayerList().getPlayer(uuidOpt.get());
             if (targetPlayer != null) {
-                String formatted = GemsManager.getInstance().format(fallbackStarting);
+                String formatted = GemsManager.getInstance().format(startingBalance);
                 String name = GemsManager.getInstance().getCurrencyDescriptor().plural();
                 targetPlayer.sendSystemMessage(MessageUtil.info("commands.bigbangessentials.eco.reset_notify", formatted, name));
             }
@@ -592,7 +580,8 @@ public class GemsCommand {
         // Perform manual release
         GemReleaseRequest request = new GemReleaseRequest(
             resId, "admin-command", "ADMIN_RELEASE_RESERVATION", getActorUuid(ctx.getSource()),
-            "Manual administrator force release", Map.of()
+            "Manual administrator force release",
+            UUID.randomUUID().toString(), null, Map.of()
         );
 
         GemOperationResult result = GemsManager.getInstance().release(request);

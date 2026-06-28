@@ -129,7 +129,7 @@ class GemReservationConcurrencyTest {
             try {
                 startLatch.await();
                 releaseRes.set(GemsManager.getInstance().release(new GemReleaseRequest(
-                    reservationId, "test-source", "TEST", null, null, Map.of()
+                    reservationId, "test-source", "TEST", null, null, null, null, Map.of()
                 )));
             } catch (Exception e) {
                 e.printStackTrace();
@@ -234,7 +234,7 @@ class GemReservationConcurrencyTest {
                 try {
                     startLatch.await();
                     results.add(GemsManager.getInstance().release(new GemReleaseRequest(
-                        reservationId, "test-source", "TEST", null, null, Map.of()
+                        reservationId, "test-source", "TEST", null, null, null, null, Map.of()
                     )));
                 } catch (Exception e) {
                     e.printStackTrace();

@@ -9,5 +9,8 @@ public record GemRenewRequest(
     Duration lease,
     String source,
     String purpose,
+    UUID actorUuid,
+    String idempotencyKey,
+    String externalReference,
     Map<String, String> metadata
 ) {}

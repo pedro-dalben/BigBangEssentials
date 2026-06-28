@@ -9,5 +9,7 @@ public record GemReleaseRequest(
     String purpose,
     UUID actorUuid,
     String reason,
+    String idempotencyKey,
+    String externalReference,
     Map<String, String> metadata
 ) {}
