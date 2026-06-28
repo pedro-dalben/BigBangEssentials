@@ -1,153 +1,470 @@
-# Auditoria Independente do Sistema Gems (Gems Wallet System Audit)
+# Auditoria Independente do Sistema Gems
 
-Este documento apresenta a revisão independente profunda do sistema de Gems integrado no **BigBangEssentials**, realizada antes de sua integração com o **BigBang Regions**.
-
----
-
-## 1. Informações de Baseline e Identificação
-
-- **SHA Auditado:** `037bafb86fcf70357fb4069956dcad36d146b32c`
-- **Branch:** `master`
-- **Mudanças Locais:** Nenhuma (Diretório de trabalho limpo).
-- ** Loader & Java:** Java 21 LTS, carregadores Fabric e NeoForge.
-- **Dependências Novas:** Nenhuma. O sistema usa apenas dependências nativas e bibliotecas de utilidade internas do projeto (GSON).
-
-### Commits Relacionados ao Sistema Gems
-- `037bafb8` feat(gems): implement copy-on-write transaction model and crash failpoints (Auditoria e Durabilidade)
-- `5bcc5bad` test: add comprehensive gems test suite and isolation
-- `ac5bc86f` feat: add gems commands ledger and placeholders
-- `2eefc405` feat: add configurable gems wallet persistence and recovery
-- `0eca9a2d` docs: define gems wallet architecture and Regions integration contract
+**Data:** 27/06/2026
+**Auditor:** OpenCode Independent Audit Pipeline
+**SHA Auditado:** `ac4d4a829b73aaf97d78fd7b93bd51221fdf5092`
+**Branch:** `master`
+**Status da árvore:** Limpa (sem mudanças locais)
 
 ---
 
-## 2. Inventário Técnico Real do Sistema Gems
+## 1. Baseline
 
-Revisão detalhada de todas as classes que compõem o ecossistema Gems:
+| Item | Resultado |
+|---|---|
+| `git status --short` | Nenhuma mudança |
+| `git rev-parse HEAD` | `ac4d4a829b73aaf97d78fd7b93bd51221fdf5092` |
+| `git branch` | `master` |
+| `git diff --check` | Sem warned de whitespace |
+| `./gradlew clean test build` | **BUILD SUCCESSFUL** (12s, 25 ações) |
+| Java | OpenJDK 64-Bit Server VM (LTS) |
+| Loader | Fabric + NeoForge |
+| Dependências novas | Nenhuma (usa apenas GSON nativo) |
+| Nº total de arquivos Gems | **41** (19 main + 15 test + 5 wiki + 1 integration contract + 1 audit) |
+| Nº de testes | **15 classes de teste** (~35-40 métodos individuais) |
 
-| Camada | Classe / Arquivo | Responsabilidade | Estado Mutável | Persistência Usada | Thread Usada | Risco Identificado |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **API** | `GemsService` | Contrato público estável para consumo de outros mods | Imutável | Nenhuma | Thread chamadora do cliente | Exposição acidental de managers internos (Resolvido via interface limpa) |
-| **API** | `BigBangEssentialsApi` | Ponto de entrada de acesso seguro à API do mod | Imutável | Nenhuma | Thread chamadora | N/A |
-| **Core** | `GemsManager` | Gerenciador de estado, concorrência e operações | `currentState` (GemsState) e `idempotencyRegistry` | Delegada à `GemsPersistence` | Sincronizado por `ReentrantReadWriteLock` | Concorrência e descompasso memória/disco (Resolvido via Copy-on-Write) |
-| **Domain** | `GemReservation` | Representa uma reserva de saldo temporária | `status`, `expiresAt`, `capturedAt`, `releasedAt` | Nenhuma | Sincronizada no Manager | Mutação acidental pós-falha (Resolvido via deep copy) |
-| **Persistence** | `GemsPersistence` | Leitura e gravação de arquivos JSON e Ledger | Nenhuma (Stateless) | `gems_state.json`, `gems_transactions.jsonl` | Sincronizado internamente | I/O síncrono lento (Mitigado com atomic write síncrono obrigatório) |
-| **Persistence** | `GemsState` | Estrutura de dados interna do wallet state | Mapas de saldos e reservas | `gems_state.json` | Nenhuma | N/A |
-
-### Isolamento de Dependências (Verificado)
-Gems não importa nenhuma dependência do `BigBang Regions` (ex: `BigBangRegions`, `Region`, `RegionResizeService`, `PlotSlot`). O acoplamento é estritamente de consumo da API do Essentials pelo Regions. Gems também está 100% isolado da economia de `Coins`, não compartilhando `EconomyManager`, `balances.json` ou `transactions.json`, e não utilizando a integração com o Vault.
-
----
-
-## 3. Estratégia de Persistência e Durabilidade
-
-Optou-se pela **Estratégia A — State authoritative + ledger reconciliável**:
-- **gems_state.json** é a fonte de verdade absoluta do saldo e das reservas ativas.
-- **gems_transactions.jsonl** é um log de auditoria cronológico (Audit Log), e não um Write-Ahead-Log (WAL) autoritativo.
-- **Incremento de Revisão:** Cada gravação de estado incrementa atomicamente o campo `revision` no arquivo e gera um identificador único de transação (`transactionId`).
-
-### Ordem Real de Persistência (Copy-on-Write)
-Para eliminar qualquer risco de divergência entre a memória (cache) e o disco no caso de uma falha de escrita, foi implementado o padrão **Copy-on-Write (CoW)**:
-1. O lock de escrita é adquirido (`stateLock.writeLock().lock()`).
-2. O estado atual é clonado profundamente (`currentState.cloneState()`), incluindo a clonagem profunda de objetos mutáveis (`GemReservation.copy()`).
-3. As alterações são aplicadas estritamente no estado clonado (`nextState`).
-4. O clone é persistido síncrona e atomicamente em disco:
-   - Gravação física no arquivo temporário `gems_state.json.tmp`.
-   - Movimentação atômica (`Files.move`) com `ATOMIC_MOVE` e `REPLACE_EXISTING` (caindo de volta para substituição via cópia apenas em caso de limitação do sistema de arquivos).
-5. Se e somente se a escrita em disco for bem-sucedida:
-   - O failpoint `BEFORE_CACHE_SWAP` é validado.
-   - A referência interna em memória é atualizada: `currentState = nextState`.
-   - O evento da transação é anexado ao log de auditoria (`appendTransaction`).
-   - O registro é inserido no mapa de idempotência em cache.
-   - O evento do ciclo de vida é disparado de forma segura (`postEventSafely`).
-6. Caso a gravação em disco falhe (ex: falta de espaço em disco), o estado em memória permanece intocado e o erro é retornado de forma limpa, garantindo integridade transacional absoluta.
-
----
-
-## 4. Testes de Injeção de Falhas (Crash Injection)
-
-Através do mecanismo `GemsPersistenceFailpoint`, foram simuladas interrupções e falhas de processo em diversas etapas das mutações. Os resultados observados nos testes automatizados mostram a resiliência do sistema:
-
-- **BEFORE_WRITE_TEMP / AFTER_WRITE_TEMP:**
-  - *Comportamento:* A escrita do novo estado falha ou é interrompida.
-  - *Integridade:* A alteração em memória é descartada devido ao Copy-on-Write. O arquivo em disco permanece intacto. Saldo e heldBalance permanecem corretos na memória e após reinicializações.
-- **BEFORE_ATOMIC_MOVE:**
-  - *Comportamento:* O arquivo temporário `.tmp` é escrito com sucesso, mas o rename atômico falha.
-  - *Integridade:* O estado permanente não sofre alteração. O arquivo temporário é ignorado no boot. O saldo permanece intacto.
-- **BEFORE_CACHE_SWAP:**
-  - *Comportamento:* O estado permanente é gravado com sucesso no disco, mas o processo aborta antes de atualizar a memória em tempo de execução.
-  - *Integridade:* Durante a execução atual, o saldo em cache permanece o antigo. No entanto, no reinício (boot), o recovery lê o novo estado persistido com sucesso, restaurando a consistência exata do saldo e held balance sem perdas.
-- **BEFORE_APPEND_LEDGER:**
-  - *Comportamento:* O estado é salvo e a memória é atualizada com sucesso, mas o log de auditoria falha ao registrar o evento.
-  - *Integridade:* O saldo e a reserva são válidos. A inconsistência é puramente de log, que é detectada no boot por meio da reconciliação das reservas ativas em relação ao ledger de auditoria.
-
----
-
-## 5. Concorrência e Invariantes
-
-Nosso sistema de concorrência foi validado por meio do JUnit sob o agendador `@Isolated`. Cenários testados com threads simultâneas em barreira cíclica (`CountDownLatch`):
-
-1. **Reservas Concorrentes (Saldo Insuficiente):** Em concorrência múltipla acima do limite de saldo, apenas o número exato de reservas permitidas pelo saldo disponível é concedido. Nenhuma sobressaturação de saldo (overdraft) ocorre.
-2. **Captura e Liberação Simultâneas:** As transações são exclusivas. Se a captura ganha a corrida, o release subsequente falha com `RESERVATION_ALREADY_CAPTURED`. Se a liberação ganha a corrida, a captura falha com `RESERVATION_ALREADY_RELEASED`.
-3. **Múltiplos Retries de Capturas (Idempotência):** Retentativas concorrentes e sequenciais para capturar a mesma reserva retornam sucesso (`success=true`), mas debitam o total da carteira exatamente uma vez.
-4. **Múltiplos Retries de Liberações (Idempotência):** Retentativas concorrentes e sequenciais para liberar a mesma reserva retornam sucesso (`success=true`), mas liberam o saldo hold exatamente uma vez.
-
-### Invariantes Verificadas pós-Operações
-- `totalBalance >= 0` (Não há saldo negativo).
-- `heldBalance >= 0` e `heldBalance <= totalBalance`.
-- `totalBalance = availableBalance + heldBalance`.
-- Nenhuma reserva ativa duplicada ou ressuscitada.
-
----
-
-## 6. Acordo de Integração (Regions Gems Contract)
-
-A integração futura com o **BigBang Regions** está estruturada sob o seguinte ciclo de vida:
+### Commits relacionados a Gems
 
 ```
-1. Regions gera um UUID (operationId) e salva em seu armazenamento local.
-2. Regions calcula o custo da operação e monta a idempotencyKey:
-   "bigbangregions:resize:<regionId>:<operationId>"
-3. Regions chama reserve(...) na Gems API.
-4. O Essentials retorna o reservationId da reserva ativa.
-5. Regions grava o estado PAYMENT_RESERVED no seu banco/arquivo local.
-6. Regions realiza o redimensionamento técnico do terreno no mundo Minecraft.
-7. Regions grava o estado RESIZE_APPLIED no seu banco local.
-8. Regions chama capture(reservationId) para debitar permanentemente as Gems.
-9. Essentials processa o débito único.
-10. Regions grava PAYMENT_CAPTURED / COMPLETED.
+ac4d4a82 docs: add gems independent audit review and wiki system pages
+037bafb8 feat(gems): implement copy-on-write transaction model and crash failpoints
+5bcc5bad test: add comprehensive gems test suite and isolation
+ac5bc86f feat: add gems balances commands ledger and placeholders
+2eefc405 feat: add configurable gems wallet persistence and recovery
+0eca9a2d docs: define gems wallet architecture and Regions integration contract
 ```
 
-### Contrato de Leases (Prazos e Renovação)
-- **Lease Padrão (defaultLeaseSeconds):** 900 segundos (15 minutos).
-- **Lease Máxima (maxLeaseSeconds):** 3600 segundos (1 hora).
-- **Renovação:** Permitida e totalmente recomendada para operações de redimensionamento longas. A renovação (`renew()`) deve ser chamada pelo Regions antes do término do tempo limite da reserva se o redimensionamento ainda estiver pendente.
-- **Expiração:** Se o tempo limite da reserva expirar antes do Regions enviar a chamada de `capture()`, os fundos são automaticamente devolvidos ao saldo disponível do jogador. A tentativa subsequente de capture falhará com `RESERVATION_EXPIRED`. O Regions deve reverter a operação localmente se detectar expiração de lease.
+---
+
+## 2. Inventário Técnico Completo
+
+### Mapa de arquivos
+
+| Camada | Classe/Arquivo | Responsabilidade | Estado Mutável | Persistência | Thread | Risco |
+|---|---|---|---|---|---|---|
+| **API** | `GemsService` | Contrato público para mods externos | Imutável | Nenhuma | Chamadora | Baixo |
+| **API** | `BigBangEssentialsApi` | Ponto de entrada da API do mod | Imutável | Nenhuma | Chamadora | Baixo |
+| **API** | `GemOperationResult` | Record de resultado (success+failure+view) | Imutável (record) | Nenhuma | N/A | N/A |
+| **API** | `GemOperationFailure` | Enum de 15 códigos de falha | Imutável | Nenhuma | N/A | N/A |
+| **API** | `GemReservationResult` | Resultado especializado para reserve | Imutável (record) | Nenhuma | N/A | N/A |
+| **API** | `GemBalanceView` | View de saldo (total/held/available) | Imutável (record) | Nenhuma | N/A | N/A |
+| **API Requests** | `GemCreditRequest` | Request de crédito | Imutável (record) | Nenhuma | N/A | N/A |
+| **API Requests** | `GemDebitRequest` | Request de débito | Imutável (record) | Nenhuma | N/A | N/A |
+| **API Requests** | `GemSetBalanceRequest` | Request de set admin | Imutável (record) | Nenhuma | N/A | N/A |
+| **API Requests** | `GemReservationRequest` | Request de reserva c/ lease, idempotencyKey | Imutável (record) | Nenhuma | N/A | N/A |
+| **API Requests** | `GemCaptureRequest` | Request de captura c/ idempotencyKey | Imutável (record) | Nenhuma | N/A | N/A |
+| **API Requests** | `GemReleaseRequest` | Request de release **SEM idempotencyKey** | Imutável (record) | Nenhuma | N/A | **Médio** |
+| **API Requests** | `GemRenewRequest` | Request de renovação de lease | Imutável (record) | Nenhuma | N/A | N/A |
+| **Core** | `GemsManager` | Singleton central: estado, lock, operações, recovery, cleanup | `currentState`, `idempotencyRegistry`, `shuttingDown`, `dataIntegrityError` | Delegada a `GemsPersistence` | `ReentrantReadWriteLock` + scheduler dedicado | Copy-on-Write implementado |
+| **Domain** | `GemReservation` | Reserva individual com status, lease, timestamps | `status`, `expiresAt`, `capturedAt`, `releasedAt` | Nenhuma | Manager lock | Deep copy via `copy()` |
+| **Domain** | `GemReservationStatus` | Enum: ACTIVE, CAPTURED, RELEASED, EXPIRED | Imutável | Nenhuma | N/A | N/A |
+| **Domain** | `GemTransaction` | Record de transação para ledger | Imutável (record) | Nenhuma | N/A | N/A |
+| **Domain** | `GemTransactionType` | Enum de tipos de transação | Imutável | Nenhuma | N/A | N/A |
+| **Domain** | `GemCurrencyDescriptor` | Metadados da moeda (símbolo, nome) | Imutável | Nenhuma | N/A | N/A |
+| **Domain** | `GemBalanceView` | View de saldo | Imutável (record) | Nenhuma | N/A | N/A |
+| **Persistence** | `GemsPersistence` | I/O de arquivos: state + ledger | Stateless (exceto config cache) | `gems_state.json`, `gems_transactions.jsonl` | `synchronized` nos métodos | Baixo (stateless) |
+| **Persistence** | `GemsState` | POJO de estado serializável | `balances`, `reservations` | `gems_state.json` | Nenhuma | N/A |
+| **Persistence** | `GemsPersistenceFailpoint` | Enum de pontos de falha para teste | Imutável | Nenhuma | N/A | **Apenas 8/12 failpoints** |
+| **Config** | `GemConfig` | Config serializável em `gems.json` | Mutável via load | `gems.json` | Nenhuma | N/A |
+| **Config** | `GemConfigValidator` | Validação de config | Imutável | Nenhuma | N/A | N/A |
+| **Service** | `GemsServiceImpl` | Ponte entre API e Manager | Nenhum | Nenhuma | Chamadora | N/A |
+| **Command** | `GemsCommand` | Comando `/gems` e `/gemas` (Brigadier) | Nenhum | Nenhuma | Server thread | N/A |
+| **Event** | `GemBalanceChangedEvent` | Evento de mudança de saldo | Imutável | Nenhuma | Manager lock | N/A |
+| **Event** | `GemReservationCreatedEvent` | Evento de criação de reserva | Imutável | Nenhuma | Manager lock | N/A |
+| **Event** | `GemReservationCapturedEvent` | Evento de captura | Imutável | Nenhuma | Manager lock | N/A |
+| **Event** | `GemReservationReleasedEvent` | Evento de release | Imutável | Nenhuma | Manager lock | N/A |
+| **Event** | `GemReservationExpiredEvent` | Evento de expiração | Imutável | Nenhuma | Manager lock | N/A |
+
+### Isolamento de dependências (verificado)
+
+- Gems **não importa** `BigBangRegions`, `Region`, `RegionResizeService`, `PlotSlot` ✓
+- Gems **não importa** `Vault` ou `net.milkbowl.vault` ✓
+- Gems **não importa** `EconomyManager` de Coins, `balances.json`, `transactions.json` ✓
+- Chave técnica fixa: `bigbangessentials:gems` (validada via `GemConfigValidator`) ✓
+- `technicalId` é imutável e validado em runtime ✓
 
 ---
 
-## 7. Achados e Correções Efetuadas
+## 3. Auditoria de API Pública
 
-Durante a auditoria profunda, os seguintes pontos foram identificados e corrigidos:
+### Interface `GemsService`
 
-1. **Achado #1 (CRITICAL): Divergência de Cache/Disco sob Falha de I/O**
-   - *Problema:* Os métodos de alteração de saldo mutavam o mapa `currentState.balances` e o status das reservas antes de invocar `saveState()`. Se a persistência em disco falhasse, o estado em memória continuava com o valor alterado, divergindo do arquivo físico.
-   - *Solução:* Implementado o padrão Copy-on-Write (CoW). A mutação só é aplicada na referência principal `currentState` após a gravação síncrona com sucesso no disco.
-2. **Achado #2 (HIGH): Possibilidade de Liberação Manual Sem Confirmação**
-   - *Problema:* O comando `/gems admin reservation release <id>` permitia liberação de fundos imediatos com apenas um clique/execução, sem confirmação literal.
-   - *Solução:* Brigadier reforçado para exigir obrigatoriamente o literal `"confirm"` na sintaxe do comando, prevenindo execuções acidentais de operadores.
-3. **Achado #3 (MEDIUM): Idempotência com Payload Divergente**
-   - *Problema:* Retentativas de transações com a mesma chave de idempotência e dados divergentes podiam expor inconsistência de dados.
-   - *Solução:* Implementada verificação detalhada que compara o player, valor e tipo na requisição idempotente e retorna explicitamente `IDEMPOTENCY_CONFLICT` se os dados divergirem do payload original gravado.
+| Método | Retorno | Validações | Idempotente | Observação |
+|---|---|---|---|---|
+| `descriptor()` | `GemCurrencyDescriptor` | N/A | N/A | Apenas leitura |
+| `getBalance(UUID)` | `GemBalanceView` | N/A | N/A | Apenas leitura |
+| `hasAvailable(UUID, long)` | `boolean` | amount>=0 implícito | N/A | Apenas leitura |
+| `credit(GemCreditRequest)` | `GemOperationResult` | amount>0, source, purpose | Sim (idempotencyKey) | |
+| `debit(GemDebitRequest)` | `GemOperationResult` | amount>0, source, purpose, available OK | Sim (idempotencyKey) | |
+| `setBalance(GemSetBalanceRequest)` | `GemOperationResult` | amount>=0, >=held, <=max, source, purpose | Não (sem key) | Uso admin |
+| `reserve(GemReservationRequest)` | `GemReservationResult` | amount>0, source, purpose, lease válido | Sim (idempotencyKey) | |
+| `capture(GemCaptureRequest)` | `GemOperationResult` | reservation válida, transição válida | Sim (idempotencyKey + status) | |
+| `release(GemReleaseRequest)` | `GemOperationResult` | reservation válida, transição válida | **Sim por status** mas **sem idempotencyKey** | **ACHADO #5** |
+| `renew(GemRenewRequest)` | `GemOperationResult` | reservation ACTIVE, lease válido | Não (sem key) | |
+| `findReservation(UUID)` | `Optional<GemReservation>` | N/A | N/A | Apenas leitura |
+| `findReservationByIdempotencyKey(String)` | `Optional<GemReservation>` | N/A | N/A | Apenas leitura |
+| `getHistory(UUID, int, int)` | `List<GemTransaction>` | N/A | N/A | Apenas leitura |
+
+### Achados da API
+
+1. ✅ Todos os amounts usam `long` - sem `double` ou `float`
+2. ✅ Amounts são validados como `> 0` (credit/debit/reserve) ou `>= 0` (set)
+3. ✅ `source` e `purpose` são obrigatórios e validados (lowercase, digits, `-`, `_`, max 64 chars)
+4. ✅ `idempotencyKey` é suportado nos métodos críticos (credit, debit, reserve, capture)
+5. ✅ Falhas usam `GemOperationFailure` enum com código estruturado
+6. ✅ Nenhum stacktrace vaza na API - exceptions são capturadas e convertidas em `GemOperationFailure`
+7. ✅ `capture` é idempotente (já capturado retorna success)
+8. ✅ `release` é idempotente por status (já released retorna success)
+9. ❌ **`release()` não aceita `idempotencyKey`** - não há como o caller garantir idempotência via chave
+10. ❌ **`renew()` não aceita `idempotencyKey`** - idem
+11. ⚠️ `metadata` não tem limite de tamanho explícito na API (embora seja `Map<String, String>`)
 
 ---
 
-## 8. Veredito Final
+## 4. Durabilidade e Ledger
 
-Com base na auditoria completa de durabilidade, testes manuais e automatizados, e conformidade com os requisitos de isolamento e idempotência:
+### Estratégia Implementada: State authoritative + ledger reconciliável
+
+**Implementa a Estratégia A** do contrato de auditoria, com Copy-on-Write.
+
+### Ordem real de persistência
+
+```
+1. stateLock.writeLock().lock()
+2. Clone profundo de GemsState (cloneState + GemReservation.copy)
+3. Aplica mutação no clone (nextState)
+4. persistence.saveState(nextState):
+   4a. BEFORE_WRITE_TEMP failpoint
+   4b. Incrementa revision
+   4c. Serializa JSON → gems_state.json.tmp
+   4d. AFTER_WRITE_TEMP failpoint
+   4e. BEFORE_ATOMIC_MOVE failpoint
+   4f. Files.move(tmp → state, ATOMIC_MOVE | REPLACE_EXISTING)
+       → fallback: Files.copy + delete tmp
+   4g. AFTER_ATOMIC_MOVE failpoint
+   4h. Backup opcional
+5. BEFORE_CACHE_SWAP failpoint
+6. currentState = nextState (swap da referência)
+7. appendTransaction ao ledger (gems_transactions.jsonl)
+8. save idempotency registry (em cache)
+9. BEFORE_EVENT_PUBLISH failpoint
+10. postEventSafely (evento de domínio)
+11. stateLock.writeLock().unlock()
+```
+
+### Fonte de verdade
+
+**`gems_state.json`** é a fonte de verdade absoluta. **`gems_transactions.jsonl`** é audit log, não WAL.
+
+### Recovery no boot
+
+1. Carrega `gems_state.json`
+2. Valida `schemaVersion == 1`
+3. Itera reservas: se ACTIVE + expirada → EXPIRED, registra no ledger
+4. Recalcula `heldBalance` por jogador a partir de reservas ACTIVE não expiradas
+5. Valida: nenhum saldo negativo, nenhum held > total
+6. Se `dataIntegrityError`, bloqueia mutações
+7. Reconstrói `idempotencyRegistry` a partir do ledger + reservas ativas
+
+### Achados de durabilidade
+
+1. ✅ Copy-on-Write garante que alterações em memória só persistem após escrita em disco bem-sucedida
+2. ✅ `Files.move` com `ATOMIC_MOVE` previne estado parcial
+3. ✅ Ledger trimming preserva últimas N entradas sem perda de integridade
+4. ✅ Corrupted state file é preservado via backup antes de desabilitar Gems
+5. ⚠️ Ledger trimming descarta entradas antigas - não há reconciliação de ledger (transações antigas perdidas)
+6. ⚠️ Ledger NÃO é usado para recovery de estado - só para auditoria/histórico
+
+---
+
+## 5. Crash Injection
+
+### Failpoints definidos (8 de 12 requeridos)
+
+| # | Failpoint | Testado? | Cenário de crash |
+|---|---|---|---|
+| 1 | `BEFORE_WRITE_TEMP` | ✅ | Antes de escrever arquivo temporário |
+| 2 | `AFTER_WRITE_TEMP` | ❌ | Após escrever temp, antes de atomic move |
+| 3 | `BEFORE_ATOMIC_MOVE` | ❌ | Após temp escrito, antes de renomear |
+| 4 | `AFTER_ATOMIC_MOVE` | ❌ | Após atomic move, antes de swap |
+| 5 | `BEFORE_APPEND_LEDGER` | ✅ | Após state salvo + cache swap, antes do log |
+| 6 | `AFTER_APPEND_LEDGER` | ❌ | Após ledger, antes de evento |
+| 7 | `BEFORE_CACHE_SWAP` | ✅ | Após state salvo em disco, antes de swap de referência |
+| 8 | `BEFORE_EVENT_PUBLISH` | ❌ | Após tudo, antes de publicar evento |
+
+### Falta: 4 failpoints de cenário
+
+O contrato pede 12 failpoints. Faltam os seguintes cenários:
+
+- 9. Durante `reserve` (combined: beforeWriteTemp + reserve flow)
+- 10. Durante `capture` (combined: beforeWriteTemp + capture flow)
+- 11. Durante `release` (combined: beforeWriteTemp + release flow)
+- 12. Durante `expiração` (cleanup task failure)
+
+### Cobertura de testes de crash injection
+
+- `GemCrashInjectionTest`: 3 cenários testados (BEFORE_WRITE_TEMP, BEFORE_CACHE_SWAP, BEFORE_APPEND_LEDGER)
+- Cobertura: **3 de 8 failpoints testados** (38%)
+- Nenhum teste de `AFTER_WRITE_TEMP`, `BEFORE_ATOMIC_MOVE`, `AFTER_ATOMIC_MOVE`, `AFTER_APPEND_LEDGER`, `BEFORE_EVENT_PUBLISH`
+- Nenhum teste de crash durante capture (após reserve) com recovery completo
+- Nenhum teste de crash durante release
+- Nenhum teste de crash durante expiração automática
+
+---
+
+## 6. Concorrência e Atomicidade
+
+### Testes de concorrência existentes
+
+| Cenário | Status | Resultado |
+|---|---|---|
+| 5 threads reservando 30 de 100 disponíveis (só cabem 3) | ✅ Testado | 3 success, 2 fail, held=90 |
+| Capture + Release simultâneos | ✅ Testado | Exatamente 1 succeed, 1 fail |
+| 4 captures concorrentes (idempotência) | ✅ Testado | Todos success, 1 deduct |
+| 4 releases concorrentes (idempotência) | ✅ Testado | Todos success, 1 restore |
+
+### Cenários NÃO testados (contrato pede 12)
+
+| # | Cenário | Status |
+|---|---|---|
+| 1 | Duas reservas simultâneas, saldo insuficiente para ambas | ✅ |
+| 2 | `reserve` e `debit` simultâneos | ❌ |
+| 3 | `reserve` e `admin take` simultâneos | ❌ |
+| 4 | `capture` e `release` simultâneos | ✅ |
+| 5 | `capture` repetido em threads diferentes | ✅ |
+| 6 | `release` repetido em threads diferentes | ✅ |
+| 7 | `renew` e `expire` simultâneos | ❌ |
+| 8 | `cleanup` e `capture` simultâneos | ❌ |
+| 9 | `shutdown` durante `reserve` | ❌ |
+| 10 | `shutdown` durante `capture` | ❌ |
+| 11 | Duas calls externas com mesmo `idempotencyKey` | ✅ (via idempotency test) |
+| 12 | Duas calls com mesmo `idempotencyKey` e payload diferente | ✅ (via idempotency test) |
+
+### Mecanismo de concorrência
+
+- `ReentrantReadWriteLock(true)` - leituras não bloqueiam entre si, escritas são exclusivas
+- `ConcurrentHashMap` para idempotencyRegistry (leitura sem lock para check rápido)
+- Toda mutação adquire `writeLock()` - serializa escritas
+- `ScheduledExecutorService` para cleanup de expiradas (single thread)
+- `shuttingDown` flag checked early - previne novas operações
+
+---
+
+## 7. Contrato BigBang Regions
+
+### Fluxo validado
+
+O fluxo completo de 10 passos do Regions → Gems foi validado:
+
+1. ✅ Regions gera `operationId` persistido
+2. ✅ Regions usa `idempotencyKey` estável (`bigbangregions:resize:<regionId>:<operationId>`)
+3. ✅ Regions chama `reserve()` → retorna `reservationId`
+4. ✅ Regions grava `PAYMENT_RESERVED`
+5. ✅ Regions aplica resize
+6. ✅ Regions grava `RESIZE_APPLIED`
+7. ✅ Regions chama `capture()` → apenas uma cobrança
+8. ✅ Regions grava `PAYMENT_CAPTURED`
+
+### Casos de recovery validados
+
+| Cenário | Resultado |
+|---|---|
+| Crash após reserve, antes de PAYMENT_RESERVED | Regions não tem estado → retry reserve (idempotente) |
+| Crash após PAYMENT_RESERVED, antes de resize | Regions retoma do checkpoint → faz resize → capture |
+| Crash após resize, antes de capture | Regions retoma → capture (idempotente) |
+| Crash após capture, antes de PAYMENT_CAPTURED | Regions retoma → capture retry (idempotente) |
+| Reserva expirada durante operação | Reserve retry → pode falhar se saldo mudou |
+| Lease renovada | `renew()` extende lease |
+
+### Contrato de Lease
+
+| Parâmetro | Valor | Configurável |
+|---|---|---|
+| `defaultLeaseSeconds` | 900 (15 min) | Sim |
+| `maxLeaseSeconds` | 3600 (1 hora) | Sim |
+| `cleanupIntervalSeconds` | 60 | Sim |
+| `allowExternalRenewal` | true | Sim |
+
+### Responsabilidades
+
+| Estado | Dono | Persistência |
+|---|---|---|
+| `PAYMENT_PENDING` | Regions | Regions (local) |
+| `PAYMENT_RESERVED` + `reservationId` | Regions | Regions (local) |
+| `RESIZE_APPLIED` | Regions | Regions (local) |
+| `PAYMENT_CAPTURED` | Regions | Regions (local) |
+| `reservation ACTIVE` | Essentials | `gems_state.json` |
+| `reservation CAPTURED` | Essentials | `gems_state.json` |
+| `reservation RELEASED` | Essentials | `gems_state.json` |
+
+### Achado: Contrato Regions depende de `release()` SEM `idempotencyKey`
+
+O `GemReleaseRequest` não possui `idempotencyKey`. Se Regions crashar após chamar `release()` mas antes de persistir, e retentar, não há garantia de idempotência por chave. Atualmente o `release()` verifica status (`already released` retorna success), então é funcionalmente idempotente, mas o contrato de API não explicita isso.
+
+---
+
+## 8. Comandos e Permissões
+
+### Comandos implementados
+
+| Comando | Permissão | Status |
+|---|---|---|
+| `/gems` (self) | `bigbangessentials.gems.balance` | ✅ |
+| `/gems balance [player]` | `bigbangessentials.gems.balance` / `.balance.others` | ✅ |
+| `/gems history [page]` | `bigbangessentials.gems.history` | ✅ |
+| `/gems admin give` | `bigbangessentials.gems.admin.give` | ✅ |
+| `/gems admin take` | `bigbangessentials.gems.admin.take` | ✅ |
+| `/gems admin set` | `bigbangessentials.gems.admin.set` | ✅ |
+| `/gems admin reset` | `bigbangessentials.gems.admin.reset` | ✅ |
+| `/gems admin balance` | `bigbangessentials.gems.admin.balance` | ✅ |
+| `/gems admin history` | `bigbangessentials.gems.admin.history` | ✅ |
+| `/gems admin reservations` | `bigbangessentials.gems.admin.reservations` | ✅ |
+| `/gems admin reservation inspect` | `bigbangessentials.gems.admin.reservations` | ✅ |
+| `/gems admin reservation release <id> confirm` | `bigbangessentials.gems.admin.release` | ✅ |
+| `/gems admin verify` | `bigbangessentials.gems.admin.verify` | ✅ |
+| `/gems admin repair confirm` | `bigbangessentials.gems.admin.repair` | ✅ |
+| `/gems admin reload` | `bigbangessentials.gems.admin.reload` | ✅ |
+| `/gemas` (alias) | Mesma que `/gems` | ✅ |
+
+### Testes de comando
+
+- Apenas `GemCommandAuthorizationTest` testa registro do comando (não testa execução real)
+- Não há testes para: amount inválido, amount decimal, permissão negada, autocomplete
+- `GemAmountParsingTest` testa validação de amount via API (não via comando)
+
+### Issues encontradas
+
+1. ⚠️ `executeAdminReset` usa `fallbackStarting = 0` hardcoded (ignora config.startingBalance)
+2. ⚠️ Nenhum teste de comando executa o handler real - só testa registro do nó
+3. ✅ Repair requer `confirm` literal
+4. ✅ Release de reserva requer `confirm` literal
+
+### Regressão Coins
+
+- Gems não altera comportamento de Coins ✓
+- Coins continua via Vault ✓
+- Arquivos de Coins (`balances.json`, `transactions.json`) não são tocados ✓
+- Nenhum import cruzado entre economia de Coins e Gems ✓
+
+---
+
+## 9. Testes Existentes (Cobertura)
+
+| Teste | O que cobre |
+|---|---|
+| `GemApiContractTest` | API via `BigBangEssentialsApi`, credit via service |
+| `GemBalanceServiceTest` | Credit, debit, insufficient, maxBalance |
+| `GemAmountParsingTest` | Zero/negative amounts rejeitados |
+| `GemConfigValidationTest` | Validação de config (techId, balanços, leases) |
+| `GemFormattingTest` | Formatação de valores |
+| `GemLedgerPersistenceTest` | Ledger registra credit+debit corretamente |
+| `GemReservationStateMachineTest` | Reserve, capture, release, invalid transitions |
+| `GemReservationIdempotencyTest` | Idempotência de credit e reserve |
+| `GemReservationConcurrencyTest` | 4 cenários de concorrência |
+| `GemReservationRecoveryTest` | Recovery com reservas expiradas/ativas |
+| `GemCrashInjectionTest` | 3 cenários de crash injection |
+| `GemExternalIntegrationContractTest` | Fluxo completo Regions (reserve→capture) |
+| `GemCommandAuthorizationTest` | Registro de comandos |
+| `GemPlaceholderTest` | Placeholders básicos |
+
+---
+
+## 10. Achados e Correções
+
+### Achados Existentes (do commit 037bafb8, já corrigidos)
+
+| # | Severidade | Problema | Solução |
+|---|---|---|---|
+| 1 | CRITICAL | Divergência cache/disco sob falha de I/O | Copy-on-Write implementado |
+| 2 | HIGH | Liberação manual sem confirmação | Literal "confirm" obrigatório |
+| 3 | MEDIUM | Idempotência com payload divergente | IDEMPOTENCY_CONFLICT implementado |
+
+### Achados Novos (desta auditoria)
+
+| # | Severidade | Problema | Local |
+|---|---|---|---|
+| **A4** | **HIGH** | **Crash injection coverage insuficiente**: apenas 3/8 failpoints testados | `GemCrashInjectionTest.java` |
+| **A5** | **HIGH** | **Failpoints incompletos**: apenas 8 definidos, contrato pede 12 (faltam reserve/capture/release/expiration scenario-level) | `GemsPersistenceFailpoint.java` |
+| **A6** | **MEDIUM** | **`GemReleaseRequest` sem `idempotencyKey`**: não há como caller garantir idempotência via chave para release | `GemReleaseRequest.java` |
+| **A7** | **MEDIUM** | **Concorrência incompleta**: apenas 4/12 cenários testados | `GemReservationConcurrencyTest.java` |
+| **A8** | **LOW** | **`GemRenewRequest` sem `idempotencyKey`**: renovação não é idempotente por chave | `GemRenewRequest.java` |
+| **A9** | **LOW** | **`executeAdminReset` usa `fallbackStarting = 0` hardcoded**: ignora config.startingBalance | `GemsCommand.java:479` |
+| **A10** | **LOW** | **Nenhum teste de execução real de comando**: só testa registro do nó Brigadier | `GemCommandAuthorizationTest.java` |
+| **A11** | **LOW** | **Documentação existente desatualizada**: audit.md antigo referenciava SHA `037bafb8` e já declarava APPROVED | `docs/reviews/gems-independent-audit.md` (corrigido agora) |
+
+---
+
+## 11. Veredito Final
+
+### Critérios de aprovação
+
+| Critério | Status | Evidência |
+|---|---|---|
+| `./gradlew clean test build` passa | ✅ | BUILD SUCCESSFUL |
+| API pública não importa BigBang Regions | ✅ | Grep confirmado |
+| Coins não tiveram regressão | ✅ | Nenhum shared state |
+| Vault continua somente para Coins | ✅ | Nenhum import Vault em Gems |
+| Gems usa apenas inteiros | ✅ | Todos `long` |
+| Gems não permite saldo negativo | ✅ | Validado: amount>0, set>=0, allowNegativeBalances=false |
+| reserve, capture, release são idempotentes | ✅ | Sim (capture/release por status, reserve por key) |
+| Concorrência não permite gastar acima do availableBalance | ✅ | writeLock + validação |
+| Restart preserva estado corretamente | ✅ | Recovery recalcula held + expira |
+| Crash injection não causa perda nem duplicação | ⚠️ **Parcial** | Apenas 3/8 failpoints testados |
+| Durabilidade documentada corretamente | ✅ | State authoritative + CoW |
+| Ledger e state possuem recuperação consistente | ✅ | Recovery no boot |
+| Reservas expiradas tratadas corretamente | ✅ | Cleanup task + recovery |
+| BigBang Regions possui contrato de retry claro | ✅ | `docs/integrations/bigbangregions-gems-api.md` |
+| Sem reflection, arquivo ou banco compartilhado | ✅ | Verificado |
+| Testes manuais executados | ❌ **Não executado** | Sem servidor real disponível |
+| Nenhum achado CRITICAL ou HIGH aberto | ❌ **A4 e A5 são HIGH abertos** | Crash injection coverage |
+
+### Decisão
 
 ```txt
-GEMS_API_APPROVED_FOR_REGIONS_INTEGRATION
+GEMS_API_APPROVED_WITH_REQUIRED_FIXES
 ```
 
-O sistema Essentials Gems está 100% pronto e seguro para consumo da API do Regions.
+### Motivação
+
+O sistema tem uma base sólida: Copy-on-Write, idempotência, locks, API limpa, isolamento de Coins e Vault, recovery funcional. Porém, dois achados **HIGH** impedem a aprovação irrestrita:
+
+1. **A4** (Crash injection coverage insuficiente) - a resiliência declarada não está totalmente coberta por testes automatizados
+2. **A5** (Failpoints incompletos) - o contrato pede 12 pontos de falha, só 8 implementados
+
+### Correções requeridas antes de APPROVED_FOR_REGIONS_INTEGRATION
+
+1. Adicionar testes de crash injection para os 5 failpoints não testados (AFTER_WRITE_TEMP, BEFORE_ATOMIC_MOVE, AFTER_ATOMIC_MOVE, AFTER_APPEND_LEDGER, BEFORE_EVENT_PUBLISH)
+2. Adicionar 4 failpoints de cenário (DURING_RESERVE, DURING_CAPTURE, DURING_RELEASE, DURING_EXPIRATION)
+3. Testar crash durante capture (reserve existente + crash no capture)
+4. Testar crash durante release
+5. Testar crash durante expiração automática
+
+### Correções recomendadas (MEDIUM/LOW)
+
+6. Adicionar `idempotencyKey` a `GemReleaseRequest`
+7. Adicionar `idempotencyKey` a `GemRenewRequest`
+8. Adicionar 8 cenários de concorrência faltantes
+9. Corrigir `executeAdminReset` para usar `startingBalance` do config
+10. Adicionar testes de execução real de comandos
+
+---
+
+## Checklist final
+
+- [x] `./gradlew clean test build` passa
+- [x] API pública não importa BigBang Regions
+- [x] Coins não tiveram regressão
+- [x] Vault continua somente para Coins
+- [x] Gems usa apenas inteiros
+- [x] Gems não permite saldo negativo
+- [x] reserve, capture e release são idempotentes
+- [x] Concorrência não permite gastar acima do availableBalance
+- [x] Restart preserva estado corretamente
+- [ ] Crash injection não causa perda nem duplicação (Parcial - cobertura insuficiente)
+- [x] Durabilidade está documentada corretamente
+- [x] Ledger e state possuem recuperação consistente
+- [x] Reservas expiradas são tratadas corretamente
+- [x] BigBang Regions possui contrato de retry claro
+- [x] Não existe acesso por reflection, arquivo compartilhado ou banco compartilhado
+- [ ] Testes manuais foram executados (Não executado - sem servidor)
+- [ ] Não existem achados CRITICAL ou HIGH abertos (2 HIGH abertos: A4, A5)
