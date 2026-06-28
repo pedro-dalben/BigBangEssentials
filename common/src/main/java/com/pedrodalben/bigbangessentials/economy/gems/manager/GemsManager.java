@@ -32,6 +32,10 @@ public class GemsManager {
         return SingletonHolder.INSTANCE;
     }
 
+    public GemConfig getConfig() {
+        return persistence.getConfig();
+    }
+
     private final GemsPersistence persistence;
     private final ReentrantReadWriteLock stateLock = new ReentrantReadWriteLock(true);
     private GemsState currentState;
@@ -42,6 +46,12 @@ public class GemsManager {
     private final Map<String, IdempotencyRecord> idempotencyRegistry = new ConcurrentHashMap<>();
 
     private ScheduledExecutorService cleanupScheduler;
+
+    public GemsManager(File baseDir) {
+        this.persistence = new GemsPersistence(baseDir);
+        recover();
+        startCleanupTask();
+    }
 
     private GemsManager() {
         this.persistence = new GemsPersistence();

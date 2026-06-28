@@ -32,12 +32,25 @@ public class GemsPersistence {
     private static final String LEDGER_FILE = "gems_transactions.jsonl";
     private static final String BACKUP_DIR = "gems_backups";
 
+    private final File baseDir;
     private GemConfig config;
     private boolean gemsEnabled = false;
 
     public GemsPersistence() {
-        // Load configuration first
+        this(null);
+    }
+
+    public GemsPersistence(File baseDir) {
+        this.baseDir = baseDir;
         loadConfig();
+    }
+
+    private File getFile(String filename) {
+        if (baseDir != null) {
+            baseDir.mkdirs();
+            return new File(baseDir, filename);
+        }
+        return ResourceUtil.getDataFile(filename);
     }
 
     public GemConfig getConfig() {
@@ -56,7 +69,7 @@ public class GemsPersistence {
      * Loads the gems.json configuration. If it doesn't exist, writes a default one.
      */
     public void loadConfig() {
-        File file = ResourceUtil.getDataFile(CONFIG_FILE);
+        File file = getFile(CONFIG_FILE);
         if (!file.exists()) {
             LOGGER.info("Gems config file not found. Creating default gems.json.");
             config = new GemConfig();
@@ -85,7 +98,7 @@ public class GemsPersistence {
     }
 
     private void saveConfigDirect(GemConfig configToSave) {
-        File file = ResourceUtil.getDataFile(CONFIG_FILE);
+        File file = getFile(CONFIG_FILE);
         ResourceUtil.ensureDataDirectory();
         try (Writer writer = new FileWriter(file, StandardCharsets.UTF_8)) {
             GSON.toJson(configToSave, writer);
@@ -98,7 +111,7 @@ public class GemsPersistence {
      * Loads gems_state.json.
      */
     public GemsState loadState() {
-        File file = ResourceUtil.getDataFile(STATE_FILE);
+        File file = getFile(STATE_FILE);
         if (!file.exists()) {
             LOGGER.info("Gems state file not found. Initializing empty state.");
             return new GemsState();
@@ -127,7 +140,7 @@ public class GemsPersistence {
 
     private void createCorruptedBackup(File corruptedFile) {
         try {
-            File backupDir = ResourceUtil.getDataFile(BACKUP_DIR);
+            File backupDir = getFile(BACKUP_DIR);
             if (!backupDir.exists()) backupDir.mkdirs();
             String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
             File backupFile = new File(backupDir, "gems_state_corrupted_" + timestamp + ".json");
@@ -148,8 +161,8 @@ public class GemsPersistence {
         }
 
         state.revision++;
-        File tmpFile = ResourceUtil.getDataFile(STATE_TMP_FILE);
-        File stateFile = ResourceUtil.getDataFile(STATE_FILE);
+        File tmpFile = getFile(STATE_TMP_FILE);
+        File stateFile = getFile(STATE_FILE);
 
         ResourceUtil.ensureDataDirectory();
 
@@ -185,7 +198,7 @@ public class GemsPersistence {
 
     private void createStateBackup(File stateFile, long revision) {
         try {
-            File backupDir = ResourceUtil.getDataFile(BACKUP_DIR);
+            File backupDir = getFile(BACKUP_DIR);
             if (!backupDir.exists()) backupDir.mkdirs();
 
             String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
@@ -215,7 +228,7 @@ public class GemsPersistence {
             return;
         }
 
-        File file = ResourceUtil.getDataFile(LEDGER_FILE);
+        File file = getFile(LEDGER_FILE);
         ResourceUtil.ensureDataDirectory();
 
         String line = GSON_MIN.toJson(tx);
@@ -292,7 +305,7 @@ public class GemsPersistence {
      */
     public synchronized List<GemTransaction> getHistory(UUID playerUuid) {
         List<GemTransaction> history = new ArrayList<>();
-        File file = ResourceUtil.getDataFile(LEDGER_FILE);
+        File file = getFile(LEDGER_FILE);
         if (!file.exists()) {
             return history;
         }
@@ -319,12 +332,12 @@ public class GemsPersistence {
     }
 
     public synchronized void forceManualBackup(String reason) {
-        File stateFile = ResourceUtil.getDataFile(STATE_FILE);
+        File stateFile = getFile(STATE_FILE);
         if (!stateFile.exists()) {
             return;
         }
         try {
-            File backupDir = ResourceUtil.getDataFile(BACKUP_DIR);
+            File backupDir = getFile(BACKUP_DIR);
             if (!backupDir.exists()) backupDir.mkdirs();
 
             String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());

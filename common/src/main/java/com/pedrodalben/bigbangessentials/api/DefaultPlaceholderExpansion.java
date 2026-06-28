@@ -180,7 +180,7 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
      */
     private boolean requiresPlayer(String identifier) {
         return switch (identifier.toLowerCase()) {
-            case "server_name", "online_players", "max_players", "time", "time_24", "date" -> false;
+            case "server_name", "online_players", "max_players", "time", "time_24", "date", "gems_currency_name", "gems_currency_symbol" -> false;
             default -> true;
         };
     }
