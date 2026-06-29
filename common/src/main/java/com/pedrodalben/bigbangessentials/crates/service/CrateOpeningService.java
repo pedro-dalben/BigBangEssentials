@@ -27,6 +27,7 @@ public class CrateOpeningService {
     private final CrateKeyService keyService;
     private final RewardService rewardService;
     private final CrateAuditService auditService;
+    private final CrateMetricsService metricsService;
     private final PlayerCrateStateRepository playerStateRepo;
     private final CrateEconomyIntegration economyIntegration;
     private final ConcurrentHashMap<UUID, ReentrantLock> playerLocks;
@@ -35,6 +36,7 @@ public class CrateOpeningService {
         this.keyService = CrateKeyService.getInstance();
         this.rewardService = RewardService.getInstance();
         this.auditService = CrateAuditService.getInstance();
+        this.metricsService = CrateMetricsService.getInstance();
         this.playerStateRepo = new JdbcPlayerCrateStateRepository();
         this.economyIntegration = CrateEconomyIntegration.getInstance();
         this.playerLocks = new ConcurrentHashMap<>();
@@ -57,6 +59,7 @@ public class CrateOpeningService {
             return openCrateInternal(player, crate, source, idempotencyKey);
         } finally {
             lock.unlock();
+            playerLocks.remove(playerId);
         }
     }
 
@@ -125,6 +128,12 @@ public class CrateOpeningService {
 
             auditService.completeAudit(audit, CrateOpenAudit.OpenStatus.COMPLETED);
 
+            metricsService.recordOpening(crate.getKey(), true);
+            metricsService.recordRewardDelivered(selectedReward.getId());
+            if (crate.getRequirements().hasCostRequirement()) {
+                metricsService.recordCostSpent(crate.getKey(), crate.getCost());
+            }
+
             LOGGER.info("Player {} opened crate '{}' and received reward '{}'",
                 player.getUUID(), crate.getKey(), selectedReward.getName());
 
@@ -134,6 +143,7 @@ public class CrateOpeningService {
             LOGGER.error("Failed to open crate for player {}: {}", player.getUUID(), e.getMessage(), e);
 
             rollback(player.getUUID(), crate, keyConsumed, costPaid, cooldownApplied, savedState, audit);
+            metricsService.recordOpening(crate.getKey(), false);
             return new CrateOpeningResult(false, "Internal error: " + e.getMessage(), audit);
         }
     }
@@ -191,12 +201,10 @@ public class CrateOpeningService {
 
         if (requirements.hasPermissionRequirement()) {
             if (!player.hasPermissions(4)) {
-                boolean hasPerm = false;
                 var permNode = requirements.getRequiredPermission();
-                if (permNode != null && !permNode.isBlank()) {
-                    hasPerm = true;
-                }
-                if (!hasPerm) {
+                if (permNode == null || permNode.isBlank()
+                    || !com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                        player.getUUID(), permNode)) {
                     return new ValidationResult(false, "You don't have permission to open this crate");
                 }
             }

@@ -45,11 +45,13 @@ public class CrateKeyService {
     private final KeyRepository keyRepo;
     private final PlayerVirtualKeyRepository virtualKeyRepo;
     private final CrateIdempotencyRepository idempotencyRepo;
+    private final CrateMetricsService metricsService;
 
     private CrateKeyService() {
         this.keyRepo = new JsonKeyRepository();
         this.virtualKeyRepo = new JdbcPlayerVirtualKeyRepository();
         this.idempotencyRepo = new JdbcCrateIdempotencyRepository();
+        this.metricsService = CrateMetricsService.getInstance();
     }
 
     public static CrateKeyService getInstance() {
@@ -66,6 +68,7 @@ public class CrateKeyService {
         }
 
         virtualKeyRepo.incrementBalance(playerId, keyId, amount);
+        metricsService.recordKeyGiven(keyId, amount, source);
 
         LOGGER.info("Gave {} virtual key(s) '{}' to player {} (source: {}, idempotency: {})",
             amount, keyId, playerId, source, idempotencyKey);
@@ -86,6 +89,7 @@ public class CrateKeyService {
 
         boolean decremented = virtualKeyRepo.decrementBalance(playerId, keyId, amount);
         if (decremented) {
+            metricsService.recordKeyConsumed(keyId);
             LOGGER.info("Took {} virtual key(s) '{}' from player {} (source: {})",
                 amount, keyId, playerId, source);
         }
@@ -169,6 +173,7 @@ public class CrateKeyService {
             if (!slot.isEmpty() && keyId.equals(getKeyMarker(slot))) {
                 slot.shrink(1);
                 inv.setItem(i, slot.isEmpty() ? ItemStack.EMPTY : slot);
+                metricsService.recordKeyConsumed(keyId);
                 return true;
             }
         }
@@ -302,6 +307,9 @@ public class CrateKeyService {
                     serverSecret = HexFormat.of().formatHex(key);
                     Files.createDirectories(path.getParent());
                     Files.writeString(path, serverSecret);
+                    path.toFile().setReadable(true, true);
+                    path.toFile().setWritable(false, false);
+                    path.toFile().setExecutable(false, false);
                 }
             } catch (Exception e) {
                 LOGGER.error("Failed to load/generate HMAC secret, using fallback", e);

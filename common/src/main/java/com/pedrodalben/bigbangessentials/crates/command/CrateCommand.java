@@ -18,6 +18,7 @@ import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
 import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
 import com.pedrodalben.bigbangessentials.crates.service.CrateAuditService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateKeyService;
+import com.pedrodalben.bigbangessentials.crates.service.CrateMetricsService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateOpeningService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
 import net.minecraft.commands.CommandSourceStack;
@@ -44,6 +45,8 @@ public class CrateCommand {
     private static final CrateKeyService keyService = CrateKeyService.getInstance();
     private static final CrateOpeningService openingService = CrateOpeningService.getInstance();
     private static final CrateAuditService auditService = CrateAuditService.getInstance();
+    private static final CrateMetricsService metricsService = CrateMetricsService.getInstance();
+    private static final CrateManager crateManager = CrateManager.getInstance();
 
     private static final SuggestionProvider<CommandSourceStack> CRATE_SUGGESTIONS = (ctx, builder) -> {
         List<CrateDefinition> crates = crateService.getAllCrates();
@@ -135,6 +138,14 @@ public class CrateCommand {
                             StringArgumentType.getString(ctx, "crate")))
                     )
                 )
+                .then(Commands.literal("cleanup")
+                    .requires(source -> hasPermission(source, CratePermissions.ADMIN))
+                    .executes(CrateCommand::cleanupOldLogs)
+                )
+            )
+            .then(Commands.literal("metrics")
+                .requires(source -> hasPermission(source, CratePermissions.LOGS))
+                .executes(CrateCommand::viewMetrics)
             )
             .then(Commands.literal("location")
                 .then(Commands.literal("list")
@@ -263,6 +274,7 @@ public class CrateCommand {
         CommandSourceStack source = context.getSource();
         try {
             CrateManager.getInstance().reload();
+            metricsService.reload();
             source.sendSuccess(() -> Component.literal(CrateMessages.RELOAD_COMPLETED), true);
             LOGGER.info("Crate module reloaded by {}", source.getTextName());
             return 1;
@@ -499,6 +511,41 @@ public class CrateCommand {
             return 1;
         } catch (Exception e) {
             LOGGER.error("Error viewing logs", e);
+            source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+            return 0;
+        }
+    }
+
+    // === View Metrics ===
+
+    private static int viewMetrics(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        try {
+            source.sendSuccess(() -> Component.literal(metricsService.formatMetrics().replace("\n", "\n")), false);
+            return 1;
+        } catch (Exception e) {
+            LOGGER.error("Error viewing metrics", e);
+            source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+            return 0;
+        }
+    }
+
+    // === Cleanup Old Logs ===
+
+    private static int cleanupOldLogs(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        try {
+            int days = crateManager.getAuditRetentionDays();
+            source.sendSuccess(() -> Component.literal("\u00a7eLimpando logs de abertura mais antigos que " + days + " dias..."), true);
+            long before = auditService.countAudits();
+            crateManager.runCleanupNow();
+            long after = auditService.countAudits();
+            long removed = before - after;
+            source.sendSuccess(() -> Component.literal(
+                "\u00a7a" + removed + " registro(s) de auditoria removido(s). Reten\u00e7\u00e3o configurada: " + days + " dias."), true);
+            return 1;
+        } catch (Exception e) {
+            LOGGER.error("Error cleaning up old logs", e);
             source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
             return 0;
         }
