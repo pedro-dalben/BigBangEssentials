@@ -194,9 +194,8 @@ public class CrateAnimationHandler {
 
             if (state.reward != null) {
                 playSound(state.player, "minecraft:entity.player.levelup");
-                RewardService.getInstance().deliverReward(state.player, state.reward);
-                LOGGER.info("Delivered reward '{}' to player {} after animation",
-                    state.reward.getName(), state.player.getUUID());
+                LOGGER.debug("Animation completed for reward '{}' (already delivered during opening)",
+                    state.reward.getName());
             }
         }
 

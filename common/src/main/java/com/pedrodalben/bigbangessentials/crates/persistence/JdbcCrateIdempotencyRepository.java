@@ -51,7 +51,7 @@ public class JdbcCrateIdempotencyRepository extends JdbcRepository implements Cr
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to mark idempotency key '{}': {}", idempotencyKey, e.getMessage(), e);
-            return true;
+            return false;
         }
     }
 }

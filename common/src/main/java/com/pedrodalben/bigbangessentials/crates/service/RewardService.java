@@ -146,7 +146,7 @@ public class RewardService {
                 CommandSourceStack source = server.createCommandSourceStack();
                 for (String command : reward.getCommands()) {
                     String resolved = command
-                        .replace("{player}", player.getName().getString())
+                        .replace("{player}", player.getGameProfile().getName())
                         .replace("{uuid}", player.getUUID().toString());
                     try {
                         server.getCommands().performPrefixedCommand(source, resolved);
