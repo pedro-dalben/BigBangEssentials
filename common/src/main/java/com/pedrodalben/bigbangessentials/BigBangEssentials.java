@@ -187,6 +187,11 @@ public class BigBangEssentials {
         registry.registerManager("JobsManager", "jobs",
             com.pedrodalben.bigbangessentials.jobs.JobsManager.class,
             com.pedrodalben.bigbangessentials.jobs.JobsManager::getInstance);
+
+        // Crates Manager
+        registry.registerManager("CrateManager", "crates",
+            com.pedrodalben.bigbangessentials.crates.CrateManager.class,
+            com.pedrodalben.bigbangessentials.crates.CrateManager::getInstance);
         
         LOGGER.debug("Manager registration complete - {} managers registered", registry.getManagerCount());
     }
@@ -299,6 +304,17 @@ public class BigBangEssentials {
             } catch (Exception e) {
                 LOGGER.error("✗ Custom Commands system failed to initialize: {}", e.getMessage(), e);
                 ManagerRegistry.getInstance().markFailed("CustomCommandManager", e.getMessage());
+            }
+
+            // Initialize Crates system
+            try {
+                LOGGER.info("⚙ Initializing Crates system...");
+                com.pedrodalben.bigbangessentials.crates.CrateManager.getInstance().initialize();
+                ManagerRegistry.getInstance().markInitialized("CrateManager");
+                LOGGER.info("✓ Crates system initialized successfully");
+            } catch (Exception e) {
+                LOGGER.error("✗ Crates system failed to initialize: {}", e.getMessage(), e);
+                ManagerRegistry.getInstance().markFailed("CrateManager", e.getMessage());
             }
 
             // Display manager registry diagnostics
@@ -522,6 +538,14 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.jobs.JobsManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown Jobs Manager", e);
+            }
+
+            // Shutdown Crates Manager
+            try {
+                LOGGER.info("Shutting down Crates Manager...");
+                com.pedrodalben.bigbangessentials.crates.CrateManager.getInstance().shutdown();
+            } catch (Exception e) {
+                LOGGER.error("Failed to shutdown Crates Manager", e);
             }
 
             // Shutdown Database Manager
@@ -1019,6 +1043,14 @@ public class BigBangEssentials {
         } catch (Exception e) {
             LOGGER.error("Failed to register custom commands: {}", e.getMessage(), e);
         }
+
+        // ========== CRATES MODULE ==========
+        registry.registerCommand("crates", "Manage crates and keys", "crate");
+        registry.registerCommand("givekey", "Give a key to a player");
+        registry.registerCommand("keygive", "Give a key to a player (alias)");
+        com.pedrodalben.bigbangessentials.crates.command.CrateCommand.register(dispatcher);
+        com.pedrodalben.bigbangessentials.crates.command.GiveKeyCommand.register(dispatcher);
+        com.pedrodalben.bigbangessentials.crates.command.KeyGiveCommand.register(dispatcher);
     }
         /*
          * All command registration and related logic that was previously outside of methods has been moved here as a block comment.
