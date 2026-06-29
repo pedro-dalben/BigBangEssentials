@@ -9,7 +9,7 @@ class GrantSourceTest {
     @Test
     void enum_HasAllExpectedValues() {
         GrantSource[] sources = GrantSource.values();
-        assertEquals(10, sources.length);
+        assertEquals(11, sources.length);
     }
 
     @Test
@@ -63,11 +63,17 @@ class GrantSourceTest {
     }
 
     @Test
+    void enum_ContainsRollback() {
+        assertTrue(contains(GrantSource.ROLLBACK));
+    }
+
+    @Test
     void valueOf_ValidNames() {
         assertEquals(GrantSource.ADMIN_COMMAND, GrantSource.valueOf("ADMIN_COMMAND"));
         assertEquals(GrantSource.OPENING, GrantSource.valueOf("OPENING"));
         assertEquals(GrantSource.MILESTONE, GrantSource.valueOf("MILESTONE"));
         assertEquals(GrantSource.MASS_OPEN, GrantSource.valueOf("MASS_OPEN"));
+        assertEquals(GrantSource.ROLLBACK, GrantSource.valueOf("ROLLBACK"));
     }
 
     @Test

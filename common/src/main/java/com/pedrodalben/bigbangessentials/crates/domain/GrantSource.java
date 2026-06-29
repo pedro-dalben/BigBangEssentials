@@ -10,5 +10,6 @@ public enum GrantSource {
     SYSTEM,
     OPENING,
     MILESTONE,
-    MASS_OPEN
+    MASS_OPEN,
+    ROLLBACK
 }

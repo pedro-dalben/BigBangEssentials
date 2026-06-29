@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public class RewardRollState {
     private final String rewardId;
+    private final Object lock = new Object();
     private int globalCount;
     private java.util.Map<UUID, Integer> playerCounts;
 
@@ -17,16 +18,35 @@ public class RewardRollState {
     }
 
     public String getRewardId() { return rewardId; }
-    public int getGlobalCount() { return globalCount; }
-    public java.util.Map<UUID, Integer> getPlayerCounts() { return new java.util.HashMap<>(playerCounts); }
+    public int getGlobalCount() { synchronized (lock) { return globalCount; } }
+    public java.util.Map<UUID, Integer> getPlayerCounts() {
+        synchronized (lock) {
+            return new java.util.HashMap<>(playerCounts);
+        }
+    }
 
-    public void incrementGlobal() { this.globalCount++; }
+    public void incrementGlobal() {
+        synchronized (lock) {
+            this.globalCount++;
+        }
+    }
     public void incrementPlayer(UUID playerId) {
-        playerCounts.merge(playerId, 1, Integer::sum);
+        synchronized (lock) {
+            playerCounts.merge(playerId, 1, Integer::sum);
+        }
     }
 
     public int getPlayerCount(UUID playerId) {
         return playerCounts.getOrDefault(playerId, 0);
+    }
+
+    public void setInitialCounts(int globalCount, java.util.Map<UUID, Integer> playerCounts) {
+        synchronized (lock) {
+            this.globalCount = Math.max(0, globalCount);
+            if (playerCounts != null) {
+                this.playerCounts = new java.util.HashMap<>(playerCounts);
+            }
+        }
     }
 
     public boolean isGloballyExhausted(int limit) {

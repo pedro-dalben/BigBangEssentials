@@ -198,15 +198,61 @@ public class RewardService {
     }
 
     /**
-     * Record a reward roll for limit tracking.
+     * Record a reward roll for limit tracking (thread-safe).
      */
-    private void recordRewardRoll(CrateReward reward, UUID playerId) {
+    private synchronized void recordRewardRoll(CrateReward reward, UUID playerId) {
         RewardRollState rollState = rollStateRepo.findByRewardId(reward.getId())
             .orElse(new RewardRollState(reward.getId()));
 
         rollState.incrementGlobal();
         rollState.incrementPlayer(playerId);
         rollStateRepo.save(rollState);
+    }
+
+    /**
+     * Roll a reward for the player, considering eligibility limits (permissions, global/player limits).
+     * Returns null if no eligible reward is available.
+     */
+    public CrateReward rollEligibleReward(CrateDefinition crate, ServerPlayer player) {
+        Map<String, Integer> globalCounts = new HashMap<>();
+        Map<String, Integer> playerCounts = new HashMap<>();
+
+        for (CrateReward reward : crate.getRewards()) {
+            RewardRollState rollState = rollStateRepo.findByRewardId(reward.getId()).orElse(null);
+            if (rollState != null) {
+                globalCounts.put(reward.getId(), rollState.getGlobalCount());
+                playerCounts.put(reward.getId(), rollState.getPlayerCount(player.getUUID()));
+            }
+        }
+
+        CrateRarity selectedRarity = selectRarityByWeight(crate);
+        if (selectedRarity == null) return null;
+
+        List<CrateReward> eligible = crate.getRewardsByRarity(selectedRarity.getId()).stream()
+            .filter(CrateReward::isActive)
+            .filter(r -> !r.isMilestoneOnly())
+            .filter(r -> isEligible(r, player, playerCounts, globalCounts))
+            .toList();
+
+        if (eligible.isEmpty()) return null;
+
+        double totalWeight = eligible.stream()
+            .mapToDouble(CrateReward::getWeight)
+            .sum();
+
+        if (totalWeight <= 0) return null;
+
+        double roll = RANDOM.nextDouble() * totalWeight;
+        double cumulative = 0;
+
+        for (CrateReward reward : eligible) {
+            cumulative += reward.getWeight();
+            if (roll <= cumulative) {
+                return reward;
+            }
+        }
+
+        return eligible.get(eligible.size() - 1);
     }
 
     public void reload() {

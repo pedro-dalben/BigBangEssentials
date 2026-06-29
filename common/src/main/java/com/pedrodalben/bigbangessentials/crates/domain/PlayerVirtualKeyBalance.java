@@ -9,6 +9,7 @@ import java.util.UUID;
 public class PlayerVirtualKeyBalance {
     private final UUID playerId;
     private final String keyId;
+    private final Object lock = new Object();
     private int amount;
     private Instant updatedAt;
 
@@ -21,29 +22,38 @@ public class PlayerVirtualKeyBalance {
 
     public UUID getPlayerId() { return playerId; }
     public String getKeyId() { return keyId; }
-    public int getAmount() { return amount; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public int getAmount() { synchronized (lock) { return amount; } }
+    public Instant getUpdatedAt() { synchronized (lock) { return updatedAt; } }
 
     public void setAmount(int amount) {
-        this.amount = Math.max(0, amount);
-        this.updatedAt = Instant.now();
+        synchronized (lock) {
+            this.amount = Math.max(0, amount);
+            this.updatedAt = Instant.now();
+        }
     }
 
     public boolean hasAtLeast(int required) {
-        return amount >= required;
+        synchronized (lock) {
+            return amount >= required;
+        }
     }
 
     public boolean add(int delta) {
         if (delta <= 0) return false;
-        this.amount += delta;
-        this.updatedAt = Instant.now();
+        synchronized (lock) {
+            this.amount += delta;
+            this.updatedAt = Instant.now();
+        }
         return true;
     }
 
     public boolean remove(int delta) {
-        if (delta <= 0 || amount < delta) return false;
-        this.amount -= delta;
-        this.updatedAt = Instant.now();
+        if (delta <= 0) return false;
+        synchronized (lock) {
+            if (amount < delta) return false;
+            this.amount -= delta;
+            this.updatedAt = Instant.now();
+        }
         return true;
     }
 

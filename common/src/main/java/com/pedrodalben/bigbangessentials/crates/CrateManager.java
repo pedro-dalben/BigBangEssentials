@@ -4,6 +4,8 @@ import com.pedrodalben.bigbangessentials.BigBangEssentialsManager;
 import com.pedrodalben.bigbangessentials.crates.service.CrateAuditService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateKeyService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateOpeningService;
+import com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager;
+import com.pedrodalben.bigbangessentials.crates.particle.CrateParticleManager;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
 import com.pedrodalben.bigbangessentials.crates.service.RewardService;
 import org.slf4j.Logger;
@@ -69,6 +71,19 @@ public class CrateManager {
         if (!initialized) return;
 
         LOGGER.info("Shutting down CrateManager...");
+
+        try {
+            CrateHologramManager.getInstance().removeAll();
+        } catch (Exception e) {
+            LOGGER.error("Failed to remove holograms during shutdown: {}", e.getMessage());
+        }
+
+        try {
+            CrateParticleManager.getInstance().stopAll();
+        } catch (Exception e) {
+            LOGGER.error("Failed to stop particles during shutdown: {}", e.getMessage());
+        }
+
         initialized = false;
         enabled = false;
         LOGGER.info("CrateManager shutdown complete");

@@ -114,7 +114,7 @@ public class CrateReward {
     public void setWeight(double weight) { this.weight = Math.max(0, weight); }
     public void setItems(List<ItemStack> items) { this.items = items != null ? new ArrayList<>(items) : new ArrayList<>(); }
     public void setCommands(List<String> commands) { this.commands = commands != null ? new ArrayList<>(commands) : new ArrayList<>(); }
-    public void setRequiredPermission(String requiredPermission) { this.requiredPermission = requiredPermission = requiredPermission; }
+    public void setRequiredPermission(String requiredPermission) { this.requiredPermission = requiredPermission != null ? requiredPermission : ""; }
     public void setBlockingPermissions(List<String> blockingPermissions) { this.blockingPermissions = blockingPermissions != null ? new ArrayList<>(blockingPermissions) : new ArrayList<>(); }
     public void setGlobalLimit(int globalLimit) { this.globalLimit = globalLimit; }
     public void setPlayerLimit(int playerLimit) { this.playerLimit = playerLimit; }

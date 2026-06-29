@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class CrateOpeningService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CrateOpeningService.class);
@@ -27,6 +29,7 @@ public class CrateOpeningService {
     private final CrateAuditService auditService;
     private final PlayerCrateStateRepository playerStateRepo;
     private final CrateEconomyIntegration economyIntegration;
+    private final ConcurrentHashMap<UUID, ReentrantLock> playerLocks;
 
     private CrateOpeningService() {
         this.keyService = CrateKeyService.getInstance();
@@ -34,18 +37,37 @@ public class CrateOpeningService {
         this.auditService = CrateAuditService.getInstance();
         this.playerStateRepo = new JdbcPlayerCrateStateRepository();
         this.economyIntegration = CrateEconomyIntegration.getInstance();
+        this.playerLocks = new ConcurrentHashMap<>();
     }
 
     public static CrateOpeningService getInstance() {
         return INSTANCE;
     }
 
-    /**
-     * Full crate opening flow with atomicity and error protection.
-     */
     public CrateOpeningResult openCrate(ServerPlayer player, CrateDefinition crate, GrantSource source, String idempotencyKey) {
+        UUID playerId = player.getUUID();
+        ReentrantLock lock = playerLocks.computeIfAbsent(playerId, k -> new ReentrantLock());
+
+        if (!lock.tryLock()) {
+            LOGGER.warn("Player {} tried to open crate while already opening one", playerId);
+            return new CrateOpeningResult(false, "You are already opening a crate!", null);
+        }
+
         try {
-            // 1. Idempotency check
+            return openCrateInternal(player, crate, source, idempotencyKey);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private CrateOpeningResult openCrateInternal(ServerPlayer player, CrateDefinition crate, GrantSource source, String idempotencyKey) {
+        boolean keyConsumed = false;
+        boolean costPaid = false;
+        boolean cooldownApplied = false;
+        PlayerCrateState savedState = null;
+        CrateOpenAudit audit = null;
+
+        try {
             if (idempotencyKey != null && !idempotencyKey.isBlank()) {
                 Optional<CrateOpenAudit> existing = auditService.findByIdempotencyKey(idempotencyKey);
                 if (existing.isPresent()) {
@@ -54,7 +76,6 @@ public class CrateOpeningService {
                 }
             }
 
-            // 2. Validate requirements
             ValidationResult validation = validateRequirements(player, crate);
             if (!validation.valid()) {
                 LOGGER.warn("Player {} failed validation for crate '{}': {}",
@@ -62,39 +83,26 @@ public class CrateOpeningService {
                 return new CrateOpeningResult(false, validation.message(), null);
             }
 
-            // 3. Create audit log entry (PENDING)
-            CrateOpenAudit audit = auditService.createPendingAudit(player.getUUID(), crate, idempotencyKey, source);
-            auditService.saveAudit(audit);
-
-            // 4. Calculate rewards
-            CrateReward selectedReward = calculateReward(crate);
+            CrateReward selectedReward = rewardService.rollEligibleReward(crate, player);
             if (selectedReward == null) {
-                audit.setErrorDetail("No eligible rewards available");
-                auditService.completeAudit(audit, CrateOpenAudit.OpenStatus.FAILED);
-                return new CrateOpeningResult(false, "No eligible rewards available", audit);
+                LOGGER.warn("No eligible rewards for crate '{}'", crate.getKey());
+                return new CrateOpeningResult(false, "No eligible rewards available", null);
             }
 
-            // 5. Consume key/cost
-            boolean keyConsumed = false;
             if (!crate.getRequirements().getAcceptedKeyIds().isEmpty()) {
-                keyConsumed = keyService.consumeKeyForOpening(player.getUUID(), crate);
+                keyConsumed = keyService.consumeKeyForOpening(player, crate);
                 if (!keyConsumed) {
-                    audit.setErrorDetail("Failed to consume key");
-                    auditService.completeAudit(audit, CrateOpenAudit.OpenStatus.FAILED);
-                    return new CrateOpeningResult(false, "Failed to consume key", audit);
+                    return new CrateOpeningResult(false, "Failed to consume key", null);
                 }
             }
 
             if (crate.getRequirements().hasCostRequirement()) {
-                boolean costPaid = economyIntegration.withdraw(player.getUUID(), crate.getCost(), "Crate opening: " + crate.getKey());
+                costPaid = economyIntegration.withdraw(player.getUUID(), crate.getCost(), "Crate opening: " + crate.getKey());
                 if (!costPaid) {
-                    audit.setErrorDetail("Insufficient funds");
-                    auditService.completeAudit(audit, CrateOpenAudit.OpenStatus.FAILED);
-                    return new CrateOpeningResult(false, "Insufficient funds", audit);
+                    return new CrateOpeningResult(false, "Insufficient funds", null);
                 }
             }
 
-            // 6. Apply cooldown
             PlayerCrateState playerState = playerStateRepo.findByPlayerAndCrate(player.getUUID(), crate.getKey())
                 .orElse(new PlayerCrateState(player.getUUID(), crate.getKey()));
 
@@ -104,22 +112,19 @@ public class CrateOpeningService {
                 } else {
                     playerState.startCooldown(crate.getRequirements().getCooldownMillis());
                 }
+                cooldownApplied = true;
             }
 
             playerState.recordOpening();
-            playerStateRepo.save(playerState);
+            savedState = playerStateRepo.save(playerState);
 
-            // 7. Deliver rewards
-            List<String> rewardIds = new ArrayList<>();
-            List<String> rewardNames = new ArrayList<>();
-            rewardIds.add(selectedReward.getId());
-            rewardNames.add(selectedReward.getName());
+            audit = auditService.createPendingAudit(player.getUUID(), crate, idempotencyKey, source);
+            auditService.saveAudit(audit);
+
             rewardService.deliverReward(player, selectedReward);
 
-            // 8. Check milestones
             checkMilestones(player, crate, playerState);
 
-            // 9. Complete audit
             auditService.completeAudit(audit, CrateOpenAudit.OpenStatus.COMPLETED);
 
             LOGGER.info("Player {} opened crate '{}' and received reward '{}'",
@@ -129,13 +134,53 @@ public class CrateOpeningService {
 
         } catch (Exception e) {
             LOGGER.error("Failed to open crate for player {}: {}", player.getUUID(), e.getMessage(), e);
-            return new CrateOpeningResult(false, "Internal error: " + e.getMessage(), null);
+
+            rollback(player.getUUID(), crate, keyConsumed, costPaid, cooldownApplied, savedState, audit);
+            return new CrateOpeningResult(false, "Internal error: " + e.getMessage(), audit);
         }
     }
 
-    /**
-     * Validate all requirements before opening.
-     */
+    private void rollback(UUID playerId, CrateDefinition crate,
+                           boolean keyConsumed, boolean costPaid,
+                           boolean cooldownApplied, PlayerCrateState savedState,
+                           CrateOpenAudit audit) {
+        try {
+            if (keyConsumed) {
+                keyService.giveVirtualKey(playerId, crate.getRequirements().getAcceptedKeyIds().get(0), 1, GrantSource.ROLLBACK, null);
+                LOGGER.info("Rollback: restored 1 key for player {}", playerId);
+            }
+        } catch (Exception e) {
+            LOGGER.error("Rollback failed to restore key for player {}: {}", playerId, e.getMessage());
+        }
+
+        try {
+            if (costPaid) {
+                economyIntegration.deposit(playerId, crate.getCost(), "Rollback: crate opening failed");
+                LOGGER.info("Rollback: restored cost of {} for player {}", crate.getCost(), playerId);
+            }
+        } catch (Exception e) {
+            LOGGER.error("Rollback failed to restore cost for player {}: {}", playerId, e.getMessage());
+        }
+
+        try {
+            if (cooldownApplied && savedState != null) {
+                savedState.clearCooldown();
+                playerStateRepo.save(savedState);
+                LOGGER.info("Rollback: cleared cooldown for player {} on crate '{}'", playerId, crate.getKey());
+            }
+        } catch (Exception e) {
+            LOGGER.error("Rollback failed to clear cooldown for player {}: {}", playerId, e.getMessage());
+        }
+
+        try {
+            if (audit != null) {
+                auditService.completeAudit(audit, CrateOpenAudit.OpenStatus.ROLLED_BACK);
+            }
+        } catch (Exception e) {
+            LOGGER.error("Rollback failed to mark audit for player {}: {}", playerId, e.getMessage());
+        }
+    }
+
     private ValidationResult validateRequirements(ServerPlayer player, CrateDefinition crate) {
         if (!crate.isEnabled()) {
             return new ValidationResult(false, "Crate is disabled");
@@ -147,7 +192,6 @@ public class CrateOpeningService {
 
         var requirements = crate.getRequirements();
 
-        // Check permission
         if (requirements.hasPermissionRequirement()) {
             if (!player.hasPermissions(4)) {
                 boolean hasPerm = false;
@@ -161,7 +205,6 @@ public class CrateOpeningService {
             }
         }
 
-        // Check cooldown
         PlayerCrateState playerState = playerStateRepo.findByPlayerAndCrate(player.getUUID(), crate.getKey())
             .orElse(null);
         if (playerState != null) {
@@ -170,15 +213,13 @@ public class CrateOpeningService {
             }
         }
 
-        // Check key requirements
         if (requirements.hasKeyRequirement()) {
-            boolean hasKey = keyService.hasRequiredKey(player.getUUID(), crate.getKey());
+            boolean hasKey = keyService.hasRequiredKey(player, crate.getKey());
             if (!hasKey) {
                 return new ValidationResult(false, "You don't have the required key");
             }
         }
 
-        // Check economy cost
         if (requirements.hasCostRequirement()) {
             if (!economyIntegration.hasBalance(player.getUUID(), requirements.getRequiredCost())) {
                 return new ValidationResult(false, "Insufficient funds");
@@ -188,19 +229,6 @@ public class CrateOpeningService {
         return new ValidationResult(true, "OK");
     }
 
-    /**
-     * Calculate a reward from the crate using two-stage weighted selection.
-     */
-    private CrateReward calculateReward(CrateDefinition crate) {
-        CrateRarity selectedRarity = rewardService.selectRarityByWeight(crate);
-        if (selectedRarity == null) return null;
-
-        return rewardService.selectRewardByWeight(crate, selectedRarity.getId());
-    }
-
-    /**
-     * Check and deliver milestone rewards.
-     */
     private void checkMilestones(ServerPlayer player, CrateDefinition crate, PlayerCrateState playerState) {
         var milestones = crate.getMilestones();
         for (var milestone : milestones) {
@@ -215,13 +243,10 @@ public class CrateOpeningService {
         }
     }
 
-    /**
-     * Mass open a crate multiple times.
-     */
     public List<CrateOpeningResult> massOpen(ServerPlayer player, CrateDefinition crate, int times, GrantSource source) {
         List<CrateOpeningResult> results = new ArrayList<>();
         for (int i = 0; i < times; i++) {
-            String idempotencyKey = UUID.randomUUID() + ":" + i;
+            String idempotencyKey = player.getUUID() + ":" + crate.getKey() + ":" + i;
             CrateOpeningResult result = openCrate(player, crate, source, idempotencyKey);
             results.add(result);
             if (!result.success()) break;

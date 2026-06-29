@@ -15,8 +15,11 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.LevelAccessor;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
+import net.neoforged.neoforge.event.level.PistonEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -141,6 +144,45 @@ public class CrateBlockListener {
             }
             return false;
         });
+    }
+
+    @SubscribeEvent
+    public void onPistonMove(PistonEvent.Pre event) {
+        if (event.getLevel().isClientSide()) return;
+
+        LevelAccessor levelAccessor = event.getLevel();
+        if (!(levelAccessor instanceof Level level)) return;
+
+        Direction direction = event.getDirection();
+        BlockPos pistonPos = event.getPos();
+
+        List<CrateLocation> allLocations = crateService.getAllLocations();
+        if (allLocations.isEmpty()) return;
+
+        boolean crateInPath = false;
+        for (CrateLocation loc : allLocations) {
+            if (!loc.isActive() || !loc.getDimension().equals(level.dimension())) continue;
+            BlockPos cratePos = loc.getPosition();
+
+            if (cratePos.equals(pistonPos)) {
+                crateInPath = true;
+                break;
+            }
+
+            for (int i = 1; i <= 12; i++) {
+                if (cratePos.equals(pistonPos.relative(direction, i))) {
+                    crateInPath = true;
+                    break;
+                }
+            }
+            if (crateInPath) break;
+        }
+
+        if (crateInPath) {
+            event.setCanceled(true);
+            LOGGER.debug("Prevented piston movement affecting crate at {} in world '{}'",
+                pistonPos, level.dimension().location());
+        }
     }
 
     private void openPreview(ServerPlayer player, CrateDefinition crate) {

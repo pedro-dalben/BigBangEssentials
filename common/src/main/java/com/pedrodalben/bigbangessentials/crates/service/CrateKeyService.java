@@ -1,17 +1,17 @@
 package com.pedrodalben.bigbangessentials.crates.service;
 
 import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
-import com.pedrodalben.bigbangessentials.crates.domain.CrateOpenAudit;
 import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
 import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.PlayerVirtualKeyBalance;
-import com.pedrodalben.bigbangessentials.crates.persistence.JsonKeyRepository;
-import com.pedrodalben.bigbangessentials.crates.persistence.JdbcPlayerVirtualKeyRepository;
 import com.pedrodalben.bigbangessentials.crates.persistence.JdbcCrateAuditRepository;
+import com.pedrodalben.bigbangessentials.crates.persistence.JdbcPlayerVirtualKeyRepository;
+import com.pedrodalben.bigbangessentials.crates.persistence.JsonKeyRepository;
+import com.pedrodalben.bigbangessentials.crates.repository.CrateAuditRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.KeyRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.PlayerVirtualKeyRepository;
-import com.pedrodalben.bigbangessentials.crates.repository.CrateAuditRepository;
-import com.pedrodalben.bigbangessentials.util.MessageUtil;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
@@ -27,6 +27,7 @@ import java.util.UUID;
 
 public class CrateKeyService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CrateKeyService.class);
+    private static final String KEY_TAG = "bigbangessentials:key_id";
     private static final CrateKeyService INSTANCE = new CrateKeyService();
 
     private final KeyRepository keyRepo;
@@ -110,6 +111,7 @@ public class CrateKeyService {
 
         ItemStack stack = keyItem.copy();
         stack.setCount(amount);
+        embedKeyMarker(stack, keyId);
 
         Inventory inventory = player.getInventory();
         if (!inventory.add(stack)) {
@@ -118,6 +120,31 @@ public class CrateKeyService {
 
         LOGGER.info("Gave {} physical key(s) '{}' to player {} (source: {})",
             amount, keyId, player.getUUID(), source);
+    }
+
+    public int countPhysicalKeysInInventory(ServerPlayer player, String keyId) {
+        Inventory inv = player.getInventory();
+        int count = 0;
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack slot = inv.getItem(i);
+            if (!slot.isEmpty() && keyId.equals(getKeyMarker(slot))) {
+                count += slot.getCount();
+            }
+        }
+        return count;
+    }
+
+    public boolean takePhysicalKeyFromInventory(ServerPlayer player, String keyId) {
+        Inventory inv = player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack slot = inv.getItem(i);
+            if (!slot.isEmpty() && keyId.equals(getKeyMarker(slot))) {
+                slot.shrink(1);
+                inv.setItem(i, slot.isEmpty() ? ItemStack.EMPTY : slot);
+                return true;
+            }
+        }
+        return false;
     }
 
     public Map<String, Integer> inspectKeys(UUID playerId) {
@@ -129,7 +156,7 @@ public class CrateKeyService {
         return Collections.unmodifiableMap(result);
     }
 
-    public boolean hasRequiredKey(UUID playerId, String crateId) {
+    public boolean hasRequiredKey(ServerPlayer player, String crateId) {
         CrateDefinition crate = CrateService.getInstance().getCrateByKey(crateId);
         if (crate == null) return false;
 
@@ -141,30 +168,32 @@ public class CrateKeyService {
 
         for (String keyId : acceptedKeys) {
             if (requireVirtual) {
-                int balance = getVirtualKeyBalance(playerId, keyId);
+                int balance = getVirtualKeyBalance(player.getUUID(), keyId);
                 if (balance > 0) return true;
             }
             if (requirePhysical) {
-                return true;
+                if (countPhysicalKeysInInventory(player, keyId) > 0) return true;
             }
         }
 
         if (!requireVirtual && !requirePhysical) {
             for (String keyId : acceptedKeys) {
-                int balance = getVirtualKeyBalance(playerId, keyId);
+                int balance = getVirtualKeyBalance(player.getUUID(), keyId);
                 if (balance > 0) return true;
+                if (countPhysicalKeysInInventory(player, keyId) > 0) return true;
             }
         }
 
         return false;
     }
 
-    public boolean consumeKeyForOpening(UUID playerId, CrateDefinition crate) {
+    public boolean consumeKeyForOpening(ServerPlayer player, CrateDefinition crate) {
         List<String> acceptedKeys = crate.getRequirements().getAcceptedKeyIds();
         if (acceptedKeys.isEmpty()) return true;
 
         boolean requireVirtual = crate.getRequirements().isRequireVirtualKey();
         boolean requirePhysical = crate.getRequirements().isRequirePhysicalKey();
+        UUID playerId = player.getUUID();
 
         for (String keyId : acceptedKeys) {
             if (requireVirtual) {
@@ -172,6 +201,11 @@ public class CrateKeyService {
                     return true;
                 }
             }
+            if (requirePhysical) {
+                if (takePhysicalKeyFromInventory(player, keyId)) {
+                    return true;
+                }
+            }
         }
 
         if (!requireVirtual && !requirePhysical) {
@@ -179,10 +213,32 @@ public class CrateKeyService {
                 if (takeVirtualKey(playerId, keyId, 1, GrantSource.OPENING)) {
                     return true;
                 }
+                if (takePhysicalKeyFromInventory(player, keyId)) {
+                    return true;
+                }
             }
         }
 
         return false;
+    }
+
+    private void embedKeyMarker(ItemStack stack, String keyId) {
+        CompoundTag existing = stack.get(DataComponents.CUSTOM_DATA) != null
+            ? stack.get(DataComponents.CUSTOM_DATA).copyTag()
+            : new CompoundTag();
+        existing.putString(KEY_TAG, keyId);
+        stack.set(DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(existing));
+    }
+
+    private String getKeyMarker(ItemStack stack) {
+        if (stack.isEmpty()) return null;
+        var customData = stack.get(DataComponents.CUSTOM_DATA);
+        if (customData == null) return null;
+        CompoundTag tag = customData.copyTag();
+        if (tag.contains(KEY_TAG)) {
+            return tag.getString(KEY_TAG);
+        }
+        return null;
     }
 
     public void reload() {

@@ -38,13 +38,7 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
         String rewardId = rs.getString("reward_id");
         int globalCount = rs.getInt("global_count");
         String playerCountsJson = rs.getString("player_counts");
-
-        RewardRollState state = new RewardRollState(rewardId);
-        // globalCount is set via the private field through reflection or a helper
-        // Since RewardRollState only has incrementGlobal(), we set it via a workaround
-        // We'll need to manage the state through the service layer instead
-
-        return state;
+        return constructState(rewardId, globalCount, playerCountsJson);
     };
 
     public JdbcRewardRollStateRepository() {
@@ -70,76 +64,38 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
     @Override
     public Optional<RewardRollState> findByRewardId(String rewardId) {
         try {
-            Optional<RewardRollState> result = getDatabase().querySingle(SELECT_BY_REWARD_ID,
+            return getDatabase().querySingle(SELECT_BY_REWARD_ID,
                 stmt -> stmt.setString(1, rewardId),
-                (rs) -> {
-                    String id = rs.getString("reward_id");
-                    int globalCount = rs.getInt("global_count");
-                    String playerCountsJson = rs.getString("player_counts");
-                    RewardRollState state = new RewardRollState(id);
-                    // Reflectively set globalCount since there's no setter
-                    // We rely on the service layer to call incrementGlobal()
-                    return state;
-                }
+                MAPPER
             ).join();
-
-            // Reconstruct from JSON to properly set counts
-            if (result.isPresent()) {
-                return loadFromDatabase(rewardId);
-            }
-            return result;
         } catch (Exception e) {
             LOGGER.error("Failed to find reward roll state: {}", e.getMessage(), e);
             return Optional.empty();
         }
     }
 
-    private Optional<RewardRollState> loadFromDatabase(String rewardId) {
-        try {
-            return getDatabase().querySingle(SELECT_BY_REWARD_ID,
-                stmt -> stmt.setString(1, rewardId),
-                (rs) -> {
-                    String id = rs.getString("reward_id");
-                    int globalCount = rs.getInt("global_count");
-                    String playerCountsJson = rs.getString("player_counts");
-
-                    // Use a helper to construct the state from raw data
-                    RewardRollState state = constructState(id, globalCount, playerCountsJson);
-                    return state;
-                }
-            ).join();
-        } catch (Exception e) {
-            LOGGER.error("Failed to load reward roll state from DB: {}", e.getMessage(), e);
-            return Optional.empty();
-        }
-    }
-
     private RewardRollState constructState(String rewardId, int globalCount, String playerCountsJson) {
         RewardRollState state = new RewardRollState(rewardId);
-        if (playerCountsJson == null || playerCountsJson.isBlank() || playerCountsJson.equals("{}")) {
-            return state;
-        }
-        try {
-            Map<String, Integer> counts = gson.fromJson(playerCountsJson, mapType);
-            if (counts != null) {
-                for (Map.Entry<String, Integer> entry : counts.entrySet()) {
-                    try {
-                        UUID playerId = UUID.fromString(entry.getKey());
-                        for (int i = 0; i < entry.getValue(); i++) {
-                            state.incrementPlayer(playerId);
+
+        Map<UUID, Integer> playerCounts = new HashMap<>();
+        if (playerCountsJson != null && !playerCountsJson.isBlank() && !playerCountsJson.equals("{}")) {
+            try {
+                Map<String, Integer> raw = gson.fromJson(playerCountsJson, mapType);
+                if (raw != null) {
+                    for (Map.Entry<String, Integer> entry : raw.entrySet()) {
+                        try {
+                            playerCounts.put(UUID.fromString(entry.getKey()), entry.getValue());
+                        } catch (IllegalArgumentException e) {
+                            LOGGER.warn("Invalid UUID in player_counts for reward {}: {}", rewardId, entry.getKey());
                         }
-                    } catch (IllegalArgumentException e) {
-                        LOGGER.warn("Invalid UUID in player_counts for reward {}: {}", rewardId, entry.getKey());
                     }
                 }
+            } catch (Exception e) {
+                LOGGER.error("Failed to parse player_counts JSON for reward {}: {}", rewardId, e.getMessage());
             }
-        } catch (Exception e) {
-            LOGGER.error("Failed to parse player_counts JSON for reward {}: {}", rewardId, e.getMessage());
         }
-        // Increment global count to match stored value
-        for (int i = 0; i < globalCount; i++) {
-            state.incrementGlobal();
-        }
+
+        state.setInitialCounts(globalCount, playerCounts);
         return state;
     }
 
