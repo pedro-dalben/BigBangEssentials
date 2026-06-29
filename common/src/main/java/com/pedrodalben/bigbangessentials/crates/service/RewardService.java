@@ -178,10 +178,11 @@ public class RewardService {
         Map<String, Integer> playerCounts = new HashMap<>();
 
         for (CrateReward reward : crate.getRewards()) {
-            RewardRollState rollState = rollStateRepo.findByRewardId(reward.getId()).orElse(null);
-            if (rollState != null) {
-                globalCounts.put(reward.getId(), rollState.getGlobalCount());
-                playerCounts.put(reward.getId(), rollState.getPlayerCount(player.getUUID()));
+            rollStateRepo.findByRewardId(reward.getId()).ifPresent(rs ->
+                globalCounts.put(reward.getId(), rs.getGlobalCount()));
+            int pc = rollStateRepo.getPlayerCount(reward.getId(), player.getUUID());
+            if (pc > 0) {
+                playerCounts.put(reward.getId(), pc);
             }
         }
 
@@ -198,15 +199,11 @@ public class RewardService {
     }
 
     /**
-     * Record a reward roll for limit tracking (thread-safe).
+     * Record a reward roll for limit tracking (atomic SQL).
      */
-    private synchronized void recordRewardRoll(CrateReward reward, UUID playerId) {
-        RewardRollState rollState = rollStateRepo.findByRewardId(reward.getId())
-            .orElse(new RewardRollState(reward.getId()));
-
-        rollState.incrementGlobal();
-        rollState.incrementPlayer(playerId);
-        rollStateRepo.save(rollState);
+    private void recordRewardRoll(CrateReward reward, UUID playerId) {
+        rollStateRepo.incrementGlobalCount(reward.getId());
+        rollStateRepo.incrementPlayerCount(reward.getId(), playerId);
     }
 
     /**
@@ -218,10 +215,11 @@ public class RewardService {
         Map<String, Integer> playerCounts = new HashMap<>();
 
         for (CrateReward reward : crate.getRewards()) {
-            RewardRollState rollState = rollStateRepo.findByRewardId(reward.getId()).orElse(null);
-            if (rollState != null) {
-                globalCounts.put(reward.getId(), rollState.getGlobalCount());
-                playerCounts.put(reward.getId(), rollState.getPlayerCount(player.getUUID()));
+            rollStateRepo.findByRewardId(reward.getId()).ifPresent(rs ->
+                globalCounts.put(reward.getId(), rs.getGlobalCount()));
+            int pc = rollStateRepo.getPlayerCount(reward.getId(), player.getUUID());
+            if (pc > 0) {
+                playerCounts.put(reward.getId(), pc);
             }
         }
 

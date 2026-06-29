@@ -292,4 +292,94 @@ class CrateTransactionalTest {
         assertEquals(1, state.getTotalOpened(), "Opening should be recorded");
         assertTrue(state.getCooldownUntil() >= cooldownUntil, "Cooldown should be preserved after recordOpening");
     }
+
+    @Test
+    void testGlobalLimit_IncrementIsAtomic() {
+        var repo = new com.pedrodalben.bigbangessentials.crates.persistence.JdbcRewardRollStateRepository();
+        String rewardId = "reward_limit_" + UUID.randomUUID().toString().substring(0, 8);
+
+        int result1 = repo.incrementGlobalCount(rewardId);
+        assertEquals(1, result1, "First increment should return 1");
+
+        int result2 = repo.incrementGlobalCount(rewardId);
+        assertEquals(2, result2, "Second increment should return 2");
+    }
+
+    @Test
+    void testPlayerLimit_TracksPerPlayer() {
+        var repo = new com.pedrodalben.bigbangessentials.crates.persistence.JdbcRewardRollStateRepository();
+        String rewardId = "reward_player_" + UUID.randomUUID().toString().substring(0, 8);
+        UUID playerA = UUID.randomUUID();
+        UUID playerB = UUID.randomUUID();
+
+        assertEquals(1, repo.incrementPlayerCount(rewardId, playerA));
+        assertEquals(1, repo.incrementPlayerCount(rewardId, playerB));
+        assertEquals(2, repo.incrementPlayerCount(rewardId, playerA));
+
+        assertEquals(2, repo.getPlayerCount(rewardId, playerA));
+        assertEquals(1, repo.getPlayerCount(rewardId, playerB));
+    }
+
+    @Test
+    void testConcurrentGlobalLimit_IncrementsAtomically() throws InterruptedException {
+        var repo = new com.pedrodalben.bigbangessentials.crates.persistence.JdbcRewardRollStateRepository();
+        String rewardId = "concurrent_global_limit_" + UUID.randomUUID().toString().substring(0, 8);
+
+        int threads = 20;
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicInteger errors = new AtomicInteger(0);
+
+        for (int i = 0; i < threads; i++) {
+            executor.submit(() -> {
+                try {
+                    latch.await();
+                    repo.incrementGlobalCount(rewardId);
+                } catch (Exception e) {
+                    errors.incrementAndGet();
+                }
+            });
+        }
+
+        latch.countDown();
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+
+        assertEquals(0, errors.get(), "No errors during concurrent global increments");
+
+        var state = repo.findByRewardId(rewardId).orElseThrow();
+        assertEquals(threads, state.getGlobalCount(),
+            "global_count should equal number of concurrent calls");
+    }
+
+    @Test
+    void testConcurrentPlayerLimit_IncrementsAtomically() throws InterruptedException {
+        var repo = new com.pedrodalben.bigbangessentials.crates.persistence.JdbcRewardRollStateRepository();
+        String rewardId = "concurrent_player_limit_" + UUID.randomUUID().toString().substring(0, 8);
+        UUID playerId = UUID.randomUUID();
+
+        int threads = 15;
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicInteger errors = new AtomicInteger(0);
+
+        for (int i = 0; i < threads; i++) {
+            executor.submit(() -> {
+                try {
+                    latch.await();
+                    repo.incrementPlayerCount(rewardId, playerId);
+                } catch (Exception e) {
+                    errors.incrementAndGet();
+                }
+            });
+        }
+
+        latch.countDown();
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+
+        assertEquals(0, errors.get(), "No errors during concurrent player increments");
+        assertEquals(threads, repo.getPlayerCount(rewardId, playerId),
+            "player_count should equal number of concurrent calls");
+    }
 }

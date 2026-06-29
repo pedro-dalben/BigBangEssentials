@@ -21,6 +21,7 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcRewardRollStateRepository.class);
 
     private static final String TABLE = "crate_reward_roll_state";
+    private static final String PLAYER_TABLE = "crate_reward_player_counts";
     private static final String SELECT_BY_REWARD_ID = "SELECT * FROM " + TABLE + " WHERE reward_id = ?";
     private static final String SELECT_ALL = "SELECT * FROM " + TABLE;
     private static final String INSERT = "INSERT INTO " + TABLE + " (reward_id, global_count, player_counts) VALUES (?, ?, ?)";
@@ -28,6 +29,18 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
     private static final String DELETE_BY_REWARD_ID = "DELETE FROM " + TABLE + " WHERE reward_id = ?";
     private static final String DELETE = "DELETE FROM " + TABLE + " WHERE reward_id = ?";
     private static final String COUNT = "SELECT COUNT(*) FROM " + TABLE;
+
+    private static final String INCREMENT_GLOBAL = "INSERT INTO " + TABLE + " (reward_id, global_count) "
+        + "VALUES (?, 1) "
+        + "ON CONFLICT(reward_id) DO UPDATE SET global_count = global_count + 1";
+
+    private static final String SELECT_GLOBAL_COUNT = "SELECT global_count FROM " + TABLE + " WHERE reward_id = ?";
+
+    private static final String INCREMENT_PLAYER = "INSERT INTO " + PLAYER_TABLE + " (reward_id, player_uuid, count) "
+        + "VALUES (?, ?, 1) "
+        + "ON CONFLICT(reward_id, player_uuid) DO UPDATE SET count = count + 1";
+
+    private static final String SELECT_PLAYER_COUNT = "SELECT count FROM " + PLAYER_TABLE + " WHERE reward_id = ? AND player_uuid = ?";
 
     private final Gson gson = new Gson();
     private final Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
@@ -54,10 +67,16 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
                 "player_counts TEXT NOT NULL DEFAULT '{}', " +
                 "PRIMARY KEY (reward_id)" +
                 ")", null).join();
+            getDatabase().executeUpdate("CREATE TABLE IF NOT EXISTS " + PLAYER_TABLE + " (" +
+                "reward_id VARCHAR(64) NOT NULL, " +
+                "player_uuid VARCHAR(36) NOT NULL, " +
+                "count INT NOT NULL DEFAULT 0, " +
+                "PRIMARY KEY (reward_id, player_uuid)" +
+                ")", null).join();
             tableCreated = true;
-            LOGGER.debug("Ensured table {} exists", TABLE);
+            LOGGER.debug("Ensured tables {} and {} exist", TABLE, PLAYER_TABLE);
         } catch (Exception e) {
-            LOGGER.error("Failed to create table {}: {}", TABLE, e.getMessage(), e);
+            LOGGER.error("Failed to create tables: {}", e.getMessage(), e);
         }
     }
 
@@ -172,6 +191,60 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
             return getDatabase().querySingle(COUNT, null, (rs) -> rs.getLong(1)).join().orElse(0L);
         } catch (Exception e) {
             LOGGER.error("Failed to count reward roll states: {}", e.getMessage(), e);
+            return 0;
+        }
+    }
+
+    @Override
+    public int incrementGlobalCount(String rewardId) {
+        try {
+            getDatabase().executeUpdate(INCREMENT_GLOBAL,
+                stmt -> stmt.setString(1, rewardId)
+            ).join();
+            return getDatabase().querySingle(SELECT_GLOBAL_COUNT,
+                stmt -> stmt.setString(1, rewardId),
+                (rs) -> rs.getInt("global_count")
+            ).join().orElse(1);
+        } catch (Exception e) {
+            LOGGER.error("Failed to increment global count for reward {}: {}", rewardId, e.getMessage(), e);
+            throw new RuntimeException("Failed to increment global count", e);
+        }
+    }
+
+    @Override
+    public int incrementPlayerCount(String rewardId, UUID playerId) {
+        try {
+            getDatabase().executeUpdate(INCREMENT_PLAYER,
+                stmt -> {
+                    stmt.setString(1, rewardId);
+                    stmt.setString(2, playerId.toString());
+                }
+            ).join();
+            return getDatabase().querySingle(SELECT_PLAYER_COUNT,
+                stmt -> {
+                    stmt.setString(1, rewardId);
+                    stmt.setString(2, playerId.toString());
+                },
+                (rs) -> rs.getInt("count")
+            ).join().orElse(1);
+        } catch (Exception e) {
+            LOGGER.error("Failed to increment player count for reward {}: {}", rewardId, e.getMessage(), e);
+            throw new RuntimeException("Failed to increment player count", e);
+        }
+    }
+
+    @Override
+    public int getPlayerCount(String rewardId, UUID playerId) {
+        try {
+            return getDatabase().querySingle(SELECT_PLAYER_COUNT,
+                stmt -> {
+                    stmt.setString(1, rewardId);
+                    stmt.setString(2, playerId.toString());
+                },
+                (rs) -> rs.getInt("count")
+            ).join().orElse(0);
+        } catch (Exception e) {
+            LOGGER.error("Failed to get player count for reward {}: {}", rewardId, e.getMessage(), e);
             return 0;
         }
     }
