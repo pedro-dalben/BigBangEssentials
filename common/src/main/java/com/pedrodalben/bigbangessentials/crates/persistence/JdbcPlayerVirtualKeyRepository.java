@@ -170,4 +170,49 @@ public class JdbcPlayerVirtualKeyRepository extends JdbcRepository implements Pl
             return 0;
         }
     }
+
+    @Override
+    public boolean decrementBalance(UUID playerId, String keyId, int amount) {
+        try {
+            String sql = "UPDATE " + TABLE + " SET amount = amount - ?, updated_at = ? " +
+                         "WHERE player_uuid = ? AND key_id = ? AND amount >= ?";
+            int updated = getDatabase().executeUpdate(sql,
+                stmt -> {
+                    stmt.setInt(1, amount);
+                    stmt.setLong(2, System.currentTimeMillis());
+                    stmt.setString(3, playerId.toString());
+                    stmt.setString(4, keyId);
+                    stmt.setInt(5, amount);
+                }
+            ).join();
+            return updated > 0;
+        } catch (Exception e) {
+            LOGGER.error("Failed to atomically decrement key balance: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    @Override
+    public int incrementBalance(UUID playerId, String keyId, int amount) {
+        try {
+            String sql = "INSERT INTO " + TABLE + " (player_uuid, key_id, amount, updated_at) VALUES (?, ?, ?, ?) " +
+                         "ON CONFLICT(player_uuid, key_id) DO UPDATE SET amount = amount + ?, updated_at = ?";
+            getDatabase().executeUpdate(sql,
+                stmt -> {
+                    stmt.setString(1, playerId.toString());
+                    stmt.setString(2, keyId);
+                    stmt.setInt(3, amount);
+                    stmt.setLong(4, System.currentTimeMillis());
+                    stmt.setInt(5, amount);
+                    stmt.setLong(6, System.currentTimeMillis());
+                }
+            ).join();
+            return findByPlayerAndKey(playerId, keyId)
+                .map(PlayerVirtualKeyBalance::getAmount)
+                .orElse(0);
+        } catch (Exception e) {
+            LOGGER.error("Failed to atomically increment key balance: {}", e.getMessage(), e);
+            return -1;
+        }
+    }
 }

@@ -30,6 +30,8 @@ public class PlayerCrateState {
     public int getMilestoneProgress() { return milestoneProgress; }
 
     public void setCooldownUntil(long cooldownUntil) { this.cooldownUntil = cooldownUntil; }
+    public void setTotalOpened(int totalOpened) { this.totalOpened = Math.max(0, totalOpened); }
+    public void setLatestOpenedAt(Instant latestOpenedAt) { this.latestOpenedAt = latestOpenedAt; }
     public void setMilestoneProgress(int progress) { this.milestoneProgress = Math.max(0, progress); }
 
     public boolean isOnCooldown() {

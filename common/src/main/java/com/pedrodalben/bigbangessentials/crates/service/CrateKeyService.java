@@ -47,11 +47,7 @@ public class CrateKeyService {
     public void giveVirtualKey(UUID playerId, String keyId, int amount, GrantSource source, String idempotencyKey) {
         if (amount <= 0) return;
 
-        PlayerVirtualKeyBalance balance = virtualKeyRepo.findByPlayerAndKey(playerId, keyId)
-            .orElse(new PlayerVirtualKeyBalance(playerId, keyId, 0));
-
-        balance.add(amount);
-        virtualKeyRepo.save(balance);
+        virtualKeyRepo.incrementBalance(playerId, keyId, amount);
 
         LOGGER.info("Gave {} virtual key(s) '{}' to player {} (source: {}, idempotency: {})",
             amount, keyId, playerId, source, idempotencyKey);
@@ -60,18 +56,12 @@ public class CrateKeyService {
     public boolean takeVirtualKey(UUID playerId, String keyId, int amount, GrantSource source) {
         if (amount <= 0) return false;
 
-        Optional<PlayerVirtualKeyBalance> optBalance = virtualKeyRepo.findByPlayerAndKey(playerId, keyId);
-        if (optBalance.isEmpty()) return false;
-
-        PlayerVirtualKeyBalance balance = optBalance.get();
-        if (!balance.hasAtLeast(amount)) return false;
-
-        balance.remove(amount);
-        virtualKeyRepo.save(balance);
-
-        LOGGER.info("Took {} virtual key(s) '{}' from player {} (source: {})",
-            amount, keyId, playerId, source);
-        return true;
+        boolean decremented = virtualKeyRepo.decrementBalance(playerId, keyId, amount);
+        if (decremented) {
+            LOGGER.info("Took {} virtual key(s) '{}' from player {} (source: {})",
+                amount, keyId, playerId, source);
+        }
+        return decremented;
     }
 
     public void setVirtualKey(UUID playerId, String keyId, int amount, GrantSource source) {
@@ -156,10 +146,7 @@ public class CrateKeyService {
         return Collections.unmodifiableMap(result);
     }
 
-    public boolean hasRequiredKey(ServerPlayer player, String crateId) {
-        CrateDefinition crate = CrateService.getInstance().getCrateByKey(crateId);
-        if (crate == null) return false;
-
+    public boolean hasRequiredKey(ServerPlayer player, CrateDefinition crate) {
         List<String> acceptedKeys = crate.getRequirements().getAcceptedKeyIds();
         if (acceptedKeys.isEmpty()) return true;
 
@@ -168,8 +155,7 @@ public class CrateKeyService {
 
         for (String keyId : acceptedKeys) {
             if (requireVirtual) {
-                int balance = getVirtualKeyBalance(player.getUUID(), keyId);
-                if (balance > 0) return true;
+                if (getVirtualKeyBalance(player.getUUID(), keyId) > 0) return true;
             }
             if (requirePhysical) {
                 if (countPhysicalKeysInInventory(player, keyId) > 0) return true;
@@ -178,13 +164,18 @@ public class CrateKeyService {
 
         if (!requireVirtual && !requirePhysical) {
             for (String keyId : acceptedKeys) {
-                int balance = getVirtualKeyBalance(player.getUUID(), keyId);
-                if (balance > 0) return true;
+                if (getVirtualKeyBalance(player.getUUID(), keyId) > 0) return true;
                 if (countPhysicalKeysInInventory(player, keyId) > 0) return true;
             }
         }
 
         return false;
+    }
+
+    public boolean hasRequiredKey(ServerPlayer player, String crateId) {
+        CrateDefinition crate = CrateService.getInstance().getCrateByKey(crateId);
+        if (crate == null) return false;
+        return hasRequiredKey(player, crate);
     }
 
     public boolean consumeKeyForOpening(ServerPlayer player, CrateDefinition crate) {

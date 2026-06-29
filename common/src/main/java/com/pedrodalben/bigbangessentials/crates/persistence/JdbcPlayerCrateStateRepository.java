@@ -29,6 +29,20 @@ public class JdbcPlayerCrateStateRepository extends JdbcRepository implements Pl
     private static final String DELETE_BY_PLAYER = "DELETE FROM " + TABLE + " WHERE player_uuid = ?";
     private static final String COUNT = "SELECT COUNT(*) FROM " + TABLE;
 
+    private static final String RECORD_OPENING = "INSERT INTO " + TABLE + " (player_uuid, crate_id, total_opened, latest_opened_at, milestone_progress) "
+        + "VALUES (?, ?, 1, ?, 1) "
+        + "ON CONFLICT(player_uuid, crate_id) DO UPDATE SET "
+        + "total_opened = total_opened + 1, "
+        + "latest_opened_at = ?, "
+        + "milestone_progress = milestone_progress + 1";
+
+    private static final String START_COOLDOWN = "INSERT INTO " + TABLE + " (player_uuid, crate_id, cooldown_until) "
+        + "VALUES (?, ?, ?) "
+        + "ON CONFLICT(player_uuid, crate_id) DO UPDATE SET "
+        + "cooldown_until = ?";
+
+    private static final String CLEAR_COOLDOWN = "UPDATE " + TABLE + " SET cooldown_until = 0 WHERE player_uuid = ? AND crate_id = ?";
+
     private boolean tableCreated = false;
 
     private final RowMapper<PlayerCrateState> MAPPER = (rs) -> {
@@ -40,10 +54,11 @@ public class JdbcPlayerCrateStateRepository extends JdbcRepository implements Pl
         if (cooldownUntil > 0) {
             state.setCooldownUntil(cooldownUntil);
         }
-
+        state.setTotalOpened(rs.getInt("total_opened"));
+        state.setMilestoneProgress(rs.getInt("milestone_progress"));
         long latestOpenedAt = rs.getLong("latest_opened_at");
         if (latestOpenedAt > 0) {
-            state.setMilestoneProgress(rs.getInt("milestone_progress"));
+            state.setLatestOpenedAt(java.time.Instant.ofEpochMilli(latestOpenedAt));
         }
 
         return state;
@@ -80,14 +95,7 @@ public class JdbcPlayerCrateStateRepository extends JdbcRepository implements Pl
                     stmt.setString(1, playerId.toString());
                     stmt.setString(2, crateId);
                 },
-                (rs) -> {
-                    UUID pid = UUID.fromString(rs.getString("player_uuid"));
-                    String cid = rs.getString("crate_id");
-                    PlayerCrateState state = new PlayerCrateState(pid, cid);
-                    state.setCooldownUntil(rs.getLong("cooldown_until"));
-                    long latestOpened = rs.getLong("latest_opened_at");
-                    return state;
-                }
+                (rs) -> mapState(rs)
             ).join();
         } catch (Exception e) {
             LOGGER.error("Failed to find player crate state: {}", e.getMessage(), e);
@@ -135,11 +143,18 @@ public class JdbcPlayerCrateStateRepository extends JdbcRepository implements Pl
         UUID playerId = UUID.fromString(rs.getString("player_uuid"));
         String crateId = rs.getString("crate_id");
         PlayerCrateState state = new PlayerCrateState(playerId, crateId);
-        state.setCooldownUntil(rs.getLong("cooldown_until"));
-        long latestOpened = rs.getLong("latest_opened_at");
-        if (latestOpened > 0) {
-            state.setMilestoneProgress(rs.getInt("milestone_progress"));
+
+        long cooldownUntil = rs.getLong("cooldown_until");
+        if (cooldownUntil > 0) {
+            state.setCooldownUntil(cooldownUntil);
         }
+        state.setTotalOpened(rs.getInt("total_opened"));
+        state.setMilestoneProgress(rs.getInt("milestone_progress"));
+        long latestOpenedAt = rs.getLong("latest_opened_at");
+        if (latestOpenedAt > 0) {
+            state.setLatestOpenedAt(java.time.Instant.ofEpochMilli(latestOpenedAt));
+        }
+
         return state;
     }
 
@@ -207,6 +222,57 @@ public class JdbcPlayerCrateStateRepository extends JdbcRepository implements Pl
         } catch (Exception e) {
             LOGGER.error("Failed to count player crate states: {}", e.getMessage(), e);
             return 0;
+        }
+    }
+
+    @Override
+    public void startCooldown(UUID playerId, String crateId, long cooldownUntil) {
+        try {
+            getDatabase().executeUpdate(START_COOLDOWN,
+                stmt -> {
+                    stmt.setString(1, playerId.toString());
+                    stmt.setString(2, crateId);
+                    stmt.setLong(3, cooldownUntil);
+                    stmt.setLong(4, cooldownUntil);
+                }
+            ).join();
+        } catch (Exception e) {
+            LOGGER.error("Failed to start cooldown: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to start cooldown", e);
+        }
+    }
+
+    @Override
+    public PlayerCrateState recordOpening(UUID playerId, String crateId) {
+        try {
+            long now = System.currentTimeMillis();
+            getDatabase().executeUpdate(RECORD_OPENING,
+                stmt -> {
+                    stmt.setString(1, playerId.toString());
+                    stmt.setString(2, crateId);
+                    stmt.setLong(3, now);
+                    stmt.setLong(4, now);
+                }
+            ).join();
+            return findByPlayerAndCrate(playerId, crateId)
+                .orElseThrow(() -> new IllegalStateException("Failed to read state after recording opening"));
+        } catch (Exception e) {
+            LOGGER.error("Failed to record opening: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to record opening", e);
+        }
+    }
+
+    @Override
+    public void clearCooldown(UUID playerId, String crateId) {
+        try {
+            getDatabase().executeUpdate(CLEAR_COOLDOWN,
+                stmt -> {
+                    stmt.setString(1, playerId.toString());
+                    stmt.setString(2, crateId);
+                }
+            ).join();
+        } catch (Exception e) {
+            LOGGER.error("Failed to clear cooldown: {}", e.getMessage(), e);
         }
     }
 }

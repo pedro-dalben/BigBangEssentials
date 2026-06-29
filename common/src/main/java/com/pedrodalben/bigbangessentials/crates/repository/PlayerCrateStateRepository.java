@@ -15,4 +15,8 @@ public interface PlayerCrateStateRepository {
     void delete(PlayerCrateState state);
     void deleteByPlayer(UUID playerId);
     long count();
+
+    void startCooldown(UUID playerId, String crateId, long cooldownUntil);
+    PlayerCrateState recordOpening(UUID playerId, String crateId);
+    void clearCooldown(UUID playerId, String crateId);
 }

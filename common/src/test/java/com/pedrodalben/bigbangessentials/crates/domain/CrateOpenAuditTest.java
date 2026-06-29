@@ -3,6 +3,7 @@ package com.pedrodalben.bigbangessentials.crates.domain;
 import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -156,5 +157,97 @@ class CrateOpenAuditTest {
         java.util.List<String> returned = audit.getRewardIds();
         returned.add("r2");
         assertEquals(1, audit.getRewardIds().size());
+    }
+
+    @Test
+    void transitionTo_PendingToCompleted_Valid() {
+        CrateOpenAudit audit = createPendingAudit();
+        audit.transitionTo(CrateOpenAudit.OpenStatus.COMPLETED);
+        assertEquals(CrateOpenAudit.OpenStatus.COMPLETED, audit.getStatus());
+    }
+
+    @Test
+    void transitionTo_PendingToFailed_Valid() {
+        CrateOpenAudit audit = createPendingAudit();
+        audit.transitionTo(CrateOpenAudit.OpenStatus.FAILED);
+        assertEquals(CrateOpenAudit.OpenStatus.FAILED, audit.getStatus());
+    }
+
+    @Test
+    void transitionTo_PendingToRolledBack_Valid() {
+        CrateOpenAudit audit = createPendingAudit();
+        audit.transitionTo(CrateOpenAudit.OpenStatus.ROLLED_BACK);
+        assertEquals(CrateOpenAudit.OpenStatus.ROLLED_BACK, audit.getStatus());
+    }
+
+    @Test
+    void transitionTo_PendingToCancelled_Valid() {
+        CrateOpenAudit audit = createPendingAudit();
+        audit.transitionTo(CrateOpenAudit.OpenStatus.CANCELLED);
+        assertEquals(CrateOpenAudit.OpenStatus.CANCELLED, audit.getStatus());
+    }
+
+    @Test
+    void transitionTo_SameStatus_NoOp() {
+        CrateOpenAudit audit = createPendingAudit();
+        audit.transitionTo(CrateOpenAudit.OpenStatus.PENDING);
+        assertEquals(CrateOpenAudit.OpenStatus.PENDING, audit.getStatus());
+    }
+
+    @Test
+    void transitionTo_NullStatus_Throws() {
+        CrateOpenAudit audit = createPendingAudit();
+        assertThrows(IllegalArgumentException.class,
+            () -> audit.transitionTo(null));
+    }
+
+    @Test
+    void transitionTo_TerminalStatus_RejectsAnyTransition() {
+        for (CrateOpenAudit.OpenStatus terminal : List.of(
+            CrateOpenAudit.OpenStatus.COMPLETED,
+            CrateOpenAudit.OpenStatus.FAILED,
+            CrateOpenAudit.OpenStatus.ROLLED_BACK,
+            CrateOpenAudit.OpenStatus.CANCELLED)) {
+
+            for (CrateOpenAudit.OpenStatus target : CrateOpenAudit.OpenStatus.values()) {
+                if (target == terminal) continue;
+                CrateOpenAudit audit = createAuditWithStatus(terminal);
+                assertThrows(IllegalStateException.class,
+                    () -> audit.transitionTo(target),
+                    "Should reject " + terminal + " -> " + target);
+            }
+        }
+    }
+
+    @Test
+    void terminalStates_IsTerminal_True() {
+        for (CrateOpenAudit.OpenStatus terminal : List.of(
+            CrateOpenAudit.OpenStatus.COMPLETED,
+            CrateOpenAudit.OpenStatus.FAILED,
+            CrateOpenAudit.OpenStatus.ROLLED_BACK,
+            CrateOpenAudit.OpenStatus.CANCELLED)) {
+            assertTrue(terminal.isTerminal(), terminal + " should be terminal");
+        }
+    }
+
+    @Test
+    void pending_IsTerminal_False() {
+        assertFalse(CrateOpenAudit.OpenStatus.PENDING.isTerminal());
+    }
+
+    private CrateOpenAudit createPendingAudit() {
+        return new CrateOpenAudit(
+            UUID.randomUUID(), UUID.randomUUID(), "crate", "key",
+            GrantSource.OPENING, java.util.List.of(), java.util.List.of(),
+            CrateOpenAudit.OpenStatus.PENDING, 0.0, "idem", "server"
+        );
+    }
+
+    private CrateOpenAudit createAuditWithStatus(CrateOpenAudit.OpenStatus status) {
+        return new CrateOpenAudit(
+            UUID.randomUUID(), UUID.randomUUID(), "crate", "key",
+            GrantSource.OPENING, java.util.List.of(), java.util.List.of(),
+            status, 0.0, "idem", "server"
+        );
     }
 }

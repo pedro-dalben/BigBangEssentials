@@ -78,6 +78,7 @@ public class CrateAuditService {
      * Complete an existing pending audit with the given status.
      */
     public void completeAudit(CrateOpenAudit audit, CrateOpenAudit.OpenStatus status) {
+        audit.transitionTo(status);
         auditRepo.save(audit);
     }
 

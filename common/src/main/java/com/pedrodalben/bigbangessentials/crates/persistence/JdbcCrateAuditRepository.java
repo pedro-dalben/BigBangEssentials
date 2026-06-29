@@ -32,6 +32,7 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
     private static final String SELECT_BY_TIME_RANGE = "SELECT * FROM " + TABLE + " WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC";
     private static final String SELECT_ALL = "SELECT * FROM " + TABLE + " ORDER BY timestamp DESC";
     private static final String INSERT = "INSERT INTO " + TABLE + " (id, player_uuid, crate_id, key_id, source, reward_ids, reward_names, status, cost_consumed, timestamp, idempotency_key, server_id, error_detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String UPDATE = "UPDATE " + TABLE + " SET player_uuid = ?, crate_id = ?, key_id = ?, source = ?, reward_ids = ?, reward_names = ?, status = ?, cost_consumed = ?, timestamp = ?, idempotency_key = ?, server_id = ?, error_detail = ? WHERE id = ?";
     private static final String DELETE = "DELETE FROM " + TABLE + " WHERE id = ?";
     private static final String DELETE_OLDER_THAN = "DELETE FROM " + TABLE + " WHERE timestamp < ?";
     private static final String COUNT = "SELECT COUNT(*) FROM " + TABLE;
@@ -250,23 +251,42 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
             JsonArray rewardNamesArray = new JsonArray();
             for (String rn : audit.getRewardNames()) rewardNamesArray.add(rn);
 
-            getDatabase().executeUpdate(INSERT,
+            int updated = getDatabase().executeUpdate(UPDATE,
                 stmt -> {
-                    stmt.setString(1, audit.getId().toString());
-                    stmt.setString(2, audit.getPlayerId().toString());
-                    stmt.setString(3, audit.getCrateId());
-                    stmt.setString(4, audit.getKeyId());
-                    stmt.setString(5, audit.getSource().name());
-                    stmt.setString(6, rewardIdsArray.toString());
-                    stmt.setString(7, rewardNamesArray.toString());
-                    stmt.setString(8, audit.getStatus().name());
-                    stmt.setDouble(9, audit.getCostConsumed());
-                    stmt.setLong(10, audit.getTimestamp().toEpochMilli());
-                    stmt.setString(11, audit.getIdempotencyKey());
-                    stmt.setString(12, audit.getServerId());
-                    stmt.setString(13, audit.getErrorDetail());
+                    stmt.setString(1, audit.getPlayerId().toString());
+                    stmt.setString(2, audit.getCrateId());
+                    stmt.setString(3, audit.getKeyId());
+                    stmt.setString(4, audit.getSource().name());
+                    stmt.setString(5, rewardIdsArray.toString());
+                    stmt.setString(6, rewardNamesArray.toString());
+                    stmt.setString(7, audit.getStatus().name());
+                    stmt.setDouble(8, audit.getCostConsumed());
+                    stmt.setLong(9, audit.getTimestamp().toEpochMilli());
+                    stmt.setString(10, audit.getIdempotencyKey());
+                    stmt.setString(11, audit.getServerId());
+                    stmt.setString(12, audit.getErrorDetail());
+                    stmt.setString(13, audit.getId().toString());
                 }
             ).join();
+            if (updated == 0) {
+                getDatabase().executeUpdate(INSERT,
+                    stmt -> {
+                        stmt.setString(1, audit.getId().toString());
+                        stmt.setString(2, audit.getPlayerId().toString());
+                        stmt.setString(3, audit.getCrateId());
+                        stmt.setString(4, audit.getKeyId());
+                        stmt.setString(5, audit.getSource().name());
+                        stmt.setString(6, rewardIdsArray.toString());
+                        stmt.setString(7, rewardNamesArray.toString());
+                        stmt.setString(8, audit.getStatus().name());
+                        stmt.setDouble(9, audit.getCostConsumed());
+                        stmt.setLong(10, audit.getTimestamp().toEpochMilli());
+                        stmt.setString(11, audit.getIdempotencyKey());
+                        stmt.setString(12, audit.getServerId());
+                        stmt.setString(13, audit.getErrorDetail());
+                    }
+                ).join();
+            }
             return audit;
         } catch (Exception e) {
             LOGGER.error("Failed to save audit: {}", e.getMessage(), e);

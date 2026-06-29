@@ -64,8 +64,8 @@ public class CrateOpeningService {
         boolean keyConsumed = false;
         boolean costPaid = false;
         boolean cooldownApplied = false;
-        PlayerCrateState savedState = null;
         CrateOpenAudit audit = null;
+        PlayerCrateState savedState = null;
 
         try {
             if (idempotencyKey != null && !idempotencyKey.isBlank()) {
@@ -103,27 +103,25 @@ public class CrateOpeningService {
                 }
             }
 
-            PlayerCrateState playerState = playerStateRepo.findByPlayerAndCrate(player.getUUID(), crate.getKey())
-                .orElse(new PlayerCrateState(player.getUUID(), crate.getKey()));
-
             if (crate.getRequirements().hasCooldown()) {
+                long cooldownUntil;
                 if (crate.getRequirements().isOneTimeUse()) {
-                    playerState.startCooldown(Long.MAX_VALUE);
+                    cooldownUntil = Long.MAX_VALUE;
                 } else {
-                    playerState.startCooldown(crate.getRequirements().getCooldownMillis());
+                    cooldownUntil = System.currentTimeMillis() + crate.getRequirements().getCooldownMillis();
                 }
+                playerStateRepo.startCooldown(player.getUUID(), crate.getKey(), cooldownUntil);
                 cooldownApplied = true;
             }
 
-            playerState.recordOpening();
-            savedState = playerStateRepo.save(playerState);
+            savedState = playerStateRepo.recordOpening(player.getUUID(), crate.getKey());
 
             audit = auditService.createPendingAudit(player.getUUID(), crate, idempotencyKey, source);
             auditService.saveAudit(audit);
 
             rewardService.deliverReward(player, selectedReward);
 
-            checkMilestones(player, crate, playerState);
+            checkMilestones(player, crate, savedState);
 
             auditService.completeAudit(audit, CrateOpenAudit.OpenStatus.COMPLETED);
 
@@ -163,9 +161,8 @@ public class CrateOpeningService {
         }
 
         try {
-            if (cooldownApplied && savedState != null) {
-                savedState.clearCooldown();
-                playerStateRepo.save(savedState);
+            if (cooldownApplied) {
+                playerStateRepo.clearCooldown(playerId, crate.getKey());
                 LOGGER.info("Rollback: cleared cooldown for player {} on crate '{}'", playerId, crate.getKey());
             }
         } catch (Exception e) {
@@ -214,7 +211,7 @@ public class CrateOpeningService {
         }
 
         if (requirements.hasKeyRequirement()) {
-            boolean hasKey = keyService.hasRequiredKey(player, crate.getKey());
+            boolean hasKey = keyService.hasRequiredKey(player, crate);
             if (!hasKey) {
                 return new ValidationResult(false, "You don't have the required key");
             }

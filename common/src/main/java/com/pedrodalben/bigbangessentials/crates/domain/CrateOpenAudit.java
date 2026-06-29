@@ -15,7 +15,7 @@ public class CrateOpenAudit {
     private final GrantSource source;
     private final List<String> rewardIds;
     private final List<String> rewardNames;
-    private final OpenStatus status;
+    private OpenStatus status;
     private final double costConsumed;
     private final Instant timestamp;
     private final String idempotencyKey;
@@ -55,12 +55,39 @@ public class CrateOpenAudit {
 
     public void setErrorDetail(String errorDetail) { this.errorDetail = errorDetail; }
 
+    public void transitionTo(OpenStatus newStatus) {
+        if (newStatus == null) {
+            throw new IllegalArgumentException("Target status must not be null");
+        }
+        if (status == newStatus) {
+            return;
+        }
+        if (!status.canTransitionTo(newStatus)) {
+            throw new IllegalStateException(
+                "Invalid status transition: " + status + " -> " + newStatus);
+        }
+        this.status = newStatus;
+    }
+
     public enum OpenStatus {
         PENDING,
         COMPLETED,
         FAILED,
         ROLLED_BACK,
-        CANCELLED
+        CANCELLED;
+
+        public boolean canTransitionTo(OpenStatus target) {
+            return switch (this) {
+                case PENDING -> target == COMPLETED || target == FAILED
+                    || target == ROLLED_BACK || target == CANCELLED;
+                case COMPLETED, FAILED, ROLLED_BACK, CANCELLED -> false;
+            };
+        }
+
+        public boolean isTerminal() {
+            return this == COMPLETED || this == FAILED
+                || this == ROLLED_BACK || this == CANCELLED;
+        }
     }
 
     public JsonObject toJson() {
