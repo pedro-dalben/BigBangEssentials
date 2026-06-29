@@ -382,4 +382,62 @@ class CrateTransactionalTest {
         assertEquals(threads, repo.getPlayerCount(rewardId, playerId),
             "player_count should equal number of concurrent calls");
     }
+
+    @Test
+    void testGiveVirtualKey_IdempotentDuplicate_DoesNotIncrement() {
+        UUID playerId = UUID.randomUUID();
+        String idempotencyKey = "give-idem-" + UUID.randomUUID();
+
+        assertEquals(0, keyService.getVirtualKeyBalance(playerId, "test_key"));
+
+        keyService.giveVirtualKey(playerId, "test_key", 5, GrantSource.ADMIN_COMMAND, idempotencyKey);
+        assertEquals(5, keyService.getVirtualKeyBalance(playerId, "test_key"),
+            "First call should grant 5 keys");
+
+        keyService.giveVirtualKey(playerId, "test_key", 5, GrantSource.ADMIN_COMMAND, idempotencyKey);
+        assertEquals(5, keyService.getVirtualKeyBalance(playerId, "test_key"),
+            "Duplicate call with same idempotency key should NOT grant again");
+    }
+
+    @Test
+    void testGiveVirtualKey_DifferentIdempotencyKeys_BothIncrement() {
+        UUID playerId = UUID.randomUUID();
+
+        keyService.giveVirtualKey(playerId, "test_key", 3, GrantSource.ADMIN_COMMAND, "key-1-" + UUID.randomUUID());
+        assertEquals(3, keyService.getVirtualKeyBalance(playerId, "test_key"));
+
+        keyService.giveVirtualKey(playerId, "test_key", 2, GrantSource.ADMIN_COMMAND, "key-2-" + UUID.randomUUID());
+        assertEquals(5, keyService.getVirtualKeyBalance(playerId, "test_key"),
+            "Different idempotency keys should both grant");
+    }
+
+    @Test
+    void testTakeVirtualKey_IdempotentDuplicate_DoesNotDoubleConsume() {
+        UUID playerId = UUID.randomUUID();
+        String idempotencyKey = "take-idem-" + UUID.randomUUID();
+
+        keyService.giveVirtualKey(playerId, "test_key", 3, GrantSource.ADMIN_COMMAND, "give-" + UUID.randomUUID());
+        assertEquals(3, keyService.getVirtualKeyBalance(playerId, "test_key"));
+
+        boolean taken1 = keyService.takeVirtualKey(playerId, "test_key", 2, GrantSource.OPENING, idempotencyKey);
+        assertTrue(taken1, "First take should succeed");
+        assertEquals(1, keyService.getVirtualKeyBalance(playerId, "test_key"));
+
+        boolean taken2 = keyService.takeVirtualKey(playerId, "test_key", 2, GrantSource.OPENING, idempotencyKey);
+        assertTrue(taken2, "Duplicate idempotent take should report success (already processed)");
+        assertEquals(1, keyService.getVirtualKeyBalance(playerId, "test_key"),
+            "Duplicate call with same idempotency key should NOT consume again");
+    }
+
+    @Test
+    void testGiveVirtualKey_NullIdempotencyKey_AlwaysExecutes() {
+        UUID playerId = UUID.randomUUID();
+
+        keyService.giveVirtualKey(playerId, "test_key", 1, GrantSource.ADMIN_COMMAND, null);
+        assertEquals(1, keyService.getVirtualKeyBalance(playerId, "test_key"));
+
+        keyService.giveVirtualKey(playerId, "test_key", 1, GrantSource.ADMIN_COMMAND, null);
+        assertEquals(2, keyService.getVirtualKeyBalance(playerId, "test_key"),
+            "null idempotency key should always execute");
+    }
 }

@@ -90,7 +90,7 @@ public class CrateOpeningService {
             }
 
             if (!crate.getRequirements().getAcceptedKeyIds().isEmpty()) {
-                keyConsumed = keyService.consumeKeyForOpening(player, crate);
+                keyConsumed = keyService.consumeKeyForOpening(player, crate, idempotencyKey);
                 if (!keyConsumed) {
                     return new CrateOpeningResult(false, "Failed to consume key", null);
                 }

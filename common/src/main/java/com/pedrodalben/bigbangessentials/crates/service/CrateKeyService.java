@@ -4,10 +4,10 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
 import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.PlayerVirtualKeyBalance;
-import com.pedrodalben.bigbangessentials.crates.persistence.JdbcCrateAuditRepository;
+import com.pedrodalben.bigbangessentials.crates.persistence.JdbcCrateIdempotencyRepository;
 import com.pedrodalben.bigbangessentials.crates.persistence.JdbcPlayerVirtualKeyRepository;
 import com.pedrodalben.bigbangessentials.crates.persistence.JsonKeyRepository;
-import com.pedrodalben.bigbangessentials.crates.repository.CrateAuditRepository;
+import com.pedrodalben.bigbangessentials.crates.repository.CrateIdempotencyRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.KeyRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.PlayerVirtualKeyRepository;
 import net.minecraft.core.component.DataComponents;
@@ -32,12 +32,12 @@ public class CrateKeyService {
 
     private final KeyRepository keyRepo;
     private final PlayerVirtualKeyRepository virtualKeyRepo;
-    private final CrateAuditRepository auditRepo;
+    private final CrateIdempotencyRepository idempotencyRepo;
 
     private CrateKeyService() {
         this.keyRepo = new JsonKeyRepository();
         this.virtualKeyRepo = new JdbcPlayerVirtualKeyRepository();
-        this.auditRepo = new JdbcCrateAuditRepository();
+        this.idempotencyRepo = new JdbcCrateIdempotencyRepository();
     }
 
     public static CrateKeyService getInstance() {
@@ -47,6 +47,12 @@ public class CrateKeyService {
     public void giveVirtualKey(UUID playerId, String keyId, int amount, GrantSource source, String idempotencyKey) {
         if (amount <= 0) return;
 
+        if (idempotencyKey != null && !idempotencyKey.isBlank()
+            && !idempotencyRepo.markProcessed(idempotencyKey, "GIVE_KEY")) {
+            LOGGER.debug("Idempotent giveVirtualKey '{}' skipped for key '{}'", idempotencyKey, keyId);
+            return;
+        }
+
         virtualKeyRepo.incrementBalance(playerId, keyId, amount);
 
         LOGGER.info("Gave {} virtual key(s) '{}' to player {} (source: {}, idempotency: {})",
@@ -54,7 +60,17 @@ public class CrateKeyService {
     }
 
     public boolean takeVirtualKey(UUID playerId, String keyId, int amount, GrantSource source) {
+        return takeVirtualKey(playerId, keyId, amount, source, null);
+    }
+
+    public boolean takeVirtualKey(UUID playerId, String keyId, int amount, GrantSource source, String idempotencyKey) {
         if (amount <= 0) return false;
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()
+            && !idempotencyRepo.markProcessed(idempotencyKey, "TAKE_KEY")) {
+            LOGGER.debug("Idempotent takeVirtualKey '{}' skipped for key '{}'", idempotencyKey, keyId);
+            return true;
+        }
 
         boolean decremented = virtualKeyRepo.decrementBalance(playerId, keyId, amount);
         if (decremented) {
@@ -84,7 +100,17 @@ public class CrateKeyService {
     }
 
     public void givePhysicalKey(ServerPlayer player, String keyId, int amount, GrantSource source) {
+        givePhysicalKey(player, keyId, amount, source, null);
+    }
+
+    public void givePhysicalKey(ServerPlayer player, String keyId, int amount, GrantSource source, String idempotencyKey) {
         if (amount <= 0) return;
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()
+            && !idempotencyRepo.markProcessed(idempotencyKey, "GIVE_PHYSICAL_KEY")) {
+            LOGGER.debug("Idempotent givePhysicalKey '{}' skipped for key '{}'", idempotencyKey, keyId);
+            return;
+        }
 
         Optional<KeyDefinition> optKey = keyRepo.findById(keyId);
         if (optKey.isEmpty()) {
@@ -179,6 +205,10 @@ public class CrateKeyService {
     }
 
     public boolean consumeKeyForOpening(ServerPlayer player, CrateDefinition crate) {
+        return consumeKeyForOpening(player, crate, null);
+    }
+
+    public boolean consumeKeyForOpening(ServerPlayer player, CrateDefinition crate, String idempotencyKey) {
         List<String> acceptedKeys = crate.getRequirements().getAcceptedKeyIds();
         if (acceptedKeys.isEmpty()) return true;
 
@@ -188,7 +218,7 @@ public class CrateKeyService {
 
         for (String keyId : acceptedKeys) {
             if (requireVirtual) {
-                if (takeVirtualKey(playerId, keyId, 1, GrantSource.OPENING)) {
+                if (takeVirtualKey(playerId, keyId, 1, GrantSource.OPENING, idempotencyKey)) {
                     return true;
                 }
             }
@@ -201,7 +231,7 @@ public class CrateKeyService {
 
         if (!requireVirtual && !requirePhysical) {
             for (String keyId : acceptedKeys) {
-                if (takeVirtualKey(playerId, keyId, 1, GrantSource.OPENING)) {
+                if (takeVirtualKey(playerId, keyId, 1, GrantSource.OPENING, idempotencyKey)) {
                     return true;
                 }
                 if (takePhysicalKeyFromInventory(player, keyId)) {
