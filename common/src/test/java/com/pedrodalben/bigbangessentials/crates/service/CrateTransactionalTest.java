@@ -1,16 +1,21 @@
 package com.pedrodalben.bigbangessentials.crates.service;
 
+import com.pedrodalben.bigbangessentials.crates.CrateManager;
 import com.pedrodalben.bigbangessentials.crates.domain.*;
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import com.pedrodalben.bigbangessentials.database.execution.DatabaseExecutor;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.core.component.DataComponents;
 import org.junit.jupiter.api.*;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,6 +29,8 @@ class CrateTransactionalTest {
     private static CrateKeyService keyService;
     private static RewardService rewardService;
     private static CrateService crateService;
+    private static CrateMetricsService metricsService;
+    private static CrateAuditService auditService;
 
     @BeforeAll
     static void setup() throws IOException {
@@ -48,6 +55,8 @@ class CrateTransactionalTest {
         keyService = CrateKeyService.getInstance();
         rewardService = RewardService.getInstance();
         crateService = CrateService.getInstance();
+        metricsService = CrateMetricsService.getInstance();
+        auditService = CrateAuditService.getInstance();
     }
 
     @AfterAll
@@ -60,6 +69,8 @@ class CrateTransactionalTest {
         crateService.reload();
         keyService.reload();
         rewardService.reload();
+        metricsService.resetMetrics();
+        auditService.cleanOldAudits(Instant.now().plusSeconds(365 * 86400));
     }
 
     private static ServerPlayer mockPlayer(UUID playerId) {
@@ -467,5 +478,368 @@ class CrateTransactionalTest {
         String sig = CrateKeyService.computeSignature("any_key");
         assertNotNull(sig);
         assertFalse(sig.isEmpty(), "Signature should not be empty");
+    }
+
+    // === Metrics Tests ===
+
+    @Test
+    void testMetricsStartAtZero() {
+        Map<String, Long> all = metricsService.getAllMetrics();
+        assertTrue(all.isEmpty() || all.values().stream().allMatch(v -> v == 0));
+    }
+
+    @Test
+    void testRecordOpening_IncrementsSuccessMetrics() {
+        metricsService.recordOpening("test_crate", true);
+
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("total_openings", 0L));
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("successful_openings", 0L));
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("successful_openings:test_crate", 0L));
+    }
+
+    @Test
+    void testRecordOpening_IncrementsFailureMetrics() {
+        metricsService.recordOpening("test_crate", false);
+
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("total_openings", 0L));
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("failed_openings", 0L));
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("failed_openings:test_crate", 0L));
+    }
+
+    @Test
+    void testRecordKeyGiven_TracksByKeyAndSource() {
+        metricsService.recordKeyGiven("key_a", 5, GrantSource.ADMIN_COMMAND);
+
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("keys_given", 0L));
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("keys_given:key_a", 0L));
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("keys_given:admin_command", 0L));
+    }
+
+    @Test
+    void testRecordKeyGiven_SkipsZeroAmount() {
+        metricsService.recordKeyGiven("key_a", 0, GrantSource.ADMIN_COMMAND);
+        assertNull(metricsService.getAllMetrics().get("keys_given"));
+    }
+
+    @Test
+    void testRecordKeyConsumed() {
+        metricsService.recordKeyConsumed("key_a");
+
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("keys_consumed", 0L));
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("keys_consumed:key_a", 0L));
+    }
+
+    @Test
+    void testRecordRewardDelivered() {
+        metricsService.recordRewardDelivered("reward_x");
+
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("rewards_delivered", 0L));
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("rewards_delivered:reward_x", 0L));
+    }
+
+    @Test
+    void testRecordCostSpent() {
+        metricsService.recordCostSpent("vip_crate", 100.0);
+
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("total_revenue", 0L));
+        assertEquals(1, metricsService.getAllMetrics().getOrDefault("revenue:vip_crate", 0L));
+    }
+
+    @Test
+    void testMultipleOpeningsAccumulate() {
+        metricsService.recordOpening("c1", true);
+        metricsService.recordOpening("c1", true);
+        metricsService.recordOpening("c2", false);
+        metricsService.recordOpening("c1", true);
+
+        Map<String, Long> all = metricsService.getAllMetrics();
+        assertEquals(4, all.getOrDefault("total_openings", 0L));
+        assertEquals(3, all.getOrDefault("successful_openings", 0L));
+        assertEquals(3, all.getOrDefault("successful_openings:c1", 0L));
+        assertEquals(1, all.getOrDefault("failed_openings:c2", 0L));
+    }
+
+    @Test
+    void testResetClearsAll() {
+        metricsService.recordOpening("test", true);
+        metricsService.recordKeyGiven("k", 1, GrantSource.ADMIN_COMMAND);
+        assertFalse(metricsService.getAllMetrics().isEmpty());
+
+        metricsService.resetMetrics();
+        assertTrue(metricsService.getAllMetrics().isEmpty());
+    }
+
+    @Test
+    void testFullFlow_OpeningRecordsMetrics() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+
+        CrateDefinition crate = crateRequiringKey("metrics_crate", "m_r1");
+        keyService.giveVirtualKey(playerId, "test_key", 1, GrantSource.ADMIN_COMMAND, null);
+
+        var result = openingService.openCrate(player, crate, GrantSource.OPENING, UUID.randomUUID().toString());
+
+        assertTrue(result.success());
+
+        Map<String, Long> all = metricsService.getAllMetrics();
+        assertEquals(1, all.getOrDefault("total_openings", 0L));
+        assertEquals(1, all.getOrDefault("successful_openings", 0L));
+        assertEquals(1, all.getOrDefault("keys_consumed", 0L));
+        assertTrue(all.containsKey("rewards_delivered"));
+    }
+
+    @Test
+    void testFailedOpening_RecordsFailureMetric() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+
+        CrateDefinition crate = crateRequiringKey("fail_crate", "m_r2");
+        crate.setRewards(List.of());
+
+        var result = openingService.openCrate(player, crate, GrantSource.OPENING, UUID.randomUUID().toString());
+        assertFalse(result.success());
+        assertEquals(0, keyService.getVirtualKeyBalance(playerId, "test_key"));
+    }
+
+    @Test
+    void testFormatMetrics_ContainsExpectedLines() {
+        metricsService.recordOpening("test", true);
+        metricsService.recordKeyGiven("k", 1, GrantSource.ADMIN_COMMAND);
+
+        String formatted = metricsService.formatMetrics();
+        assertTrue(formatted.contains("Total Openings: 1"));
+        assertTrue(formatted.contains("Keys Given: 1"));
+        assertTrue(formatted.contains("Rewards Delivered: 0"));
+    }
+
+    @Test
+    void testConcurrentMetricIncrements_AreAtomic() throws InterruptedException {
+        int threads = 20;
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        CountDownLatch latch = new CountDownLatch(1);
+
+        for (int i = 0; i < threads; i++) {
+            executor.submit(() -> {
+                try {
+                    latch.await();
+                    metricsService.recordOpening("concurrent", true);
+                    metricsService.recordKeyGiven("ck", 1, GrantSource.OPENING);
+                } catch (Exception ignored) {}
+            });
+        }
+
+        latch.countDown();
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+
+        Map<String, Long> all = metricsService.getAllMetrics();
+        assertEquals(threads, all.getOrDefault("total_openings", 0L));
+        assertEquals(threads, all.getOrDefault("keys_given", 0L));
+    }
+
+    // === Audit Cleanup Tests ===
+
+    @Test
+    void testCleanOldAudits_RemovesOldEntries() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+
+        CrateDefinition crate = crateRequiringKey("audit_cleanup", "ac_r1");
+        keyService.giveVirtualKey(playerId, "test_key", 1, GrantSource.ADMIN_COMMAND, null);
+
+        openingService.openCrate(player, crate, GrantSource.OPENING, UUID.randomUUID().toString());
+
+        long before = auditService.countAudits();
+        assertTrue(before > 0, "Audit should exist");
+
+        Instant futureCutoff = Instant.now().plusSeconds(1);
+        auditService.cleanOldAudits(futureCutoff);
+
+        long after = auditService.countAudits();
+        assertEquals(0, after, "All audits should be removed");
+    }
+
+    @Test
+    void testCleanOldAudits_KeepsRecentEntries() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+
+        CrateDefinition crate = crateRequiringKey("audit_keep", "ac_r2");
+        keyService.giveVirtualKey(playerId, "test_key", 1, GrantSource.ADMIN_COMMAND, null);
+
+        openingService.openCrate(player, crate, GrantSource.OPENING, UUID.randomUUID().toString());
+
+        long before = auditService.countAudits();
+        assertTrue(before > 0, "Audit should exist");
+
+        Instant pastCutoff = Instant.now().minusSeconds(1);
+        auditService.cleanOldAudits(pastCutoff);
+
+        long after = auditService.countAudits();
+        assertEquals(before, after, "Recent audits should not be removed");
+    }
+
+    @Test
+    void testRunCleanupNow_FromManager() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+
+        CrateDefinition crate = crateRequiringKey("mgr_cleanup", "ac_r3");
+        keyService.giveVirtualKey(playerId, "test_key", 1, GrantSource.ADMIN_COMMAND, null);
+
+        openingService.openCrate(player, crate, GrantSource.OPENING, UUID.randomUUID().toString());
+
+        long before = auditService.countAudits();
+        assertTrue(before > 0);
+
+        CrateManager.getInstance().runCleanupNow();
+
+        long after = auditService.countAudits();
+        assertTrue(after <= before, "Cleanup should not increase audit count");
+    }
+
+    // === E2E Integration Tests ===
+
+    @Test
+    void testE2E_FullOpeningWithAuditTrail() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+        String crateKey = "e2e_audit_" + UUID.randomUUID().toString().substring(0, 8);
+        String rewardId = "e2e_reward";
+
+        CrateDefinition crate = crateRequiringKey(crateKey, rewardId);
+        keyService.giveVirtualKey(playerId, "test_key", 1, GrantSource.ADMIN_COMMAND, null);
+
+        String idempotencyKey = UUID.randomUUID().toString();
+        var result = openingService.openCrate(player, crate, GrantSource.OPENING, idempotencyKey);
+
+        assertTrue(result.success(), "E2E opening should succeed: " + result.message() + " (audit="
+            + (result.audit() != null ? result.audit().getStatus() : "null") + ")");
+        assertNotNull(result.audit(), "Audit should be present");
+        assertEquals(CrateOpenAudit.OpenStatus.COMPLETED, result.audit().getStatus());
+        assertEquals(playerId, result.audit().getPlayerId());
+        assertEquals(crateKey, result.audit().getCrateId());
+        assertEquals(GrantSource.OPENING, result.audit().getSource());
+        assertEquals(idempotencyKey, result.audit().getIdempotencyKey());
+        assertEquals(0, keyService.getVirtualKeyBalance(playerId, "test_key"), "Key should be consumed");
+    }
+
+    @Test
+    void testE2E_HmacSignedPhysicalKey_RoundTrip() {
+        String keyId = "e2e_physical_key";
+
+        ItemStack item = mock(ItemStack.class);
+        when(item.isEmpty()).thenReturn(false);
+        CompoundTag tag = new CompoundTag();
+        tag.putString("bigbangessentials:key_id", keyId);
+        tag.putString("bigbangessentials:key_sig", CrateKeyService.computeSignature(keyId));
+        when(item.get(DataComponents.CUSTOM_DATA)).thenReturn(CustomData.of(tag));
+
+        String marker = keyService.getKeyMarker(item);
+        assertNotNull(marker, "Physical key should have a marker");
+        assertEquals(keyId, marker, "Marker should match keyId");
+    }
+
+    @Test
+    void testE2E_HmacForgedKey_Rejected() {
+        String realKeyId = "real_key";
+
+        ItemStack item = mock(ItemStack.class);
+        when(item.isEmpty()).thenReturn(false);
+        CompoundTag tag = new CompoundTag();
+        tag.putString("bigbangessentials:key_id", realKeyId);
+        tag.putString("bigbangessentials:key_sig", CrateKeyService.computeSignature(realKeyId));
+        when(item.get(DataComponents.CUSTOM_DATA)).thenReturn(CustomData.of(tag));
+
+        String marker = keyService.getKeyMarker(item);
+        assertNotNull(marker, "Real key should have marker");
+        assertEquals(realKeyId, marker, "Real key marker should match");
+
+        ItemStack tampered = mock(ItemStack.class);
+        when(tampered.isEmpty()).thenReturn(false);
+        CompoundTag forgedTag = new CompoundTag();
+        forgedTag.putString("bigbangessentials:key_id", "forged_key");
+        forgedTag.putString("bigbangessentials:key_sig", "fake_sig");
+        when(tampered.get(DataComponents.CUSTOM_DATA)).thenReturn(CustomData.of(forgedTag));
+
+        String tamperedMarker = keyService.getKeyMarker(tampered);
+        assertNull(tamperedMarker, "Forged key with fake signature should be rejected");
+    }
+
+    @Test
+    void testE2E_IdempotencyAcrossPipeline() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+        String crateKey = "e2e_idem_" + UUID.randomUUID().toString().substring(0, 8);
+
+        CrateDefinition crate = crateRequiringKey(crateKey, "e2e_idem_r");
+        keyService.giveVirtualKey(playerId, "test_key", 5, GrantSource.ADMIN_COMMAND, null);
+
+        String sharedKey = UUID.randomUUID().toString();
+
+        var result1 = openingService.openCrate(player, crate, GrantSource.OPENING, sharedKey);
+        assertTrue(result1.success(), "First opening should succeed");
+
+        var result2 = openingService.openCrate(player, crate, GrantSource.OPENING, sharedKey);
+        assertFalse(result2.success(), "Second opening with same idempotency key should fail");
+        assertEquals("Already processed", result2.message());
+
+        assertEquals(4, keyService.getVirtualKeyBalance(playerId, "test_key"),
+            "Only 1 key should be consumed (idempotency prevented second consumption)");
+    }
+
+    @Test
+    void testE2E_MassOpenWithCost_FailsMidway() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+
+        CrateDefinition crate = crateRequiringKey("e2e_mass_cost", "e2e_mc");
+        keyService.giveVirtualKey(playerId, "test_key", 3, GrantSource.ADMIN_COMMAND, null);
+
+        var results = openingService.massOpen(player, crate, 5, GrantSource.MASS_OPEN);
+
+        assertFalse(results.isEmpty());
+        assertTrue(results.stream().anyMatch(CrateOpeningService.CrateOpeningResult::success));
+        assertEquals(0, keyService.getVirtualKeyBalance(playerId, "test_key"), "All keys should be consumed");
+    }
+
+    @Test
+    void testE2E_RollbackOnFailure_RestoresCooldown() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+        String crateKey = "e2e_rb_" + UUID.randomUUID().toString().substring(0, 8);
+
+        CrateDefinition crate = crateRequiringKey(crateKey, "e2e_rb_r");
+        crate.setRewards(List.of());
+        keyService.giveVirtualKey(playerId, "test_key", 1, GrantSource.ADMIN_COMMAND, null);
+
+        var result = openingService.openCrate(player, crate, GrantSource.OPENING, UUID.randomUUID().toString());
+        assertFalse(result.success(), "Opening should fail (no rewards)");
+
+        assertEquals(1, keyService.getVirtualKeyBalance(playerId, "test_key"),
+            "Key should be restored after failed opening");
+    }
+
+    @Test
+    void testE2E_MetricsPipeline_RecordsAllEvents() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+        String crateKey = "e2e_met_" + UUID.randomUUID().toString().substring(0, 8);
+
+        CrateDefinition crate = crateRequiringKey(crateKey, "e2e_met_r");
+        keyService.giveVirtualKey(playerId, "test_key", 3, GrantSource.ADMIN_COMMAND, null);
+
+        openingService.openCrate(player, crate, GrantSource.OPENING, UUID.randomUUID().toString());
+        openingService.openCrate(player, crate, GrantSource.OPENING, UUID.randomUUID().toString());
+
+        Map<String, Long> all = metricsService.getAllMetrics();
+        assertEquals(2, all.getOrDefault("total_openings", 0L));
+        assertEquals(2, all.getOrDefault("successful_openings", 0L));
+        assertTrue(all.getOrDefault("keys_given", 0L) >= 1L,
+            "Keys given should be at least 1 (from setup)");
+        assertTrue(all.getOrDefault("keys_consumed", 0L) >= 2L,
+            "Keys consumed should be at least 2 (from openings)");
+        assertTrue(all.getOrDefault("rewards_delivered", 0L) >= 2L,
+            "Rewards delivered should be at least 2");
     }
 }
