@@ -18,8 +18,16 @@ import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,7 +36,11 @@ import java.util.UUID;
 public class CrateKeyService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CrateKeyService.class);
     private static final String KEY_TAG = "bigbangessentials:key_id";
+    private static final String SIG_TAG = "bigbangessentials:key_sig";
+    private static final String HMAC_ALGORITHM = "HmacSHA256";
+    private static final String SECRET_FILE = "config/.crate_hmac_secret";
     private static final CrateKeyService INSTANCE = new CrateKeyService();
+    private static volatile String serverSecret;
 
     private final KeyRepository keyRepo;
     private final PlayerVirtualKeyRepository virtualKeyRepo;
@@ -244,22 +256,59 @@ public class CrateKeyService {
     }
 
     private void embedKeyMarker(ItemStack stack, String keyId) {
-        CompoundTag existing = stack.get(DataComponents.CUSTOM_DATA) != null
-            ? stack.get(DataComponents.CUSTOM_DATA).copyTag()
-            : new CompoundTag();
-        existing.putString(KEY_TAG, keyId);
-        stack.set(DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(existing));
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.EMPTY).copyTag();
+        tag.putString(KEY_TAG, keyId);
+        tag.putString(SIG_TAG, computeSignature(keyId));
+        stack.set(DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
     }
 
-    private String getKeyMarker(ItemStack stack) {
+    String getKeyMarker(ItemStack stack) {
         if (stack.isEmpty()) return null;
-        var customData = stack.get(DataComponents.CUSTOM_DATA);
-        if (customData == null) return null;
-        CompoundTag tag = customData.copyTag();
-        if (tag.contains(KEY_TAG)) {
-            return tag.getString(KEY_TAG);
+        CompoundTag tag = stack.get(DataComponents.CUSTOM_DATA) != null
+            ? stack.get(DataComponents.CUSTOM_DATA).copyTag()
+            : null;
+        if (tag == null) return null;
+        if (!tag.contains(KEY_TAG) || !tag.contains(SIG_TAG)) return null;
+        String keyId = tag.getString(KEY_TAG);
+        String sig = tag.getString(SIG_TAG);
+        if (!sig.equals(computeSignature(keyId))) return null;
+        return keyId;
+    }
+
+    static String computeSignature(String keyId) {
+        try {
+            String secret = getServerSecret();
+            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
+            byte[] hmac = mac.doFinal(keyId.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hmac);
+        } catch (Exception e) {
+            LOGGER.error("Failed to compute HMAC signature", e);
+            return "";
         }
-        return null;
+    }
+
+    private static String getServerSecret() {
+        if (serverSecret != null) return serverSecret;
+        synchronized (CrateKeyService.class) {
+            if (serverSecret != null) return serverSecret;
+            try {
+                Path path = Paths.get(SECRET_FILE);
+                if (Files.exists(path)) {
+                    serverSecret = Files.readString(path).trim();
+                } else {
+                    byte[] key = new byte[32];
+                    new SecureRandom().nextBytes(key);
+                    serverSecret = HexFormat.of().formatHex(key);
+                    Files.createDirectories(path.getParent());
+                    Files.writeString(path, serverSecret);
+                }
+            } catch (Exception e) {
+                LOGGER.error("Failed to load/generate HMAC secret, using fallback", e);
+                serverSecret = UUID.randomUUID().toString();
+            }
+            return serverSecret;
+        }
     }
 
     public void reload() {

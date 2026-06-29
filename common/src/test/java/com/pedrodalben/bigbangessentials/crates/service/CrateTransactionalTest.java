@@ -6,6 +6,7 @@ import com.pedrodalben.bigbangessentials.database.execution.DatabaseExecutor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.*;
 
 import java.io.IOException;
@@ -439,5 +440,32 @@ class CrateTransactionalTest {
         keyService.giveVirtualKey(playerId, "test_key", 1, GrantSource.ADMIN_COMMAND, null);
         assertEquals(2, keyService.getVirtualKeyBalance(playerId, "test_key"),
             "null idempotency key should always execute");
+    }
+
+    @Test
+    void testPhysicalKeySignature_EmptyStack_Rejected() {
+        assertNull(CrateKeyService.getInstance().getKeyMarker(ItemStack.EMPTY),
+            "Empty stack should be rejected (no NBT data)");
+    }
+
+    @Test
+    void testComputeSignature_Deterministic() {
+        String sig1 = CrateKeyService.computeSignature("test_key");
+        String sig2 = CrateKeyService.computeSignature("test_key");
+        assertEquals(sig1, sig2, "Signature should be deterministic for same keyId");
+    }
+
+    @Test
+    void testComputeSignature_DifferentKeys_DifferentSignatures() {
+        String sig1 = CrateKeyService.computeSignature("key_a");
+        String sig2 = CrateKeyService.computeSignature("key_b");
+        assertNotEquals(sig1, sig2, "Different keyIds should produce different signatures");
+    }
+
+    @Test
+    void testComputeSignature_NotEmpty() {
+        String sig = CrateKeyService.computeSignature("any_key");
+        assertNotNull(sig);
+        assertFalse(sig.isEmpty(), "Signature should not be empty");
     }
 }
