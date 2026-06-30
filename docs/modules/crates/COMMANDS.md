@@ -21,6 +21,14 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 | `setperm` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate setperm <crate> <permissão>` | Define a permissão exigida pela crate |
 | `addrarity` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate addrarity <crate> <id> <nome> <cor> <peso>` | Adiciona uma raridade à crate |
 | `removerarity` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate removerarity <crate> <id>` | Remove uma raridade da crate |
+| `rarity setname` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate rarity setname <crate> <rarityId> <nome>` | Altera o nome de exibição da raridade |
+| `rarity setcolor` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate rarity setcolor <crate> <rarityId> <cor>` | Altera a cor usada na raridade |
+| `rarity setweight` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate rarity setweight <crate> <rarityId> <peso>` | Altera o peso da raridade |
+| `rarity seticon` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate rarity seticon <crate> <rarityId>` | Define o item na mão como ícone da raridade |
+| `rarity setlore` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate rarity setlore <crate> <rarityId> <linha1 \| linha2>` | Define a lore exibida na raridade |
+| `rarity toggle` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate rarity toggle <crate> <rarityId>` | Alterna o estado ativo da raridade |
+| `rarity setpriority` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate rarity setpriority <crate> <rarityId> <prioridade>` | Ajusta a prioridade de seleção da raridade |
+| `rarity setdisplayorder` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate rarity setdisplayorder <crate> <rarityId> <ordem>` | Ajusta a ordem de exibição da raridade |
 | `addmilestone` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate addmilestone <crate> <id> <nome> <rewardId> <aberturas>` | Adiciona um milestone à crate |
 | `setlocation` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate setlocation <crate>` | Vincula a crate ao bloco que você está olhando |
 | `editor` | `bigbangessentials.crates.editor` | `/crate editor` | Abre o editor gráfico de crates |
@@ -96,6 +104,16 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 
 # Criar uma recompensa
 /crate reward create minha_crate espada_rara "Espada Rara" raro
+
+# Editar raridades existentes
+/crate rarity setname minha_crate raro "Raro"
+/crate rarity setcolor minha_crate raro "#FFD700"
+/crate rarity setweight minha_crate raro 30
+/crate rarity seticon minha_crate raro
+/crate rarity setlore minha_crate raro "Linha 1 | Linha 2"
+/crate rarity toggle minha_crate raro
+/crate rarity setpriority minha_crate raro 10
+/crate rarity setdisplayorder minha_crate raro 1
 
 # Ajustar metadata avançada da recompensa
 /crate reward setitems minha_crate espada_rara

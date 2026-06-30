@@ -108,6 +108,14 @@ Ao clicar em cada seção, o menu exibe comandos úteis:
 # Raridades
 /crate addrarity <crate> <id> <nome> <cor> <peso>
 /crate removerarity <crate> <id>
+/crate rarity setname <crate> <rarityId> <nome>
+/crate rarity setcolor <crate> <rarityId> <cor>
+/crate rarity setweight <crate> <rarityId> <peso>
+/crate rarity seticon <crate> <rarityId>
+/crate rarity setlore <crate> <rarityId> <linha1 | linha2>
+/crate rarity toggle <crate> <rarityId>
+/crate rarity setpriority <crate> <rarityId> <prioridade>
+/crate rarity setdisplayorder <crate> <rarityId> <ordem>
 
 # Milestones
 /crate addmilestone <crate> <id> <nome> <rewardId> <aberturas>

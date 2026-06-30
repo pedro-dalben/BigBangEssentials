@@ -36,6 +36,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -788,6 +789,93 @@ public class CrateCommand {
                             .suggests(REWARD_SUGGESTIONS)
                             .then(Commands.argument("permissoes", StringArgumentType.greedyString())
                                 .executes(CrateCommand::setRewardBlockingPermissions)
+                            )
+                        )
+                    )
+                )
+            )
+            .then(Commands.literal("rarity")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.literal("setname")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rarityId", StringArgumentType.word())
+                            .suggests(RARITY_SUGGESTIONS)
+                            .then(Commands.argument("nome", StringArgumentType.greedyString())
+                                .executes(CrateCommand::setRarityName)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setcolor")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rarityId", StringArgumentType.word())
+                            .suggests(RARITY_SUGGESTIONS)
+                            .then(Commands.argument("cor", StringArgumentType.word())
+                                .executes(CrateCommand::setRarityColor)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setweight")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rarityId", StringArgumentType.word())
+                            .suggests(RARITY_SUGGESTIONS)
+                            .then(Commands.argument("peso", DoubleArgumentType.doubleArg(0))
+                                .executes(CrateCommand::setRarityWeight)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("seticon")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rarityId", StringArgumentType.word())
+                            .suggests(RARITY_SUGGESTIONS)
+                            .executes(CrateCommand::setRarityIcon)
+                        )
+                    )
+                )
+                .then(Commands.literal("setlore")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rarityId", StringArgumentType.word())
+                            .suggests(RARITY_SUGGESTIONS)
+                            .then(Commands.argument("lore", StringArgumentType.greedyString())
+                                .executes(CrateCommand::setRarityLore)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("toggle")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rarityId", StringArgumentType.word())
+                            .suggests(RARITY_SUGGESTIONS)
+                            .executes(CrateCommand::toggleRarity)
+                        )
+                    )
+                )
+                .then(Commands.literal("setpriority")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rarityId", StringArgumentType.word())
+                            .suggests(RARITY_SUGGESTIONS)
+                            .then(Commands.argument("priority", IntegerArgumentType.integer())
+                                .executes(CrateCommand::setRarityPriority)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setdisplayorder")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rarityId", StringArgumentType.word())
+                            .suggests(RARITY_SUGGESTIONS)
+                            .then(Commands.argument("ordem", IntegerArgumentType.integer())
+                                .executes(CrateCommand::setRarityDisplayOrder)
                             )
                         )
                     )
@@ -2330,6 +2418,188 @@ public class CrateCommand {
         crateService.updateReward(crate.getKey(), reward);
         source.sendSuccess(() -> Component.literal(
             "\u00a7aComandos da recompensa '" + reward.getId() + "' removidos."), true);
+        return 1;
+    }
+
+    private static int setRarityName(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "rarityId"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "nome").trim();
+        if (name.isBlank()) {
+            source.sendFailure(Component.literal("\u00a7cO nome da raridade n\u00e3o pode ficar em branco."));
+            return 0;
+        }
+
+        rarity.setName(name);
+        crateService.updateRarity(crate.getKey(), rarity);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aNome da raridade '" + rarity.getId() + "' atualizado para '" + name + "'."), true);
+        return 1;
+    }
+
+    private static int setRarityColor(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "rarityId"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        String color = StringArgumentType.getString(context, "cor");
+        rarity.setColor(color);
+        crateService.updateRarity(crate.getKey(), rarity);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aCor da raridade '" + rarity.getId() + "' atualizada para '" + rarity.getColor() + "'."), true);
+        return 1;
+    }
+
+    private static int setRarityWeight(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "rarityId"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        double weight = DoubleArgumentType.getDouble(context, "peso");
+        rarity.setWeight(weight);
+        crateService.updateRarity(crate.getKey(), rarity);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aPeso da raridade '" + rarity.getId() + "' definido para " + weight + "."), true);
+        return 1;
+    }
+
+    private static int setRarityIcon(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "rarityId"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        ItemStack heldItem = player.getItemInHand(InteractionHand.MAIN_HAND);
+        if (heldItem == null || heldItem.isEmpty()) {
+            source.sendFailure(Component.literal(CrateMessages.ITEM_REQUIRED));
+            return 0;
+        }
+
+        ResourceLocation itemKey = BuiltInRegistries.ITEM.getKey(heldItem.getItem());
+        if (itemKey == null) {
+            source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+            return 0;
+        }
+
+        rarity.setIcon(itemKey.toString());
+        crateService.updateRarity(crate.getKey(), rarity);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7a\u00cdcone da raridade '" + rarity.getId() + "' atualizado para '" + itemKey + "'."), true);
+        return 1;
+    }
+
+    private static int setRarityLore(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "rarityId"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        List<String> lore = parseDelimitedValues(StringArgumentType.getString(context, "lore"));
+        rarity.setLore(lore);
+        crateService.updateRarity(crate.getKey(), rarity);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aLore da raridade '" + rarity.getId() + "' atualizada."), true);
+        return 1;
+    }
+
+    private static int toggleRarity(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "rarityId"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        rarity.setActive(!rarity.isActive());
+        crateService.updateRarity(crate.getKey(), rarity);
+        source.sendSuccess(() -> Component.literal(
+            rarity.isActive()
+                ? "\u00a7aRaridade '" + rarity.getId() + "' ativada."
+                : "\u00a7cRaridade '" + rarity.getId() + "' desativada."), true);
+        return 1;
+    }
+
+    private static int setRarityPriority(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "rarityId"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        int priority = IntegerArgumentType.getInteger(context, "priority");
+        rarity.setPriority(priority);
+        crateService.updateRarity(crate.getKey(), rarity);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aPrioridade da raridade '" + rarity.getId() + "' definida para " + priority + "."), true);
+        return 1;
+    }
+
+    private static int setRarityDisplayOrder(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "rarityId"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        int displayOrder = IntegerArgumentType.getInteger(context, "ordem");
+        rarity.setDisplayOrder(displayOrder);
+        crateService.updateRarity(crate.getKey(), rarity);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aOrdem da raridade '" + rarity.getId() + "' definida para " + displayOrder + "."), true);
         return 1;
     }
 

@@ -32,6 +32,16 @@ As classes de domínio (`CrateDefinition`, `KeyDefinition`, `CrateReward`, `Crat
 /crate addrarity teste_crate raro "Raro" "#FFD700" 30
 /crate addrarity teste_crate lendario "Lendario" "#FF0000" 20
 
+# 3.1. Testar edição avançada de raridades
+/crate rarity setname teste_crate comum "Comum"
+/crate rarity setcolor teste_crate comum "#AAAAAA"
+/crate rarity setweight teste_crate comum 50
+/crate rarity seticon teste_crate comum
+/crate rarity setlore teste_crate comum "Linha 1 | Linha 2"
+/crate rarity toggle teste_crate comum
+/crate rarity setpriority teste_crate comum 10
+/crate rarity setdisplayorder teste_crate comum 1
+
 # 4. Adicionar recompensas
 /crate reward create teste_crate pedra "Bloco de Pedra" comum
 /crate reward create teste_crate dinheiro "Moedas" raro

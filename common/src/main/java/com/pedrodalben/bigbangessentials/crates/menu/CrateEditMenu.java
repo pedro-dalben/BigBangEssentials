@@ -137,6 +137,14 @@ public class CrateEditMenu extends AbstractCrateMenu {
             p.sendSystemMessage(Component.literal(""));
             p.sendSystemMessage(Component.literal("§e/crate addrarity " + crateKey + " <id> <nome> <cor> <peso>"));
             p.sendSystemMessage(Component.literal("§e/crate removerarity " + crateKey + " <id>"));
+            p.sendSystemMessage(Component.literal("§e/crate rarity setname " + crateKey + " <id> <nome>"));
+            p.sendSystemMessage(Component.literal("§e/crate rarity setcolor " + crateKey + " <id> <cor>"));
+            p.sendSystemMessage(Component.literal("§e/crate rarity setweight " + crateKey + " <id> <peso>"));
+            p.sendSystemMessage(Component.literal("§e/crate rarity seticon " + crateKey + " <id>"));
+            p.sendSystemMessage(Component.literal("§e/crate rarity setlore " + crateKey + " <id> <linha1 | linha2>"));
+            p.sendSystemMessage(Component.literal("§e/crate rarity toggle " + crateKey + " <id>"));
+            p.sendSystemMessage(Component.literal("§e/crate rarity setpriority " + crateKey + " <id> <prioridade>"));
+            p.sendSystemMessage(Component.literal("§e/crate rarity setdisplayorder " + crateKey + " <id> <ordem>"));
         });
 
         setItem(24, createItem(new ItemStack(Items.NETHER_STAR), "§d§lMilestones",

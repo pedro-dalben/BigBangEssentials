@@ -2,7 +2,7 @@
 
 Este documento lista o que ainda não está exposto pelo módulo de Crates no estado atual do código.
 
-Atualização: `/crate massopen` e `/crates claim` já foram registrados. As lacunas abaixo permanecem em aberto.
+Atualização: `/crate massopen`, `/crates claim` e a edição avançada de raridades já foram registrados. As lacunas abaixo permanecem em aberto.
 
 A análise foi feita comparando:
 - a árvore de comandos em `CrateCommand`
@@ -52,19 +52,11 @@ Ainda faltam comandos para:
 - remover crates compatíveis
 - substituir a lista de crates compatíveis em lote
 
-## 4. CrateRarity: edição parcial apenas
+## 4. CrateRarity: edição avançada já exposta
 
-Hoje o módulo permite adicionar e remover raridades por crate.
+Hoje o módulo permite adicionar, remover e editar raridades existentes por crate.
 
-Ainda faltam comandos para editar raridades existentes:
-- `name`
-- `color`
-- `weight`
-- `icon`
-- `lore`
-- `active`
-- `priority`
-- `displayOrder`
+Não há lacuna aberta neste subtópico no estado atual do módulo.
 
 ## 5. CrateReward: edição parcial apenas
 
