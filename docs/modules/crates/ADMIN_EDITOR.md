@@ -173,6 +173,12 @@ No menu de edição da crate, clique em **"Recompensas"** (slot 22) para abrir o
 /crate reward setrarity <crate> <rewardId> <rarityId>
 /crate reward toggle <crate> <rewardId>
 /crate reward seticon <crate> <rewardId>
+/crate reward setitems <crate> <rewardId>
+/crate reward additem <crate> <rewardId>
+/crate reward clearitems <crate> <rewardId>
+/crate reward setcommands <crate> <rewardId> <cmd1 | cmd2>
+/crate reward addcommand <crate> <rewardId> <comando>
+/crate reward clearcommands <crate> <rewardId>
 /crate reward settype <crate> <rewardId> <ITEM|COMMAND>
 /crate reward setlore <crate> <rewardId> <linha1 | linha2>
 /crate reward setperm <crate> <rewardId> <permissão|clear>

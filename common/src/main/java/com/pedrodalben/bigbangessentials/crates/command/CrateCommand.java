@@ -584,6 +584,70 @@ public class CrateCommand {
                         )
                     )
                 )
+                .then(Commands.literal("setitems")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .executes(CrateCommand::setRewardItems)
+                        )
+                    )
+                )
+                .then(Commands.literal("additem")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .executes(CrateCommand::addRewardItem)
+                        )
+                    )
+                )
+                .then(Commands.literal("clearitems")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .executes(CrateCommand::clearRewardItems)
+                        )
+                    )
+                )
+                .then(Commands.literal("setcommands")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("comandos", StringArgumentType.greedyString())
+                                .executes(CrateCommand::setRewardCommands)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("addcommand")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("comando", StringArgumentType.greedyString())
+                                .executes(CrateCommand::addRewardCommand)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("clearcommands")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .executes(CrateCommand::clearRewardCommands)
+                        )
+                    )
+                )
                 .then(Commands.literal("settype")
                     .requires(CrateCommand::canManageCrates)
                     .then(Commands.argument("crate", StringArgumentType.word())
@@ -2109,6 +2173,163 @@ public class CrateCommand {
         crateService.updateReward(crate.getKey(), reward);
         source.sendSuccess(() -> Component.literal(
             "\u00a7a\u00cdcone da recompensa '" + reward.getId() + "' atualizado."), true);
+        return 1;
+    }
+
+    private static int setRewardItems(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        ItemStack heldItem = player.getItemInHand(InteractionHand.MAIN_HAND);
+        if (heldItem == null || heldItem.isEmpty()) {
+            source.sendFailure(Component.literal(CrateMessages.ITEM_REQUIRED));
+            return 0;
+        }
+
+        ItemStack item = heldItem.copy();
+        reward.setItems(List.of(item));
+        reward.setType(RewardType.ITEM);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aItens da recompensa '" + reward.getId() + "' redefinidos com o item da m\u00e3o."), true);
+        return 1;
+    }
+
+    private static int addRewardItem(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        ItemStack heldItem = player.getItemInHand(InteractionHand.MAIN_HAND);
+        if (heldItem == null || heldItem.isEmpty()) {
+            source.sendFailure(Component.literal(CrateMessages.ITEM_REQUIRED));
+            return 0;
+        }
+
+        List<ItemStack> items = new java.util.ArrayList<>(reward.getItems());
+        items.add(heldItem.copy());
+        reward.setItems(items);
+        reward.setType(RewardType.ITEM);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aItem adicionado \u00e0 recompensa '" + reward.getId() + "'."), true);
+        return 1;
+    }
+
+    private static int clearRewardItems(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        reward.setItems(List.of());
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aItens da recompensa '" + reward.getId() + "' removidos."), true);
+        return 1;
+    }
+
+    private static int setRewardCommands(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        List<String> commands = parseDelimitedValues(StringArgumentType.getString(context, "comandos"));
+        if (commands.isEmpty()) {
+            source.sendFailure(Component.literal(CrateMessages.REWARD_COMMAND_INVALID));
+            return 0;
+        }
+
+        reward.setCommands(commands);
+        reward.setType(RewardType.COMMAND);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aComandos da recompensa '" + reward.getId() + "' atualizados."), true);
+        return 1;
+    }
+
+    private static int addRewardCommand(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        String command = normalizeNullableText(StringArgumentType.getString(context, "comando"));
+        if (command.isBlank()) {
+            source.sendFailure(Component.literal(CrateMessages.REWARD_COMMAND_INVALID));
+            return 0;
+        }
+
+        List<String> commands = new java.util.ArrayList<>(reward.getCommands());
+        commands.add(command);
+        reward.setCommands(commands);
+        reward.setType(RewardType.COMMAND);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aComando adicionado \u00e0 recompensa '" + reward.getId() + "'."), true);
+        return 1;
+    }
+
+    private static int clearRewardCommands(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        reward.setCommands(List.of());
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aComandos da recompensa '" + reward.getId() + "' removidos."), true);
         return 1;
     }
 

@@ -37,6 +37,12 @@ As classes de domínio (`CrateDefinition`, `KeyDefinition`, `CrateReward`, `Crat
 /crate reward create teste_crate dinheiro "Moedas" raro
 
 # 4.1. Testar metadados avançados da recompensa
+/crate reward setitems teste_crate pedra
+/crate reward additem teste_crate pedra
+/crate reward clearitems teste_crate pedra
+/crate reward setcommands teste_crate dinheiro "say {player} ganhou | give {player} diamond 1"
+/crate reward addcommand teste_crate dinheiro "say {player} recebeu um premio"
+/crate reward clearcommands teste_crate dinheiro
 /crate reward settype teste_crate pedra ITEM
 /crate reward setlore teste_crate pedra "Linha 1 | Linha 2"
 /crate reward setperm teste_crate pedra clear

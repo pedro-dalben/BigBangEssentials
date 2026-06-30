@@ -54,6 +54,12 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 | `reward setrarity` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setrarity <crate> <rewardId> <rarityId>` | Altera a raridade da recompensa |
 | `reward toggle` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward toggle <crate> <rewardId>` | Alterna o estado da recompensa |
 | `reward seticon` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward seticon <crate> <rewardId>` | Define o item na mão como ícone da recompensa |
+| `reward setitems` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setitems <crate> <rewardId>` | Substitui os itens da recompensa pelo item na mão |
+| `reward additem` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward additem <crate> <rewardId>` | Adiciona o item na mão à lista da recompensa |
+| `reward clearitems` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward clearitems <crate> <rewardId>` | Remove todos os itens da recompensa |
+| `reward setcommands` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setcommands <crate> <rewardId> <cmd1 \| cmd2>` | Substitui a lista de comandos da recompensa |
+| `reward addcommand` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward addcommand <crate> <rewardId> <comando>` | Adiciona um comando à recompensa |
+| `reward clearcommands` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward clearcommands <crate> <rewardId>` | Remove todos os comandos da recompensa |
 | `reward settype` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward settype <crate> <rewardId> <ITEM\|COMMAND>` | Altera o tipo da recompensa |
 | `reward setlore` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setlore <crate> <rewardId> <linha1 \| linha2>` | Define a lore exibida na recompensa |
 | `reward setperm` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setperm <crate> <rewardId> <permissão\|clear>` | Define ou remove a permissão necessária |
@@ -92,6 +98,12 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 /crate reward create minha_crate espada_rara "Espada Rara" raro
 
 # Ajustar metadata avançada da recompensa
+/crate reward setitems minha_crate espada_rara
+/crate reward additem minha_crate espada_rara
+/crate reward clearitems minha_crate espada_rara
+/crate reward setcommands minha_crate recompensa_cmd "say {player} | give {player} diamond 1"
+/crate reward addcommand minha_crate recompensa_cmd "say premiado"
+/crate reward clearcommands minha_crate recompensa_cmd
 /crate reward settype minha_crate espada_rara COMMAND
 /crate reward setlore minha_crate espada_rara "Linha 1 | Linha 2"
 /crate reward setperm minha_crate espada_rara bigbangessentials.vip

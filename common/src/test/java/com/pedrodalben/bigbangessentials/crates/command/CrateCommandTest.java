@@ -58,6 +58,12 @@ class CrateCommandTest {
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("setlocation"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("massopen"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("claim"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setitems"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("additem"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("clearitems"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setcommands"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("addcommand"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("clearcommands"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("settype"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setlore"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setperm"));
@@ -79,6 +85,12 @@ class CrateCommandTest {
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("edit"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("massopen"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("claim"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setitems"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("additem"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("clearitems"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setcommands"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("addcommand"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("clearcommands"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("settype"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setlore"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setperm"));
@@ -120,6 +132,7 @@ class CrateCommandTest {
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("key").getChild("create").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("key").getChild("editor").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("create").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setitems").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("settype").canUse(source));
     }
 
@@ -144,6 +157,7 @@ class CrateCommandTest {
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("key").getChild("create").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("key").getChild("editor").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("create").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setitems").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("settype").canUse(source));
     }
 }

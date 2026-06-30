@@ -147,6 +147,8 @@ public class CrateRewardListMenu extends AbstractCrateMenu {
         p.sendSystemMessage(Component.literal(" §7Tipo: " + reward.getType().name()));
         p.sendSystemMessage(Component.literal(" §7Raridade: " + reward.getRarityId()));
         p.sendSystemMessage(Component.literal(" §7Peso: " + reward.getWeight()));
+        p.sendSystemMessage(Component.literal(" §7Itens: " + reward.getItems().size()));
+        p.sendSystemMessage(Component.literal(" §7Comandos: " + reward.getCommands().size()));
         p.sendSystemMessage(Component.literal(" §7Ativo: " + boolDisplay(reward.isActive())));
         p.sendSystemMessage(Component.literal(" §7Visivel no preview: " + boolDisplay(reward.isVisibleInPreview())));
         p.sendSystemMessage(Component.literal(" §7Milestone only: " + boolDisplay(reward.isMilestoneOnly())));
@@ -165,6 +167,12 @@ public class CrateRewardListMenu extends AbstractCrateMenu {
         p.sendSystemMessage(Component.literal(" §e/crate reward setrarity " + crateKey + " " + reward.getId() + " <rarityId>"));
         p.sendSystemMessage(Component.literal(" §e/crate reward toggle " + crateKey + " " + reward.getId()));
         p.sendSystemMessage(Component.literal(" §e/crate reward seticon " + crateKey + " " + reward.getId()));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setitems " + crateKey + " " + reward.getId()));
+        p.sendSystemMessage(Component.literal(" §e/crate reward additem " + crateKey + " " + reward.getId()));
+        p.sendSystemMessage(Component.literal(" §e/crate reward clearitems " + crateKey + " " + reward.getId()));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setcommands " + crateKey + " " + reward.getId() + " <cmd1 | cmd2>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward addcommand " + crateKey + " " + reward.getId() + " <comando>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward clearcommands " + crateKey + " " + reward.getId()));
         p.sendSystemMessage(Component.literal(" §e/crate reward settype " + crateKey + " " + reward.getId() + " <ITEM|COMMAND>"));
         p.sendSystemMessage(Component.literal(" §e/crate reward setlore " + crateKey + " " + reward.getId() + " <linha1 | linha2>"));
         p.sendSystemMessage(Component.literal(" §e/crate reward setperm " + crateKey + " " + reward.getId() + " <permissao|clear>"));
