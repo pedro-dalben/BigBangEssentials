@@ -39,6 +39,7 @@ public class MsgCommand {
     
     private static void registerCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
+            .requires(MsgCommand::canUseMsgCommand)
             .then(Commands.argument("target", EntityArgument.player())
                 .then(Commands.argument("message", StringArgumentType.greedyString())
                     .executes(ctx -> {
@@ -165,5 +166,12 @@ public class MsgCommand {
                 )
             )
         );
+    }
+
+    private static boolean canUseMsgCommand(CommandSourceStack source) {
+        ServerPlayer sender = source.getPlayer();
+        return sender != null &&
+            com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                sender.getUUID(), "bigbangessentials.chat.msg");
     }
 }

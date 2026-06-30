@@ -22,6 +22,7 @@ public class IgnoreCommand {
     
     private static void registerIgnoreCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
+            .requires(IgnoreCommand::canUseIgnoreCommand)
             .then(Commands.argument("target", EntityArgument.player())
                 .executes(ctx -> {
                     CommandSourceStack source = ctx.getSource();
@@ -91,5 +92,12 @@ public class IgnoreCommand {
                 })
             )
         );
+    }
+
+    private static boolean canUseIgnoreCommand(CommandSourceStack source) {
+        ServerPlayer sender = source.getPlayer();
+        return sender != null &&
+            com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                sender.getUUID(), "bigbangessentials.chat.ignore");
     }
 }

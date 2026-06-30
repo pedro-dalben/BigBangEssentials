@@ -20,6 +20,7 @@ public class UnignoreCommand {
     
     private static void registerUnignoreCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
+            .requires(UnignoreCommand::canUseUnignoreCommand)
             .then(Commands.argument("target", EntityArgument.player())
                 .executes(ctx -> {
                     CommandSourceStack source = ctx.getSource();
@@ -64,5 +65,12 @@ public class UnignoreCommand {
                 })
             )
         );
+    }
+
+    private static boolean canUseUnignoreCommand(CommandSourceStack source) {
+        ServerPlayer sender = source.getPlayer();
+        return sender != null &&
+            com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                sender.getUUID(), "bigbangessentials.chat.ignore");
     }
 }

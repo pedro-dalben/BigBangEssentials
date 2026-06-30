@@ -20,6 +20,7 @@ public class SocialSpyCommand {
     
     private static void registerSocialSpyCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
+            .requires(SocialSpyCommand::canUseSocialSpyCommand)
             .executes(ctx -> {
                 CommandSourceStack source = ctx.getSource();
                 
@@ -68,5 +69,12 @@ public class SocialSpyCommand {
                 return 1;
             })
         );
+    }
+
+    private static boolean canUseSocialSpyCommand(CommandSourceStack source) {
+        ServerPlayer sender = source.getPlayer();
+        return sender != null &&
+            com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                sender.getUUID(), "bigbangessentials.chat.socialspy");
     }
 }

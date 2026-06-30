@@ -22,6 +22,7 @@ public class MsgToggleCommand {
     
     private static void registerMsgToggleCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
+            .requires(MsgToggleCommand::canUseMsgToggleCommand)
             .executes(ctx -> {
                 CommandSourceStack source = ctx.getSource();
                 ServerPlayer sender = source.getPlayer();
@@ -44,5 +45,12 @@ public class MsgToggleCommand {
                 return 1;
             })
         );
+    }
+
+    private static boolean canUseMsgToggleCommand(CommandSourceStack source) {
+        ServerPlayer sender = source.getPlayer();
+        return sender != null &&
+            com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                sender.getUUID(), "bigbangessentials.chat.msgtoggle");
     }
 }

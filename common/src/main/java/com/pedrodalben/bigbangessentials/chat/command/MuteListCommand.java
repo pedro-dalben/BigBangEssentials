@@ -13,6 +13,7 @@ import net.minecraft.commands.Commands;
 public class MuteListCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("mutelist")
+            .requires(MuteListCommand::canUseMuteListCommand)
             .executes(ctx -> {
                 CommandSourceStack source = ctx.getSource();
                 
@@ -46,5 +47,12 @@ public class MuteListCommand {
                 return 1;
             })
         );
+    }
+
+    private static boolean canUseMuteListCommand(CommandSourceStack source) {
+        net.minecraft.server.level.ServerPlayer sender = source.getPlayer();
+        return sender != null &&
+            com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                sender.getUUID(), "bigbangessentials.chat.mute");
     }
 }

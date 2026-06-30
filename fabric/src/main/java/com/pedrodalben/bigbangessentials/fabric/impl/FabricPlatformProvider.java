@@ -3,12 +3,20 @@ package com.pedrodalben.bigbangessentials.fabric.impl;
 import com.pedrodalben.bigbangessentials.fabric.accessor.FabricEntityDataAccessor;
 import com.pedrodalben.bigbangessentials.util.PlatformProvider;
 import net.fabricmc.loader.api.FabricLoader;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.ICancellableEvent;
+import net.neoforged.bus.api.SubscribeEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.Entity;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Collection;
+import java.util.List;
 
 public class FabricPlatformProvider implements PlatformProvider {
     private static MinecraftServer activeServer;
@@ -81,22 +89,60 @@ public class FabricPlatformProvider implements PlatformProvider {
 
     @Override
     public void postEvent(Object event) {
+        List<ListenerInvocation> invocations = new ArrayList<>();
+        int order = 0;
+
         for (Object listener : listeners) {
-            java.lang.reflect.Method[] methods;
+            Method[] methods;
             try {
                 methods = listener.getClass().getDeclaredMethods();
             } catch (Throwable t) {
                 continue;
             }
-            for (java.lang.reflect.Method method : methods) {
-                if (method.getParameterCount() == 1 && method.getParameterTypes()[0].isAssignableFrom(event.getClass())) {
-                    try {
-                        method.setAccessible(true);
-                        method.invoke(listener, event);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+
+            for (Method method : methods) {
+                SubscribeEvent subscribeEvent = method.getAnnotation(SubscribeEvent.class);
+                if (subscribeEvent == null || method.getParameterCount() != 1) {
+                    continue;
                 }
+
+                if (!method.getParameterTypes()[0].isAssignableFrom(event.getClass())) {
+                    continue;
+                }
+
+                invocations.add(new ListenerInvocation(
+                        listener,
+                        method,
+                        subscribeEvent.priority(),
+                        subscribeEvent.receiveCanceled(),
+                        order++
+                ));
+            }
+        }
+
+        invocations.sort(Comparator
+                .comparingInt((ListenerInvocation invocation) -> invocation.priority().ordinal())
+                .thenComparingInt(ListenerInvocation::order));
+
+        for (ListenerInvocation invocation : invocations) {
+            if (event instanceof ICancellableEvent cancellable
+                    && cancellable.isCanceled()
+                    && !invocation.receiveCanceled()) {
+                continue;
+            }
+
+            try {
+                invocation.method().setAccessible(true);
+                invocation.method().invoke(invocation.listener(), event);
+            } catch (InvocationTargetException e) {
+                Throwable cause = e.getCause();
+                if (cause != null) {
+                    cause.printStackTrace();
+                } else {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
@@ -105,4 +151,12 @@ public class FabricPlatformProvider implements PlatformProvider {
     public void registerEventListener(Object listener) {
         listeners.add(listener);
     }
+
+    private record ListenerInvocation(
+            Object listener,
+            Method method,
+            EventPriority priority,
+            boolean receiveCanceled,
+            int order
+    ) {}
 }

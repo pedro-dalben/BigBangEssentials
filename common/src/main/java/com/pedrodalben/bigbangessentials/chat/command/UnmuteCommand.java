@@ -17,6 +17,7 @@ import com.pedrodalben.bigbangessentials.util.MessageUtil;
 public class UnmuteCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("unmute")
+            .requires(UnmuteCommand::canUseUnmuteCommand)
             .then(Commands.argument("target", EntityArgument.player())
                 .executes(ctx -> {
                     CommandSourceStack source = ctx.getSource();
@@ -77,5 +78,12 @@ public class UnmuteCommand {
                 })
             )
         );
+    }
+
+    private static boolean canUseUnmuteCommand(CommandSourceStack source) {
+        ServerPlayer sender = source.getPlayer();
+        return sender != null &&
+            com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                sender.getUUID(), "bigbangessentials.chat.mute");
     }
 }

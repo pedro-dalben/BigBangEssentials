@@ -24,6 +24,7 @@ public class ReplyCommand {
     
     private static void registerCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
+            .requires(ReplyCommand::canUseReplyCommand)
             .then(Commands.argument("message", StringArgumentType.greedyString())
                 .executes(ctx -> {
                     ChatDebugUtil.debug("ReplyCommand - Command executed!");
@@ -126,5 +127,12 @@ public class ReplyCommand {
                 })
             )
         );
+    }
+
+    private static boolean canUseReplyCommand(CommandSourceStack source) {
+        ServerPlayer sender = source.getPlayer();
+        return sender != null &&
+            com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                sender.getUUID(), "bigbangessentials.chat.reply");
     }
 }
