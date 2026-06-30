@@ -58,6 +58,8 @@ As classes de domínio (`CrateDefinition`, `KeyDefinition`, `CrateReward`, `Crat
 /crate reward setperm teste_crate pedra clear
 /crate reward setvisible teste_crate pedra true
 /crate reward setdisplayorder teste_crate pedra 5
+/crate reward duplicate teste_crate pedra pedra_copia "Bloco de Pedra 2"
+/crate reward remove teste_crate pedra_copia
 
 # 5. Verificar preview
 /crate preview teste_crate

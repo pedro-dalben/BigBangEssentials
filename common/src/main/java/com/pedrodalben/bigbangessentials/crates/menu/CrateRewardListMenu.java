@@ -173,6 +173,8 @@ public class CrateRewardListMenu extends AbstractCrateMenu {
         p.sendSystemMessage(Component.literal(" §e/crate reward setcommands " + crateKey + " " + reward.getId() + " <cmd1 | cmd2>"));
         p.sendSystemMessage(Component.literal(" §e/crate reward addcommand " + crateKey + " " + reward.getId() + " <comando>"));
         p.sendSystemMessage(Component.literal(" §e/crate reward clearcommands " + crateKey + " " + reward.getId()));
+        p.sendSystemMessage(Component.literal(" §e/crate reward remove " + crateKey + " " + reward.getId()));
+        p.sendSystemMessage(Component.literal(" §e/crate reward duplicate " + crateKey + " " + reward.getId() + " <novoId> [nome]"));
         p.sendSystemMessage(Component.literal(" §e/crate reward settype " + crateKey + " " + reward.getId() + " <ITEM|COMMAND>"));
         p.sendSystemMessage(Component.literal(" §e/crate reward setlore " + crateKey + " " + reward.getId() + " <linha1 | linha2>"));
         p.sendSystemMessage(Component.literal(" §e/crate reward setperm " + crateKey + " " + reward.getId() + " <permissao|clear>"));

@@ -809,6 +809,31 @@ public class CrateCommand {
                         )
                     )
                 )
+                .then(Commands.literal("remove")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .executes(CrateCommand::removeReward)
+                        )
+                    )
+                )
+                .then(Commands.literal("duplicate")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("newId", StringArgumentType.word())
+                                .executes(CrateCommand::duplicateReward)
+                                .then(Commands.argument("nome", StringArgumentType.greedyString())
+                                    .executes(ctx -> duplicateReward(ctx, StringArgumentType.getString(ctx, "nome")))
+                                )
+                            )
+                        )
+                    )
+                )
                 .then(Commands.literal("settype")
                     .requires(CrateCommand::canManageCrates)
                     .then(Commands.argument("crate", StringArgumentType.word())
@@ -2940,6 +2965,79 @@ public class CrateCommand {
         crateService.updateReward(crate.getKey(), reward);
         source.sendSuccess(() -> Component.literal(
             "\u00a7aComandos da recompensa '" + reward.getId() + "' removidos."), true);
+        return 1;
+    }
+
+    private static int removeReward(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        crateService.removeRewardFromCrate(crate.getKey(), reward.getId());
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aRecompensa '" + reward.getId() + "' removida da crate '" + crate.getKey() + "'."), true);
+        return 1;
+    }
+
+    private static int duplicateReward(CommandContext<CommandSourceStack> context) {
+        return duplicateReward(context, null);
+    }
+
+    private static int duplicateReward(CommandContext<CommandSourceStack> context, String explicitName) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        String newId = normalizeTechnicalId(StringArgumentType.getString(context, "newId"));
+        if (newId == null) {
+            source.sendFailure(Component.literal(CrateMessages.REWARD_INVALID));
+            return 0;
+        }
+        if (crate.getReward(newId) != null) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.REWARD_ALREADY_EXISTS, newId)));
+            return 0;
+        }
+
+        String name = explicitName != null ? normalizeNullableText(explicitName) : reward.getName() + " (Cópia)";
+        if (name.isBlank()) {
+            name = reward.getName() + " (Cópia)";
+        }
+
+        CrateReward duplicate = new CrateReward(newId, crate.getKey(), name, reward.getType(), reward.getRarityId());
+        duplicate.setWeight(reward.getWeight());
+        duplicate.setIcon(reward.getIcon() != null && !reward.getIcon().isEmpty() ? reward.getIcon().copy() : null);
+        duplicate.setLore(reward.getLore());
+        duplicate.setItems(reward.getItems().stream().map(ItemStack::copy).collect(Collectors.toList()));
+        duplicate.setCommands(reward.getCommands());
+        duplicate.setRequiredPermission(reward.getRequiredPermission());
+        duplicate.setBlockingPermissions(reward.getBlockingPermissions());
+        duplicate.setGlobalLimit(reward.getGlobalLimit());
+        duplicate.setPlayerLimit(reward.getPlayerLimit());
+        duplicate.setBroadcast(reward.isBroadcast());
+        duplicate.setBroadcastMessage(reward.getBroadcastMessage());
+        duplicate.setPlayerMessage(reward.getPlayerMessage());
+        duplicate.setActive(reward.isActive());
+        duplicate.setVisibleInPreview(reward.isVisibleInPreview());
+        duplicate.setMilestoneOnly(reward.isMilestoneOnly());
+        duplicate.setDisplayOrder(crate.getRewards().size());
+
+        crateService.addRewardToCrate(crate.getKey(), duplicate);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aRecompensa '" + reward.getId() + "' duplicada como '" + newId + "'."), true);
         return 1;
     }
 

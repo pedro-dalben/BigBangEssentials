@@ -85,6 +85,8 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 | `reward setcommands` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setcommands <crate> <rewardId> <cmd1 \| cmd2>` | Substitui a lista de comandos da recompensa |
 | `reward addcommand` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward addcommand <crate> <rewardId> <comando>` | Adiciona um comando à recompensa |
 | `reward clearcommands` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward clearcommands <crate> <rewardId>` | Remove todos os comandos da recompensa |
+| `reward remove` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward remove <crate> <rewardId>` | Remove uma recompensa da crate |
+| `reward duplicate` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward duplicate <crate> <rewardId> <novoId> [nome]` | Duplica uma recompensa existente |
 | `reward settype` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward settype <crate> <rewardId> <ITEM\|COMMAND>` | Altera o tipo da recompensa |
 | `reward setlore` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setlore <crate> <rewardId> <linha1 \| linha2>` | Define a lore exibida na recompensa |
 | `reward setperm` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setperm <crate> <rewardId> <permissão\|clear>` | Define ou remove a permissão necessária |
@@ -155,6 +157,8 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 /crate reward setperm minha_crate espada_rara bigbangessentials.vip
 /crate reward setvisible minha_crate espada_rara true
 /crate reward setdisplayorder minha_crate espada_rara 5
+/crate reward duplicate minha_crate espada_rara espada_rara2 "Espada Rara 2"
+/crate reward remove minha_crate espada_rara2
 
 # Gerenciar milestone existente
 /crate addmilestone minha_crate marco10 "10 Aberturas" espada_rara 10

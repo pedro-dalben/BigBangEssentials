@@ -2,7 +2,7 @@
 
 Este documento lista o que ainda não está exposto pelo módulo de Crates no estado atual do código.
 
-Atualização: `/crate massopen`, `/crates claim` e a edição avançada de raridades, chaves e milestones já foram registrados. As lacunas abaixo permanecem em aberto.
+Atualização: `/crate massopen`, `/crates claim` e a edição avançada de raridades, chaves, milestones e recompensas já foram registrados. As lacunas abaixo permanecem em aberto.
 
 A análise foi feita comparando:
 - a árvore de comandos em `CrateCommand`
@@ -55,12 +55,11 @@ Hoje o módulo permite adicionar, remover e editar raridades existentes por crat
 
 Não há lacuna aberta neste subtópico no estado atual do módulo.
 
-## 5. CrateReward: edição parcial apenas
+## 5. CrateReward: edição avançada já exposta
 
-Hoje o módulo permite criar, renomear, alterar peso, raridade, ativação, ícone, tipo, lore, permissões, limites, broadcast, visibilidade, milestone-only e ordem de exibição.
+Hoje o módulo permite criar, renomear, alterar peso, raridade, ativação, ícone, tipo, lore, permissões, limites, broadcast, visibilidade, milestone-only, ordem de exibição, remoção e duplicação por comando.
 
-Ainda faltam comandos para:
-- remover/duplicar recompensa por comando
+Não há lacuna aberta neste subtópico no estado atual do módulo.
 
 ## 6. CrateMilestone: edição avançada já exposta
 
@@ -92,7 +91,6 @@ Mas ainda não há comandos ou menus dedicados para editar esses blocos de confi
 ## 9. Ordem sugerida para implementação
 
 Se a ideia for fechar as lacunas por prioridade prática, a sequência mais útil é:
-1. edição de recompensa avançada
-2. configuração visual/preview/animação
-3. edição avançada de requisitos da crate
-4. edição avançada de localizações
+1. configuração visual/preview/animação
+2. edição avançada de requisitos da crate
+3. edição avançada de localizações
