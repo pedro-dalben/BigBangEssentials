@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.pedrodalben.bigbangessentials.economy.managers.EconomyManager;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
+import com.pedrodalben.bigbangessentials.util.PermissionValidator;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
 import java.math.BigDecimal;
@@ -13,9 +14,15 @@ public class BalanceCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
             net.minecraft.commands.Commands.literal("balance")
+                .requires(src -> PermissionValidator.validateAnyPermission(
+                    src,
+                    "bigbangessentials.economy.balance",
+                    "bigbangessentials.economy.balance.others"
+                ).hasPermission())
                 .executes(ctx -> execute(ctx))
                 .then(net.minecraft.commands.Commands.argument("player", StringArgumentType.word())
-                    .requires(src -> src.hasPermission(2) || com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(src.getPlayer() != null ? src.getPlayer().getUUID() : null, "bigbangessentials.economy.balance.others"))
+                    .requires(src -> PermissionValidator.validatePermission(
+                        src, "bigbangessentials.economy.balance.others").hasPermission())
                     .suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
                         ctx.getSource().getServer().getPlayerList().getPlayers().stream()
                             .map(p -> p.getGameProfile().getName()),
@@ -26,10 +33,14 @@ public class BalanceCommand {
         );
         dispatcher.register(
             net.minecraft.commands.Commands.literal("bal")
+                .requires(src -> PermissionValidator.validatePermission(
+                    src, "bigbangessentials.economy.balance").hasPermission())
                 .executes(ctx -> execute(ctx))
         );
         dispatcher.register(
             net.minecraft.commands.Commands.literal("money")
+                .requires(src -> PermissionValidator.validatePermission(
+                    src, "bigbangessentials.economy.balance").hasPermission())
                 .executes(ctx -> execute(ctx))
         );
     }

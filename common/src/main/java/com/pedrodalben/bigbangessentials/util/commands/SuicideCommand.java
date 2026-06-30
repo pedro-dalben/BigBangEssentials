@@ -38,6 +38,7 @@ public class SuicideCommand {
     private static void registerSuicideCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(
             Commands.literal(commandName)
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.suicide").hasPermission())
                 // /suicide confirm - Confirm suicide after initial command
                 .then(Commands.literal("confirm")
                     .executes(ctx -> {

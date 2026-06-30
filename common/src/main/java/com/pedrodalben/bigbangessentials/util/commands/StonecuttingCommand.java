@@ -38,6 +38,7 @@ public class StonecuttingCommand {
     private static void registerStonecuttingCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(
             Commands.literal(commandName)
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.stonecutting").hasPermission())
                 .executes(ctx -> {
                     ServerPlayer player = CommandSourceHelper.requirePlayer(ctx.getSource(), "commands.bigbangessentials.stonecutting.player_only");
                     if (player == null) return 0;

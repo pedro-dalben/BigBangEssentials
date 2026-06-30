@@ -53,6 +53,7 @@ public class RealnameCommand {
         
         dispatcher.register(
             Commands.literal("realname")
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.realname").hasPermission())
                 .then(Commands.argument("player", StringArgumentType.word())
                     .suggests(SUGGEST_PLAYERS_AND_NICKS)
                     .executes(ctx -> {

@@ -35,8 +35,15 @@ public class GetPosCommand {
     private static void registerGetPosCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(
             Commands.literal(commandName)
+                .requires(source -> PermissionValidator.validateAnyPermission(
+                    source,
+                    "bigbangessentials.getpos",
+                    "bigbangessentials.getpos.others"
+                ).hasPermission())
                 // /getpos [player] - Show position info for self or another player (console can use with target)
                 .then(Commands.argument("player", EntityArgument.player())
+                    .requires(source -> PermissionValidator.validatePermission(
+                        source, "bigbangessentials.getpos.others").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
                             PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.getpos.others");

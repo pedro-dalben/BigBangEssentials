@@ -34,8 +34,15 @@ public class CompassCommand {
     private static void registerCompassCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(
             Commands.literal(commandName)
+                .requires(source -> PermissionValidator.validateAnyPermission(
+                    source,
+                    "bigbangessentials.compass",
+                    "bigbangessentials.compass.others"
+                ).hasPermission())
                 // /compass [player] - Show compass info for another player (console can use)
                 .then(Commands.argument("player", EntityArgument.player())
+                    .requires(source -> PermissionValidator.validatePermission(
+                        source, "bigbangessentials.compass.others").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
                             PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.compass.others");

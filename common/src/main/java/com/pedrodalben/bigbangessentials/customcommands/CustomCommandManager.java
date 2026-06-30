@@ -384,6 +384,7 @@ public class CustomCommandManager {
         }
 
         dispatcher.register(Commands.literal(name)
+                .requires(source -> canUseCustomCommand(source, entry))
                 // /<name> <args> - Execute with additional arguments
                 .then(Commands.argument("args", StringArgumentType.greedyString())
                         .executes(ctx -> executeCustomCommand(ctx.getSource(), name,
@@ -397,6 +398,20 @@ public class CustomCommandManager {
 
         LOGGER.debug("Registered custom command in dispatcher: /{} -> /{}",
                 name, entry.getCommand());
+    }
+
+    private boolean canUseCustomCommand(CommandSourceStack source, CustomCommandEntry entry) {
+        ServerPlayer player = source.getPlayer();
+        if (entry.isRequirePlayer()) {
+            return player != null &&
+                PermissionAPI.hasPermission(player.getUUID(), entry.getPermission());
+        }
+
+        if (player == null) {
+            return true;
+        }
+
+        return PermissionAPI.hasPermission(player.getUUID(), entry.getPermission());
     }
 
     /**

@@ -38,6 +38,7 @@ public class ListCommand {
 
         dispatcher.register(
             Commands.literal("list")
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.list").hasPermission())
                 .executes(ctx -> {
                     PermissionValidator.PermissionResult permResult =
                         PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.list");
@@ -51,6 +52,7 @@ public class ListCommand {
 
         dispatcher.register(
             Commands.literal("who")
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.list").hasPermission())
                 .executes(ctx -> {
                     PermissionValidator.PermissionResult permResult =
                         PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.list");
@@ -65,6 +67,7 @@ public class ListCommand {
         // Register /online alias
         dispatcher.register(
             Commands.literal("online")
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.list").hasPermission())
                 .executes(ctx -> {
                     PermissionValidator.PermissionResult permResult =
                         PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.list");

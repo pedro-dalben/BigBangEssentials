@@ -24,8 +24,15 @@ public class PingCommand {
         
         dispatcher.register(
             Commands.literal("ping")
+                .requires(source -> PermissionValidator.validateAnyPermission(
+                    source,
+                    "bigbangessentials.ping",
+                    "bigbangessentials.ping.others"
+                ).hasPermission())
                 // /ping [player] - Show ping for another player (console can use this)
                 .then(Commands.argument("player", EntityArgument.player())
+                    .requires(source -> PermissionValidator.validatePermission(
+                        source, "bigbangessentials.ping.others").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
                             PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.ping.others");

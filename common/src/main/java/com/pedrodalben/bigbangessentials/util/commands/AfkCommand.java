@@ -26,6 +26,8 @@ public class AfkCommand {
     
     private static void registerAfkCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
+            .requires(source -> source.getEntity() instanceof ServerPlayer &&
+                PermissionValidator.validatePermission(source, "bigbangessentials.afk").hasPermission())
             // /afk [message] - Toggle AFK with optional message
             .then(Commands.argument("message", StringArgumentType.greedyString())
                 .executes(ctx -> {

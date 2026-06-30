@@ -60,6 +60,8 @@ public class VipCommand {
         }
 
         dispatcher.register(Commands.literal("setvip")
+            .requires(source ->
+                PermissionValidator.validateAdminPermission(source, "bigbangessentials.permissions.vip.set").hasPermission())
             .then(Commands.argument("player", StringArgumentType.word())
                 .suggests((ctx, builder) -> {
                     try {

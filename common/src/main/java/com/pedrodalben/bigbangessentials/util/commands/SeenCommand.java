@@ -66,6 +66,7 @@ public class SeenCommand {
         
         dispatcher.register(
             Commands.literal("seen")
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.seen").hasPermission())
                 .then(Commands.argument("player", StringArgumentType.word())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 

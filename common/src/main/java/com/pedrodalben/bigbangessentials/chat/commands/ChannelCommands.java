@@ -101,6 +101,14 @@ public class ChannelCommands {
      */
     private static void registerChannelCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName, String channelName, String permission) {
         dispatcher.register(Commands.literal(commandName)
+            .requires(source -> {
+                ServerPlayer player = source.getPlayer();
+                if (player == null) {
+                    return false;
+                }
+                return permission == null || permission.isEmpty() ||
+                    PermissionValidator.validatePermission(source, permission).hasPermission();
+            })
             .then(Commands.argument("message", StringArgumentType.greedyString())
                 .executes(ctx -> executeChannelMessage(ctx, channelName, permission))
             )

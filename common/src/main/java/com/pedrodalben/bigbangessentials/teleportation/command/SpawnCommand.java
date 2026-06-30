@@ -9,6 +9,7 @@ public class SpawnCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
             net.minecraft.commands.Commands.literal("spawn")
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.teleport.spawn").hasPermission())
                 .executes(ctx -> {
                     var source = ctx.getSource();
                     if (!(source.getEntity() instanceof net.minecraft.server.level.ServerPlayer player)) {

@@ -35,6 +35,7 @@ public class NearCommand {
         
         dispatcher.register(
             Commands.literal("near")
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.near").hasPermission())
                 // /near - Show nearby players with default radius (requires player)
                 .executes(ctx -> {
                     ServerPlayer player = CommandSourceHelper.requirePlayer(ctx.getSource(), "commands.bigbangessentials.near.player_only");
@@ -71,6 +72,7 @@ public class NearCommand {
         // Also register /nearby alias
         dispatcher.register(
             Commands.literal("nearby")
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.near").hasPermission())
                 .executes(ctx -> {
                     ServerPlayer player = CommandSourceHelper.requirePlayer(ctx.getSource(), "commands.bigbangessentials.near.player_only");
                     if (player == null) return 0;
@@ -295,5 +297,4 @@ public class NearCommand {
         }
     }
 }
-
 

@@ -39,6 +39,7 @@ public class HelpopCommand {
     private static void registerHelpopCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(
             Commands.literal(commandName)
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.helpop").hasPermission())
                 .then(Commands.argument("message", StringArgumentType.greedyString())
                     .executes(ctx -> {
                         ServerPlayer player = CommandSourceHelper.requirePlayer(ctx.getSource(), "commands.bigbangessentials.helpop.player_only");

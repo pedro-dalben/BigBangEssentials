@@ -40,6 +40,8 @@ public class NickCommand {
 
         com.mojang.brigadier.tree.LiteralCommandNode<CommandSourceStack> nickCommandNode = dispatcher.register(
             Commands.literal("nick")
+                .requires(source -> source.getEntity() instanceof ServerPlayer &&
+                    PermissionValidator.validatePermission(source, "bigbangessentials.nick").hasPermission())
                 .then(Commands.argument("nickname", StringArgumentType.greedyString())
                     .executes(ctx -> {
                         ServerPlayer player = CommandSourceHelper.requirePlayer(ctx.getSource(), "commands.bigbangessentials.nick.player_only");
@@ -101,11 +103,19 @@ public class NickCommand {
                 })
         );
 
-        dispatcher.register(Commands.literal("nickname").redirect(nickCommandNode));
-        dispatcher.register(Commands.literal("changenick").redirect(nickCommandNode));
+        dispatcher.register(Commands.literal("nickname")
+            .requires(source -> source.getEntity() instanceof ServerPlayer &&
+                PermissionValidator.validatePermission(source, "bigbangessentials.nick").hasPermission())
+            .redirect(nickCommandNode));
+        dispatcher.register(Commands.literal("changenick")
+            .requires(source -> source.getEntity() instanceof ServerPlayer &&
+                PermissionValidator.validatePermission(source, "bigbangessentials.nick").hasPermission())
+            .redirect(nickCommandNode));
 
         dispatcher.register(
             Commands.literal("setnick")
+                .requires(source ->
+                    PermissionValidator.validatePermission(source, "bigbangessentials.nick.others").hasPermission())
                 .then(Commands.argument("player", StringArgumentType.word())
                     .then(Commands.argument("nickname", StringArgumentType.greedyString())
                         .executes(ctx -> {

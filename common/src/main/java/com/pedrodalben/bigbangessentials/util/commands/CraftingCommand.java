@@ -38,6 +38,7 @@ public class CraftingCommand {
     private static void registerCraftingCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(
             Commands.literal(commandName)
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.crafting").hasPermission())
                 .executes(ctx -> {
                     ServerPlayer player = CommandSourceHelper.requirePlayer(ctx.getSource(), "commands.bigbangessentials.crafting.player_only");
                     if (player == null) return 0;

@@ -137,6 +137,7 @@ public class MailCommand {
         loadMailData();
 
         dispatcher.register(Commands.literal("mail")
+            .requires(MailCommand::canUseMailRoot)
             // /mail  (no args) — show status
             .executes(ctx -> {
                 ServerPlayer player = CommandSourceHelper.requirePlayer(
@@ -148,6 +149,7 @@ public class MailCommand {
 
             // /mail read [page]
             .then(Commands.literal("read")
+                .requires(source -> hasMailPermission(source, "bigbangessentials.mail"))
                 .executes(ctx -> {
                     ServerPlayer p = CommandSourceHelper.requirePlayer(
                         ctx.getSource(), "commands.bigbangessentials.mail.player_only");
@@ -168,6 +170,7 @@ public class MailCommand {
 
             // /mail send <player> <message>
             .then(Commands.literal("send")
+                .requires(source -> hasMailPermission(source, "bigbangessentials.mail.send"))
                 .then(Commands.argument("player", StringArgumentType.word())
                     .then(Commands.argument("message", StringArgumentType.greedyString())
                         .executes(ctx -> {
@@ -183,6 +186,7 @@ public class MailCommand {
 
             // /mail sendtemp <player> <duration> <message>
             .then(Commands.literal("sendtemp")
+                .requires(source -> hasMailPermission(source, "bigbangessentials.mail.sendtemp"))
                 .then(Commands.argument("player", StringArgumentType.word())
                     .then(Commands.argument("duration", StringArgumentType.word())
                         .then(Commands.argument("message", StringArgumentType.greedyString())
@@ -208,6 +212,7 @@ public class MailCommand {
 
             // /mail sendall <message>  (admin)
             .then(Commands.literal("sendall")
+                .requires(source -> hasMailPermission(source, "bigbangessentials.mail.sendall"))
                 .then(Commands.argument("message", StringArgumentType.greedyString())
                     .executes(ctx -> {
                         if (!checkPerm(ctx.getSource(), "bigbangessentials.mail.sendall")) return 0;
@@ -223,6 +228,7 @@ public class MailCommand {
 
             // /mail sendtempall <duration> <message>  (admin)
             .then(Commands.literal("sendtempall")
+                .requires(source -> hasMailPermission(source, "bigbangessentials.mail.sendtempall"))
                 .then(Commands.argument("duration", StringArgumentType.word())
                     .then(Commands.argument("message", StringArgumentType.greedyString())
                         .executes(ctx -> {
@@ -248,6 +254,7 @@ public class MailCommand {
 
             // /mail delete <id>
             .then(Commands.literal("delete")
+                .requires(source -> hasMailPermission(source, "bigbangessentials.mail"))
                 .then(Commands.argument("id", StringArgumentType.word())
                     .executes(ctx -> {
                         ServerPlayer p = CommandSourceHelper.requirePlayer(
@@ -261,6 +268,9 @@ public class MailCommand {
 
             // /mail clear [index | player [index]]
             .then(Commands.literal("clear")
+                .requires(source -> hasAnyMailPermission(source,
+                    "bigbangessentials.mail.clear",
+                    "bigbangessentials.mail.clear.others"))
                 // /mail clear  — wipe own mailbox
                 .executes(ctx -> {
                     ServerPlayer p = CommandSourceHelper.requirePlayer(
@@ -314,6 +324,7 @@ public class MailCommand {
 
             // /mail clearall  (admin — wipe ALL players' mailboxes)
             .then(Commands.literal("clearall")
+                .requires(source -> hasMailPermission(source, "bigbangessentials.mail.clearall"))
                 .executes(ctx -> {
                     if (!checkPerm(ctx.getSource(), "bigbangessentials.mail.clearall")) return 0;
                     return clearAll(ctx.getSource());
@@ -635,6 +646,26 @@ public class MailCommand {
         return true;
     }
 
+    private static boolean canUseMailRoot(CommandSourceStack source) {
+        return hasAnyMailPermission(source,
+            "bigbangessentials.mail",
+            "bigbangessentials.mail.send",
+            "bigbangessentials.mail.sendtemp",
+            "bigbangessentials.mail.sendall",
+            "bigbangessentials.mail.sendtempall",
+            "bigbangessentials.mail.clear",
+            "bigbangessentials.mail.clear.others",
+            "bigbangessentials.mail.clearall");
+    }
+
+    private static boolean hasMailPermission(CommandSourceStack source, String permission) {
+        return PermissionValidator.validatePermission(source, permission).hasPermission();
+    }
+
+    private static boolean hasAnyMailPermission(CommandSourceStack source, String... permissions) {
+        return PermissionValidator.validateAnyPermission(source, permissions).hasPermission();
+    }
+
     private static boolean isPositiveInt(String s) {
         try { return Integer.parseInt(s) > 0; } catch (NumberFormatException e) { return false; }
     }
@@ -759,4 +790,3 @@ public class MailCommand {
         }
     }
 }
-

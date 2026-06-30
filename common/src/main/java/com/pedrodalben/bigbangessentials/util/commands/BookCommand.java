@@ -35,6 +35,13 @@ public class BookCommand {
         
         dispatcher.register(
             Commands.literal("book")
+                .requires(source -> PermissionValidator.validateAnyPermission(
+                    source,
+                    "bigbangessentials.book",
+                    "bigbangessentials.book.unlock",
+                    "bigbangessentials.book.title",
+                    "bigbangessentials.book.author"
+                ).hasPermission())
                 // /book - Give a writable book (requires player)
                 .executes(ctx -> {
                     ServerPlayer player = CommandSourceHelper.requirePlayer(ctx.getSource(), "commands.bigbangessentials.book.player_only");
@@ -51,6 +58,8 @@ public class BookCommand {
                 })
                 // /book unlock - Convert written book back to writable
                 .then(Commands.literal("unlock")
+                    .requires(source -> PermissionValidator.validatePermission(
+                        source, "bigbangessentials.book.unlock").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
                             PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.book.unlock");
@@ -65,6 +74,8 @@ public class BookCommand {
                 )
                 // /book title <title> - Set title of book in hand
                 .then(Commands.literal("title")
+                    .requires(source -> PermissionValidator.validatePermission(
+                        source, "bigbangessentials.book.title").hasPermission())
                     .then(Commands.argument("title", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
                         .executes(ctx -> {
                             PermissionValidator.PermissionResult permResult = 
@@ -82,6 +93,8 @@ public class BookCommand {
                 )
                 // /book author <author> - Set author of book in hand
                 .then(Commands.literal("author")
+                    .requires(source -> PermissionValidator.validatePermission(
+                        source, "bigbangessentials.book.author").hasPermission())
                     .then(Commands.argument("author", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
                         .executes(ctx -> {
                             PermissionValidator.PermissionResult permResult = 

@@ -36,13 +36,15 @@ public class GemsCommand {
 
         // Build command tree
         var gemsBuilder = net.minecraft.commands.Commands.literal(root)
-            .requires(src -> hasPermission(src, "bigbangessentials.gems.balance"))
+            .requires(GemsCommand::canUseGemsRoot)
             .executes(ctx -> executeBalanceSelf(ctx));
 
         // Subcommand: balance / bal (Self or Other)
         gemsBuilder.then(net.minecraft.commands.Commands.literal("balance")
+            .requires(GemsCommand::canUseGemsBalanceBranch)
             .executes(ctx -> executeBalanceSelf(ctx))
             .then(net.minecraft.commands.Commands.argument("player", StringArgumentType.word())
+                .requires(GemsCommand::canUseGemsBalanceOther)
                 .suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
                     ctx.getSource().getServer().getPlayerList().getPlayers().stream()
                         .map(p -> p.getGameProfile().getName()),
@@ -62,7 +64,8 @@ public class GemsCommand {
         );
 
         // ADMIN SUBCOMMANDS
-        var adminBuilder = net.minecraft.commands.Commands.literal("admin");
+        var adminBuilder = net.minecraft.commands.Commands.literal("admin")
+            .requires(GemsCommand::canUseGemsAdminBranch);
 
         // /gems admin give <player> <amount> <reason>
         adminBuilder.then(net.minecraft.commands.Commands.literal("give")
@@ -220,7 +223,9 @@ public class GemsCommand {
 
         // Register default alias /gemas
         for (String alias : aliases) {
-            dispatcher.register(net.minecraft.commands.Commands.literal(alias).redirect(node));
+            dispatcher.register(net.minecraft.commands.Commands.literal(alias)
+                .requires(GemsCommand::canUseGemsRoot)
+                .redirect(node));
         }
     }
 
@@ -232,6 +237,61 @@ public class GemsCommand {
             return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(src.getPlayer().getUUID(), node);
         }
         return src.hasPermission(2);
+    }
+
+    private static boolean hasAnyPermission(CommandSourceStack src, String... nodes) {
+        for (String node : nodes) {
+            if (hasPermission(src, node)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean canUseGemsRoot(CommandSourceStack src) {
+        return hasAnyPermission(src,
+            "bigbangessentials.gems.balance",
+            "bigbangessentials.gems.balance.others",
+            "bigbangessentials.gems.history",
+            "bigbangessentials.gems.admin.give",
+            "bigbangessentials.gems.admin.take",
+            "bigbangessentials.gems.admin.set",
+            "bigbangessentials.gems.admin.reset",
+            "bigbangessentials.gems.admin.balance",
+            "bigbangessentials.gems.admin.history",
+            "bigbangessentials.gems.admin.reservations",
+            "bigbangessentials.gems.admin.release",
+            "bigbangessentials.gems.admin.verify",
+            "bigbangessentials.gems.admin.repair",
+            "bigbangessentials.gems.admin.reload");
+    }
+
+    private static boolean canUseGemsBalanceBranch(CommandSourceStack src) {
+        return hasAnyPermission(src,
+            "bigbangessentials.gems.balance",
+            "bigbangessentials.gems.balance.others",
+            "bigbangessentials.gems.admin.balance");
+    }
+
+    private static boolean canUseGemsBalanceOther(CommandSourceStack src) {
+        return hasAnyPermission(src,
+            "bigbangessentials.gems.balance.others",
+            "bigbangessentials.gems.admin.balance");
+    }
+
+    private static boolean canUseGemsAdminBranch(CommandSourceStack src) {
+        return hasAnyPermission(src,
+            "bigbangessentials.gems.admin.give",
+            "bigbangessentials.gems.admin.take",
+            "bigbangessentials.gems.admin.set",
+            "bigbangessentials.gems.admin.reset",
+            "bigbangessentials.gems.admin.balance",
+            "bigbangessentials.gems.admin.history",
+            "bigbangessentials.gems.admin.reservations",
+            "bigbangessentials.gems.admin.release",
+            "bigbangessentials.gems.admin.verify",
+            "bigbangessentials.gems.admin.repair",
+            "bigbangessentials.gems.admin.reload");
     }
 
     private static UUID getActorUuid(CommandSourceStack src) {

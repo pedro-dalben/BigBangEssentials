@@ -31,6 +31,7 @@ public class GrindstoneCommand {
         
         dispatcher.register(
             Commands.literal("grindstone")
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.grindstone").hasPermission())
                 .executes(ctx -> {
                     ServerPlayer player = CommandSourceHelper.requirePlayer(ctx.getSource(), "commands.bigbangessentials.grindstone.player_only");
                     if (player == null) return 0;
@@ -79,4 +80,3 @@ public class GrindstoneCommand {
         player.openMenu(menuProvider);
     }
 }
-

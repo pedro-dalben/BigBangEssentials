@@ -75,9 +75,16 @@ public class GamemodeCommand {
                                                   String gameTypeName) {
         dispatcher.register(
             Commands.literal(commandName)
+                .requires(source -> PermissionValidator.validateAnyPermission(
+                    source,
+                    "bigbangessentials.gamemode",
+                    "bigbangessentials.gamemode.others"
+                ).hasPermission())
                 // Branch 1: Change another player's gamemode
                 // Requires: bigbangessentials.gamemode.others permission
                 .then(Commands.argument("player", EntityArgument.player())
+                    .requires(source -> PermissionValidator.validatePermission(
+                        source, "bigbangessentials.gamemode.others").hasPermission())
                     .executes(ctx -> {
                         // Validate permission for changing others' gamemodes
                         PermissionValidator.PermissionResult permResult = 

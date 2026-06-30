@@ -30,6 +30,7 @@ public class SmithingCommand {
         
         dispatcher.register(
             Commands.literal("smithing")
+                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.smithing").hasPermission())
                 .executes(ctx -> {
                     ServerPlayer player = CommandSourceHelper.requirePlayer(ctx.getSource(), "commands.bigbangessentials.smithing.player_only");
                     if (player == null) return 0;
