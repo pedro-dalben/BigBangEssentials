@@ -40,6 +40,7 @@ public class CustomCommandCommands {
      */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("customcmd")
+                .requires(source -> PermissionValidator.validateAdminPermission(source, ADMIN_PERMISSION).hasPermission())
                 // /customcmd create <name> <command>
                 .then(Commands.literal("create")
                         .then(Commands.argument("name", StringArgumentType.word())

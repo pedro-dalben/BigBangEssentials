@@ -46,6 +46,7 @@ public class MotdCommand {
         
         dispatcher.register(
             Commands.literal("motd")
+                .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.motd").hasPermission())
                 // /motd - Show current MOTD
                 .executes(ctx -> {
                     PermissionValidator.PermissionResult permResult = 
@@ -59,6 +60,7 @@ public class MotdCommand {
                 })
                 // /motd reload - Reload MOTD from file
                 .then(Commands.literal("reload")
+                    .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.motd.reload").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
                             PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.motd.reload");
@@ -72,6 +74,7 @@ public class MotdCommand {
                 )
                 // /motd set <message> - Set MOTD
                 .then(Commands.literal("set")
+                    .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.motd.set").hasPermission())
                     .then(Commands.argument("message", StringArgumentType.greedyString())
                         .executes(ctx -> {
                             PermissionValidator.PermissionResult permResult = 
@@ -90,6 +93,7 @@ public class MotdCommand {
                 )
                 // /motd clear - Clear MOTD
                 .then(Commands.literal("clear")
+                    .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.motd.set").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
                             PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.motd.set");
@@ -105,6 +109,7 @@ public class MotdCommand {
                 )
                 // /motd broadcast - Broadcast MOTD to all players
                 .then(Commands.literal("broadcast")
+                    .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.motd.broadcast").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
                             PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.motd.broadcast");

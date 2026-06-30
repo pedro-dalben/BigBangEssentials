@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.mojang.brigadier.tree.CommandNode;
 import com.pedrodalben.bigbangessentials.config.ConfigSplitter;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.commands.CommandSourceStack;
@@ -67,24 +68,6 @@ public class ModRootCommand {
                     LOGGER.debug("/neoe permission check for {}: {}", source.getTextName(), result);
                     return result;
                 })
-                .then(Commands.literal("reload")
-                    .requires(source -> {
-                        boolean result = hasAdminPermission(source);
-                        LOGGER.debug("/neoe reload admin permission for {}: {}", source.getTextName(), result);
-                        return result;
-                    })
-                    .executes(ModRootCommand::reloadConfiguration)
-                )
-                .then(Commands.literal("config")
-                    .requires(source -> {
-                        boolean result = hasAdminPermission(source);
-                        LOGGER.debug("/neoe config admin permission for {}: {}", source.getTextName(), result);
-                        return result;
-                    })
-                    .then(Commands.literal("split")
-                        .executes(ModRootCommand::splitConfiguration)
-                    )
-                )
                 .then(com.pedrodalben.bigbangessentials.database.command.DatabaseCommands.register())
                 .then(Commands.argument("command", StringArgumentType.greedyString())
                     .suggests(ModRootCommand::suggestModCommands)
@@ -99,24 +82,6 @@ public class ModRootCommand {
                     LOGGER.debug("/bigbangessentials permission check for {}: {}", source.getTextName(), result);
                     return result;
                 })
-                .then(Commands.literal("reload")
-                    .requires(source -> {
-                        boolean result = hasAdminPermission(source);
-                        LOGGER.debug("/bigbangessentials reload admin permission for {}: {}", source.getTextName(), result);
-                        return result;
-                    })
-                    .executes(ModRootCommand::reloadConfiguration)
-                )
-                .then(Commands.literal("config")
-                    .requires(source -> {
-                        boolean result = hasAdminPermission(source);
-                        LOGGER.debug("/bigbangessentials config admin permission for {}: {}", source.getTextName(), result);
-                        return result;
-                    })
-                    .then(Commands.literal("split")
-                        .executes(ModRootCommand::splitConfiguration)
-                    )
-                )
                 .then(com.pedrodalben.bigbangessentials.database.command.DatabaseCommands.register())
                 .then(Commands.argument("command", StringArgumentType.greedyString())
                     .suggests(ModRootCommand::suggestModCommands)
@@ -133,8 +98,9 @@ public class ModRootCommand {
      */
     private static boolean hasBaseCommandPermission(CommandSourceStack source) {
         // Console always has access
-        if (!(source.getEntity() instanceof ServerPlayer player)) {
-            return true;
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            return source.hasPermission(2);
         }
         
         // Check for base command permission
@@ -149,8 +115,9 @@ public class ModRootCommand {
      */
     private static boolean hasAdminPermission(CommandSourceStack source) {
         // Console always has access
-        if (!(source.getEntity() instanceof ServerPlayer player)) {
-            return true;
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            return source.hasPermission(2);
         }
         
         // Check for admin permission
@@ -160,13 +127,10 @@ public class ModRootCommand {
     }
 
     private static CompletableFuture<Suggestions> suggestModCommands(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
-        // Get all available commands from the dynamic registry
-        CommandRegistry registry = CommandRegistry.getInstance();
-        List<String> commandNames = registry.getAllCommandNames().stream()
-            .sorted()
-            .collect(Collectors.toList());
-        
-        return net.minecraft.commands.SharedSuggestionProvider.suggest(commandNames, builder);
+        return net.minecraft.commands.SharedSuggestionProvider.suggest(
+            getVisibleModCommands(ctx.getSource()),
+            builder
+        );
     }
     
     private static int reloadConfiguration(CommandContext<CommandSourceStack> ctx) {
@@ -376,10 +340,36 @@ public class ModRootCommand {
 
     private static int dispatchToModCommand(CommandContext<CommandSourceStack> ctx) {
         String commandString = StringArgumentType.getString(ctx, "command");
+        String normalizedCommand = commandString.trim();
         CommandSourceStack source = ctx.getSource();
         
         // Extract just the command name (first word) for validation
-        String commandName = commandString.split("\\s+")[0];
+        String commandName = normalizedCommand.split("\\s+")[0];
+
+        if (normalizedCommand.equalsIgnoreCase("reload")) {
+            if (!hasAdminPermission(source)) {
+                source.sendFailure(MessageUtil.error("commands.bigbangessentials.root.unknown_command", commandName));
+                source.sendFailure(MessageUtil.info("commands.bigbangessentials.root.help_hint"));
+                return 0;
+            }
+            return reloadConfiguration(ctx);
+        }
+
+        if (commandName.equalsIgnoreCase("config")) {
+            if (!hasAdminPermission(source)) {
+                source.sendFailure(MessageUtil.error("commands.bigbangessentials.root.unknown_command", commandName));
+                source.sendFailure(MessageUtil.info("commands.bigbangessentials.root.help_hint"));
+                return 0;
+            }
+
+            if (normalizedCommand.equalsIgnoreCase("config split")) {
+                return splitConfiguration(ctx);
+            }
+
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.root.unknown_command", commandString));
+            source.sendFailure(MessageUtil.info("commands.bigbangessentials.root.help_hint"));
+            return 0;
+        }
         
         // Check if the command is registered in our registry and actually exists
         CommandRegistry registry = CommandRegistry.getInstance();
@@ -434,34 +424,34 @@ public class ModRootCommand {
     private static int showAvailableCommands(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         CommandRegistry registry = CommandRegistry.getInstance();
+        CommandDispatcher<CommandSourceStack> dispatcher = source.getServer().getCommands().getDispatcher();
         
         List<CommandRegistry.CommandInfo> commands = registry.getAllCommandsSorted();
         
-        if (commands.isEmpty()) {
+        // Show different header based on whether this is a player or console
+        boolean isConsole = source.getPlayer() == null;
+        String headerKey = isConsole ? "commands.bigbangessentials.root.help_header_console" : "commands.bigbangessentials.root.help_header";
+        boolean showAdminCommands = hasAdminPermission(source);
+
+        if (commands.isEmpty() && !showAdminCommands) {
             source.sendSuccess(() -> MessageUtil.warning("commands.bigbangessentials.root.no_commands"), false);
             return 1;
         }
         
-        // Show different header based on whether this is a player or console
-        boolean isConsole = !(source.getEntity() instanceof ServerPlayer);
-        String headerKey = isConsole ? "commands.bigbangessentials.root.help_header_console" : "commands.bigbangessentials.root.help_header";
+        // Filter commands using the actual Brigadier tree so new commands inherit their own requires() checks.
+        List<CommandRegistry.CommandInfo> availableCommands = commands.stream()
+            .filter(info -> isVisibleRegisteredCommand(source, dispatcher, info.getName()))
+            .toList();
         
-        source.sendSuccess(() -> MessageUtil.info(headerKey), false);
-        source.sendSuccess(() -> MessageUtil.component("commands.bigbangessentials.root.help_count", commands.size()), false);
-        
-        // Filter commands based on permissions for players
-        List<CommandRegistry.CommandInfo> availableCommands = commands;
-        if (!isConsole) {
-            ServerPlayer player = (ServerPlayer) source.getEntity();
-            availableCommands = commands.stream()
-                .filter(info -> hasCommandPermission(player, info.getName()))
-                .toList();
-        }
-        
-        if (availableCommands.isEmpty()) {
+        int displayedCount = availableCommands.size() + (showAdminCommands ? 2 : 0);
+
+        if (displayedCount == 0) {
             source.sendSuccess(() -> MessageUtil.warning("commands.bigbangessentials.root.no_permission_commands"), false);
             return 1;
         }
+
+        source.sendSuccess(() -> MessageUtil.info(headerKey), false);
+        source.sendSuccess(() -> MessageUtil.component("commands.bigbangessentials.root.help_count", displayedCount), false);
         
         for (CommandRegistry.CommandInfo info : availableCommands) {
             if (info.hasAliases()) {
@@ -472,6 +462,19 @@ public class ModRootCommand {
                 source.sendSuccess(() -> MessageUtil.component("commands.bigbangessentials.root.command_simple", 
                     info.getName(), info.getDescription()), false);
             }
+        }
+
+        if (showAdminCommands) {
+            source.sendSuccess(() -> MessageUtil.component(
+                "commands.bigbangessentials.root.command_simple",
+                "reload",
+                MessageUtil.localize("commands.bigbangessentials.root.reload_entry")
+            ), false);
+            source.sendSuccess(() -> MessageUtil.component(
+                "commands.bigbangessentials.root.command_simple",
+                "config split",
+                MessageUtil.localize("commands.bigbangessentials.root.config_split_entry")
+            ), false);
         }
         
         source.sendSuccess(() -> MessageUtil.info("commands.bigbangessentials.root.help_footer"), false);
@@ -485,60 +488,58 @@ public class ModRootCommand {
      * @param commandName Command name to check
      * @return true if player has permission
      */
-    @SuppressWarnings("IfCanBeSwitch") // Current if-else structure is clearer for grouped permissions
-    private static boolean hasCommandPermission(ServerPlayer player, String commandName) {
-        // For economy commands
-        if (commandName.equals("paytoggle")) {
-            return hasAnyPermission(player.getUUID(),
-                "bigbangessentials.economy.pay.toggle",
-                "bigbangessentials.economy.paytoggle");
-        }
-
-        if (commandName.equals("balance") || commandName.equals("pay") ||
-            commandName.equals("eco") || commandName.equals("baltop")) {
-            return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
-                player.getUUID(), "bigbangessentials.economy." + commandName);
-        }
-        
-        // For chat commands
-        if (commandName.equals("msg") || commandName.equals("reply") || commandName.equals("socialspy") ||
-            commandName.equals("ignore") || commandName.equals("unignore") || commandName.equals("mute") ||
-            commandName.equals("unmute") || commandName.equals("mutelist")) {
-            return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
-                player.getUUID(), "bigbangessentials.chat." + commandName);
-        }
-        
-        // For item commands
-        if (commandName.equals("repair") || commandName.equals("dispose") || commandName.equals("powertool") ||
-            commandName.equals("enchant") || commandName.equals("clearinventory")) {
-            return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
-                player.getUUID(), "bigbangessentials.item." + commandName);
-        }
-        
-        // For permission commands
-        if (commandName.equals("pex") || commandName.equals("permissions")) {
-            return hasAnyPermission(player.getUUID(),
-                "bigbangessentials.permissions.admin",
-                "bigbangessentials.admin.permissions");
-        }
-        
-        // For utility commands
-        if (commandName.equals("afk")) {
-            return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
-                player.getUUID(), "bigbangessentials.afk");
-        }
-        
-        // Default: check generic command permission
-        return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
-            player.getUUID(), "bigbangessentials.use");
-    }
-
     private static boolean hasAnyPermission(UUID uuid, String... permissions) {
         for (String permission : permissions) {
             if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(uuid, permission)) {
                 return true;
             }
         }
+        return false;
+    }
+
+    private static List<String> getVisibleModCommands(CommandSourceStack source) {
+        CommandRegistry registry = CommandRegistry.getInstance();
+        CommandDispatcher<CommandSourceStack> dispatcher = source.getServer().getCommands().getDispatcher();
+
+        List<String> commandNames = registry.getAllCommandNames().stream()
+            .filter(name -> isVisibleRegisteredCommand(source, dispatcher, name))
+            .collect(Collectors.toCollection(java.util.ArrayList::new));
+
+        if (hasAdminPermission(source)) {
+            commandNames.add("reload");
+            commandNames.add("config split");
+        }
+
+        return commandNames.stream()
+            .distinct()
+            .sorted()
+            .collect(Collectors.toList());
+    }
+
+    private static boolean isVisibleRegisteredCommand(
+        CommandSourceStack source,
+        CommandDispatcher<CommandSourceStack> dispatcher,
+        String commandName
+    ) {
+        CommandNode<CommandSourceStack> node = dispatcher.getRoot().getChild(commandName);
+        return node != null && isVisibleCommandNode(node, source);
+    }
+
+    private static boolean isVisibleCommandNode(CommandNode<CommandSourceStack> node, CommandSourceStack source) {
+        if (!node.canUse(source)) {
+            return false;
+        }
+
+        if (node.getCommand() != null || node.getRedirect() != null) {
+            return true;
+        }
+
+        for (CommandNode<CommandSourceStack> child : node.getChildren()) {
+            if (isVisibleCommandNode(child, source)) {
+                return true;
+            }
+        }
+
         return false;
     }
 }

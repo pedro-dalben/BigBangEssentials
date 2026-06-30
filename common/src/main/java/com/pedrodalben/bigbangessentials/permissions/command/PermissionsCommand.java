@@ -53,6 +53,10 @@ public class PermissionsCommand {
 
     private static LiteralArgumentBuilder<CommandSourceStack> createRoot(String root) {
         return Commands.literal(root)
+            .requires(source -> PermissionValidator.validateAdminPermission(
+                source,
+                "bigbangessentials.permissions.admin"
+            ).hasPermission())
             .then(Commands.literal("reload")
                 .executes(ctx -> reload(ctx)))
             .then(Commands.literal("list")
@@ -1357,4 +1361,3 @@ public class PermissionsCommand {
         }
     }
 }
-

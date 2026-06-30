@@ -32,7 +32,7 @@ public class TablistCommand {
         dispatcher.register(Commands.literal("tablist")
             .requires(src -> {
                 var p = src.getPlayer();
-                return p == null || PermissionAPI.hasPermission(p.getUUID(), PERM_ADMIN);
+                return p == null ? src.hasPermission(2) : PermissionAPI.hasPermission(p.getUUID(), PERM_ADMIN);
             })
             .executes(ctx -> {
                 showHelp(ctx.getSource());

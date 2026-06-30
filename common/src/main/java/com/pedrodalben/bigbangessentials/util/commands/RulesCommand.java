@@ -49,6 +49,7 @@ public class RulesCommand {
         
         dispatcher.register(
             Commands.literal("rules")
+                .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.rules").hasPermission())
                 // /rules - Show rules (page 1)
                 .executes(ctx -> {
                     PermissionValidator.PermissionResult permResult = 
@@ -76,6 +77,7 @@ public class RulesCommand {
                 )
                 // /rules add <rule> - Add a new rule (admin)
                 .then(Commands.literal("add")
+                    .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.rules.admin").hasPermission())
                     .then(Commands.argument("rule", StringArgumentType.greedyString())
                         .executes(ctx -> {
                             PermissionValidator.PermissionResult permResult = 
@@ -92,6 +94,7 @@ public class RulesCommand {
                 )
                 // /rules remove <number> - Remove a rule (admin)
                 .then(Commands.literal("remove")
+                    .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.rules.admin").hasPermission())
                     .then(Commands.argument("number", IntegerArgumentType.integer(1))
                         .executes(ctx -> {
                             PermissionValidator.PermissionResult permResult = 
@@ -108,6 +111,7 @@ public class RulesCommand {
                 )
                 // /rules edit <number> <new text> - Edit a rule (admin)
                 .then(Commands.literal("edit")
+                    .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.rules.admin").hasPermission())
                     .then(Commands.argument("number", IntegerArgumentType.integer(1))
                         .then(Commands.argument("newText", StringArgumentType.greedyString())
                             .executes(ctx -> {
@@ -127,6 +131,7 @@ public class RulesCommand {
                 )
                 // /rules insert <number> <rule> - Insert a rule at position (admin)
                 .then(Commands.literal("insert")
+                    .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.rules.admin").hasPermission())
                     .then(Commands.argument("number", IntegerArgumentType.integer(1))
                         .then(Commands.argument("rule", StringArgumentType.greedyString())
                             .executes(ctx -> {
@@ -146,6 +151,7 @@ public class RulesCommand {
                 )
                 // /rules clear - Clear all rules (admin)
                 .then(Commands.literal("clear")
+                    .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.rules.admin").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
                             PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.rules.admin");
@@ -159,6 +165,7 @@ public class RulesCommand {
                 )
                 // /rules reload - Reload rules from file (admin)
                 .then(Commands.literal("reload")
+                    .requires(ctx -> PermissionValidator.validatePermission(ctx, "bigbangessentials.rules.admin").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
                             PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.rules.admin");
