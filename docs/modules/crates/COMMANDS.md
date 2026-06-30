@@ -30,6 +30,14 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 | `rarity setpriority` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate rarity setpriority <crate> <rarityId> <prioridade>` | Ajusta a prioridade de seleção da raridade |
 | `rarity setdisplayorder` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate rarity setdisplayorder <crate> <rarityId> <ordem>` | Ajusta a ordem de exibição da raridade |
 | `addmilestone` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate addmilestone <crate> <id> <nome> <rewardId> <aberturas>` | Adiciona um milestone à crate |
+| `milestone setname` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate milestone setname <crate> <milestoneId> <nome>` | Altera o nome de um milestone |
+| `milestone setdescription` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate milestone setdescription <crate> <milestoneId> <descricao>` | Altera a descrição de um milestone |
+| `milestone setreward` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate milestone setreward <crate> <milestoneId> <rewardId>` | Altera a recompensa vinculada ao milestone |
+| `milestone setopenings` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate milestone setopenings <crate> <milestoneId> <aberturas>` | Altera o número de aberturas exigidas |
+| `milestone toggle` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate milestone toggle <crate> <milestoneId>` | Alterna o estado ativo do milestone |
+| `milestone setrepeatable` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate milestone setrepeatable <crate> <milestoneId> <true|false>` | Define se o milestone é repetível |
+| `milestone setdisplayorder` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate milestone setdisplayorder <crate> <milestoneId> <ordem>` | Ajusta a ordem de exibição do milestone |
+| `milestone remove` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate milestone remove <crate> <milestoneId>` | Remove um milestone da crate |
 | `setlocation` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate setlocation <crate>` | Vincula a crate ao bloco que você está olhando |
 | `editor` | `bigbangessentials.crates.editor` | `/crate editor` | Abre o editor gráfico de crates |
 | `reload` | `bigbangessentials.crates.reload` | `/crate reload` | Recarrega todas as definições do disco |
@@ -147,6 +155,17 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 /crate reward setperm minha_crate espada_rara bigbangessentials.vip
 /crate reward setvisible minha_crate espada_rara true
 /crate reward setdisplayorder minha_crate espada_rara 5
+
+# Gerenciar milestone existente
+/crate addmilestone minha_crate marco10 "10 Aberturas" espada_rara 10
+/crate milestone setname minha_crate marco10 "Marco 10"
+/crate milestone setdescription minha_crate marco10 "Premio por 10 aberturas"
+/crate milestone setreward minha_crate marco10 espada_rara
+/crate milestone setopenings minha_crate marco10 10
+/crate milestone toggle minha_crate marco10
+/crate milestone setrepeatable minha_crate marco10 true
+/crate milestone setdisplayorder minha_crate marco10 1
+/crate milestone remove minha_crate marco10
 
 # Recarregar definições
 /crate reload

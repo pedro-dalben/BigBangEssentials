@@ -98,6 +98,15 @@ class CrateCommandTest {
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("cleargivecommands"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setcrates"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("removecrate"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("setname"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("setdescription"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("setreward"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("setopenings"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("toggle"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("setrepeatable"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("setdisplayorder"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("remove"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("create"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("create"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("edit"));
@@ -142,6 +151,15 @@ class CrateCommandTest {
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("cleargivecommands"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("setcrates"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("removecrate"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("setname"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("setdescription"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("setreward"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("setopenings"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("toggle"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("setrepeatable"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("setdisplayorder"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("remove"));
     }
 
     @Test
@@ -174,6 +192,8 @@ class CrateCommandTest {
         assertTrue(dispatcher.getRoot().getChild("crates").getChild("rarity").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setlore").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crates").getChild("key").getChild("removecrate").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crate").getChild("milestone").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crates").getChild("milestone").canUse(source));
     }
 
     @Test
@@ -203,5 +223,7 @@ class CrateCommandTest {
         assertFalse(dispatcher.getRoot().getChild("crates").getChild("rarity").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setlore").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crates").getChild("key").getChild("removecrate").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crate").getChild("milestone").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crates").getChild("milestone").canUse(source));
     }
 }

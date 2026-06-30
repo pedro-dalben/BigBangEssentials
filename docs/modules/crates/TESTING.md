@@ -166,9 +166,21 @@ As classes de domínio (`CrateDefinition`, `KeyDefinition`, `CrateReward`, `Crat
 # 1. Criar milestone na crate
 /crate addmilestone teste_crate marco10 "10 Aberturas" pedra 10
 
-# 2. Abrir a crate 10 vezes
+# 2. Testar edição avançada do milestone
+/crate milestone setname teste_crate marco10 "Marco 10"
+/crate milestone setdescription teste_crate marco10 "Premio por 10 aberturas"
+/crate milestone setreward teste_crate marco10 pedra
+/crate milestone setopenings teste_crate marco10 10
+/crate milestone toggle teste_crate marco10
+/crate milestone setrepeatable teste_crate marco10 true
+/crate milestone setdisplayorder teste_crate marco10 1
 
-# 3. Verificar se a recompensa do milestone foi entregue
+# 3. Abrir a crate 10 vezes
+
+# 4. Verificar se a recompensa do milestone foi entregue
+
+# 5. Remover milestone
+/crate milestone remove teste_crate marco10
 ```
 
 ### Teste 7: Custo Econômico

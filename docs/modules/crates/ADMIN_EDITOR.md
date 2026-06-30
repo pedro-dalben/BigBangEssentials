@@ -119,6 +119,14 @@ Ao clicar em cada seção, o menu exibe comandos úteis:
 
 # Milestones
 /crate addmilestone <crate> <id> <nome> <rewardId> <aberturas>
+/crate milestone setname <crate> <milestoneId> <nome>
+/crate milestone setdescription <crate> <milestoneId> <descricao>
+/crate milestone setreward <crate> <milestoneId> <rewardId>
+/crate milestone setopenings <crate> <milestoneId> <aberturas>
+/crate milestone toggle <crate> <milestoneId>
+/crate milestone setrepeatable <crate> <milestoneId> <true|false>
+/crate milestone setdisplayorder <crate> <milestoneId> <ordem>
+/crate milestone remove <crate> <milestoneId>
 
 # Locais
 /crate setlocation <crate>

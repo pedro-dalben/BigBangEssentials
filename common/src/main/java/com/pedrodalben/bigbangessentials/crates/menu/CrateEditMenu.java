@@ -154,10 +154,27 @@ public class CrateEditMenu extends AbstractCrateMenu {
             p.sendSystemMessage(Component.literal("§6=== Milestones: " + crate.getDisplayName() + " ==="));
             for (CrateMilestone m : crate.getMilestones()) {
                 String status = m.isActive() ? "§aAtivo" : "§cInativo";
-                p.sendSystemMessage(Component.literal(" §f- " + m.getName() + " §7(" + m.getRequiredOpenings() + " aberturas) " + status));
+                String repeatable = m.isRepeatable() ? "§dRepetivel" : "§7Unico";
+                p.sendSystemMessage(Component.literal(
+                    " §f- " + m.getName() + " §7(" + m.getId() + ") "
+                        + status + " §7Reward: " + m.getRewardId()
+                        + " §7Aberturas: " + m.getRequiredOpenings()
+                        + " §7Tipo: " + repeatable
+                        + " §7Ordem: " + m.getDisplayOrder()));
+                if (m.getDescription() != null && !m.getDescription().isBlank()) {
+                    p.sendSystemMessage(Component.literal("   §7Desc: " + m.getDescription()));
+                }
             }
             p.sendSystemMessage(Component.literal(""));
             p.sendSystemMessage(Component.literal("§e/crate addmilestone " + crateKey + " <id> <nome> <rewardId> <aberturas>"));
+            p.sendSystemMessage(Component.literal("§e/crate milestone setname " + crateKey + " <id> <nome>"));
+            p.sendSystemMessage(Component.literal("§e/crate milestone setdescription " + crateKey + " <id> <descricao>"));
+            p.sendSystemMessage(Component.literal("§e/crate milestone setreward " + crateKey + " <id> <rewardId>"));
+            p.sendSystemMessage(Component.literal("§e/crate milestone setopenings " + crateKey + " <id> <aberturas>"));
+            p.sendSystemMessage(Component.literal("§e/crate milestone toggle " + crateKey + " <id>"));
+            p.sendSystemMessage(Component.literal("§e/crate milestone setrepeatable " + crateKey + " <id> <true|false>"));
+            p.sendSystemMessage(Component.literal("§e/crate milestone setdisplayorder " + crateKey + " <id> <ordem>"));
+            p.sendSystemMessage(Component.literal("§e/crate milestone remove " + crateKey + " <id>"));
         });
 
         setItem(25, createItem(new ItemStack(Items.ARMOR_STAND), "§7§lVisual",

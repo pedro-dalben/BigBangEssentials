@@ -272,6 +272,86 @@ public class CrateCommand {
                     )
                 )
             )
+            .then(Commands.literal("milestone")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.literal("setname")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("milestoneId", StringArgumentType.word())
+                            .then(Commands.argument("nome", StringArgumentType.greedyString())
+                                .executes(CrateCommand::setMilestoneName)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setdescription")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("milestoneId", StringArgumentType.word())
+                            .then(Commands.argument("descricao", StringArgumentType.greedyString())
+                                .executes(CrateCommand::setMilestoneDescription)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setreward")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("milestoneId", StringArgumentType.word())
+                            .then(Commands.argument("rewardId", StringArgumentType.word())
+                                .suggests(REWARD_SUGGESTIONS)
+                                .executes(CrateCommand::setMilestoneReward)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setopenings")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("milestoneId", StringArgumentType.word())
+                            .then(Commands.argument("aberturas", IntegerArgumentType.integer(1))
+                                .executes(CrateCommand::setMilestoneRequiredOpenings)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("toggle")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("milestoneId", StringArgumentType.word())
+                            .executes(CrateCommand::toggleMilestone)
+                        )
+                    )
+                )
+                .then(Commands.literal("setrepeatable")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("milestoneId", StringArgumentType.word())
+                            .then(Commands.argument("ativo", BoolArgumentType.bool())
+                                .executes(CrateCommand::setMilestoneRepeatable)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setdisplayorder")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("milestoneId", StringArgumentType.word())
+                            .then(Commands.argument("ordem", IntegerArgumentType.integer())
+                                .executes(CrateCommand::setMilestoneDisplayOrder)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("remove")
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("milestoneId", StringArgumentType.word())
+                            .executes(CrateCommand::removeMilestone)
+                        )
+                    )
+                )
+            )
             .then(Commands.literal("setlocation")
                 .requires(CrateCommand::canManageCrates)
                 .then(Commands.argument("crate", StringArgumentType.word())
@@ -1714,6 +1794,24 @@ public class CrateCommand {
         return rarity;
     }
 
+    private static CrateMilestone requireMilestone(CommandSourceStack source, CrateDefinition crate, String rawId) {
+        String milestoneId = normalizeTechnicalId(rawId);
+        if (milestoneId == null) {
+            source.sendFailure(Component.literal(CrateMessages.MILESTONE_INVALID));
+            return null;
+        }
+
+        CrateMilestone milestone = crate.getMilestones().stream()
+            .filter(m -> m.getId().equals(milestoneId))
+            .findFirst()
+            .orElse(null);
+        if (milestone == null) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.MILESTONE_NOT_FOUND, milestoneId)));
+            return null;
+        }
+        return milestone;
+    }
+
     private static CrateReward requireReward(CommandSourceStack source, CrateDefinition crate, String rawId) {
         String rewardId = normalizeTechnicalId(rawId);
         if (rewardId == null) {
@@ -2030,6 +2128,177 @@ public class CrateCommand {
         crateService.addMilestoneToCrate(crate.getKey(), milestone);
         source.sendSuccess(() -> Component.literal(
             "\u00a7aMilestone '" + milestoneId + "' adicionado \u00e0 crate '" + crate.getKey() + "'."), true);
+        return 1;
+    }
+
+    private static int setMilestoneName(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateMilestone milestone = requireMilestone(source, crate, StringArgumentType.getString(context, "milestoneId"));
+        if (milestone == null) {
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "nome").trim();
+        if (name.isBlank()) {
+            source.sendFailure(Component.literal("\u00a7cO nome do milestone n\u00e3o pode ficar em branco."));
+            return 0;
+        }
+
+        milestone.setName(name);
+        crateService.updateMilestone(crate.getKey(), milestone);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aNome do milestone '" + milestone.getId() + "' atualizado para '" + name + "'."), true);
+        return 1;
+    }
+
+    private static int setMilestoneDescription(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateMilestone milestone = requireMilestone(source, crate, StringArgumentType.getString(context, "milestoneId"));
+        if (milestone == null) {
+            return 0;
+        }
+
+        String description = normalizeNullableText(StringArgumentType.getString(context, "descricao"));
+        milestone.setDescription(description);
+        crateService.updateMilestone(crate.getKey(), milestone);
+        source.sendSuccess(() -> Component.literal(
+            description.isBlank()
+                ? "\u00a7aDescri\u00e7\u00e3o do milestone '" + milestone.getId() + "' removida."
+                : "\u00a7aDescri\u00e7\u00e3o do milestone '" + milestone.getId() + "' atualizada."), true);
+        return 1;
+    }
+
+    private static int setMilestoneReward(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateMilestone milestone = requireMilestone(source, crate, StringArgumentType.getString(context, "milestoneId"));
+        if (milestone == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        milestone.setRewardId(reward.getId());
+        crateService.updateMilestone(crate.getKey(), milestone);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aRecompensa do milestone '" + milestone.getId() + "' definida para '" + reward.getId() + "'."), true);
+        return 1;
+    }
+
+    private static int setMilestoneRequiredOpenings(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateMilestone milestone = requireMilestone(source, crate, StringArgumentType.getString(context, "milestoneId"));
+        if (milestone == null) {
+            return 0;
+        }
+
+        int openings = IntegerArgumentType.getInteger(context, "aberturas");
+        milestone.setRequiredOpenings(openings);
+        crateService.updateMilestone(crate.getKey(), milestone);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aAberturas requeridas do milestone '" + milestone.getId() + "' definidas para " + openings + "."), true);
+        return 1;
+    }
+
+    private static int toggleMilestone(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateMilestone milestone = requireMilestone(source, crate, StringArgumentType.getString(context, "milestoneId"));
+        if (milestone == null) {
+            return 0;
+        }
+
+        milestone.setActive(!milestone.isActive());
+        crateService.updateMilestone(crate.getKey(), milestone);
+        source.sendSuccess(() -> Component.literal(
+            milestone.isActive()
+                ? "\u00a7aMilestone '" + milestone.getId() + "' ativado."
+                : "\u00a7cMilestone '" + milestone.getId() + "' desativado."), true);
+        return 1;
+    }
+
+    private static int setMilestoneRepeatable(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateMilestone milestone = requireMilestone(source, crate, StringArgumentType.getString(context, "milestoneId"));
+        if (milestone == null) {
+            return 0;
+        }
+
+        boolean repeatable = BoolArgumentType.getBool(context, "ativo");
+        milestone.setRepeatable(repeatable);
+        crateService.updateMilestone(crate.getKey(), milestone);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aFlag repeatable do milestone '" + milestone.getId() + "' "
+                + (repeatable ? "ativada." : "desativada.")), true);
+        return 1;
+    }
+
+    private static int setMilestoneDisplayOrder(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateMilestone milestone = requireMilestone(source, crate, StringArgumentType.getString(context, "milestoneId"));
+        if (milestone == null) {
+            return 0;
+        }
+
+        int displayOrder = IntegerArgumentType.getInteger(context, "ordem");
+        milestone.setDisplayOrder(displayOrder);
+        crateService.updateMilestone(crate.getKey(), milestone);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aOrdem de exibi\u00e7\u00e3o do milestone '" + milestone.getId() + "' definida para " + displayOrder + "."), true);
+        return 1;
+    }
+
+    private static int removeMilestone(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateMilestone milestone = requireMilestone(source, crate, StringArgumentType.getString(context, "milestoneId"));
+        if (milestone == null) {
+            return 0;
+        }
+
+        crateService.removeMilestoneFromCrate(crate.getKey(), milestone.getId());
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aMilestone '" + milestone.getId() + "' removido da crate '" + crate.getKey() + "'."), true);
         return 1;
     }
 
