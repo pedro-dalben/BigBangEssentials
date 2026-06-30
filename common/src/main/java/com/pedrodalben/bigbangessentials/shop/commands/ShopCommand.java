@@ -36,8 +36,10 @@ public class ShopCommand {
             .then(Commands.literal("info")
                 .executes(ctx -> executeInfo(ctx.getSource())))
             .then(Commands.literal("convert")
+                .requires(ShopCommand::canConvertShop)
                 .executes(ctx -> executeConvert(ctx.getSource())))
             .then(Commands.literal("remove")
+                .requires(ShopCommand::canRemoveShop)
                 .then(Commands.argument("x", com.mojang.brigadier.arguments.IntegerArgumentType.integer())
                     .then(Commands.argument("y", com.mojang.brigadier.arguments.IntegerArgumentType.integer())
                         .then(Commands.argument("z", com.mojang.brigadier.arguments.IntegerArgumentType.integer())
@@ -221,6 +223,17 @@ public class ShopCommand {
         return 1;
     }
 
+    private static boolean canConvertShop(CommandSourceStack src) {
+        return src.getEntity() instanceof ServerPlayer sp &&
+            PermissionAPI.hasPermission(sp.getUUID(), "bigbangessentials.shop.create");
+    }
+
+    private static boolean canRemoveShop(CommandSourceStack src) {
+        return src.hasPermission(3) ||
+            (src.getEntity() instanceof ServerPlayer sp &&
+                PermissionAPI.hasPermission(sp.getUUID(), "bigbangessentials.shop.admin.remove"));
+    }
+
     // ── /chestshop (help) ─────────────────────────────────────────────────────
 
     private static int executeHelp(CommandSourceStack src) {
@@ -234,4 +247,3 @@ public class ShopCommand {
         return 1;
     }
 }
-
