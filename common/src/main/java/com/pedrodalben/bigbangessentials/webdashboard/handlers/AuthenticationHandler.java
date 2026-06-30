@@ -319,12 +319,15 @@ public class AuthenticationHandler implements HttpHandler {
 
                     if (adapter instanceof com.pedrodalben.bigbangessentials.permissions.LuckPermsAdapter) {
                         // Try to get UUID from LuckPerms user manager
-                        net.luckperms.api.LuckPerms luckPerms = net.luckperms.api.LuckPermsProvider.get();
-                        net.luckperms.api.model.user.User lpUser = luckPerms.getUserManager().getUser(minecraftUsername);
+                        net.luckperms.api.LuckPerms luckPerms =
+                            ((com.pedrodalben.bigbangessentials.permissions.LuckPermsAdapter) adapter).getApi();
+                        if (luckPerms != null) {
+                            net.luckperms.api.model.user.User lpUser = luckPerms.getUserManager().getUser(minecraftUsername);
 
-                        if (lpUser != null) {
-                            playerUuid = lpUser.getUniqueId();
-                            LOGGER.debug("Found player UUID from LuckPerms: {}", playerUuid);
+                            if (lpUser != null) {
+                                playerUuid = lpUser.getUniqueId();
+                                LOGGER.debug("Found player UUID from LuckPerms: {}", playerUuid);
+                            }
                         }
                     }
                 } catch (Exception e) {

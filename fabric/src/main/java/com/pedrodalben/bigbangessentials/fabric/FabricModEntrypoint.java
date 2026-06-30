@@ -39,6 +39,7 @@ public class FabricModEntrypoint implements ModInitializer {
         // Register Player Join event
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             BigBangEssentials.GameEvents.onPlayerLoggedIn(handler.getPlayer());
+            com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener.onPlayerLoggedIn(handler.getPlayer());
         });
 
         // Register Command Registration event

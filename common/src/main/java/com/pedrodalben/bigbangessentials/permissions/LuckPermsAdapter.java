@@ -27,13 +27,7 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
     public LuckPermsAdapter() {
         this.luckPermsLoaded = Platform.isModLoaded("luckperms");
         if (luckPermsLoaded) {
-            try {
-                this.luckPermsApi = LuckPermsProvider.get();
-                LOGGER.info("LuckPerms API loaded successfully");
-            } catch (Exception e) {
-                LOGGER.error("Failed to load LuckPerms API: {}", e.getMessage(), e);
-                this.luckPermsApi = null;
-            }
+            LOGGER.info("LuckPerms mod detected; API will be resolved lazily");
         } else {
             LOGGER.debug("LuckPerms mod not detected");
         }
@@ -41,19 +35,24 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
 
     @Override
     public boolean hasPermission(UUID uuid, String permission) {
-        if (!luckPermsLoaded || luckPermsApi == null) {
+        if (!luckPermsLoaded) {
             return false;
+        }
+
+        LuckPerms api = resolveApi();
+        if (api == null) {
+            return getDefaultPermissionValue(permission);
         }
 
         try {
             // Try to get cached user first (fast path)
-            User user = luckPermsApi.getUserManager().getUser(uuid);
+            User user = api.getUserManager().getUser(uuid);
 
             // If user not cached, try to load them (for offline permission checks)
             if (user == null) {
                 try {
                     // Load user data asynchronously with timeout
-                    CompletableFuture<User> userFuture = luckPermsApi.getUserManager().loadUser(uuid);
+                    CompletableFuture<User> userFuture = api.getUserManager().loadUser(uuid);
                     user = userFuture.get(USER_LOAD_TIMEOUT, TimeUnit.SECONDS);
                 } catch (Exception e) {
                     LOGGER.debug("Could not load user {} from LuckPerms: {}", uuid, e.getMessage());
@@ -66,8 +65,8 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
                 return getDefaultPermissionValue(permission);
             }
 
-            // Check permission using LuckPerms API
-            QueryOptions queryOptions = QueryOptions.defaultContextualOptions();
+            // Check permission using LuckPerms API with accurate online context
+            QueryOptions queryOptions = getQueryOptions(api, uuid, user);
             Tristate result = user.getCachedData().getPermissionData(queryOptions).checkPermission(permission);
 
             // Tristate: TRUE = has permission, FALSE = explicitly denied, UNDEFINED = not set
@@ -96,17 +95,22 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
 
     @Override
     public boolean hasExactPermission(UUID uuid, String permission) {
-        if (!luckPermsLoaded || luckPermsApi == null || permission == null || permission.isBlank()) {
+        if (!luckPermsLoaded || permission == null || permission.isBlank()) {
+            return false;
+        }
+
+        LuckPerms api = resolveApi();
+        if (api == null) {
             return false;
         }
 
         try {
-            User user = getOrLoadUser(uuid);
+            User user = getOrLoadUser(api, uuid);
             if (user == null) {
                 return false;
             }
 
-            QueryOptions queryOptions = QueryOptions.defaultContextualOptions();
+            QueryOptions queryOptions = getQueryOptions(api, uuid, user);
             Boolean exactValue = user.getCachedData()
                 .getPermissionData(queryOptions)
                 .getPermissionMap()
@@ -119,22 +123,58 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
         }
     }
 
-    private User getOrLoadUser(UUID uuid) throws Exception {
+    private User getOrLoadUser(LuckPerms api, UUID uuid) throws Exception {
         if (uuid == null) {
             return null;
         }
 
-        User user = luckPermsApi.getUserManager().getUser(uuid);
+        User user = api.getUserManager().getUser(uuid);
         if (user != null) {
             return user;
         }
 
-        CompletableFuture<User> userFuture = luckPermsApi.getUserManager().loadUser(uuid);
+        CompletableFuture<User> userFuture = api.getUserManager().loadUser(uuid);
         return userFuture.get(USER_LOAD_TIMEOUT, TimeUnit.SECONDS);
     }
 
     private boolean getDefaultPermissionValue(String permission) {
         return PermissionRegistry.getInstance().getDefaultPermissionValue(permission);
+    }
+
+    private QueryOptions getQueryOptions(LuckPerms api, UUID uuid, User user) {
+        if (api != null && uuid != null) {
+            try {
+                var server = Platform.getCurrentServer();
+                if (server != null) {
+                    var player = server.getPlayerList().getPlayer(uuid);
+                    if (player != null) {
+                        QueryOptions options = api.getContextManager().getQueryOptions(player);
+                        if (options != null) {
+                            return options;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.debug("Could not get query options from player object: {}", e.getMessage());
+            }
+        }
+        try {
+            if (user != null) {
+                QueryOptions options = user.getQueryOptions();
+                if (options != null) {
+                    return options;
+                }
+            }
+        } catch (Exception ignored) {}
+        try {
+            if (api != null) {
+                QueryOptions staticOptions = api.getContextManager().getStaticQueryOptions();
+                if (staticOptions != null) {
+                    return staticOptions;
+                }
+            }
+        } catch (Exception ignored) {}
+        return QueryOptions.defaultContextualOptions();
     }
 
     @Override
@@ -144,20 +184,26 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
         LOGGER.debug("LuckPerms loaded: {}", luckPermsLoaded);
         LOGGER.debug("LuckPerms API: {}", (luckPermsApi != null ? "available" : "NULL"));
 
-        if (!luckPermsLoaded || luckPermsApi == null) {
+        if (!luckPermsLoaded) {
             LOGGER.debug("LuckPerms not available - returning null");
             return null;
         }
 
+        LuckPerms api = resolveApi();
+        if (api == null) {
+            LOGGER.debug("LuckPerms API not ready yet - returning null");
+            return null;
+        }
+
         try {
-            User user = luckPermsApi.getUserManager().getUser(uuid);
+            User user = api.getUserManager().getUser(uuid);
             LOGGER.debug("Cached user: {}", (user != null ? user.getUsername() : "NULL"));
 
             // Try to load if not cached
             if (user == null) {
                 LOGGER.debug("User not cached, attempting to load...");
                 try {
-                    CompletableFuture<User> userFuture = luckPermsApi.getUserManager().loadUser(uuid);
+                    CompletableFuture<User> userFuture = api.getUserManager().loadUser(uuid);
                     user = userFuture.get(USER_LOAD_TIMEOUT, TimeUnit.SECONDS);
                     LOGGER.debug("Loaded user: {}", (user != null ? user.getUsername() : "FAILED"));
                 } catch (Exception e) {
@@ -167,9 +213,21 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
             }
 
             if (user != null) {
-                QueryOptions queryOptions = QueryOptions.defaultContextualOptions();
+                QueryOptions queryOptions = getQueryOptions(api, uuid, user);
                 var metaData = user.getCachedData().getMetaData(queryOptions);
                 String prefix = metaData.getPrefix();
+
+                // Fallback if prefix is not set using standard lp setprefix
+                if (prefix == null || prefix.isBlank()) {
+                    prefix = metaData.getMetaValue("prefix");
+                }
+                if (prefix == null || prefix.isBlank()) {
+                    prefix = metaData.getMetaValue("tag");
+                }
+                if (prefix == null || prefix.isBlank()) {
+                    prefix = metaData.getMetaValue("chat_prefix");
+                }
+
                 String suffix = metaData.getSuffix();
                 String primaryGroup = user.getPrimaryGroup();
 
@@ -208,17 +266,22 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
 
     @Override
     public String getSuffix(UUID uuid) {
-        if (!luckPermsLoaded || luckPermsApi == null) {
+        if (!luckPermsLoaded) {
+            return null;
+        }
+
+        LuckPerms api = resolveApi();
+        if (api == null) {
             return null;
         }
 
         try {
-            User user = luckPermsApi.getUserManager().getUser(uuid);
+            User user = api.getUserManager().getUser(uuid);
 
             // Try to load if not cached
             if (user == null) {
                 try {
-                    CompletableFuture<User> userFuture = luckPermsApi.getUserManager().loadUser(uuid);
+                    CompletableFuture<User> userFuture = api.getUserManager().loadUser(uuid);
                     user = userFuture.get(USER_LOAD_TIMEOUT, TimeUnit.SECONDS);
                 } catch (Exception e) {
                     LOGGER.debug("Could not load user {} from LuckPerms for suffix: {}", uuid, e.getMessage());
@@ -227,9 +290,15 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
             }
 
             if (user != null) {
-                QueryOptions queryOptions = QueryOptions.defaultContextualOptions();
+                QueryOptions queryOptions = getQueryOptions(api, uuid, user);
                 var metaData = user.getCachedData().getMetaData(queryOptions);
                 String suffix = metaData.getSuffix();
+                if (suffix == null || suffix.isBlank()) {
+                    suffix = metaData.getMetaValue("suffix");
+                }
+                if (suffix == null || suffix.isBlank()) {
+                    suffix = metaData.getMetaValue("chat_suffix");
+                }
 
                 LOGGER.debug("LuckPerms suffix for user {}: [{}]", uuid, suffix);
 
@@ -252,16 +321,21 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
 
     @Override
     public String getPrimaryGroup(UUID uuid) {
-        if (!luckPermsLoaded || luckPermsApi == null) {
+        if (!luckPermsLoaded) {
+            return null;
+        }
+
+        LuckPerms api = resolveApi();
+        if (api == null) {
             return null;
         }
 
         try {
-            User user = luckPermsApi.getUserManager().getUser(uuid);
+            User user = api.getUserManager().getUser(uuid);
 
             if (user == null) {
                 try {
-                    CompletableFuture<User> userFuture = luckPermsApi.getUserManager().loadUser(uuid);
+                    CompletableFuture<User> userFuture = api.getUserManager().loadUser(uuid);
                     user = userFuture.get(USER_LOAD_TIMEOUT, TimeUnit.SECONDS);
                 } catch (Exception e) {
                     LOGGER.debug("Could not load user {} from LuckPerms for primary group: {}", uuid, e.getMessage());
@@ -294,10 +368,9 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
     
     @Override
     public boolean isAvailable() {
-        boolean available = luckPermsLoaded && luckPermsApi != null;
-        LOGGER.debug("LuckPerms availability check: loaded={}, api={}, available={}",
-            luckPermsLoaded, (luckPermsApi != null), available);
-        return available;
+        LOGGER.debug("LuckPerms availability check: loaded={}, api={}",
+            luckPermsLoaded, (luckPermsApi != null));
+        return luckPermsLoaded;
     }
 
     /**
@@ -307,8 +380,14 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
      * @param permissions Set of permission nodes to register
      */
     public void registerPermissions(java.util.Set<String> permissions) {
-        if (!luckPermsLoaded || luckPermsApi == null) {
+        if (!luckPermsLoaded) {
             LOGGER.debug("Cannot register permissions - LuckPerms not available");
+            return;
+        }
+
+        LuckPerms api = resolveApi();
+        if (api == null) {
+            LOGGER.debug("Cannot register permissions - LuckPerms API not ready yet");
             return;
         }
 
@@ -339,21 +418,50 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
      * @return LuckPerms API instance or null if not available
      */
     public LuckPerms getApi() {
-        return luckPermsApi;
+        return resolveApi();
     }
 
     public boolean setupPlayerAsVip(UUID uuid, String playerName) {
-        if (!luckPermsLoaded || luckPermsApi == null) return false;
+        if (!luckPermsLoaded) return false;
+        LuckPerms api = resolveApi();
+        if (api == null) return false;
         try {
-            User user = getOrLoadUser(uuid);
+            User user = getOrLoadUser(api, uuid);
             if (user == null) return false;
             user.data().add(net.luckperms.api.node.types.InheritanceNode.builder("vip").build());
-            luckPermsApi.getUserManager().saveUser(user);
+            api.getUserManager().saveUser(user);
             LOGGER.info("Successfully set up VIP for player '{}' ({})", playerName, uuid);
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to set up VIP for player '{}' ({})", playerName, uuid, e);
             return false;
+        }
+    }
+
+    private LuckPerms resolveApi() {
+        if (!luckPermsLoaded) {
+            return null;
+        }
+
+        if (luckPermsApi != null) {
+            return luckPermsApi;
+        }
+
+        synchronized (this) {
+            if (luckPermsApi != null) {
+                return luckPermsApi;
+            }
+
+            try {
+                luckPermsApi = LuckPermsProvider.get();
+                LOGGER.info("LuckPerms API resolved successfully");
+            } catch (IllegalStateException e) {
+                LOGGER.debug("LuckPerms API is not ready yet: {}", e.getMessage());
+            } catch (Exception e) {
+                LOGGER.debug("Failed to resolve LuckPerms API: {}", e.getMessage(), e);
+            }
+
+            return luckPermsApi;
         }
     }
 }

@@ -4,6 +4,7 @@ import java.util.Map;
 
 public interface CrateMetricsRepository {
     long incrementCounter(String metricKey);
+    long addCounter(String metricKey, long amount);
     long getCounter(String metricKey);
     Map<String, Long> getAllCounters();
     void resetAll();

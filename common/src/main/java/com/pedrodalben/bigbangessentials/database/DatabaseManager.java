@@ -180,6 +180,8 @@ public class DatabaseManager {
             }
             dataSource = null;
         }
+
+        metrics.reset();
     }
 
     /**

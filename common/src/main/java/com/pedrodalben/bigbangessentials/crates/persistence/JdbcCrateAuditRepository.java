@@ -31,10 +31,21 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
     private static final String SELECT_BY_SOURCE = "SELECT * FROM " + TABLE + " WHERE source = ? ORDER BY timestamp DESC";
     private static final String SELECT_BY_TIME_RANGE = "SELECT * FROM " + TABLE + " WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC";
     private static final String SELECT_ALL = "SELECT * FROM " + TABLE + " ORDER BY timestamp DESC";
-    private static final String INSERT = "INSERT INTO " + TABLE + " (id, player_uuid, crate_id, key_id, source, reward_ids, reward_names, status, cost_consumed, timestamp, idempotency_key, server_id, error_detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    private static final String UPDATE = "UPDATE " + TABLE + " SET player_uuid = ?, crate_id = ?, key_id = ?, source = ?, reward_ids = ?, reward_names = ?, status = ?, cost_consumed = ?, timestamp = ?, idempotency_key = ?, server_id = ?, error_detail = ? WHERE id = ?";
+    
+    private static final String INSERT = "INSERT INTO " + TABLE + " (" +
+        "id, player_uuid, crate_id, key_id, source, reward_ids, reward_names, status, cost_consumed, timestamp, idempotency_key, server_id, error_detail, " +
+        "request_id, selected_reward_id, selected_reward_name, reward_snapshot, consumed_key_type, consumed_key_snapshot, consumed_key_amount, " +
+        "cost_amount, cost_status, cooldown_status, reward_limit_status, milestone_status, delivery_status, delivery_attempts, updated_at, delivered_at, completed_at, compensation_reason" +
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+    private static final String UPDATE = "UPDATE " + TABLE + " SET " +
+        "player_uuid = ?, crate_id = ?, key_id = ?, source = ?, reward_ids = ?, reward_names = ?, status = ?, cost_consumed = ?, timestamp = ?, idempotency_key = ?, server_id = ?, error_detail = ?, " +
+        "request_id = ?, selected_reward_id = ?, selected_reward_name = ?, reward_snapshot = ?, consumed_key_type = ?, consumed_key_snapshot = ?, consumed_key_amount = ?, " +
+        "cost_amount = ?, cost_status = ?, cooldown_status = ?, reward_limit_status = ?, milestone_status = ?, delivery_status = ?, delivery_attempts = ?, updated_at = ?, delivered_at = ?, completed_at = ?, compensation_reason = ? " +
+        "WHERE id = ?";
+        
     private static final String DELETE = "DELETE FROM " + TABLE + " WHERE id = ?";
-    private static final String DELETE_OLDER_THAN = "DELETE FROM " + TABLE + " WHERE timestamp < ?";
+    private static final String DELETE_OLDER_THAN = "DELETE FROM " + TABLE + " WHERE timestamp < ? AND status IN ('COMPLETED', 'ROLLED_BACK', 'CANCELLED', 'COMPENSATION_FAILED')";
     private static final String COUNT = "SELECT COUNT(*) FROM " + TABLE;
 
     private final Gson gson = new Gson();
@@ -80,15 +91,57 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
         double costConsumed = rs.getDouble("cost_consumed");
         String idempotencyKey = rs.getString("idempotency_key");
         String serverId = rs.getString("server_id");
-
-        CrateOpenAudit audit = new CrateOpenAudit(id, playerId, crateId, keyId, source,
-            rewardIds, rewardNames, status, costConsumed, idempotencyKey, serverId);
         String errorDetail = rs.getString("error_detail");
-        if (errorDetail != null && !errorDetail.isBlank()) {
-            audit.setErrorDetail(errorDetail);
-        }
-        return audit;
+
+        String reqId = getStringOrNull(rs, "request_id");
+        String selRewardId = getStringOrNull(rs, "selected_reward_id");
+        String selRewardName = getStringOrNull(rs, "selected_reward_name");
+        String rewardSnap = getStringOrNull(rs, "reward_snapshot");
+        String keyType = getStringOrDefault(rs, "consumed_key_type", "VIRTUAL");
+        String keySnap = getStringOrNull(rs, "consumed_key_snapshot");
+        int keyAmt = getIntOrDefault(rs, "consumed_key_amount", keyId != null ? 1 : 0);
+        double costAmt = getDoubleOrDefault(rs, "cost_amount", costConsumed);
+        String costStat = getStringOrDefault(rs, "cost_status", costAmt > 0 ? "PAID" : "NONE");
+        String cooldownStat = getStringOrDefault(rs, "cooldown_status", "NONE");
+        String limitStat = getStringOrDefault(rs, "reward_limit_status", "NONE");
+        String milestoneStat = getStringOrDefault(rs, "milestone_status", "NONE");
+        String deliveryStat = getStringOrDefault(rs, "delivery_status", "NONE");
+        int deliveryAtt = getIntOrDefault(rs, "delivery_attempts", 0);
+
+        long createdMs = rs.getLong("timestamp");
+        Instant createdAt = Instant.ofEpochMilli(createdMs);
+        long updMs = getLongOrDefault(rs, "updated_at", createdMs);
+        Instant updatedAt = Instant.ofEpochMilli(updMs);
+        long delMs = getLongOrDefault(rs, "delivered_at", 0);
+        Instant deliveredAt = delMs > 0 ? Instant.ofEpochMilli(delMs) : null;
+        long compMs = getLongOrDefault(rs, "completed_at", 0);
+        Instant completedAt = compMs > 0 ? Instant.ofEpochMilli(compMs) : null;
+        String compReason = getStringOrNull(rs, "compensation_reason");
+
+        if (selRewardId == null && !rewardIds.isEmpty()) selRewardId = rewardIds.get(0);
+        if (selRewardName == null && !rewardNames.isEmpty()) selRewardName = rewardNames.get(0);
+
+        return new CrateOpenAudit(id, playerId, crateId, source, reqId, idempotencyKey, status,
+            selRewardId, selRewardName, rewardSnap, keyId, keyType, keySnap, keyAmt,
+            costAmt, costStat, cooldownStat, limitStat, milestoneStat, deliveryStat,
+            deliveryAtt, createdAt, updatedAt, deliveredAt, completedAt, errorDetail, compReason, serverId);
     };
+
+    private String getStringOrNull(ResultSet rs, String col) {
+        try { return rs.getString(col); } catch (Exception e) { return null; }
+    }
+    private String getStringOrDefault(ResultSet rs, String col, String def) {
+        try { String val = rs.getString(col); return val != null ? val : def; } catch (Exception e) { return def; }
+    }
+    private int getIntOrDefault(ResultSet rs, String col, int def) {
+        try { return rs.getInt(col); } catch (Exception e) { return def; }
+    }
+    private long getLongOrDefault(ResultSet rs, String col, long def) {
+        try { return rs.getLong(col); } catch (Exception e) { return def; }
+    }
+    private double getDoubleOrDefault(ResultSet rs, String col, double def) {
+        try { return rs.getDouble(col); } catch (Exception e) { return def; }
+    }
 
     public JdbcCrateAuditRepository() {
         ensureTable();
@@ -105,7 +158,7 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
                 "source VARCHAR(32) NOT NULL, " +
                 "reward_ids TEXT, " +
                 "reward_names TEXT, " +
-                "status VARCHAR(16) NOT NULL, " +
+                "status VARCHAR(32) NOT NULL, " +
                 "cost_consumed DOUBLE NOT NULL DEFAULT 0.0, " +
                 "timestamp BIGINT NOT NULL, " +
                 "idempotency_key VARCHAR(64), " +
@@ -114,16 +167,43 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
                 "PRIMARY KEY (id)" +
                 ")", null).join();
 
+            addColumnIfNotExists("request_id VARCHAR(64)");
+            addColumnIfNotExists("selected_reward_id VARCHAR(64)");
+            addColumnIfNotExists("selected_reward_name VARCHAR(128)");
+            addColumnIfNotExists("reward_snapshot TEXT");
+            addColumnIfNotExists("consumed_key_type VARCHAR(16)");
+            addColumnIfNotExists("consumed_key_snapshot TEXT");
+            addColumnIfNotExists("consumed_key_amount INT DEFAULT 0");
+            addColumnIfNotExists("cost_amount DOUBLE DEFAULT 0.0");
+            addColumnIfNotExists("cost_status VARCHAR(32)");
+            addColumnIfNotExists("cooldown_status VARCHAR(32)");
+            addColumnIfNotExists("reward_limit_status VARCHAR(32)");
+            addColumnIfNotExists("milestone_status VARCHAR(32)");
+            addColumnIfNotExists("delivery_status VARCHAR(32)");
+            addColumnIfNotExists("delivery_attempts INT DEFAULT 0");
+            addColumnIfNotExists("updated_at BIGINT DEFAULT 0");
+            addColumnIfNotExists("delivered_at BIGINT DEFAULT 0");
+            addColumnIfNotExists("completed_at BIGINT DEFAULT 0");
+            addColumnIfNotExists("compensation_reason TEXT");
+
             getDatabase().executeUpdate("CREATE INDEX IF NOT EXISTS idx_crate_audit_player ON " + TABLE + " (player_uuid)", null).join();
             getDatabase().executeUpdate("CREATE INDEX IF NOT EXISTS idx_crate_audit_crate ON " + TABLE + " (crate_id)", null).join();
-            getDatabase().executeUpdate("CREATE INDEX IF NOT EXISTS idx_crate_audit_idempotency ON " + TABLE + " (idempotency_key)", null).join();
             getDatabase().executeUpdate("CREATE INDEX IF NOT EXISTS idx_crate_audit_timestamp ON " + TABLE + " (timestamp)", null).join();
+            try {
+                getDatabase().executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS uq_crate_audit_idempotency ON " + TABLE + " (idempotency_key)", null).join();
+            } catch (Exception ignored) {}
 
             tableCreated = true;
             LOGGER.debug("Ensured table {} exists with indexes", TABLE);
         } catch (Exception e) {
             LOGGER.error("Failed to create table {}: {}", TABLE, e.getMessage(), e);
         }
+    }
+
+    private void addColumnIfNotExists(String colDef) {
+        try {
+            getDatabase().executeUpdate("ALTER TABLE " + TABLE + " ADD COLUMN " + colDef, null).join();
+        } catch (Exception ignored) {}
     }
 
     @Override
@@ -255,17 +335,35 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
                 stmt -> {
                     stmt.setString(1, audit.getPlayerId().toString());
                     stmt.setString(2, audit.getCrateId());
-                    stmt.setString(3, audit.getKeyId());
-                    stmt.setString(4, audit.getSource().name());
+                    stmt.setString(3, audit.getConsumedKeyId());
+                    stmt.setString(4, audit.getSource() != null ? audit.getSource().name() : GrantSource.OPENING.name());
                     stmt.setString(5, rewardIdsArray.toString());
                     stmt.setString(6, rewardNamesArray.toString());
                     stmt.setString(7, audit.getStatus().name());
-                    stmt.setDouble(8, audit.getCostConsumed());
-                    stmt.setLong(9, audit.getTimestamp().toEpochMilli());
+                    stmt.setDouble(8, audit.getCostAmount());
+                    stmt.setLong(9, audit.getCreatedAt().toEpochMilli());
                     stmt.setString(10, audit.getIdempotencyKey());
                     stmt.setString(11, audit.getServerId());
-                    stmt.setString(12, audit.getErrorDetail());
-                    stmt.setString(13, audit.getId().toString());
+                    stmt.setString(12, audit.getFailureReason());
+                    stmt.setString(13, audit.getRequestId());
+                    stmt.setString(14, audit.getSelectedRewardId());
+                    stmt.setString(15, audit.getSelectedRewardName());
+                    stmt.setString(16, audit.getRewardSnapshot());
+                    stmt.setString(17, audit.getConsumedKeyType());
+                    stmt.setString(18, audit.getConsumedKeySnapshot());
+                    stmt.setInt(19, audit.getConsumedKeyAmount());
+                    stmt.setDouble(20, audit.getCostAmount());
+                    stmt.setString(21, audit.getCostStatus());
+                    stmt.setString(22, audit.getCooldownStatus());
+                    stmt.setString(23, audit.getRewardLimitStatus());
+                    stmt.setString(24, audit.getMilestoneStatus());
+                    stmt.setString(25, audit.getDeliveryStatus());
+                    stmt.setInt(26, audit.getDeliveryAttempts());
+                    stmt.setLong(27, audit.getUpdatedAt() != null ? audit.getUpdatedAt().toEpochMilli() : audit.getCreatedAt().toEpochMilli());
+                    stmt.setLong(28, audit.getDeliveredAt() != null ? audit.getDeliveredAt().toEpochMilli() : 0);
+                    stmt.setLong(29, audit.getCompletedAt() != null ? audit.getCompletedAt().toEpochMilli() : 0);
+                    stmt.setString(30, audit.getCompensationReason());
+                    stmt.setString(31, audit.getId().toString());
                 }
             ).join();
             if (updated == 0) {
@@ -274,16 +372,34 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
                         stmt.setString(1, audit.getId().toString());
                         stmt.setString(2, audit.getPlayerId().toString());
                         stmt.setString(3, audit.getCrateId());
-                        stmt.setString(4, audit.getKeyId());
-                        stmt.setString(5, audit.getSource().name());
+                        stmt.setString(4, audit.getConsumedKeyId());
+                        stmt.setString(5, audit.getSource() != null ? audit.getSource().name() : GrantSource.OPENING.name());
                         stmt.setString(6, rewardIdsArray.toString());
                         stmt.setString(7, rewardNamesArray.toString());
                         stmt.setString(8, audit.getStatus().name());
-                        stmt.setDouble(9, audit.getCostConsumed());
-                        stmt.setLong(10, audit.getTimestamp().toEpochMilli());
+                        stmt.setDouble(9, audit.getCostAmount());
+                        stmt.setLong(10, audit.getCreatedAt().toEpochMilli());
                         stmt.setString(11, audit.getIdempotencyKey());
                         stmt.setString(12, audit.getServerId());
-                        stmt.setString(13, audit.getErrorDetail());
+                        stmt.setString(13, audit.getFailureReason());
+                        stmt.setString(14, audit.getRequestId());
+                        stmt.setString(15, audit.getSelectedRewardId());
+                        stmt.setString(16, audit.getSelectedRewardName());
+                        stmt.setString(17, audit.getRewardSnapshot());
+                        stmt.setString(18, audit.getConsumedKeyType());
+                        stmt.setString(19, audit.getConsumedKeySnapshot());
+                        stmt.setInt(20, audit.getConsumedKeyAmount());
+                        stmt.setDouble(21, audit.getCostAmount());
+                        stmt.setString(22, audit.getCostStatus());
+                        stmt.setString(23, audit.getCooldownStatus());
+                        stmt.setString(24, audit.getRewardLimitStatus());
+                        stmt.setString(25, audit.getMilestoneStatus());
+                        stmt.setString(26, audit.getDeliveryStatus());
+                        stmt.setInt(27, audit.getDeliveryAttempts());
+                        stmt.setLong(28, audit.getUpdatedAt() != null ? audit.getUpdatedAt().toEpochMilli() : audit.getCreatedAt().toEpochMilli());
+                        stmt.setLong(29, audit.getDeliveredAt() != null ? audit.getDeliveredAt().toEpochMilli() : 0);
+                        stmt.setLong(30, audit.getCompletedAt() != null ? audit.getCompletedAt().toEpochMilli() : 0);
+                        stmt.setString(31, audit.getCompensationReason());
                     }
                 ).join();
             }

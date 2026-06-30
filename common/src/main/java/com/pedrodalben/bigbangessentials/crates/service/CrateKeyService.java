@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.crates.service;
 
 import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
+import com.pedrodalben.bigbangessentials.crates.domain.CrateIdempotencyRecord;
 import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
 import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.PlayerVirtualKeyBalance;
@@ -61,15 +62,30 @@ public class CrateKeyService {
     public void giveVirtualKey(UUID playerId, String keyId, int amount, GrantSource source, String idempotencyKey) {
         if (amount <= 0) return;
 
-        if (idempotencyKey != null && !idempotencyKey.isBlank()
-            && !idempotencyRepo.markProcessed(idempotencyKey, "GIVE_KEY")) {
-            LOGGER.debug("Idempotent giveVirtualKey '{}' skipped for key '{}'", idempotencyKey, keyId);
-            return;
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<CrateIdempotencyRecord> recOpt = idempotencyRepo.findRecord(idempotencyKey);
+            if (recOpt.isPresent() && recOpt.get().isSucceeded()) {
+                LOGGER.debug("Idempotent giveVirtualKey '{}' skipped for key '{}'", idempotencyKey, keyId);
+                return;
+            }
+            if (!idempotencyRepo.recordStart(idempotencyKey, "GIVE_KEY", playerId, null, keyId, amount)) {
+                return;
+            }
         }
 
-        virtualKeyRepo.incrementBalance(playerId, keyId, amount);
-        metricsService.recordKeyGiven(keyId, amount, source);
+        try {
+            virtualKeyRepo.incrementBalance(playerId, keyId, amount);
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                idempotencyRepo.recordSuccess(idempotencyKey, "SUCCESS");
+            }
+        } catch (Exception e) {
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                idempotencyRepo.recordFailure(idempotencyKey, e.getMessage());
+            }
+            throw e;
+        }
 
+        metricsService.recordKeyGiven(keyId, amount, source);
         LOGGER.info("Gave {} virtual key(s) '{}' to player {} (source: {}, idempotency: {})",
             amount, keyId, playerId, source, idempotencyKey);
     }
@@ -81,15 +97,43 @@ public class CrateKeyService {
     public boolean takeVirtualKey(UUID playerId, String keyId, int amount, GrantSource source, String idempotencyKey) {
         if (amount <= 0) return false;
 
-        if (idempotencyKey != null && !idempotencyKey.isBlank()
-            && !idempotencyRepo.markProcessed(idempotencyKey, "TAKE_KEY")) {
-            LOGGER.debug("Idempotent takeVirtualKey '{}' skipped for key '{}'", idempotencyKey, keyId);
-            return true;
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<CrateIdempotencyRecord> recOpt = idempotencyRepo.findRecord(idempotencyKey);
+            if (recOpt.isPresent()) {
+                CrateIdempotencyRecord rec = recOpt.get();
+                if (rec.isSucceeded()) {
+                    return "TRUE".equals(rec.result());
+                } else if (rec.isStarted()) {
+                    if (System.currentTimeMillis() - rec.createdAt() < 30000) {
+                        LOGGER.warn("Idempotent takeVirtualKey '{}' currently in progress", idempotencyKey);
+                        return false;
+                    }
+                }
+            }
+            if (!idempotencyRepo.recordStart(idempotencyKey, "TAKE_KEY", playerId, null, keyId, amount)) {
+                return false;
+            }
         }
 
-        boolean decremented = virtualKeyRepo.decrementBalance(playerId, keyId, amount);
+        boolean decremented;
+        try {
+            decremented = virtualKeyRepo.decrementBalance(playerId, keyId, amount);
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                if (decremented) {
+                    idempotencyRepo.recordSuccess(idempotencyKey, "TRUE");
+                } else {
+                    idempotencyRepo.recordFailure(idempotencyKey, "INSUFFICIENT_BALANCE");
+                }
+            }
+        } catch (Exception e) {
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                idempotencyRepo.recordFailure(idempotencyKey, e.getMessage());
+            }
+            throw e;
+        }
+
         if (decremented) {
-            metricsService.recordKeyConsumed(keyId);
+            metricsService.recordKeyConsumed(keyId, amount);
             LOGGER.info("Took {} virtual key(s) '{}' from player {} (source: {})",
                 amount, keyId, playerId, source);
         }
@@ -122,15 +166,21 @@ public class CrateKeyService {
     public void givePhysicalKey(ServerPlayer player, String keyId, int amount, GrantSource source, String idempotencyKey) {
         if (amount <= 0) return;
 
-        if (idempotencyKey != null && !idempotencyKey.isBlank()
-            && !idempotencyRepo.markProcessed(idempotencyKey, "GIVE_PHYSICAL_KEY")) {
-            LOGGER.debug("Idempotent givePhysicalKey '{}' skipped for key '{}'", idempotencyKey, keyId);
-            return;
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<CrateIdempotencyRecord> recOpt = idempotencyRepo.findRecord(idempotencyKey);
+            if (recOpt.isPresent() && recOpt.get().isSucceeded()) {
+                LOGGER.debug("Idempotent givePhysicalKey '{}' skipped for key '{}'", idempotencyKey, keyId);
+                return;
+            }
+            if (!idempotencyRepo.recordStart(idempotencyKey, "GIVE_PHYSICAL_KEY", player.getUUID(), null, keyId, amount)) {
+                return;
+            }
         }
 
         Optional<KeyDefinition> optKey = keyRepo.findById(keyId);
         if (optKey.isEmpty()) {
             LOGGER.warn("Cannot give physical key '{}' - key not defined", keyId);
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) idempotencyRepo.recordFailure(idempotencyKey, "KEY_NOT_DEFINED");
             return;
         }
 
@@ -138,18 +188,25 @@ public class CrateKeyService {
         ItemStack keyItem = keyDef.getPhysicalItem();
         if (keyItem == null || keyItem.isEmpty()) {
             LOGGER.warn("Cannot give physical key '{}' - no physical item defined", keyId);
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) idempotencyRepo.recordFailure(idempotencyKey, "NO_PHYSICAL_ITEM");
             return;
         }
 
-        ItemStack stack = keyItem.copy();
-        stack.setCount(amount);
-        embedKeyMarker(stack, keyId);
-
-        Inventory inventory = player.getInventory();
-        if (!inventory.add(stack)) {
-            player.drop(stack, false);
+        int maxStack = Math.max(1, keyItem.getMaxStackSize());
+        int remaining = amount;
+        while (remaining > 0) {
+            int chunk = Math.min(remaining, maxStack);
+            ItemStack stack = keyItem.copy();
+            stack.setCount(chunk);
+            embedKeyMarker(stack, keyId);
+            CratePendingDeliveryService.getInstance().deliverOrStore(player, stack, source != null ? source.name() : "GIVE");
+            remaining -= chunk;
         }
 
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyRepo.recordSuccess(idempotencyKey, "SUCCESS");
+        }
+        metricsService.recordKeyGiven(keyId, amount, source);
         LOGGER.info("Gave {} physical key(s) '{}' to player {} (source: {})",
             amount, keyId, player.getUUID(), source);
     }
@@ -173,7 +230,7 @@ public class CrateKeyService {
             if (!slot.isEmpty() && keyId.equals(getKeyMarker(slot))) {
                 slot.shrink(1);
                 inv.setItem(i, slot.isEmpty() ? ItemStack.EMPTY : slot);
-                metricsService.recordKeyConsumed(keyId);
+                metricsService.recordKeyConsumed(keyId, 1);
                 return true;
             }
         }
@@ -261,9 +318,15 @@ public class CrateKeyService {
     }
 
     private void embedKeyMarker(ItemStack stack, String keyId) {
+        String sig = computeSignature(keyId);
+        if (sig.isEmpty()) {
+            LOGGER.error("Cannot embed marker for key '{}' due to HMAC secret failure", keyId);
+            return;
+        }
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.EMPTY).copyTag();
         tag.putString(KEY_TAG, keyId);
-        tag.putString(SIG_TAG, computeSignature(keyId));
+        tag.putString(SIG_TAG, sig);
+        tag.putString("bigbangessentials:key_version", "v1");
         stack.set(DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
     }
 
@@ -276,7 +339,10 @@ public class CrateKeyService {
         if (!tag.contains(KEY_TAG) || !tag.contains(SIG_TAG)) return null;
         String keyId = tag.getString(KEY_TAG);
         String sig = tag.getString(SIG_TAG);
-        if (!sig.equals(computeSignature(keyId))) return null;
+        String expected = computeSignature(keyId);
+        if (expected.isEmpty() || !java.security.MessageDigest.isEqual(sig.getBytes(StandardCharsets.UTF_8), expected.getBytes(StandardCharsets.UTF_8))) {
+            return null;
+        }
         return keyId;
     }
 
@@ -285,10 +351,11 @@ public class CrateKeyService {
             String secret = getServerSecret();
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
-            byte[] hmac = mac.doFinal(keyId.getBytes(StandardCharsets.UTF_8));
+            String payload = "v1:physical_key:bigbangessentials:" + keyId;
+            byte[] hmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hmac);
         } catch (Exception e) {
-            LOGGER.error("Failed to compute HMAC signature", e);
+            LOGGER.error("CRITICAL: Failed to compute HMAC signature for key '{}'. Physical key validation disabled.", keyId, e);
             return "";
         }
     }
@@ -307,15 +374,17 @@ public class CrateKeyService {
                     serverSecret = HexFormat.of().formatHex(key);
                     Files.createDirectories(path.getParent());
                     Files.writeString(path, serverSecret);
-                    path.toFile().setReadable(true, true);
-                    path.toFile().setWritable(false, false);
-                    path.toFile().setExecutable(false, false);
+                    try {
+                        path.toFile().setReadable(true, true);
+                        path.toFile().setWritable(false, false);
+                        path.toFile().setExecutable(false, false);
+                    } catch (Exception ignored) {}
                 }
+                return serverSecret;
             } catch (Exception e) {
-                LOGGER.error("Failed to load/generate HMAC secret, using fallback", e);
-                serverSecret = UUID.randomUUID().toString();
+                LOGGER.error("CRITICAL: Failed to load or persist HMAC secret file at {}. Physical keys explicitly disabled.", SECRET_FILE, e);
+                throw new IllegalStateException("HMAC secret unavailable", e);
             }
-            return serverSecret;
         }
     }
 

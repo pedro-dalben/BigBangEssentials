@@ -80,7 +80,14 @@ public class JobsManager {
     }
 
     public PlayerJobsData getPlayerData(UUID uuid) {
-        return playerDataCache.get(uuid);
+        PlayerJobsData data = playerDataCache.get(uuid);
+        if (data == null) {
+            data = new PlayerJobsData(uuid);
+            data.setCurrentCycleStart(calculateCurrentCycleStart());
+            playerDataCache.put(uuid, data);
+            loadPlayerData(uuid);
+        }
+        return data;
     }
 
     public boolean reload() {
@@ -115,7 +122,7 @@ public class JobsManager {
 
     public CompletableFuture<PlayerJobsData> loadPlayerData(UUID uuid) {
         long cycleStart = calculateCurrentCycleStart();
-        PlayerJobsData data = new PlayerJobsData(uuid);
+        PlayerJobsData data = playerDataCache.computeIfAbsent(uuid, PlayerJobsData::new);
         data.setCurrentCycleStart(cycleStart);
 
         return repository.loadPlayerJobs(uuid).thenCompose(jobs -> {

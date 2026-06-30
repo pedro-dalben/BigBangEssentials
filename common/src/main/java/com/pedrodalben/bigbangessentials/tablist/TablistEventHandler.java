@@ -50,10 +50,26 @@ public class TablistEventHandler {
     public static void onPlayerNameFormat(PlayerEvent.NameFormat event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             String nickname = com.pedrodalben.bigbangessentials.util.commands.NickCommand.getNickname(player.getUUID());
-            if (nickname != null && !nickname.isEmpty()) {
-                String formattedNick = nickname.replace("&", "§");
-                event.setDisplayname(com.pedrodalben.bigbangessentials.util.MessageUtil.coloredText(formattedNick));
+            String name = (nickname != null && !nickname.isEmpty()) ? nickname : player.getName().getString();
+
+            String prefix = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getPrefix(player.getUUID());
+            String suffix = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getSuffix(player.getUUID());
+            String tag = com.pedrodalben.bigbangessentials.tags.TagManager.getInstance().getSelectedChatTag(player);
+
+            StringBuilder fullFormat = new StringBuilder();
+            if (prefix != null && !prefix.isEmpty()) {
+                fullFormat.append(prefix);
             }
+            if (tag != null && !tag.isEmpty() && (prefix == null || !prefix.contains(tag.trim()))) {
+                fullFormat.append(tag);
+            }
+            fullFormat.append(name);
+            if (suffix != null && !suffix.isEmpty()) {
+                fullFormat.append(suffix);
+            }
+
+            String formatted = fullFormat.toString().replace("&", "§");
+            event.setDisplayname(com.pedrodalben.bigbangessentials.util.MessageUtil.coloredText(formatted));
         }
     }
 
@@ -61,10 +77,26 @@ public class TablistEventHandler {
     public static void onPlayerTabListNameFormat(PlayerEvent.TabListNameFormat event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             String nickname = com.pedrodalben.bigbangessentials.util.commands.NickCommand.getNickname(player.getUUID());
-            if (nickname != null && !nickname.isEmpty()) {
-                String formattedNick = nickname.replace("&", "§");
-                event.setDisplayName(com.pedrodalben.bigbangessentials.util.MessageUtil.coloredText(formattedNick));
+            String name = (nickname != null && !nickname.isEmpty()) ? nickname : player.getName().getString();
+
+            String prefix = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getPrefix(player.getUUID());
+            String suffix = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.getSuffix(player.getUUID());
+            String tag = com.pedrodalben.bigbangessentials.tags.TagManager.getInstance().getSelectedChatTag(player);
+
+            StringBuilder fullFormat = new StringBuilder();
+            if (prefix != null && !prefix.isEmpty()) {
+                fullFormat.append(prefix);
             }
+            if (tag != null && !tag.isEmpty() && (prefix == null || !prefix.contains(tag.trim()))) {
+                fullFormat.append(tag);
+            }
+            fullFormat.append(name);
+            if (suffix != null && !suffix.isEmpty()) {
+                fullFormat.append(suffix);
+            }
+
+            String formatted = fullFormat.toString().replace("&", "§");
+            event.setDisplayName(com.pedrodalben.bigbangessentials.util.MessageUtil.coloredText(formatted));
         }
     }
 }

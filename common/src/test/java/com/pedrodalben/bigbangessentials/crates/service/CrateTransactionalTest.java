@@ -510,9 +510,9 @@ class CrateTransactionalTest {
     void testRecordKeyGiven_TracksByKeyAndSource() {
         metricsService.recordKeyGiven("key_a", 5, GrantSource.ADMIN_COMMAND);
 
-        assertEquals(1, metricsService.getAllMetrics().getOrDefault("keys_given", 0L));
-        assertEquals(1, metricsService.getAllMetrics().getOrDefault("keys_given:key_a", 0L));
-        assertEquals(1, metricsService.getAllMetrics().getOrDefault("keys_given:admin_command", 0L));
+        assertEquals(5, metricsService.getAllMetrics().getOrDefault("keys_given", 0L));
+        assertEquals(5, metricsService.getAllMetrics().getOrDefault("keys_given:key_a", 0L));
+        assertEquals(5, metricsService.getAllMetrics().getOrDefault("keys_given:admin_command", 0L));
     }
 
     @Test
@@ -541,8 +541,8 @@ class CrateTransactionalTest {
     void testRecordCostSpent() {
         metricsService.recordCostSpent("vip_crate", 100.0);
 
-        assertEquals(1, metricsService.getAllMetrics().getOrDefault("total_revenue", 0L));
-        assertEquals(1, metricsService.getAllMetrics().getOrDefault("revenue:vip_crate", 0L));
+        assertEquals(10000, metricsService.getAllMetrics().getOrDefault("total_revenue", 0L));
+        assertEquals(10000, metricsService.getAllMetrics().getOrDefault("revenue:vip_crate", 0L));
     }
 
     @Test
@@ -841,5 +841,27 @@ class CrateTransactionalTest {
             "Keys consumed should be at least 2 (from openings)");
         assertTrue(all.getOrDefault("rewards_delivered", 0L) >= 2L,
             "Rewards delivered should be at least 2");
+    }
+
+    @Test
+    void testAuditService_FindByIdAndReconciliation() {
+        UUID playerId = UUID.randomUUID();
+        ServerPlayer player = mockPlayer(playerId);
+        String crateKey = "rec_" + UUID.randomUUID().toString().substring(0, 8);
+        CrateDefinition crate = crateRequiringKey(crateKey, "rec_r");
+        keyService.giveVirtualKey(playerId, "test_key", 1, GrantSource.ADMIN_COMMAND, null);
+
+        var result = openingService.openCrate(player, crate, GrantSource.OPENING, "idem_rec_1");
+        assertTrue(result.success());
+        assertNotNull(result.audit());
+
+        UUID auditId = result.audit().getId();
+        var foundById = auditService.findById(auditId);
+        assertTrue(foundById.isPresent());
+        assertEquals("idem_rec_1", foundById.get().getIdempotencyKey());
+
+        var foundByIdem = auditService.findByIdempotencyKey("idem_rec_1");
+        assertTrue(foundByIdem.isPresent());
+        assertEquals(auditId, foundByIdem.get().getId());
     }
 }

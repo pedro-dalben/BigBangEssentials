@@ -58,30 +58,49 @@ public class ToggleJobMenuAction implements MenuActionHandler {
         if (isActive) {
             // Leave job
             JobCommandService.LeaveResult leaveResult = JobCommandService.getInstance().leaveJob(player, job.id);
-            if (leaveResult == JobCommandService.LeaveResult.SUCCESS) {
-                player.sendSystemMessage(Component.literal("§aVocê saiu com sucesso do trabalho: §l" + job.displayName));
-                MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("jobs.all");
-                MenuSystem.getInstance().getMenuService().refreshCurrentPage(player);
-                return CompletableFuture.completedFuture(ActionExecutionResult.success());
-            } else {
-                player.sendSystemMessage(Component.literal("§cNão foi possível sair do trabalho: " + leaveResult.name()));
-                return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+            switch (leaveResult) {
+                case SUCCESS:
+                    player.sendSystemMessage(Component.literal("§aVocê saiu com sucesso do trabalho: §l" + job.displayName));
+                    MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("jobs.all");
+                    MenuSystem.getInstance().getMenuService().refreshCurrentPage(player);
+                    return CompletableFuture.completedFuture(ActionExecutionResult.success());
+                case NOT_FOUND:
+                    player.sendSystemMessage(Component.literal("§cTrabalho '" + job.displayName + "' não encontrado."));
+                    return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+                case NOT_ACTIVE:
+                    player.sendSystemMessage(Component.literal("§cVocê não está ativo neste trabalho."));
+                    return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+                case CANCELLED:
+                default:
+                    player.sendSystemMessage(Component.literal("§cA saída do trabalho foi impedida por outro sistema."));
+                    return CompletableFuture.completedFuture(ActionExecutionResult.denied());
             }
         } else {
             // Join job
             JobCommandService.JoinResult joinResult = JobCommandService.getInstance().joinJob(player, job.id);
-            if (joinResult == JobCommandService.JoinResult.SUCCESS) {
-                player.sendSystemMessage(Component.literal("§aVocê entrou com sucesso no trabalho: §l" + job.displayName));
-                MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("jobs.all");
-                MenuSystem.getInstance().getMenuService().refreshCurrentPage(player);
-                return CompletableFuture.completedFuture(ActionExecutionResult.success());
-            } else if (joinResult == JobCommandService.JoinResult.LIMIT_REACHED) {
-                int maxJobs = JobsManager.getInstance().getMaxActiveJobsForPlayer(player);
-                player.sendSystemMessage(Component.literal("§cLimite de trabalhos ativos atingido (" + maxJobs + "). Saia de um para poder entrar em outro."));
-                return CompletableFuture.completedFuture(ActionExecutionResult.denied());
-            } else {
-                player.sendSystemMessage(Component.literal("§cNão foi possível entrar no trabalho: " + joinResult.name()));
-                return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+            switch (joinResult) {
+                case SUCCESS:
+                    player.sendSystemMessage(Component.literal("§aVocê entrou com sucesso no trabalho: §l" + job.displayName));
+                    MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("jobs.all");
+                    MenuSystem.getInstance().getMenuService().refreshCurrentPage(player);
+                    return CompletableFuture.completedFuture(ActionExecutionResult.success());
+                case NOT_FOUND:
+                    player.sendSystemMessage(Component.literal("§cTrabalho '" + job.displayName + "' não encontrado ou desabilitado."));
+                    return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+                case NO_PERMISSION:
+                    player.sendSystemMessage(Component.literal("§cVocê não possui permissão para entrar neste trabalho."));
+                    return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+                case ALREADY_ACTIVE:
+                    player.sendSystemMessage(Component.literal("§cVocê já está ativo neste trabalho."));
+                    return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+                case LIMIT_REACHED:
+                    int maxJobs = JobsManager.getInstance().getMaxActiveJobsForPlayer(player);
+                    player.sendSystemMessage(Component.literal("§cLimite de trabalhos ativos atingido (" + maxJobs + "). Saia de um para poder entrar em outro."));
+                    return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+                case CANCELLED:
+                default:
+                    player.sendSystemMessage(Component.literal("§cA entrada no trabalho foi impedida por outro sistema."));
+                    return CompletableFuture.completedFuture(ActionExecutionResult.denied());
             }
         }
     }

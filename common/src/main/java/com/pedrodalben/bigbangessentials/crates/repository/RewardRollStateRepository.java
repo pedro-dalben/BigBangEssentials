@@ -17,4 +17,9 @@ public interface RewardRollStateRepository {
     int incrementGlobalCount(String rewardId);
     int incrementPlayerCount(String rewardId, UUID playerId);
     int getPlayerCount(String rewardId, UUID playerId);
+
+    boolean reserveGlobalLimit(String rewardId, int globalLimit);
+    boolean reservePlayerLimit(String rewardId, UUID playerId, int playerLimit);
+    void releaseGlobalLimit(String rewardId);
+    void releasePlayerLimit(String rewardId, UUID playerId);
 }

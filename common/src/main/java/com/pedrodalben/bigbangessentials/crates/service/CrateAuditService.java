@@ -90,6 +90,13 @@ public class CrateAuditService {
     }
 
     /**
+     * Find an audit by ID.
+     */
+    public Optional<CrateOpenAudit> findById(UUID id) {
+        return auditRepo.findById(id);
+    }
+
+    /**
      * Find an audit by idempotency key.
      */
     public Optional<CrateOpenAudit> findByIdempotencyKey(String idempotencyKey) {

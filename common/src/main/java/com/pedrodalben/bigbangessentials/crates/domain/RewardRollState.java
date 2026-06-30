@@ -12,9 +12,13 @@ public class RewardRollState {
     private java.util.Map<UUID, Integer> playerCounts;
 
     public RewardRollState(String rewardId) {
+        this(rewardId, 0, new java.util.HashMap<>());
+    }
+
+    public RewardRollState(String rewardId, int globalCount, java.util.Map<UUID, Integer> playerCounts) {
         this.rewardId = Objects.requireNonNull(rewardId, "rewardId cannot be null");
-        this.globalCount = 0;
-        this.playerCounts = new java.util.HashMap<>();
+        this.globalCount = Math.max(0, globalCount);
+        this.playerCounts = playerCounts != null ? new java.util.HashMap<>(playerCounts) : new java.util.HashMap<>();
     }
 
     public String getRewardId() { return rewardId; }

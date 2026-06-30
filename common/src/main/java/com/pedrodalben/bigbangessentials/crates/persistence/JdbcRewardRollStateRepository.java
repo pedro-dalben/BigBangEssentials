@@ -30,8 +30,8 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
     private static final String DELETE = "DELETE FROM " + TABLE + " WHERE reward_id = ?";
     private static final String COUNT = "SELECT COUNT(*) FROM " + TABLE;
 
-    private static final String INCREMENT_GLOBAL = "INSERT INTO " + TABLE + " (reward_id, global_count) "
-        + "VALUES (?, 1) "
+    private static final String INCREMENT_GLOBAL = "INSERT INTO " + TABLE + " (reward_id, global_count, player_counts) "
+        + "VALUES (?, 1, '{}') "
         + "ON CONFLICT(reward_id) DO UPDATE SET global_count = global_count + 1";
 
     private static final String SELECT_GLOBAL_COUNT = "SELECT global_count FROM " + TABLE + " WHERE reward_id = ?";
@@ -41,6 +41,14 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
         + "ON CONFLICT(reward_id, player_uuid) DO UPDATE SET count = count + 1";
 
     private static final String SELECT_PLAYER_COUNT = "SELECT count FROM " + PLAYER_TABLE + " WHERE reward_id = ? AND player_uuid = ?";
+
+    private static final String INIT_GLOBAL = "INSERT OR IGNORE INTO " + TABLE + " (reward_id, global_count, player_counts) VALUES (?, 0, '{}')";
+    private static final String RESERVE_GLOBAL = "UPDATE " + TABLE + " SET global_count = global_count + 1 WHERE reward_id = ? AND global_count < ?";
+    private static final String RELEASE_GLOBAL = "UPDATE " + TABLE + " SET global_count = CASE WHEN global_count > 0 THEN global_count - 1 ELSE 0 END WHERE reward_id = ?";
+
+    private static final String INIT_PLAYER = "INSERT OR IGNORE INTO " + PLAYER_TABLE + " (reward_id, player_uuid, count) VALUES (?, ?, 0)";
+    private static final String RESERVE_PLAYER = "UPDATE " + PLAYER_TABLE + " SET count = count + 1 WHERE reward_id = ? AND player_uuid = ? AND count < ?";
+    private static final String RELEASE_PLAYER = "UPDATE " + PLAYER_TABLE + " SET count = CASE WHEN count > 0 THEN count - 1 ELSE 0 END WHERE reward_id = ? AND player_uuid = ?";
 
     private final Gson gson = new Gson();
     private final Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
@@ -64,20 +72,37 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
             getDatabase().executeUpdate("CREATE TABLE IF NOT EXISTS " + TABLE + " (" +
                 "reward_id VARCHAR(64) NOT NULL, " +
                 "global_count INT NOT NULL DEFAULT 0, " +
-                "player_counts TEXT NOT NULL DEFAULT '{}', " +
+                "player_counts TEXT, " +
                 "PRIMARY KEY (reward_id)" +
                 ")", null).join();
+
             getDatabase().executeUpdate("CREATE TABLE IF NOT EXISTS " + PLAYER_TABLE + " (" +
                 "reward_id VARCHAR(64) NOT NULL, " +
                 "player_uuid VARCHAR(36) NOT NULL, " +
                 "count INT NOT NULL DEFAULT 0, " +
                 "PRIMARY KEY (reward_id, player_uuid)" +
                 ")", null).join();
+
             tableCreated = true;
-            LOGGER.debug("Ensured tables {} and {} exist", TABLE, PLAYER_TABLE);
+            LOGGER.debug("Ensured tables {}, {} exist", TABLE, PLAYER_TABLE);
         } catch (Exception e) {
-            LOGGER.error("Failed to create tables: {}", e.getMessage(), e);
+            LOGGER.error("Failed to create tables {}, {}: {}", TABLE, PLAYER_TABLE, e.getMessage(), e);
         }
+    }
+
+    private RewardRollState constructState(String rewardId, int globalCount, String playerCountsJson) {
+        Map<UUID, Integer> map = new HashMap<>();
+        try {
+            if (playerCountsJson != null && !playerCountsJson.isBlank()) {
+                Map<String, Integer> raw = gson.fromJson(playerCountsJson, mapType);
+                if (raw != null) {
+                    raw.forEach((k, v) -> map.put(UUID.fromString(k), v));
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to parse player_counts JSON for reward {}: {}", rewardId, e.getMessage());
+        }
+        return new RewardRollState(rewardId, globalCount, map);
     }
 
     @Override
@@ -88,48 +113,15 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
                 MAPPER
             ).join();
         } catch (Exception e) {
-            LOGGER.error("Failed to find reward roll state: {}", e.getMessage(), e);
+            LOGGER.error("Failed to find reward roll state by ID {}: {}", rewardId, e.getMessage(), e);
             return Optional.empty();
         }
-    }
-
-    private RewardRollState constructState(String rewardId, int globalCount, String playerCountsJson) {
-        RewardRollState state = new RewardRollState(rewardId);
-
-        Map<UUID, Integer> playerCounts = new HashMap<>();
-        if (playerCountsJson != null && !playerCountsJson.isBlank() && !playerCountsJson.equals("{}")) {
-            try {
-                Map<String, Integer> raw = gson.fromJson(playerCountsJson, mapType);
-                if (raw != null) {
-                    for (Map.Entry<String, Integer> entry : raw.entrySet()) {
-                        try {
-                            playerCounts.put(UUID.fromString(entry.getKey()), entry.getValue());
-                        } catch (IllegalArgumentException e) {
-                            LOGGER.warn("Invalid UUID in player_counts for reward {}: {}", rewardId, entry.getKey());
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                LOGGER.error("Failed to parse player_counts JSON for reward {}: {}", rewardId, e.getMessage());
-            }
-        }
-
-        state.setInitialCounts(globalCount, playerCounts);
-        return state;
     }
 
     @Override
     public List<RewardRollState> findAll() {
         try {
-            List<RewardRollState> results = getDatabase().queryList(SELECT_ALL, null,
-                (rs) -> {
-                    String id = rs.getString("reward_id");
-                    int globalCount = rs.getInt("global_count");
-                    String playerCountsJson = rs.getString("player_counts");
-                    return constructState(id, globalCount, playerCountsJson);
-                }
-            ).join();
-            return results;
+            return getDatabase().queryList(SELECT_ALL, null, MAPPER).join();
         } catch (Exception e) {
             LOGGER.error("Failed to find all reward roll states: {}", e.getMessage(), e);
             return List.of();
@@ -139,39 +131,37 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
     @Override
     public RewardRollState save(RewardRollState state) {
         try {
-            String playerCountsJson = gson.toJson(state.getPlayerCounts());
+            Map<String, Integer> raw = new HashMap<>();
+            state.getPlayerCounts().forEach((k, v) -> raw.put(k.toString(), v));
+            String json = gson.toJson(raw);
+
             int updated = getDatabase().executeUpdate(UPDATE,
                 stmt -> {
                     stmt.setInt(1, state.getGlobalCount());
-                    stmt.setString(2, playerCountsJson);
+                    stmt.setString(2, json);
                     stmt.setString(3, state.getRewardId());
                 }
             ).join();
+
             if (updated == 0) {
                 getDatabase().executeUpdate(INSERT,
                     stmt -> {
                         stmt.setString(1, state.getRewardId());
                         stmt.setInt(2, state.getGlobalCount());
-                        stmt.setString(3, playerCountsJson);
+                        stmt.setString(3, json);
                     }
                 ).join();
             }
             return state;
         } catch (Exception e) {
-            LOGGER.error("Failed to save reward roll state: {}", e.getMessage(), e);
+            LOGGER.error("Failed to save reward roll state for reward {}: {}", state.getRewardId(), e.getMessage(), e);
             throw new RuntimeException("Failed to save reward roll state", e);
         }
     }
 
     @Override
     public void delete(RewardRollState state) {
-        try {
-            getDatabase().executeUpdate(DELETE,
-                stmt -> stmt.setString(1, state.getRewardId())
-            ).join();
-        } catch (Exception e) {
-            LOGGER.error("Failed to delete reward roll state: {}", e.getMessage(), e);
-        }
+        deleteByRewardId(state.getRewardId());
     }
 
     @Override
@@ -246,6 +236,69 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
         } catch (Exception e) {
             LOGGER.error("Failed to get player count for reward {}: {}", rewardId, e.getMessage(), e);
             return 0;
+        }
+    }
+
+    @Override
+    public boolean reserveGlobalLimit(String rewardId, int globalLimit) {
+        if (globalLimit <= 0) {
+            incrementGlobalCount(rewardId);
+            return true;
+        }
+        try {
+            getDatabase().executeUpdate(INIT_GLOBAL, stmt -> stmt.setString(1, rewardId)).join();
+            int updated = getDatabase().executeUpdate(RESERVE_GLOBAL, stmt -> {
+                stmt.setString(1, rewardId);
+                stmt.setInt(2, globalLimit);
+            }).join();
+            return updated > 0;
+        } catch (Exception e) {
+            LOGGER.error("Failed to reserve global limit for reward {}: {}", rewardId, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean reservePlayerLimit(String rewardId, UUID playerId, int playerLimit) {
+        if (playerLimit <= 0) {
+            incrementPlayerCount(rewardId, playerId);
+            return true;
+        }
+        try {
+            getDatabase().executeUpdate(INIT_PLAYER, stmt -> {
+                stmt.setString(1, rewardId);
+                stmt.setString(2, playerId.toString());
+            }).join();
+            int updated = getDatabase().executeUpdate(RESERVE_PLAYER, stmt -> {
+                stmt.setString(1, rewardId);
+                stmt.setString(2, playerId.toString());
+                stmt.setInt(3, playerLimit);
+            }).join();
+            return updated > 0;
+        } catch (Exception e) {
+            LOGGER.error("Failed to reserve player limit for reward {}: {}", rewardId, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    @Override
+    public void releaseGlobalLimit(String rewardId) {
+        try {
+            getDatabase().executeUpdate(RELEASE_GLOBAL, stmt -> stmt.setString(1, rewardId)).join();
+        } catch (Exception e) {
+            LOGGER.error("Failed to release global limit for reward {}: {}", rewardId, e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void releasePlayerLimit(String rewardId, UUID playerId) {
+        try {
+            getDatabase().executeUpdate(RELEASE_PLAYER, stmt -> {
+                stmt.setString(1, rewardId);
+                stmt.setString(2, playerId.toString());
+            }).join();
+        } catch (Exception e) {
+            LOGGER.error("Failed to release player limit for reward {}: {}", rewardId, e.getMessage(), e);
         }
     }
 }

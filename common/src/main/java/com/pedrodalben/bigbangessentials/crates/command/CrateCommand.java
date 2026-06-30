@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -146,6 +147,17 @@ public class CrateCommand {
             .then(Commands.literal("metrics")
                 .requires(source -> hasPermission(source, CratePermissions.LOGS))
                 .executes(CrateCommand::viewMetrics)
+            )
+            .then(Commands.literal("audit")
+                .requires(source -> hasPermission(source, CratePermissions.ADMIN))
+                .then(Commands.literal("inspect")
+                    .then(Commands.argument("query", StringArgumentType.word())
+                        .executes(CrateCommand::inspectAudit)
+                    )
+                )
+                .then(Commands.literal("reconcile")
+                    .executes(CrateCommand::reconcileAudits)
+                )
             )
             .then(Commands.literal("location")
                 .then(Commands.literal("list")
@@ -490,9 +502,10 @@ public class CrateCommand {
 
             for (CrateOpenAudit audit : audits) {
                 String statusColor = switch (audit.getStatus()) {
-                    case COMPLETED -> "\u00a7a";
-                    case FAILED -> "\u00a7c";
-                    case PENDING -> "\u00a7e";
+                    case COMPLETED, DELIVERED -> "\u00a7a";
+                    case FAILED, CANCELLED, COMPENSATION_FAILED -> "\u00a7c";
+                    case PENDING, RESERVED, VALIDATED, KEY_CONSUMED, REWARD_SELECTED, DELIVERY_PENDING, COMPENSATION_REQUIRED -> "\u00a7e";
+                    case ROLLED_BACK -> "\u00a76";
                     default -> "\u00a77";
                 };
 
@@ -514,6 +527,77 @@ public class CrateCommand {
             source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
             return 0;
         }
+    }
+
+    private static int inspectAudit(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        String query = StringArgumentType.getString(ctx, "query");
+
+        Optional<CrateOpenAudit> auditOpt = auditService.findByIdempotencyKey(query);
+        if (auditOpt.isEmpty()) {
+            try {
+                UUID id = UUID.fromString(query);
+                auditOpt = auditService.findById(id);
+            } catch (IllegalArgumentException ignored) {}
+        }
+
+        if (auditOpt.isEmpty()) {
+            source.sendFailure(Component.literal("\u00a7cRegistro de auditoria não encontrado: " + query));
+            return 0;
+        }
+
+        CrateOpenAudit audit = auditOpt.get();
+        source.sendSuccess(() -> Component.literal("\u00a76\u00a7l=== Inspeção de Auditoria ==="), false);
+        source.sendSuccess(() -> Component.literal("\u00a7eID: \u00a7f" + audit.getId()), false);
+        source.sendSuccess(() -> Component.literal("\u00a7eIdempotencyKey: \u00a7f" + audit.getIdempotencyKey()), false);
+        source.sendSuccess(() -> Component.literal("\u00a7ePlayer: \u00a7f" + audit.getPlayerId()), false);
+        source.sendSuccess(() -> Component.literal("\u00a7eCrate: \u00a7f" + audit.getCrateId() + " \u00a77(" + audit.getSource() + ")"), false);
+        source.sendSuccess(() -> Component.literal("\u00a7eStatus: \u00a7b" + audit.getStatus()), false);
+        if (audit.getConsumedKeyId() != null) {
+            source.sendSuccess(() -> Component.literal("\u00a7eKey Consumida: \u00a7f" + audit.getConsumedKeyId() + " (Qtd: " + audit.getConsumedKeyAmount() + ")"), false);
+        }
+        if (audit.getCostAmount() > 0) {
+            source.sendSuccess(() -> Component.literal("\u00a7eCusto Consumido: \u00a7f" + audit.getCostAmount() + " (" + audit.getCostStatus() + ")"), false);
+        }
+        if (audit.getSelectedRewardName() != null) {
+            source.sendSuccess(() -> Component.literal("\u00a7eRecompensa Selecionada: \u00a7a" + audit.getSelectedRewardName() + " \u00a77(" + audit.getSelectedRewardId() + ")"), false);
+        }
+        source.sendSuccess(() -> Component.literal("\u00a7eCriado em: \u00a77" + audit.getCreatedAt()), false);
+        source.sendSuccess(() -> Component.literal("\u00a7eAtualizado em: \u00a77" + audit.getUpdatedAt()), false);
+        if (audit.getFailureReason() != null) {
+            source.sendSuccess(() -> Component.literal("\u00a7cMotivo Falha: \u00a7f" + audit.getFailureReason()), false);
+        }
+        if (audit.getCompensationReason() != null) {
+            source.sendSuccess(() -> Component.literal("\u00a7cMotivo Compensação: \u00a7f" + audit.getCompensationReason()), false);
+        }
+        return 1;
+    }
+
+    private static int reconcileAudits(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        List<CrateOpenAudit> failedCompensations = auditService.getAudits(null, null, CrateOpenAudit.OpenStatus.COMPENSATION_FAILED, null, null, 100);
+        List<CrateOpenAudit> pendingDeliveries = auditService.getAudits(null, null, CrateOpenAudit.OpenStatus.DELIVERY_PENDING, null, null, 100);
+
+        if (failedCompensations.isEmpty() && pendingDeliveries.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("\u00a7aNenhuma auditoria pendente de reconciliação ou compensação encontrada."), false);
+            return 1;
+        }
+
+        source.sendSuccess(() -> Component.literal("\u00a76\u00a7l=== Relatório de Reconciliação ==="), false);
+        if (!failedCompensations.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("\u00a7cFalhas de Compensação Encontradas (" + failedCompensations.size() + "):"), false);
+            for (CrateOpenAudit audit : failedCompensations) {
+                source.sendSuccess(() -> Component.literal(" \u00a77- ID: \u00a7f" + audit.getId() + " \u00a7ePlayer: \u00a7f" + audit.getPlayerId() + " \u00a7cMotivo: \u00a7f" + audit.getCompensationReason()), false);
+            }
+        }
+        if (!pendingDeliveries.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("\u00a7eEntregas Pendentes Encontradas (" + pendingDeliveries.size() + "):"), false);
+            for (CrateOpenAudit audit : pendingDeliveries) {
+                source.sendSuccess(() -> Component.literal(" \u00a77- ID: \u00a7f" + audit.getId() + " \u00a7ePlayer: \u00a7f" + audit.getPlayerId() + " \u00a7aRecompensa: \u00a7f" + audit.getSelectedRewardName()), false);
+            }
+        }
+        source.sendSuccess(() -> Component.literal("\u00a7eUse \u00a7f/crate audit inspect <id>\u00a7e para inspecionar registros específicos."), false);
+        return 1;
     }
 
     // === View Metrics ===

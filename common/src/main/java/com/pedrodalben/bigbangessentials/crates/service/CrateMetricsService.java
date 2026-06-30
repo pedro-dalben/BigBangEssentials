@@ -37,14 +37,19 @@ public class CrateMetricsService {
 
     public void recordKeyGiven(String keyId, int amount, GrantSource source) {
         if (amount <= 0) return;
-        metricsRepo.incrementCounter("keys_given");
-        metricsRepo.incrementCounter("keys_given:" + keyId);
-        metricsRepo.incrementCounter("keys_given:" + source.name().toLowerCase());
+        metricsRepo.addCounter("keys_given", amount);
+        metricsRepo.addCounter("keys_given:" + keyId, amount);
+        metricsRepo.addCounter("keys_given:" + source.name().toLowerCase(), amount);
     }
 
     public void recordKeyConsumed(String keyId) {
-        metricsRepo.incrementCounter("keys_consumed");
-        metricsRepo.incrementCounter("keys_consumed:" + keyId);
+        recordKeyConsumed(keyId, 1);
+    }
+
+    public void recordKeyConsumed(String keyId, int amount) {
+        if (amount <= 0) return;
+        metricsRepo.addCounter("keys_consumed", amount);
+        metricsRepo.addCounter("keys_consumed:" + keyId, amount);
     }
 
     public void recordRewardDelivered(String rewardId) {
@@ -53,8 +58,10 @@ public class CrateMetricsService {
     }
 
     public void recordCostSpent(String crateKey, double amount) {
-        metricsRepo.incrementCounter("total_revenue");
-        metricsRepo.incrementCounter("revenue:" + crateKey);
+        if (amount <= 0) return;
+        long cents = Math.round(amount * 100);
+        metricsRepo.addCounter("total_revenue", cents);
+        metricsRepo.addCounter("revenue:" + crateKey, cents);
     }
 
     public Map<String, Long> getAllMetrics() {

@@ -15,6 +15,8 @@ public class JdbcCrateMetricsRepository extends JdbcRepository implements CrateM
     private static final String TABLE = "crate_metrics";
     private static final String UPSERT = "INSERT INTO " + TABLE + " (metric_key, metric_value) VALUES (?, 1) "
         + "ON CONFLICT(metric_key) DO UPDATE SET metric_value = metric_value + 1";
+    private static final String UPSERT_AMOUNT = "INSERT INTO " + TABLE + " (metric_key, metric_value) VALUES (?, ?) "
+        + "ON CONFLICT(metric_key) DO UPDATE SET metric_value = metric_value + ?";
     private static final String SELECT_ALL = "SELECT * FROM " + TABLE;
     private static final String SELECT_BY_KEY = "SELECT metric_value FROM " + TABLE + " WHERE metric_key = ?";
     private static final String DELETE_ALL = "DELETE FROM " + TABLE;
@@ -42,14 +44,24 @@ public class JdbcCrateMetricsRepository extends JdbcRepository implements CrateM
 
     @Override
     public long incrementCounter(String metricKey) {
+        return addCounter(metricKey, 1);
+    }
+
+    @Override
+    public long addCounter(String metricKey, long amount) {
+        if (amount <= 0) return getCounter(metricKey);
         try {
-            getDatabase().executeUpdate(UPSERT, stmt -> stmt.setString(1, metricKey)).join();
+            getDatabase().executeUpdate(UPSERT_AMOUNT, stmt -> {
+                stmt.setString(1, metricKey);
+                stmt.setLong(2, amount);
+                stmt.setLong(3, amount);
+            }).join();
             return getDatabase().querySingle(SELECT_BY_KEY,
                 stmt -> stmt.setString(1, metricKey),
                 (rs) -> rs.getLong("metric_value")
             ).join().orElse(0L);
         } catch (Exception e) {
-            LOGGER.error("Failed to increment metric '{}': {}", metricKey, e.getMessage(), e);
+            LOGGER.error("Failed to add metric '{}': {}", metricKey, e.getMessage(), e);
             return 0;
         }
     }

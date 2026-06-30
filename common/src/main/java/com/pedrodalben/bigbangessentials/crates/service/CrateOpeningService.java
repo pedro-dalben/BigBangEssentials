@@ -8,7 +8,9 @@ import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
 import com.pedrodalben.bigbangessentials.crates.domain.PlayerCrateState;
 import com.pedrodalben.bigbangessentials.crates.integration.CrateEconomyIntegration;
 import com.pedrodalben.bigbangessentials.crates.persistence.JdbcPlayerCrateStateRepository;
+import com.pedrodalben.bigbangessentials.crates.persistence.JdbcPlayerMilestoneRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.PlayerCrateStateRepository;
+import com.pedrodalben.bigbangessentials.crates.repository.PlayerMilestoneRepository;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +31,7 @@ public class CrateOpeningService {
     private final CrateAuditService auditService;
     private final CrateMetricsService metricsService;
     private final PlayerCrateStateRepository playerStateRepo;
+    private final PlayerMilestoneRepository milestoneRepo;
     private final CrateEconomyIntegration economyIntegration;
     private final ConcurrentHashMap<UUID, ReentrantLock> playerLocks;
 
@@ -38,6 +41,7 @@ public class CrateOpeningService {
         this.auditService = CrateAuditService.getInstance();
         this.metricsService = CrateMetricsService.getInstance();
         this.playerStateRepo = new JdbcPlayerCrateStateRepository();
+        this.milestoneRepo = new JdbcPlayerMilestoneRepository();
         this.economyIntegration = CrateEconomyIntegration.getInstance();
         this.playerLocks = new ConcurrentHashMap<>();
     }
@@ -64,67 +68,84 @@ public class CrateOpeningService {
     }
 
     private CrateOpeningResult openCrateInternal(ServerPlayer player, CrateDefinition crate, GrantSource source, String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<CrateOpenAudit> existing = auditService.findByIdempotencyKey(idempotencyKey);
+            if (existing.isPresent()) {
+                LOGGER.info("Idempotent opening detected for key '{}', skipping", idempotencyKey);
+                return new CrateOpeningResult(false, "Already processed", existing.get());
+            }
+        }
+
+        ValidationResult validation = validateRequirements(player, crate);
+        if (!validation.valid()) {
+            LOGGER.warn("Player {} failed validation for crate '{}': {}", player.getUUID(), crate.getKey(), validation.message());
+            return new CrateOpeningResult(false, validation.message(), null);
+        }
+
+        String expectedKey = !crate.getRequirements().getAcceptedKeyIds().isEmpty() ? crate.getRequirements().getAcceptedKeyIds().get(0) : null;
+        CrateOpenAudit audit = auditService.createPendingAudit(player.getUUID(), crate, idempotencyKey, source);
+        audit.transitionTo(CrateOpenAudit.OpenStatus.RESERVED);
+        if (expectedKey != null) {
+            audit.setConsumedKey(expectedKey, "EXPECTED", null, 1);
+        }
+        auditService.saveAudit(audit);
+
         boolean keyConsumed = false;
         boolean costPaid = false;
         boolean cooldownApplied = false;
-        CrateOpenAudit audit = null;
         PlayerCrateState savedState = null;
 
         try {
-            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-                Optional<CrateOpenAudit> existing = auditService.findByIdempotencyKey(idempotencyKey);
-                if (existing.isPresent()) {
-                    LOGGER.info("Idempotent opening detected for key '{}', skipping", idempotencyKey);
-                    return new CrateOpeningResult(false, "Already processed", existing.get());
-                }
-            }
-
-            ValidationResult validation = validateRequirements(player, crate);
-            if (!validation.valid()) {
-                LOGGER.warn("Player {} failed validation for crate '{}': {}",
-                    player.getUUID(), crate.getKey(), validation.message());
-                return new CrateOpeningResult(false, validation.message(), null);
-            }
-
-            CrateReward selectedReward = rewardService.rollEligibleReward(crate, player);
-            if (selectedReward == null) {
-                LOGGER.warn("No eligible rewards for crate '{}'", crate.getKey());
-                return new CrateOpeningResult(false, "No eligible rewards available", null);
-            }
-
             if (!crate.getRequirements().getAcceptedKeyIds().isEmpty()) {
                 keyConsumed = keyService.consumeKeyForOpening(player, crate, idempotencyKey);
                 if (!keyConsumed) {
-                    return new CrateOpeningResult(false, "Failed to consume key", null);
+                    audit.transitionTo(CrateOpenAudit.OpenStatus.FAILED);
+                    audit.setFailureReason("Failed to consume key");
+                    auditService.saveAudit(audit);
+                    return new CrateOpeningResult(false, "Failed to consume key", audit);
                 }
+                audit.transitionTo(CrateOpenAudit.OpenStatus.KEY_CONSUMED);
+                audit.setConsumedKey(expectedKey, "VIRTUAL/PHYSICAL", null, 1);
+                auditService.saveAudit(audit);
             }
 
             if (crate.getRequirements().hasCostRequirement()) {
                 costPaid = economyIntegration.withdraw(player.getUUID(), crate.getCost(), "Crate opening: " + crate.getKey());
                 if (!costPaid) {
-                    return new CrateOpeningResult(false, "Insufficient funds", null);
+                    audit.setFailureReason("Insufficient funds");
+                    rollback(player.getUUID(), crate, keyConsumed, false, false, null, audit);
+                    return new CrateOpeningResult(false, "Insufficient funds", audit);
                 }
+                audit.setCost(crate.getCost(), "PAID");
+                auditService.saveAudit(audit);
             }
 
             if (crate.getRequirements().hasCooldown()) {
-                long cooldownUntil;
-                if (crate.getRequirements().isOneTimeUse()) {
-                    cooldownUntil = Long.MAX_VALUE;
-                } else {
-                    cooldownUntil = System.currentTimeMillis() + crate.getRequirements().getCooldownMillis();
-                }
+                long cooldownUntil = crate.getRequirements().isOneTimeUse() ? Long.MAX_VALUE : System.currentTimeMillis() + crate.getRequirements().getCooldownMillis();
                 playerStateRepo.startCooldown(player.getUUID(), crate.getKey(), cooldownUntil);
                 cooldownApplied = true;
+                audit.setCooldownStatus("APPLIED");
             }
 
             savedState = playerStateRepo.recordOpening(player.getUUID(), crate.getKey());
 
-            audit = auditService.createPendingAudit(player.getUUID(), crate, idempotencyKey, source);
+            CrateReward selectedReward = rewardService.rollEligibleReward(crate, player);
+            if (selectedReward == null) {
+                audit.setFailureReason("No eligible rewards available");
+                rollback(player.getUUID(), crate, keyConsumed, costPaid, cooldownApplied, savedState, audit);
+                return new CrateOpeningResult(false, "No eligible rewards available", audit);
+            }
+
+            audit.transitionTo(CrateOpenAudit.OpenStatus.REWARD_SELECTED);
+            audit.setSelectedReward(selectedReward.getId(), selectedReward.getName(), null);
+            auditService.saveAudit(audit);
+
+            audit.transitionTo(CrateOpenAudit.OpenStatus.DELIVERY_PENDING);
             auditService.saveAudit(audit);
 
             rewardService.deliverReward(player, selectedReward);
 
-            checkMilestones(player, crate, savedState);
+            checkMilestones(player, crate, savedState, audit);
 
             auditService.completeAudit(audit, CrateOpenAudit.OpenStatus.COMPLETED);
 
@@ -134,14 +155,12 @@ public class CrateOpeningService {
                 metricsService.recordCostSpent(crate.getKey(), crate.getCost());
             }
 
-            LOGGER.info("Player {} opened crate '{}' and received reward '{}'",
-                player.getUUID(), crate.getKey(), selectedReward.getName());
-
+            LOGGER.info("Player {} opened crate '{}' and received reward '{}'", player.getUUID(), crate.getKey(), selectedReward.getName());
             return new CrateOpeningResult(true, "Success", audit);
 
         } catch (Exception e) {
             LOGGER.error("Failed to open crate for player {}: {}", player.getUUID(), e.getMessage(), e);
-
+            audit.setFailureReason("Internal error: " + e.getMessage());
             rollback(player.getUUID(), crate, keyConsumed, costPaid, cooldownApplied, savedState, audit);
             metricsService.recordOpening(crate.getKey(), false);
             return new CrateOpeningResult(false, "Internal error: " + e.getMessage(), audit);
@@ -152,13 +171,18 @@ public class CrateOpeningService {
                            boolean keyConsumed, boolean costPaid,
                            boolean cooldownApplied, PlayerCrateState savedState,
                            CrateOpenAudit audit) {
+        boolean compFailed = false;
+        StringBuilder failReason = new StringBuilder();
+
         try {
             if (keyConsumed) {
                 keyService.giveVirtualKey(playerId, crate.getRequirements().getAcceptedKeyIds().get(0), 1, GrantSource.ROLLBACK, null);
                 LOGGER.info("Rollback: restored 1 key for player {}", playerId);
             }
         } catch (Exception e) {
-            LOGGER.error("Rollback failed to restore key for player {}: {}", playerId, e.getMessage());
+            compFailed = true;
+            failReason.append("KeyRestoreFailed: ").append(e.getMessage()).append("; ");
+            LOGGER.error("CRITICAL: Rollback failed to restore key for player {}: {}", playerId, e.getMessage(), e);
         }
 
         try {
@@ -167,7 +191,9 @@ public class CrateOpeningService {
                 LOGGER.info("Rollback: restored cost of {} for player {}", crate.getCost(), playerId);
             }
         } catch (Exception e) {
-            LOGGER.error("Rollback failed to restore cost for player {}: {}", playerId, e.getMessage());
+            compFailed = true;
+            failReason.append("CostRestoreFailed: ").append(e.getMessage()).append("; ");
+            LOGGER.error("CRITICAL: Rollback failed to restore cost for player {}: {}", playerId, e.getMessage(), e);
         }
 
         try {
@@ -176,15 +202,24 @@ public class CrateOpeningService {
                 LOGGER.info("Rollback: cleared cooldown for player {} on crate '{}'", playerId, crate.getKey());
             }
         } catch (Exception e) {
-            LOGGER.error("Rollback failed to clear cooldown for player {}: {}", playerId, e.getMessage());
+            compFailed = true;
+            failReason.append("CooldownClearFailed: ").append(e.getMessage()).append("; ");
+            LOGGER.error("CRITICAL: Rollback failed to clear cooldown for player {}: {}", playerId, e.getMessage(), e);
         }
 
         try {
             if (audit != null) {
-                auditService.completeAudit(audit, CrateOpenAudit.OpenStatus.ROLLED_BACK);
+                if (compFailed) {
+                    audit.transitionTo(CrateOpenAudit.OpenStatus.COMPENSATION_FAILED);
+                    audit.setCompensationReason(failReason.toString());
+                } else {
+                    audit.transitionTo(CrateOpenAudit.OpenStatus.ROLLED_BACK);
+                    audit.setCompensationReason("Clean rollback executed");
+                }
+                auditService.saveAudit(audit);
             }
         } catch (Exception e) {
-            LOGGER.error("Rollback failed to mark audit for player {}: {}", playerId, e.getMessage());
+            LOGGER.error("CRITICAL: Rollback failed to save audit for player {}: {}", playerId, e.getMessage(), e);
         }
     }
 
@@ -234,15 +269,37 @@ public class CrateOpeningService {
         return new ValidationResult(true, "OK");
     }
 
-    private void checkMilestones(ServerPlayer player, CrateDefinition crate, PlayerCrateState playerState) {
+    private void checkMilestones(ServerPlayer player, CrateDefinition crate, PlayerCrateState playerState, CrateOpenAudit audit) {
         var milestones = crate.getMilestones();
+        int total = playerState != null ? playerState.getTotalOpened() : 1;
         for (var milestone : milestones) {
-            if (milestone.isActive() && milestone.isReached(playerState.getTotalOpened())) {
-                var reward = crate.getReward(milestone.getRewardId());
-                if (reward != null && reward.isActive()) {
-                    rewardService.deliverReward(player, reward);
-                    LOGGER.info("Player {} reached milestone '{}' for crate '{}'",
-                        player.getUUID(), milestone.getName(), crate.getKey());
+            if (!milestone.isActive()) continue;
+            int req = milestone.getRequiredOpenings();
+            if (req <= 0) continue;
+
+            int mult = 1;
+            boolean qualifies = false;
+            if (milestone.isRepeatable()) {
+                if (total >= req && total % req == 0) {
+                    qualifies = true;
+                    mult = total / req;
+                }
+            } else {
+                if (total >= req) {
+                    qualifies = true;
+                    mult = 1;
+                }
+            }
+
+            if (qualifies) {
+                long now = System.currentTimeMillis();
+                boolean recorded = milestoneRepo.recordDelivery(player.getUUID(), crate.getKey(), milestone.getId(), mult, now, now, audit != null ? audit.getId().toString() : null, milestone.isRepeatable());
+                if (recorded) {
+                    var reward = crate.getReward(milestone.getRewardId());
+                    if (reward != null && reward.isActive()) {
+                        rewardService.deliverReward(player, reward);
+                        LOGGER.info("Player {} reached milestone '{}' (mult {}) for crate '{}'", player.getUUID(), milestone.getName(), mult, crate.getKey());
+                    }
                 }
             }
         }
@@ -251,7 +308,7 @@ public class CrateOpeningService {
     public List<CrateOpeningResult> massOpen(ServerPlayer player, CrateDefinition crate, int times, GrantSource source) {
         List<CrateOpeningResult> results = new ArrayList<>();
         for (int i = 0; i < times; i++) {
-            String idempotencyKey = player.getUUID() + ":" + crate.getKey() + ":" + i;
+            String idempotencyKey = player.getUUID() + ":" + crate.getKey() + ":" + System.currentTimeMillis() + ":" + i;
             CrateOpeningResult result = openCrate(player, crate, source, idempotencyKey);
             results.add(result);
             if (!result.success()) break;

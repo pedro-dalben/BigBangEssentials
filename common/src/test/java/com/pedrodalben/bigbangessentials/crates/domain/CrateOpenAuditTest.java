@@ -71,7 +71,7 @@ class CrateOpenAuditTest {
 
     @Test
     void openStatus_AllValuesPresent() {
-        assertEquals(5, CrateOpenAudit.OpenStatus.values().length);
+        assertEquals(14, CrateOpenAudit.OpenStatus.values().length);
         assertNotNull(CrateOpenAudit.OpenStatus.PENDING);
         assertNotNull(CrateOpenAudit.OpenStatus.COMPLETED);
         assertNotNull(CrateOpenAudit.OpenStatus.FAILED);
