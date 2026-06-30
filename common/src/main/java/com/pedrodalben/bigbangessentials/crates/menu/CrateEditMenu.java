@@ -202,6 +202,11 @@ public class CrateEditMenu extends AbstractCrateMenu {
                 }
             }
             p.sendSystemMessage(Component.literal("§eUse /crate setlocation " + crateKey + " para adicionar"));
+            p.sendSystemMessage(Component.literal("§e/crate location settemplate <locationId> <template>"));
+            p.sendSystemMessage(Component.literal("§e/crate location setoffsety <locationId> <offset>"));
+            p.sendSystemMessage(Component.literal("§e/crate location togglehologram <locationId>"));
+            p.sendSystemMessage(Component.literal("§e/crate location toggleparticle <locationId>"));
+            p.sendSystemMessage(Component.literal("§e/crate location toggle <locationId>"));
         });
     }
 

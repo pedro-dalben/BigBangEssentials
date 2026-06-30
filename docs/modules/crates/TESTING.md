@@ -146,6 +146,14 @@ As classes de domínio (`CrateDefinition`, `KeyDefinition`, `CrateReward`, `Crat
 
 # 6. Verificar localizações
 /crate location list
+
+# 7. Ajustar uma localização existente
+# Use o UUID exibido por /crate location list
+/crate location settemplate <locationId> "&eMinha Crate"
+/crate location setoffsety <locationId> 2.5
+/crate location togglehologram <locationId>
+/crate location toggleparticle <locationId>
+/crate location toggle <locationId>
 ```
 
 ### Teste 5: Limites de Recompensa

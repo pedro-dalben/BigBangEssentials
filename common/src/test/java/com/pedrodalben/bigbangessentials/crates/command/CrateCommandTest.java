@@ -109,6 +109,13 @@ class CrateCommandTest {
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("setrepeatable"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("setdisplayorder"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("milestone").getChild("remove"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("location").getChild("list"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("location").getChild("remove"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("location").getChild("settemplate"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("location").getChild("setoffsety"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("location").getChild("togglehologram"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("location").getChild("toggleparticle"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("location").getChild("toggle"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("create"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("create"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("edit"));
@@ -164,6 +171,13 @@ class CrateCommandTest {
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("setrepeatable"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("setdisplayorder"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("milestone").getChild("remove"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("location").getChild("list"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("location").getChild("remove"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("location").getChild("settemplate"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("location").getChild("setoffsety"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("location").getChild("togglehologram"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("location").getChild("toggleparticle"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("location").getChild("toggle"));
     }
 
     @Test
@@ -199,6 +213,7 @@ class CrateCommandTest {
         assertTrue(dispatcher.getRoot().getChild("crates").getChild("key").getChild("removecrate").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("milestone").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crates").getChild("milestone").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crate").getChild("location").getChild("settemplate").canUse(source));
     }
 
     @Test
@@ -231,5 +246,6 @@ class CrateCommandTest {
         assertFalse(dispatcher.getRoot().getChild("crates").getChild("key").getChild("removecrate").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("milestone").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crates").getChild("milestone").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crate").getChild("location").getChild("settemplate").canUse(source));
     }
 }

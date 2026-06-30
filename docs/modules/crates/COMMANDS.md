@@ -51,6 +51,11 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 | `logs` | `bigbangessentials.crates.logs` | `/crate logs [jogador] [crate]` | Visualiza logs de abertura |
 | `location list` | — | `/crate location list` | Lista todas as localizações de crates |
 | `location remove` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate location remove <id>` | Remove uma localização de crate pelo ID |
+| `location settemplate` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate location settemplate <locationId> <template>` | Define o template do holograma da localização |
+| `location setoffsety` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate location setoffsety <locationId> <offset>` | Ajusta o offset vertical do holograma |
+| `location togglehologram` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate location togglehologram <locationId>` | Alterna o holograma da localização |
+| `location toggleparticle` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate location toggleparticle <locationId>` | Alterna as partículas da localização |
+| `location toggle` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate location toggle <locationId>` | Alterna a ativação da localização |
 | `key give` | `bigbangessentials.crates.key.give` | `/crate key give <jogador> <chave> [quantidade]` | Dá chaves virtuais a um jogador |
 | `key take` | `bigbangessentials.crates.key.take` | `/crate key take <jogador> <chave> [quantidade]` | Remove chaves virtuais de um jogador |
 | `key set` | `bigbangessentials.crates.key.set` | `/crate key set <jogador> <chave> [quantidade]` | Define o saldo de chaves virtuais de um jogador |
@@ -215,6 +220,13 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 
 # Remover uma localização
 /crate location remove 550e8400-e29b-41d4-a716-446655440000
+
+# Ajustar uma localização existente
+/crate location settemplate 550e8400-e29b-41d4-a716-446655440000 "&eMinha Crate"
+/crate location setoffsety 550e8400-e29b-41d4-a716-446655440000 2.5
+/crate location togglehologram 550e8400-e29b-41d4-a716-446655440000
+/crate location toggleparticle 550e8400-e29b-41d4-a716-446655440000
+/crate location toggle 550e8400-e29b-41d4-a716-446655440000
 
 # Dar chave a um jogador
 /crate key give Steve vip_key 5

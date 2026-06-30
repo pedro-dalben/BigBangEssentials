@@ -2,7 +2,7 @@
 
 Este documento lista o que ainda não está exposto pelo módulo de Crates no estado atual do código.
 
-Atualização: `/crate massopen`, `/crates claim` e a edição avançada de raridades, chaves, milestones e recompensas já foram registrados. As lacunas abaixo permanecem em aberto.
+Atualização: `/crate massopen`, `/crates claim` e a edição avançada de raridades, chaves, milestones, recompensas e localizações já foram registrados. As lacunas abaixo permanecem em aberto.
 
 A análise foi feita comparando:
 - a árvore de comandos em `CrateCommand`
@@ -67,16 +67,11 @@ Hoje o módulo permite adicionar e editar milestones existentes.
 
 Não há lacuna aberta neste subtópico no estado atual do módulo.
 
-## 7. CrateLocation: configuração ainda incompleta
+## 7. CrateLocation: edição avançada já exposta
 
-Hoje o módulo permite listar, remover e criar vínculo com `setlocation`.
+Hoje o módulo permite listar, remover, criar vínculo e editar localizações existentes.
 
-Ainda faltam comandos para editar por local:
-- `hologramTemplate`
-- `hologramOffsetY`
-- `hologramEnabled`
-- `particleEnabled`
-- `active`
+Não há lacuna aberta neste subtópico no estado atual do módulo.
 
 ## 8. Configuração visual e de preview
 
@@ -93,4 +88,3 @@ Mas ainda não há comandos ou menus dedicados para editar esses blocos de confi
 Se a ideia for fechar as lacunas por prioridade prática, a sequência mais útil é:
 1. configuração visual/preview/animação
 2. edição avançada de requisitos da crate
-3. edição avançada de localizações

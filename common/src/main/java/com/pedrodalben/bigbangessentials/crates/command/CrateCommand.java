@@ -460,6 +460,40 @@ public class CrateCommand {
                         .executes(CrateCommand::removeLocation)
                     )
                 )
+                .then(Commands.literal("settemplate")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("locationId", StringArgumentType.word())
+                        .then(Commands.argument("template", StringArgumentType.greedyString())
+                            .executes(CrateCommand::setLocationTemplate)
+                        )
+                    )
+                )
+                .then(Commands.literal("setoffsety")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("locationId", StringArgumentType.word())
+                        .then(Commands.argument("offset", DoubleArgumentType.doubleArg())
+                            .executes(CrateCommand::setLocationOffsetY)
+                        )
+                    )
+                )
+                .then(Commands.literal("togglehologram")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("locationId", StringArgumentType.word())
+                        .executes(CrateCommand::toggleLocationHologram)
+                    )
+                )
+                .then(Commands.literal("toggleparticle")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("locationId", StringArgumentType.word())
+                        .executes(CrateCommand::toggleLocationParticle)
+                    )
+                )
+                .then(Commands.literal("toggle")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("locationId", StringArgumentType.word())
+                        .executes(CrateCommand::toggleLocationActive)
+                    )
+                )
             )
             .then(Commands.literal("key")
                 .then(Commands.literal("create")
@@ -1719,13 +1753,24 @@ public class CrateCommand {
             for (CrateLocation loc : locations) {
                 CrateDefinition crate = crateService.getCrateByKey(loc.getCrateId());
                 String crateName = crate != null ? crate.getDisplayName() : loc.getCrateId();
+                String active = loc.isActive() ? "\u00a7aAtiva" : "\u00a7cInativa";
+                String hologram = loc.isHologramEnabled() ? "\u00a7aSim" : "\u00a7cNao";
+                String particles = loc.isParticleEnabled() ? "\u00a7aSim" : "\u00a7cNao";
 
                 source.sendSuccess(() -> Component.literal(
                     "\u00a77- " + loc.getId().toString().substring(0, 8) + "... "
                         + "\u00a7f" + crateName + " "
                         + "\u00a77@ " + loc.getWorldName() + " "
                         + loc.getX() + ", " + loc.getY() + ", " + loc.getZ()
+                        + " \u00a77[" + active + "\u00a77]"
+                        + " \u00a77[Holograma: " + hologram + "\u00a77]"
+                        + " \u00a77[Particulas: " + particles + "\u00a77]"
+                        + " \u00a77[OffsetY: " + loc.getHologramOffsetY() + "]"
                 ), false);
+                if (loc.getHologramTemplate() != null && !loc.getHologramTemplate().isBlank()) {
+                    source.sendSuccess(() -> Component.literal(
+                        "\u00a78  Template: \u00a77" + loc.getHologramTemplate()), false);
+                }
             }
             return 1;
         } catch (Exception e) {
@@ -1761,6 +1806,86 @@ public class CrateCommand {
             source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
             return 0;
         }
+    }
+
+    private static int setLocationTemplate(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateLocation location = requireLocation(source, StringArgumentType.getString(context, "locationId"));
+        if (location == null) {
+            return 0;
+        }
+
+        String template = normalizeNullableText(StringArgumentType.getString(context, "template"));
+        location.setHologramTemplate(template);
+        crateService.saveLocation(location);
+        source.sendSuccess(() -> Component.literal(
+            template.isBlank()
+                ? "\u00a7aTemplate de holograma da localiza\u00e7\u00e3o '" + location.getId() + "' removido."
+                : "\u00a7aTemplate de holograma da localiza\u00e7\u00e3o '" + location.getId() + "' atualizado."), true);
+        return 1;
+    }
+
+    private static int setLocationOffsetY(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateLocation location = requireLocation(source, StringArgumentType.getString(context, "locationId"));
+        if (location == null) {
+            return 0;
+        }
+
+        double offset = DoubleArgumentType.getDouble(context, "offset");
+        location.setHologramOffsetY(offset);
+        crateService.saveLocation(location);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aOffset Y da localiza\u00e7\u00e3o '" + location.getId() + "' definido para " + offset + "."), true);
+        return 1;
+    }
+
+    private static int toggleLocationHologram(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateLocation location = requireLocation(source, StringArgumentType.getString(context, "locationId"));
+        if (location == null) {
+            return 0;
+        }
+
+        location.setHologramEnabled(!location.isHologramEnabled());
+        crateService.saveLocation(location);
+        source.sendSuccess(() -> Component.literal(
+            location.isHologramEnabled()
+                ? "\u00a7aHolograma da localiza\u00e7\u00e3o '" + location.getId() + "' ativado."
+                : "\u00a7cHolograma da localiza\u00e7\u00e3o '" + location.getId() + "' desativado."), true);
+        return 1;
+    }
+
+    private static int toggleLocationParticle(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateLocation location = requireLocation(source, StringArgumentType.getString(context, "locationId"));
+        if (location == null) {
+            return 0;
+        }
+
+        location.setParticleEnabled(!location.isParticleEnabled());
+        crateService.saveLocation(location);
+        source.sendSuccess(() -> Component.literal(
+            location.isParticleEnabled()
+                ? "\u00a7aPart\u00edculas da localiza\u00e7\u00e3o '" + location.getId() + "' ativadas."
+                : "\u00a7cPart\u00edculas da localiza\u00e7\u00e3o '" + location.getId() + "' desativadas."), true);
+        return 1;
+    }
+
+    private static int toggleLocationActive(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateLocation location = requireLocation(source, StringArgumentType.getString(context, "locationId"));
+        if (location == null) {
+            return 0;
+        }
+
+        location.setActive(!location.isActive());
+        crateService.saveLocation(location);
+        source.sendSuccess(() -> Component.literal(
+            location.isActive()
+                ? "\u00a7aLocaliza\u00e7\u00e3o '" + location.getId() + "' ativada."
+                : "\u00a7cLocaliza\u00e7\u00e3o '" + location.getId() + "' desativada."), true);
+        return 1;
     }
 
     // === Crate Editing ===
@@ -1802,6 +1927,21 @@ public class CrateCommand {
             return null;
         }
         return key.get();
+    }
+
+    private static CrateLocation requireLocation(CommandSourceStack source, String rawId) {
+        try {
+            UUID locationId = UUID.fromString(rawId);
+            Optional<CrateLocation> location = crateService.getLocationById(locationId);
+            if (location.isEmpty()) {
+                source.sendFailure(Component.literal("\u00a7cLocaliza\u00e7\u00e3o n\u00e3o encontrada: " + rawId));
+                return null;
+            }
+            return location.get();
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(Component.literal("\u00a7cID de localiza\u00e7\u00e3o inv\u00e1lido."));
+            return null;
+        }
     }
 
     private static CrateRarity requireRarity(CommandSourceStack source, CrateDefinition crate, String rawId) {

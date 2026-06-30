@@ -236,6 +236,16 @@ Para remover um bloco:
 /crate location remove <id>
 ```
 
+### Comandos para Locais
+
+```bash
+/crate location settemplate <locationId> <template>
+/crate location setoffsety <locationId> <offset>
+/crate location togglehologram <locationId>
+/crate location toggleparticle <locationId>
+/crate location toggle <locationId>
+```
+
 ## Configurando Hologramas e Partículas
 
 No menu de edição, clique em **"Visual"** (slot 25) para ver as configurações atuais.
