@@ -7,6 +7,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.server.level.ServerPlayer;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 
 /**
@@ -20,6 +21,7 @@ public class MuteCommand {
     
     private static void registerMuteCommand(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
         dispatcher.register(Commands.literal(commandName)
+            .requires(MuteCommand::canUseMuteCommand)
             .then(Commands.argument("target", EntityArgument.player())
                 .executes(ctx -> executeMute(ctx, ""))
                 .then(Commands.argument("reason", StringArgumentType.greedyString())
@@ -27,6 +29,13 @@ public class MuteCommand {
                 )
             )
         );
+    }
+
+    private static boolean canUseMuteCommand(CommandSourceStack source) {
+        ServerPlayer sender = source.getPlayer();
+        return sender != null &&
+            com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                sender.getUUID(), "bigbangessentials.chat.mute");
     }
     
     private static int executeMute(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx, String reason) {
