@@ -68,23 +68,11 @@ Ainda faltam comandos para editar raridades existentes:
 
 ## 5. CrateReward: edição parcial apenas
 
-Hoje o módulo permite criar, renomear, alterar peso, raridade, ativação e ícone.
+Hoje o módulo permite criar, renomear, alterar peso, raridade, ativação, ícone, tipo, lore, permissões, limites, broadcast, visibilidade, milestone-only e ordem de exibição.
 
 Ainda faltam comandos para:
-- alterar `type` entre `ITEM` e `COMMAND`
-- editar `lore`
 - editar `items`
 - editar `commands`
-- editar `requiredPermission`
-- editar `blockingPermissions`
-- editar `globalLimit`
-- editar `playerLimit`
-- editar `broadcast`
-- editar `broadcastMessage`
-- editar `playerMessage`
-- editar `visibleInPreview`
-- editar `milestoneOnly`
-- editar `displayOrder`
 - remover/duplicar recompensa por comando
 
 ## 6. CrateMilestone: edição parcial apenas

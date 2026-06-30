@@ -19,6 +19,7 @@ public final class CrateMessages {
     public static final String REWARD_INVALID = "\u00a7cID da recompensa inv\u00e1lido. Use apenas letras min\u00fasculas, n\u00fameros, '_' e '-'.";
     public static final String REWARD_ALREADY_EXISTS = "\u00a7cJ\u00e1 existe uma recompensa com o ID '%s'.";
     public static final String REWARD_NOT_FOUND = "\u00a7cRecompensa n\u00e3o encontrada: %s";
+    public static final String REWARD_TYPE_INVALID = "\u00a7cTipo de recompensa inv\u00e1lido. Use ITEM ou COMMAND.";
     public static final String MILESTONE_INVALID = "\u00a7cID do milestone inv\u00e1lido. Use apenas letras min\u00fasculas, n\u00fameros, '_' e '-'.";
     public static final String MILESTONE_ALREADY_EXISTS = "\u00a7cJ\u00e1 existe um milestone com o ID '%s'.";
     public static final String MILESTONE_NOT_FOUND = "\u00a7cMilestone n\u00e3o encontrado: %s";

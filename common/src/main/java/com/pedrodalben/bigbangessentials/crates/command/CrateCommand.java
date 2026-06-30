@@ -49,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -580,6 +581,150 @@ public class CrateCommand {
                         .then(Commands.argument("rewardId", StringArgumentType.word())
                             .suggests(REWARD_SUGGESTIONS)
                             .executes(CrateCommand::setRewardIcon)
+                        )
+                    )
+                )
+                .then(Commands.literal("settype")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("tipo", StringArgumentType.word())
+                                .executes(CrateCommand::setRewardType)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setlore")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("lore", StringArgumentType.greedyString())
+                                .executes(CrateCommand::setRewardLore)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setperm")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("permission", StringArgumentType.word())
+                                .executes(CrateCommand::setRewardPermission)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setvisible")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("visivel", BoolArgumentType.bool())
+                                .executes(CrateCommand::setRewardVisible)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setmilestoneonly")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("ativo", BoolArgumentType.bool())
+                                .executes(CrateCommand::setRewardMilestoneOnly)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setbroadcast")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("broadcast", BoolArgumentType.bool())
+                                .executes(CrateCommand::setRewardBroadcast)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setbroadcastmsg")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("mensagem", StringArgumentType.greedyString())
+                                .executes(CrateCommand::setRewardBroadcastMessage)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setplayermsg")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("mensagem", StringArgumentType.greedyString())
+                                .executes(CrateCommand::setRewardPlayerMessage)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setdisplayorder")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("ordem", IntegerArgumentType.integer(0))
+                                .executes(CrateCommand::setRewardDisplayOrder)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setgloballimit")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("limite", IntegerArgumentType.integer(-1))
+                                .executes(CrateCommand::setRewardGlobalLimit)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setplayerlimit")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("limite", IntegerArgumentType.integer(-1))
+                                .executes(CrateCommand::setRewardPlayerLimit)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setblockingperms")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("permissoes", StringArgumentType.greedyString())
+                                .executes(CrateCommand::setRewardBlockingPermissions)
+                            )
                         )
                     )
                 )
@@ -1964,6 +2109,286 @@ public class CrateCommand {
         crateService.updateReward(crate.getKey(), reward);
         source.sendSuccess(() -> Component.literal(
             "\u00a7a\u00cdcone da recompensa '" + reward.getId() + "' atualizado."), true);
+        return 1;
+    }
+
+    private static RewardType requireRewardType(CommandSourceStack source, String rawType) {
+        if (rawType == null || rawType.isBlank()) {
+            source.sendFailure(Component.literal(CrateMessages.REWARD_TYPE_INVALID));
+            return null;
+        }
+
+        try {
+            return RewardType.valueOf(rawType.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(Component.literal(CrateMessages.REWARD_TYPE_INVALID));
+            return null;
+        }
+    }
+
+    private static List<String> parseDelimitedValues(String rawValue) {
+        String normalized = normalizeNullableText(rawValue);
+        if (normalized.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(normalized.split("\\s*\\|\\s*"))
+            .map(String::trim)
+            .filter(value -> !value.isBlank())
+            .collect(Collectors.toList());
+    }
+
+    private static int setRewardType(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        RewardType type = requireRewardType(source, StringArgumentType.getString(context, "tipo"));
+        if (type == null) {
+            return 0;
+        }
+
+        reward.setType(type);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aTipo da recompensa '" + reward.getId() + "' atualizado para '" + type.name() + "'."), true);
+        return 1;
+    }
+
+    private static int setRewardLore(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        List<String> lore = parseDelimitedValues(StringArgumentType.getString(context, "lore"));
+        reward.setLore(lore);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aLore da recompensa '" + reward.getId() + "' atualizada."), true);
+        return 1;
+    }
+
+    private static int setRewardPermission(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        String permission = normalizeNullableText(StringArgumentType.getString(context, "permission"));
+        reward.setRequiredPermission(permission);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            permission.isBlank()
+                ? "\u00a7aPermiss\u00e3o da recompensa '" + reward.getId() + "' removida."
+                : "\u00a7aPermiss\u00e3o da recompensa '" + reward.getId() + "' definida para '" + permission + "'."), true);
+        return 1;
+    }
+
+    private static int setRewardVisible(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        boolean visible = BoolArgumentType.getBool(context, "visivel");
+        reward.setVisibleInPreview(visible);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aVisibilidade da recompensa '" + reward.getId() + "' " + (visible ? "ativada" : "desativada") + "."), true);
+        return 1;
+    }
+
+    private static int setRewardMilestoneOnly(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        boolean milestoneOnly = BoolArgumentType.getBool(context, "ativo");
+        reward.setMilestoneOnly(milestoneOnly);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aFlag milestone-only da recompensa '" + reward.getId() + "' "
+                + (milestoneOnly ? "ativada" : "desativada") + "."), true);
+        return 1;
+    }
+
+    private static int setRewardBroadcast(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        boolean broadcast = BoolArgumentType.getBool(context, "broadcast");
+        reward.setBroadcast(broadcast);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aBroadcast da recompensa '" + reward.getId() + "' "
+                + (broadcast ? "ativado" : "desativado") + "."), true);
+        return 1;
+    }
+
+    private static int setRewardBroadcastMessage(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        String message = normalizeNullableText(StringArgumentType.getString(context, "mensagem"));
+        reward.setBroadcastMessage(message);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            message.isBlank()
+                ? "\u00a7aMensagem de broadcast da recompensa '" + reward.getId() + "' removida."
+                : "\u00a7aMensagem de broadcast da recompensa '" + reward.getId() + "' atualizada."), true);
+        return 1;
+    }
+
+    private static int setRewardPlayerMessage(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        String message = normalizeNullableText(StringArgumentType.getString(context, "mensagem"));
+        reward.setPlayerMessage(message);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            message.isBlank()
+                ? "\u00a7aMensagem do jogador da recompensa '" + reward.getId() + "' removida."
+                : "\u00a7aMensagem do jogador da recompensa '" + reward.getId() + "' atualizada."), true);
+        return 1;
+    }
+
+    private static int setRewardDisplayOrder(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        int order = IntegerArgumentType.getInteger(context, "ordem");
+        reward.setDisplayOrder(order);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aOrdem de exibi\u00e7\u00e3o da recompensa '" + reward.getId() + "' definida para " + order + "."), true);
+        return 1;
+    }
+
+    private static int setRewardGlobalLimit(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        int limit = IntegerArgumentType.getInteger(context, "limite");
+        reward.setGlobalLimit(limit);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aLimite global da recompensa '" + reward.getId() + "' definido para " + limit + "."), true);
+        return 1;
+    }
+
+    private static int setRewardPlayerLimit(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        int limit = IntegerArgumentType.getInteger(context, "limite");
+        reward.setPlayerLimit(limit);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aLimite por jogador da recompensa '" + reward.getId() + "' definido para " + limit + "."), true);
+        return 1;
+    }
+
+    private static int setRewardBlockingPermissions(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        List<String> blockingPermissions = parseDelimitedValues(StringArgumentType.getString(context, "permissoes"));
+        reward.setBlockingPermissions(blockingPermissions);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            blockingPermissions.isEmpty()
+                ? "\u00a7aPermiss\u00f5es bloqueadoras da recompensa '" + reward.getId() + "' removidas."
+                : "\u00a7aPermiss\u00f5es bloqueadoras da recompensa '" + reward.getId() + "' atualizadas."), true);
         return 1;
     }
 

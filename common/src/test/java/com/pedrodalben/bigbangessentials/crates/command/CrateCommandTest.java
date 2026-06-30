@@ -58,6 +58,18 @@ class CrateCommandTest {
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("setlocation"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("massopen"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("claim"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("settype"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setlore"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setperm"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setvisible"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setmilestoneonly"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setbroadcast"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setbroadcastmsg"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setplayermsg"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setdisplayorder"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setgloballimit"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setplayerlimit"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("setblockingperms"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("create"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("editor"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setname"));
@@ -67,6 +79,18 @@ class CrateCommandTest {
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("edit"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("massopen"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("claim"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("settype"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setlore"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setperm"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setvisible"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setmilestoneonly"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setbroadcast"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setbroadcastmsg"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setplayermsg"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setdisplayorder"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setgloballimit"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setplayerlimit"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("setblockingperms"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("editor"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("create"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("create"));
@@ -96,6 +120,7 @@ class CrateCommandTest {
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("key").getChild("create").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("key").getChild("editor").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("create").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("settype").canUse(source));
     }
 
     @Test
@@ -119,5 +144,6 @@ class CrateCommandTest {
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("key").getChild("create").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("key").getChild("editor").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("create").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("settype").canUse(source));
     }
 }

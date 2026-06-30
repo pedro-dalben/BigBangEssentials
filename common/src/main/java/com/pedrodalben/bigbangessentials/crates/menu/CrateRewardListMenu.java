@@ -148,6 +148,16 @@ public class CrateRewardListMenu extends AbstractCrateMenu {
         p.sendSystemMessage(Component.literal(" §7Raridade: " + reward.getRarityId()));
         p.sendSystemMessage(Component.literal(" §7Peso: " + reward.getWeight()));
         p.sendSystemMessage(Component.literal(" §7Ativo: " + boolDisplay(reward.isActive())));
+        p.sendSystemMessage(Component.literal(" §7Visivel no preview: " + boolDisplay(reward.isVisibleInPreview())));
+        p.sendSystemMessage(Component.literal(" §7Milestone only: " + boolDisplay(reward.isMilestoneOnly())));
+        p.sendSystemMessage(Component.literal(" §7Broadcast: " + boolDisplay(reward.isBroadcast())));
+        p.sendSystemMessage(Component.literal(" §7Ordem de exibicao: " + reward.getDisplayOrder()));
+        if (reward.getGlobalLimit() > 0) {
+            p.sendSystemMessage(Component.literal(" §7Limite global: " + reward.getGlobalLimit()));
+        }
+        if (reward.getPlayerLimit() > 0) {
+            p.sendSystemMessage(Component.literal(" §7Limite por jogador: " + reward.getPlayerLimit()));
+        }
         p.sendSystemMessage(Component.literal(""));
         p.sendSystemMessage(Component.literal("§eComandos disponiveis:"));
         p.sendSystemMessage(Component.literal(" §e/crate reward setname " + crateKey + " " + reward.getId() + " <nome>"));
@@ -155,6 +165,18 @@ public class CrateRewardListMenu extends AbstractCrateMenu {
         p.sendSystemMessage(Component.literal(" §e/crate reward setrarity " + crateKey + " " + reward.getId() + " <rarityId>"));
         p.sendSystemMessage(Component.literal(" §e/crate reward toggle " + crateKey + " " + reward.getId()));
         p.sendSystemMessage(Component.literal(" §e/crate reward seticon " + crateKey + " " + reward.getId()));
+        p.sendSystemMessage(Component.literal(" §e/crate reward settype " + crateKey + " " + reward.getId() + " <ITEM|COMMAND>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setlore " + crateKey + " " + reward.getId() + " <linha1 | linha2>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setperm " + crateKey + " " + reward.getId() + " <permissao|clear>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setvisible " + crateKey + " " + reward.getId() + " <true|false>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setmilestoneonly " + crateKey + " " + reward.getId() + " <true|false>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setbroadcast " + crateKey + " " + reward.getId() + " <true|false>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setbroadcastmsg " + crateKey + " " + reward.getId() + " <mensagem>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setplayermsg " + crateKey + " " + reward.getId() + " <mensagem>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setdisplayorder " + crateKey + " " + reward.getId() + " <ordem>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setgloballimit " + crateKey + " " + reward.getId() + " <limite>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setplayerlimit " + crateKey + " " + reward.getId() + " <limite>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward setblockingperms " + crateKey + " " + reward.getId() + " <perm1 | perm2>"));
     }
 
     private void renderBottomBar() {

@@ -54,6 +54,18 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 | `reward setrarity` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setrarity <crate> <rewardId> <rarityId>` | Altera a raridade da recompensa |
 | `reward toggle` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward toggle <crate> <rewardId>` | Alterna o estado da recompensa |
 | `reward seticon` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward seticon <crate> <rewardId>` | Define o item na mão como ícone da recompensa |
+| `reward settype` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward settype <crate> <rewardId> <ITEM\|COMMAND>` | Altera o tipo da recompensa |
+| `reward setlore` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setlore <crate> <rewardId> <linha1 \| linha2>` | Define a lore exibida na recompensa |
+| `reward setperm` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setperm <crate> <rewardId> <permissão\|clear>` | Define ou remove a permissão necessária |
+| `reward setvisible` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setvisible <crate> <rewardId> <true|false>` | Controla se a recompensa aparece no preview |
+| `reward setmilestoneonly` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setmilestoneonly <crate> <rewardId> <true|false>` | Restringe a recompensa a milestones |
+| `reward setbroadcast` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setbroadcast <crate> <rewardId> <true|false>` | Ativa ou desativa broadcast ao ganhar a recompensa |
+| `reward setbroadcastmsg` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setbroadcastmsg <crate> <rewardId> <mensagem>` | Define a mensagem de broadcast |
+| `reward setplayermsg` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setplayermsg <crate> <rewardId> <mensagem>` | Define a mensagem enviada ao jogador |
+| `reward setdisplayorder` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setdisplayorder <crate> <rewardId> <ordem>` | Ajusta a ordem de exibição |
+| `reward setgloballimit` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setgloballimit <crate> <rewardId> <limite>` | Ajusta o limite global |
+| `reward setplayerlimit` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setplayerlimit <crate> <rewardId> <limite>` | Ajusta o limite por jogador |
+| `reward setblockingperms` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward setblockingperms <crate> <rewardId> <perm1 \| perm2>` | Define permissões bloqueadoras |
 
 ### Exemplos
 
@@ -78,6 +90,13 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 
 # Criar uma recompensa
 /crate reward create minha_crate espada_rara "Espada Rara" raro
+
+# Ajustar metadata avançada da recompensa
+/crate reward settype minha_crate espada_rara COMMAND
+/crate reward setlore minha_crate espada_rara "Linha 1 | Linha 2"
+/crate reward setperm minha_crate espada_rara bigbangessentials.vip
+/crate reward setvisible minha_crate espada_rara true
+/crate reward setdisplayorder minha_crate espada_rara 5
 
 # Recarregar definições
 /crate reload

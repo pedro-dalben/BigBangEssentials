@@ -173,6 +173,18 @@ No menu de edição da crate, clique em **"Recompensas"** (slot 22) para abrir o
 /crate reward setrarity <crate> <rewardId> <rarityId>
 /crate reward toggle <crate> <rewardId>
 /crate reward seticon <crate> <rewardId>
+/crate reward settype <crate> <rewardId> <ITEM|COMMAND>
+/crate reward setlore <crate> <rewardId> <linha1 | linha2>
+/crate reward setperm <crate> <rewardId> <permissão|clear>
+/crate reward setvisible <crate> <rewardId> <true|false>
+/crate reward setmilestoneonly <crate> <rewardId> <true|false>
+/crate reward setbroadcast <crate> <rewardId> <true|false>
+/crate reward setbroadcastmsg <crate> <rewardId> <mensagem>
+/crate reward setplayermsg <crate> <rewardId> <mensagem>
+/crate reward setdisplayorder <crate> <rewardId> <ordem>
+/crate reward setgloballimit <crate> <rewardId> <limite>
+/crate reward setplayerlimit <crate> <rewardId> <limite>
+/crate reward setblockingperms <crate> <rewardId> <perm1 | perm2>
 ```
 
 ## Vinculando Blocos
