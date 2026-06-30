@@ -129,9 +129,9 @@ public class CrateMainEditorMenu extends AbstractCrateMenu {
                 p.closeContainer();
                 p.sendSystemMessage(Component.literal(""));
                 p.sendSystemMessage(Component.literal("§6§l=== Criar Nova Crate ==="));
-                p.sendSystemMessage(Component.literal("§7Use: §e/crate create <nome>"));
-                p.sendSystemMessage(Component.literal("§7Exemplo: §e/crate create minha_crate"));
-                p.sendSystemMessage(Component.literal("§7Depois edite com §e/crate edit <nome>"));
+                p.sendSystemMessage(Component.literal("§7Use: §e/crate create <id> [nome de exibição]"));
+                p.sendSystemMessage(Component.literal("§7Exemplo: §e/crate create minha_crate \"Minha Crate\""));
+                p.sendSystemMessage(Component.literal("§7Depois clique na crate recém-criada na lista para editá-la."));
                 p.sendSystemMessage(Component.literal(""));
             });
 

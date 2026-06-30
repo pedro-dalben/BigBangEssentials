@@ -80,8 +80,11 @@ O sistema segue uma arquitetura em camadas:
 - [x] Suporte a GrantSources (ADMIN_COMMAND, STORE, VIP, EVENT, QUEST, TOURNAMENT, SYSTEM, OPENING, MILESTONE, MASS_OPEN)
 - [x] Bloqueio de blocos contra explosões e quebra não autorizada
 - [x] Abertura em massa (mass open)
+- [x] Coleta de entregas pendentes (/crates claim)
 - [x] Reset de cooldown
 - [x] Drop de chaves físicas no mundo
+
+> Lacunas detalhadas: [LACUNAS.md](LACUNAS.md)
 
 ## Guia Rápido
 

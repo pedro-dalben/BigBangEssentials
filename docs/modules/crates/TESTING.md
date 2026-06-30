@@ -187,11 +187,25 @@ As classes de domínio (`CrateDefinition`, `KeyDefinition`, `CrateReward`, `Crat
 # 1. Dar várias chaves
 /givekey chave_teste jogador 100
 
-# 2. Abrir múltiplas vezes seguidas
-# Use /crate open repetidamente ou crie um script
+# 2. Abrir em massa
+/crate massopen teste_crate 10
 ```
 
-### Teste 11: Proteção de Bloco
+### Teste 11: Coleta de Entregas Pendentes
+
+```bash
+# 1. Encher o inventário do jogador
+# (deixe o inventário cheio com itens comuns)
+
+# 2. Abrir uma crate que entregue um item ao inventário
+/crate open teste_crate
+
+# 3. Se o inventário estiver cheio, o item deve ir para a caixa de entregas
+# 4. Resgatar os itens pendentes
+/crates claim
+```
+
+### Teste 12: Proteção de Bloco
 
 ```bash
 # 1. Jogador sem permissão tenta quebrar bloco da crate
@@ -204,7 +218,7 @@ As classes de domínio (`CrateDefinition`, `KeyDefinition`, `CrateReward`, `Crat
 # Bloco deve permanecer intacto
 ```
 
-### Teste 12: Persistência
+### Teste 13: Persistência
 
 ```bash
 # 1. Criar várias crates, chaves e localizações

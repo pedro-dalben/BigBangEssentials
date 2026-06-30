@@ -184,7 +184,7 @@ Para vincular uma crate a um bloco no mundo:
    ```bash
    /crate setlocation <crate>
    ```
-3. Siga as instruções: segure o item de configuração e clique no bloco desejado
+3. Olhe para o bloco desejado e execute o comando
 
 Para remover um bloco:
 ```bash

@@ -160,7 +160,7 @@ public class CrateKeyEditorMenu extends AbstractCrateMenu {
             p -> {
                 p.closeContainer();
                 p.sendSystemMessage(Component.literal("§6=== Criar Nova Chave ==="));
-                p.sendSystemMessage(Component.literal("§7Use: §e/crate key create <id> <nome>"));
+                p.sendSystemMessage(Component.literal("§7Use: §e/crate key create <id> [nome]"));
                 p.sendSystemMessage(Component.literal("§7Exemplo: §e/crate key create chave_vip \"Chave VIP\""));
             });
 

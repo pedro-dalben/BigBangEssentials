@@ -21,6 +21,7 @@ public class CratePendingDeliveryService extends JdbcRepository {
     private static final String TABLE = "crate_pending_deliveries";
     private static final String INSERT = "INSERT INTO " + TABLE + " (id, player_uuid, item_json, source, created_at) VALUES (?, ?, ?, ?, ?)";
     private static final String SELECT_BY_PLAYER = "SELECT id, item_json FROM " + TABLE + " WHERE player_uuid = ? ORDER BY created_at ASC";
+    private static final String COUNT_BY_PLAYER = "SELECT COUNT(*) FROM " + TABLE + " WHERE player_uuid = ?";
     private static final String DELETE = "DELETE FROM " + TABLE + " WHERE id = ?";
 
     private final Gson gson = new Gson();
@@ -100,7 +101,7 @@ public class CratePendingDeliveryService extends JdbcRepository {
             }).join();
         } catch (Exception e) {
             LOGGER.error("Failed to query pending deliveries for player {}: {}", playerUuid, e.getMessage(), e);
-            return 0;
+            throw new IllegalStateException("Failed to query pending deliveries", e);
         }
 
         if (pending.isEmpty()) return 0;
@@ -123,6 +124,17 @@ public class CratePendingDeliveryService extends JdbcRepository {
             }
         }
         return claimed;
+    }
+
+    public int countPendingDeliveries(ServerPlayer player) {
+        UUID playerUuid = player.getUUID();
+        try {
+            return getDatabase().querySingle(COUNT_BY_PLAYER, stmt -> stmt.setString(1, playerUuid.toString()),
+                rs -> rs.getInt(1)).join().orElse(0);
+        } catch (Exception e) {
+            LOGGER.error("Failed to count pending deliveries for player {}: {}", playerUuid, e.getMessage(), e);
+            throw new IllegalStateException("Failed to count pending deliveries", e);
+        }
     }
 
     private void deleteDelivery(String id) {

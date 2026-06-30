@@ -1,0 +1,123 @@
+package com.pedrodalben.bigbangessentials.crates.command;
+
+import com.mojang.brigadier.CommandDispatcher;
+import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
+import com.pedrodalben.bigbangessentials.crates.command.config.CratePermissions;
+import com.pedrodalben.bigbangessentials.permissions.ExternalPermissionAdapter;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.server.Bootstrap;
+import net.minecraft.server.level.ServerPlayer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+class CrateCommandTest {
+
+    @BeforeAll
+    static void beforeAll() {
+        try {
+            Bootstrap.bootStrap();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    @BeforeEach
+    void setUp() {
+        PermissionAPI.setExternalAdapter(null);
+    }
+
+    @AfterEach
+    void tearDown() {
+        PermissionAPI.setExternalAdapter(null);
+    }
+
+    @Test
+    void registersCreateSubcommandsOnBothRootAliases() {
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+
+        CrateCommand.register(dispatcher);
+
+        assertNotNull(dispatcher.getRoot().getChild("crate"));
+        assertNotNull(dispatcher.getRoot().getChild("crates"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("create"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("edit"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("setname"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("setdesc"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("setopening"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("setlocation"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("massopen"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("claim"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("create"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("editor"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setname"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("settype"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("create"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("create"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("edit"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("massopen"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("claim"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("editor"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("create"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("create"));
+    }
+
+    @Test
+    void createSubcommandsRespectPermissionChecks() {
+        UUID playerId = UUID.randomUUID();
+        ExternalPermissionAdapter adapter = mock(ExternalPermissionAdapter.class);
+        when(adapter.hasPermission(any(UUID.class), anyString())).thenAnswer(invocation -> {
+            String permission = invocation.getArgument(1, String.class);
+            return CratePermissions.MANAGE.equals(permission) || CratePermissions.EDITOR.equals(permission);
+        });
+        PermissionAPI.setExternalAdapter(adapter);
+
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        CrateCommand.register(dispatcher);
+
+        ServerPlayer player = mock(ServerPlayer.class);
+        when(player.getUUID()).thenReturn(playerId);
+
+        CommandSourceStack source = mock(CommandSourceStack.class);
+        when(source.getPlayer()).thenReturn(player);
+
+        assertTrue(dispatcher.getRoot().getChild("crate").getChild("create").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crate").getChild("edit").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crate").getChild("key").getChild("create").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crate").getChild("key").getChild("editor").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("create").canUse(source));
+    }
+
+    @Test
+    void createSubcommandsStayHiddenWithoutMatchingPermissions() {
+        UUID playerId = UUID.randomUUID();
+        ExternalPermissionAdapter adapter = mock(ExternalPermissionAdapter.class);
+        when(adapter.hasPermission(any(UUID.class), anyString())).thenReturn(false);
+        PermissionAPI.setExternalAdapter(adapter);
+
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        CrateCommand.register(dispatcher);
+
+        ServerPlayer player = mock(ServerPlayer.class);
+        when(player.getUUID()).thenReturn(playerId);
+
+        CommandSourceStack source = mock(CommandSourceStack.class);
+        when(source.getPlayer()).thenReturn(player);
+
+        assertFalse(dispatcher.getRoot().getChild("crate").getChild("create").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crate").getChild("edit").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crate").getChild("key").getChild("create").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crate").getChild("key").getChild("editor").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("create").canUse(source));
+    }
+}

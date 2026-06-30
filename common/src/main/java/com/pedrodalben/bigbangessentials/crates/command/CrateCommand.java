@@ -1,8 +1,10 @@
 package com.pedrodalben.bigbangessentials.crates.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
@@ -14,13 +16,21 @@ import com.pedrodalben.bigbangessentials.crates.command.config.CratePermissions;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateLocation;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateOpenAudit;
+import com.pedrodalben.bigbangessentials.crates.domain.CrateMilestone;
+import com.pedrodalben.bigbangessentials.crates.domain.CrateOpeningType;
+import com.pedrodalben.bigbangessentials.crates.domain.CrateRarity;
+import com.pedrodalben.bigbangessentials.crates.domain.CrateReward;
 import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
 import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
+import com.pedrodalben.bigbangessentials.crates.domain.RewardType;
 import com.pedrodalben.bigbangessentials.crates.service.CrateAuditService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateKeyService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateMetricsService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateOpeningService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
+import com.pedrodalben.bigbangessentials.crates.menu.CrateEditMenu;
+import com.pedrodalben.bigbangessentials.crates.menu.CrateKeyEditorMenu;
+import com.pedrodalben.bigbangessentials.crates.service.CratePendingDeliveryService;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -30,11 +40,16 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -65,6 +80,42 @@ public class CrateCommand {
         return builder.buildFuture();
     };
 
+    private static final SuggestionProvider<CommandSourceStack> RARITY_SUGGESTIONS = (ctx, builder) -> {
+        try {
+            String crateId = normalizeTechnicalId(StringArgumentType.getString(ctx, "crate"));
+            if (crateId == null) {
+                return builder.buildFuture();
+            }
+
+            CrateDefinition crate = crateService.getCrateByKey(crateId);
+            if (crate != null) {
+                for (CrateRarity rarity : crate.getRarities()) {
+                    builder.suggest(rarity.getId(), Component.literal(rarity.getName()));
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return builder.buildFuture();
+    };
+
+    private static final SuggestionProvider<CommandSourceStack> REWARD_SUGGESTIONS = (ctx, builder) -> {
+        try {
+            String crateId = normalizeTechnicalId(StringArgumentType.getString(ctx, "crate"));
+            if (crateId == null) {
+                return builder.buildFuture();
+            }
+
+            CrateDefinition crate = crateService.getCrateByKey(crateId);
+            if (crate != null) {
+                for (CrateReward reward : crate.getRewards()) {
+                    builder.suggest(reward.getId(), Component.literal(reward.getName()));
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return builder.buildFuture();
+    };
+
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         register(dispatcher, "crates");
         register(dispatcher, "crate");
@@ -79,6 +130,152 @@ public class CrateCommand {
             .then(Commands.literal("reload")
                 .requires(source -> hasPermission(source, CratePermissions.RELOAD))
                 .executes(CrateCommand::reloadModule)
+            )
+            .then(Commands.literal("create")
+                .requires(source -> hasAnyPermission(source,
+                    CratePermissions.MANAGE,
+                    CratePermissions.EDITOR,
+                    CratePermissions.ADMIN))
+                .executes(CrateCommand::showCreateCrateUsage)
+                .then(Commands.argument("id", StringArgumentType.word())
+                    .executes(CrateCommand::createCrate)
+                    .then(Commands.argument("nome", StringArgumentType.greedyString())
+                        .executes(ctx -> createCrate(ctx, StringArgumentType.getString(ctx, "nome")))
+                    )
+                )
+            )
+            .then(Commands.literal("edit")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .executes(CrateCommand::openCrateEditor)
+                )
+            )
+            .then(Commands.literal("setname")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .then(Commands.argument("nome", StringArgumentType.greedyString())
+                        .executes(CrateCommand::setCrateName)
+                    )
+                )
+            )
+            .then(Commands.literal("setdesc")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .then(Commands.argument("descricao", StringArgumentType.greedyString())
+                        .executes(CrateCommand::setCrateDescription)
+                    )
+                )
+            )
+            .then(Commands.literal("toggle")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .executes(CrateCommand::toggleCrate)
+                )
+            )
+            .then(Commands.literal("seticon")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .executes(CrateCommand::setCrateIcon)
+                )
+            )
+            .then(Commands.literal("setopening")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .then(Commands.argument("tipo", StringArgumentType.word())
+                        .executes(CrateCommand::setCrateOpeningType)
+                    )
+                )
+            )
+            .then(Commands.literal("setkey")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .then(Commands.argument("keyId", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .executes(CrateCommand::setCrateKeyRequirement)
+                    )
+                )
+            )
+            .then(Commands.literal("setcost")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .then(Commands.argument("valor", DoubleArgumentType.doubleArg(0))
+                        .executes(CrateCommand::setCrateCost)
+                    )
+                )
+            )
+            .then(Commands.literal("setcooldown")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .then(Commands.argument("ms", LongArgumentType.longArg(0))
+                        .executes(CrateCommand::setCrateCooldown)
+                    )
+                )
+            )
+            .then(Commands.literal("setperm")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .then(Commands.argument("permission", StringArgumentType.word())
+                        .executes(CrateCommand::setCratePermission)
+                    )
+                )
+            )
+            .then(Commands.literal("addrarity")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .then(Commands.argument("nome", StringArgumentType.string())
+                            .then(Commands.argument("cor", StringArgumentType.word())
+                                .then(Commands.argument("peso", DoubleArgumentType.doubleArg(0))
+                                    .executes(CrateCommand::addCrateRarity)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            .then(Commands.literal("removerarity")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(RARITY_SUGGESTIONS)
+                        .executes(CrateCommand::removeCrateRarity)
+                    )
+                )
+            )
+            .then(Commands.literal("addmilestone")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .then(Commands.argument("nome", StringArgumentType.string())
+                            .then(Commands.argument("rewardId", StringArgumentType.word())
+                                .suggests(REWARD_SUGGESTIONS)
+                                .then(Commands.argument("aberturas", IntegerArgumentType.integer(1))
+                                    .executes(CrateCommand::addCrateMilestone)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            .then(Commands.literal("setlocation")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .executes(CrateCommand::setCrateLocation)
+                )
             )
             .then(Commands.literal("give")
                 .requires(source -> hasPermission(source, CratePermissions.GIVE))
@@ -118,6 +315,18 @@ public class CrateCommand {
                         .executes(ctx -> previewCrate(ctx, EntityArgument.getPlayer(ctx, "player")))
                     )
                 )
+            )
+            .then(Commands.literal("massopen")
+                .then(Commands.argument("crate", StringArgumentType.word())
+                    .suggests(CRATE_SUGGESTIONS)
+                    .executes(ctx -> massOpenCrate(ctx, 1))
+                    .then(Commands.argument("quantidade", IntegerArgumentType.integer(1))
+                        .executes(ctx -> massOpenCrate(ctx, IntegerArgumentType.getInteger(ctx, "quantidade")))
+                    )
+                )
+            )
+            .then(Commands.literal("claim")
+                .executes(CrateCommand::claimPendingDeliveries)
             )
             .then(Commands.literal("resetcooldown")
                 .requires(source -> hasPermission(source, CratePermissions.ADMIN))
@@ -164,12 +373,71 @@ public class CrateCommand {
                     .executes(CrateCommand::listLocations)
                 )
                 .then(Commands.literal("remove")
+                    .requires(CrateCommand::canManageCrates)
                     .then(Commands.argument("locationId", StringArgumentType.word())
                         .executes(CrateCommand::removeLocation)
                     )
                 )
             )
             .then(Commands.literal("key")
+                .then(Commands.literal("create")
+                    .requires(source -> hasAnyPermission(source,
+                        CratePermissions.EDITOR,
+                        CratePermissions.ADMIN))
+                    .executes(CrateCommand::showCreateKeyUsage)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .executes(CrateCommand::createKey)
+                        .then(Commands.argument("nome", StringArgumentType.greedyString())
+                            .executes(ctx -> createKey(ctx, StringArgumentType.getString(ctx, "nome")))
+                        )
+                    )
+                )
+                .then(Commands.literal("editor")
+                    .requires(CrateCommand::canManageKeys)
+                    .executes(CrateCommand::openKeyEditor)
+                )
+                .then(Commands.literal("setname")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("nome", StringArgumentType.greedyString())
+                            .executes(CrateCommand::setKeyName)
+                        )
+                    )
+                )
+                .then(Commands.literal("settype")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("tipo", StringArgumentType.word())
+                            .executes(CrateCommand::setKeyType)
+                        )
+                    )
+                )
+                .then(Commands.literal("toggle")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .executes(CrateCommand::toggleKey)
+                    )
+                )
+                .then(Commands.literal("seticon")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .executes(CrateCommand::setKeyIcon)
+                    )
+                )
+                .then(Commands.literal("addcrate")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("crateKey", StringArgumentType.word())
+                            .suggests(CRATE_SUGGESTIONS)
+                            .executes(CrateCommand::addCrateToKey)
+                        )
+                    )
+                )
                 .then(Commands.literal("give")
                     .requires(source -> hasPermission(source, CratePermissions.KEY_GIVE))
                     .then(Commands.argument("player", EntityArgument.players())
@@ -242,7 +510,173 @@ public class CrateCommand {
                     )
                 )
             )
+            .then(Commands.literal("reward")
+                .requires(CrateCommand::canManageCrates)
+                .then(Commands.literal("create")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("id", StringArgumentType.word())
+                            .then(Commands.argument("nome", StringArgumentType.string())
+                                .then(Commands.argument("rarityId", StringArgumentType.word())
+                                    .suggests(RARITY_SUGGESTIONS)
+                                    .executes(CrateCommand::createReward)
+                                )
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setname")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("nome", StringArgumentType.greedyString())
+                                .executes(CrateCommand::setRewardName)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setweight")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("peso", DoubleArgumentType.doubleArg(0))
+                                .executes(CrateCommand::setRewardWeight)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("setrarity")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("rarityId", StringArgumentType.word())
+                                .suggests(RARITY_SUGGESTIONS)
+                                .executes(CrateCommand::setRewardRarity)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("toggle")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .executes(CrateCommand::toggleReward)
+                        )
+                    )
+                )
+                .then(Commands.literal("seticon")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .executes(CrateCommand::setRewardIcon)
+                        )
+                    )
+                )
+            )
         );
+    }
+
+    // === Create Crate ===
+
+    private static int showCreateCrateUsage(CommandContext<CommandSourceStack> context) {
+        context.getSource().sendFailure(Component.literal(CrateMessages.CREATE_USAGE));
+        return 0;
+    }
+
+    private static int createCrate(CommandContext<CommandSourceStack> context) {
+        return createCrate(context, null);
+    }
+
+    private static int createCrate(CommandContext<CommandSourceStack> context, String displayName) {
+        CommandSourceStack source = context.getSource();
+        String crateId = normalizeTechnicalId(StringArgumentType.getString(context, "id"));
+
+        if (crateId == null) {
+            source.sendFailure(Component.literal(CrateMessages.CRATE_INVALID_ID));
+            return 0;
+        }
+
+        if (crateService.crateExists(crateId)) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.CRATE_ALREADY_EXISTS, crateId)));
+            return 0;
+        }
+
+        String resolvedDisplayName = (displayName == null || displayName.isBlank())
+            ? crateId
+            : displayName.trim();
+
+        try {
+            crateService.createCrate(crateId, resolvedDisplayName);
+            source.sendSuccess(() -> Component.literal(
+                String.format(CrateMessages.CRATE_CREATED, crateId, resolvedDisplayName)), true);
+            LOGGER.info("Crate '{}' created by {} with display name '{}'",
+                crateId, source.getTextName(), resolvedDisplayName);
+            return 1;
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(Component.literal(CrateMessages.CRATE_INVALID_ID));
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Error creating crate '{}'", crateId, e);
+            source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+            return 0;
+        }
+    }
+
+    // === Create Key ===
+
+    private static int showCreateKeyUsage(CommandContext<CommandSourceStack> context) {
+        context.getSource().sendFailure(Component.literal(CrateMessages.KEY_CREATE_USAGE));
+        return 0;
+    }
+
+    private static int createKey(CommandContext<CommandSourceStack> context) {
+        return createKey(context, null);
+    }
+
+    private static int createKey(CommandContext<CommandSourceStack> context, String displayName) {
+        CommandSourceStack source = context.getSource();
+        String keyId = normalizeTechnicalId(StringArgumentType.getString(context, "id"));
+
+        if (keyId == null) {
+            source.sendFailure(Component.literal(CrateMessages.KEY_INVALID));
+            return 0;
+        }
+
+        if (crateService.keyExists(keyId)) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.KEY_ALREADY_EXISTS, keyId)));
+            return 0;
+        }
+
+        String resolvedDisplayName = (displayName == null || displayName.isBlank())
+            ? keyId
+            : displayName.trim();
+
+        try {
+            crateService.createKey(keyId, resolvedDisplayName);
+            source.sendSuccess(() -> Component.literal(
+                String.format(CrateMessages.KEY_CREATED, keyId, resolvedDisplayName)), true);
+            LOGGER.info("Key '{}' created by {} with display name '{}'",
+                keyId, source.getTextName(), resolvedDisplayName);
+            return 1;
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(Component.literal(CrateMessages.KEY_INVALID));
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Error creating key '{}'", keyId, e);
+            source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+            return 0;
+        }
     }
 
     // === Permission Helper ===
@@ -257,6 +691,52 @@ public class CrateCommand {
             }
         } catch (Exception ignored) {}
         return false;
+    }
+
+    private static boolean hasAnyPermission(CommandSourceStack source, String... permissions) {
+        for (String permission : permissions) {
+            if (hasPermission(source, permission)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean canManageCrates(CommandSourceStack source) {
+        return hasAnyPermission(source,
+            CratePermissions.MANAGE,
+            CratePermissions.EDITOR,
+            CratePermissions.ADMIN);
+    }
+
+    private static boolean canManageKeys(CommandSourceStack source) {
+        return hasAnyPermission(source,
+            CratePermissions.EDITOR,
+            CratePermissions.ADMIN);
+    }
+
+    private static String normalizeTechnicalId(String id) {
+        if (id == null) {
+            return null;
+        }
+
+        String normalized = id.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isBlank() || !normalized.matches("^[a-z0-9_-]+$")) {
+            return null;
+        }
+        return normalized;
+    }
+
+    private static String normalizeNullableText(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        String trimmed = text.trim();
+        if (trimmed.equalsIgnoreCase("none") || trimmed.equalsIgnoreCase("clear")) {
+            return "";
+        }
+        return trimmed;
     }
 
     // === Editor ===
@@ -378,6 +858,110 @@ public class CrateCommand {
             }
         } catch (Exception e) {
             LOGGER.error("Error opening crate for self", e);
+            source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+            return 0;
+        }
+    }
+
+    // === Mass Open ===
+
+    private static int massOpenCrate(CommandContext<CommandSourceStack> context, int amount) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        if (!crate.isEnabled()) {
+            source.sendFailure(Component.literal(CrateMessages.CRATE_DISABLED));
+            return 0;
+        }
+
+        try {
+            List<CrateOpeningService.CrateOpeningResult> results = openingService.massOpen(
+                player, crate, amount, GrantSource.MASS_OPEN);
+
+            int successfulOpens = 0;
+            int rewardsDelivered = 0;
+            String failureMessage = null;
+
+            for (CrateOpeningService.CrateOpeningResult result : results) {
+                if (result.success()) {
+                    successfulOpens++;
+                    if (result.audit() != null) {
+                        int rewardNames = result.audit().getRewardNames().size();
+                        rewardsDelivered += rewardNames > 0 ? rewardNames : 1;
+                    } else {
+                        rewardsDelivered++;
+                    }
+                } else {
+                    failureMessage = result.message();
+                    break;
+                }
+            }
+
+            if (successfulOpens == amount) {
+                final int completedOpens = successfulOpens;
+                final int completedRewards = rewardsDelivered;
+                source.sendSuccess(() -> Component.literal(String.format(
+                    CrateMessages.MASS_OPEN_COMPLETED, completedOpens, completedRewards)), false);
+                return 1;
+            }
+
+            if (successfulOpens > 0) {
+                source.sendFailure(Component.literal(String.format(
+                    CrateMessages.MASS_OPEN_PARTIAL,
+                    successfulOpens,
+                    amount,
+                    failureMessage != null ? failureMessage : CrateMessages.INTERNAL_ERROR)));
+                return 0;
+            }
+
+            source.sendFailure(Component.literal(
+                failureMessage != null ? failureMessage : CrateMessages.INTERNAL_ERROR));
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Error mass opening crate", e);
+            source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+            return 0;
+        }
+    }
+
+    // === Pending Deliveries ===
+
+    private static int claimPendingDeliveries(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        try {
+            CratePendingDeliveryService pendingDeliveryService = CratePendingDeliveryService.getInstance();
+            int claimed = pendingDeliveryService.claimDeliveries(player);
+            if (claimed <= 0) {
+                int pendingCount = pendingDeliveryService.countPendingDeliveries(player);
+                if (pendingCount > 0) {
+                    source.sendFailure(Component.literal(CrateMessages.INVENTORY_FULL));
+                    return 0;
+                }
+
+                source.sendSuccess(() -> Component.literal(CrateMessages.CLAIM_NO_PENDING), false);
+                return 1;
+            }
+
+            source.sendSuccess(() -> Component.literal(String.format(
+                CrateMessages.CLAIM_SUCCESS,
+                claimed,
+                claimed == 1 ? "item" : "itens")), false);
+            return 1;
+        } catch (Exception e) {
+            LOGGER.error("Failed to claim pending deliveries for player {}", player.getUUID(), e);
             source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
             return 0;
         }
@@ -695,6 +1279,692 @@ public class CrateCommand {
             source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
             return 0;
         }
+    }
+
+    // === Crate Editing ===
+
+    private static ServerPlayer requirePlayer(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal(CrateMessages.PLAYER_ONLY));
+            return null;
+        }
+        return player;
+    }
+
+    private static CrateDefinition requireCrate(CommandSourceStack source, String rawId) {
+        String crateId = normalizeTechnicalId(rawId);
+        if (crateId == null) {
+            source.sendFailure(Component.literal(CrateMessages.CRATE_INVALID_ID));
+            return null;
+        }
+
+        CrateDefinition crate = crateService.getCrateByKey(crateId);
+        if (crate == null) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.CRATE_NOT_FOUND, crateId)));
+            return null;
+        }
+        return crate;
+    }
+
+    private static KeyDefinition requireKey(CommandSourceStack source, String rawId) {
+        String keyId = normalizeTechnicalId(rawId);
+        if (keyId == null) {
+            source.sendFailure(Component.literal(CrateMessages.KEY_INVALID));
+            return null;
+        }
+
+        Optional<KeyDefinition> key = crateService.getKeyById(keyId);
+        if (key.isEmpty()) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.KEY_NOT_FOUND, keyId)));
+            return null;
+        }
+        return key.get();
+    }
+
+    private static CrateRarity requireRarity(CommandSourceStack source, CrateDefinition crate, String rawId) {
+        String rarityId = normalizeTechnicalId(rawId);
+        if (rarityId == null) {
+            source.sendFailure(Component.literal(CrateMessages.RARITY_INVALID));
+            return null;
+        }
+
+        CrateRarity rarity = crate.getRarity(rarityId);
+        if (rarity == null) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.RARITY_NOT_FOUND, rarityId)));
+            return null;
+        }
+        return rarity;
+    }
+
+    private static CrateReward requireReward(CommandSourceStack source, CrateDefinition crate, String rawId) {
+        String rewardId = normalizeTechnicalId(rawId);
+        if (rewardId == null) {
+            source.sendFailure(Component.literal(CrateMessages.REWARD_INVALID));
+            return null;
+        }
+
+        CrateReward reward = crate.getReward(rewardId);
+        if (reward == null) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.REWARD_NOT_FOUND, rewardId)));
+            return null;
+        }
+        return reward;
+    }
+
+    private static int openCrateEditor(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        try {
+            CrateEditMenu.open(player, crate.getKey());
+            return 1;
+        } catch (Exception e) {
+            LOGGER.error("Failed to open crate editor for crate {}", crate.getKey(), e);
+            source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+            return 0;
+        }
+    }
+
+    private static int setCrateName(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "nome").trim();
+        if (name.isBlank()) {
+            source.sendFailure(Component.literal("\u00a7cO nome da crate n\u00e3o pode ficar em branco."));
+            return 0;
+        }
+
+        crate.setDisplayName(name);
+        crateService.saveCrate(crate);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aNome da crate '" + crate.getKey() + "' atualizado para '" + name + "'."), true);
+        return 1;
+    }
+
+    private static int setCrateDescription(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        String description = normalizeNullableText(StringArgumentType.getString(context, "descricao"));
+        crate.setDescription(description);
+        crateService.saveCrate(crate);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aDescri\u00e7\u00e3o da crate '" + crate.getKey() + "' atualizada."), true);
+        return 1;
+    }
+
+    private static int toggleCrate(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        crate.setEnabled(!crate.isEnabled());
+        crateService.saveCrate(crate);
+        source.sendSuccess(() -> Component.literal(
+            crate.isEnabled()
+                ? "\u00a7aCrate '" + crate.getKey() + "' ativada."
+                : "\u00a7cCrate '" + crate.getKey() + "' desativada."), true);
+        return 1;
+    }
+
+    private static int setCrateIcon(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        ItemStack heldItem = player.getItemInHand(InteractionHand.MAIN_HAND);
+        if (heldItem == null || heldItem.isEmpty()) {
+            source.sendFailure(Component.literal(CrateMessages.ITEM_REQUIRED));
+            return 0;
+        }
+
+        ItemStack icon = heldItem.copy();
+        icon.setCount(1);
+        crate.setDisplayItem(icon);
+        crateService.saveCrate(crate);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7a\u00cdcone da crate '" + crate.getKey() + "' atualizado."), true);
+        return 1;
+    }
+
+    private static int setCrateOpeningType(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        String rawType = StringArgumentType.getString(context, "tipo");
+        CrateOpeningType openingType;
+        try {
+            openingType = CrateOpeningType.valueOf(rawType.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(Component.literal(CrateMessages.OPENING_TYPE_INVALID));
+            return 0;
+        }
+
+        crate.setOpeningType(openingType);
+        crateService.saveCrate(crate);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aTipo de abertura da crate '" + crate.getKey() + "' definido para " + openingType.name() + "."), true);
+        return 1;
+    }
+
+    private static int setCrateKeyRequirement(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        String rawKeyId = StringArgumentType.getString(context, "keyId");
+        if (rawKeyId.equalsIgnoreCase("none") || rawKeyId.equalsIgnoreCase("clear")) {
+            crate.getRequirements().setAcceptedKeyIds(List.of());
+            crateService.saveCrate(crate);
+            source.sendSuccess(() -> Component.literal(
+                "\u00a7aRequisito de chave da crate '" + crate.getKey() + "' removido."), true);
+            return 1;
+        }
+
+        String keyId = normalizeTechnicalId(rawKeyId);
+        if (keyId == null) {
+            source.sendFailure(Component.literal(CrateMessages.KEY_INVALID));
+            return 0;
+        }
+
+        if (!crateService.keyExists(keyId)) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.KEY_NOT_FOUND, keyId)));
+            return 0;
+        }
+
+        crate.getRequirements().setAcceptedKeyIds(List.of(keyId));
+        crateService.saveCrate(crate);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aRequisito de chave da crate '" + crate.getKey() + "' definido para '" + keyId + "'."), true);
+        return 1;
+    }
+
+    private static int setCrateCost(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        double cost = DoubleArgumentType.getDouble(context, "valor");
+        crate.setCost(cost);
+        crate.getRequirements().setRequiredCost(cost);
+        crateService.saveCrate(crate);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aCusto da crate '" + crate.getKey() + "' definido para " + cost + "."), true);
+        return 1;
+    }
+
+    private static int setCrateCooldown(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        long cooldown = LongArgumentType.getLong(context, "ms");
+        crate.setCooldownMillis(cooldown);
+        crate.getRequirements().setCooldownMillis(cooldown);
+        crateService.saveCrate(crate);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aCooldown da crate '" + crate.getKey() + "' definido para " + cooldown + "ms."), true);
+        return 1;
+    }
+
+    private static int setCratePermission(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        String permission = normalizeNullableText(StringArgumentType.getString(context, "permission"));
+        crate.getRequirements().setRequiredPermission(permission);
+        crateService.saveCrate(crate);
+        source.sendSuccess(() -> Component.literal(
+            permission.isBlank()
+                ? "\u00a7aPermiss\u00e3o da crate '" + crate.getKey() + "' removida."
+                : "\u00a7aPermiss\u00e3o da crate '" + crate.getKey() + "' definida para '" + permission + "'."), true);
+        return 1;
+    }
+
+    private static int addCrateRarity(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        String rarityId = normalizeTechnicalId(StringArgumentType.getString(context, "id"));
+        if (rarityId == null) {
+            source.sendFailure(Component.literal(CrateMessages.RARITY_INVALID));
+            return 0;
+        }
+        if (crate.getRarity(rarityId) != null) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.RARITY_ALREADY_EXISTS, rarityId)));
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "nome").trim();
+        if (name.isBlank()) {
+            source.sendFailure(Component.literal("\u00a7cO nome da raridade n\u00e3o pode ficar em branco."));
+            return 0;
+        }
+
+        String color = StringArgumentType.getString(context, "cor");
+        double weight = DoubleArgumentType.getDouble(context, "peso");
+
+        CrateRarity rarity = new CrateRarity(rarityId, name, color, weight);
+        rarity.setDisplayOrder(crate.getRarities().size());
+
+        crateService.addRarityToCrate(crate.getKey(), rarity);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aRaridade '" + rarityId + "' adicionada \u00e0 crate '" + crate.getKey() + "'."), true);
+        return 1;
+    }
+
+    private static int removeCrateRarity(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "id"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        crateService.removeRarityFromCrate(crate.getKey(), rarity.getId());
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aRaridade '" + rarity.getId() + "' removida da crate '" + crate.getKey() + "'."), true);
+        return 1;
+    }
+
+    private static int addCrateMilestone(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        String milestoneId = normalizeTechnicalId(StringArgumentType.getString(context, "id"));
+        if (milestoneId == null) {
+            source.sendFailure(Component.literal(CrateMessages.MILESTONE_INVALID));
+            return 0;
+        }
+        if (crate.getMilestones().stream().anyMatch(m -> m.getId().equals(milestoneId))) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.MILESTONE_ALREADY_EXISTS, milestoneId)));
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "nome").trim();
+        if (name.isBlank()) {
+            source.sendFailure(Component.literal("\u00a7cO nome do milestone n\u00e3o pode ficar em branco."));
+            return 0;
+        }
+
+        String rewardId = normalizeTechnicalId(StringArgumentType.getString(context, "rewardId"));
+        if (rewardId == null) {
+            source.sendFailure(Component.literal(CrateMessages.REWARD_INVALID));
+            return 0;
+        }
+
+        CrateReward reward = crate.getReward(rewardId);
+        if (reward == null) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.REWARD_NOT_FOUND, rewardId)));
+            return 0;
+        }
+
+        int openings = IntegerArgumentType.getInteger(context, "aberturas");
+        CrateMilestone milestone = new CrateMilestone(milestoneId, name, rewardId, openings);
+        milestone.setDisplayOrder(crate.getMilestones().size());
+
+        crateService.addMilestoneToCrate(crate.getKey(), milestone);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aMilestone '" + milestoneId + "' adicionado \u00e0 crate '" + crate.getKey() + "'."), true);
+        return 1;
+    }
+
+    private static int setCrateLocation(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        HitResult hitResult = player.pick(5.0D, 1.0F, false);
+        if (hitResult.getType() != HitResult.Type.BLOCK) {
+            source.sendFailure(Component.literal(CrateMessages.CRATE_INVALID_TARGET));
+            return 0;
+        }
+
+        BlockHitResult blockHitResult = (BlockHitResult) hitResult;
+        BlockPos pos = blockHitResult.getBlockPos();
+        ResourceKey<Level> dimension = player.serverLevel().dimension();
+
+        crateService.getLocationByPosition(dimension, pos)
+            .ifPresent(existing -> crateService.deleteLocation(existing.getId()));
+
+        crateService.addLocation(crate.getKey(), dimension, pos);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aCrate '" + crate.getKey() + "' vinculada ao bloco " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + "."), true);
+        return 1;
+    }
+
+    private static int openKeyEditor(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        try {
+            CrateKeyEditorMenu.open(player);
+            return 1;
+        } catch (Exception e) {
+            LOGGER.error("Failed to open key editor", e);
+            source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+            return 0;
+        }
+    }
+
+    private static int setKeyName(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "nome").trim();
+        if (name.isBlank()) {
+            source.sendFailure(Component.literal("\u00a7cO nome da chave n\u00e3o pode ficar em branco."));
+            return 0;
+        }
+
+        key.setName(name);
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aNome da chave '" + key.getId() + "' atualizado para '" + name + "'."), true);
+        return 1;
+    }
+
+    private static int setKeyType(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        String rawType = StringArgumentType.getString(context, "tipo");
+        if (rawType.equalsIgnoreCase("virtual")) {
+            key.setVirtual(true);
+        } else if (rawType.equalsIgnoreCase("physical")) {
+            key.setVirtual(false);
+        } else {
+            source.sendFailure(Component.literal(CrateMessages.KEY_TYPE_INVALID));
+            return 0;
+        }
+
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aTipo da chave '" + key.getId() + "' definido para " + (key.isVirtual() ? "virtual" : "physical") + "."), true);
+        return 1;
+    }
+
+    private static int toggleKey(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        key.setActive(!key.isActive());
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            key.isActive()
+                ? "\u00a7aChave '" + key.getId() + "' ativada."
+                : "\u00a7cChave '" + key.getId() + "' desativada."), true);
+        return 1;
+    }
+
+    private static int setKeyIcon(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        ItemStack heldItem = player.getItemInHand(InteractionHand.MAIN_HAND);
+        if (heldItem == null || heldItem.isEmpty()) {
+            source.sendFailure(Component.literal(CrateMessages.ITEM_REQUIRED));
+            return 0;
+        }
+
+        ItemStack icon = heldItem.copy();
+        icon.setCount(1);
+        key.setPhysicalItem(icon);
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7a\u00cdcone da chave '" + key.getId() + "' atualizado."), true);
+        return 1;
+    }
+
+    private static int addCrateToKey(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crateKey"));
+        if (crate == null) {
+            return 0;
+        }
+
+        key.addCompatibleCrateId(crate.getKey());
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aCrate '" + crate.getKey() + "' adicionada \u00e0 chave '" + key.getId() + "'."), true);
+        return 1;
+    }
+
+    private static int createReward(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        String rewardId = normalizeTechnicalId(StringArgumentType.getString(context, "id"));
+        if (rewardId == null) {
+            source.sendFailure(Component.literal(CrateMessages.REWARD_INVALID));
+            return 0;
+        }
+        if (crate.getReward(rewardId) != null) {
+            source.sendFailure(Component.literal(String.format(CrateMessages.REWARD_ALREADY_EXISTS, rewardId)));
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "nome").trim();
+        if (name.isBlank()) {
+            source.sendFailure(Component.literal("\u00a7cO nome da recompensa n\u00e3o pode ficar em branco."));
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "rarityId"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        CrateReward reward = new CrateReward(rewardId, crate.getKey(), name, RewardType.ITEM, rarity.getId());
+        reward.setDisplayOrder(crate.getRewards().size());
+        crateService.addRewardToCrate(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aRecompensa '" + rewardId + "' criada na crate '" + crate.getKey() + "'."), true);
+        return 1;
+    }
+
+    private static int setRewardName(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(context, "nome").trim();
+        if (name.isBlank()) {
+            source.sendFailure(Component.literal("\u00a7cO nome da recompensa n\u00e3o pode ficar em branco."));
+            return 0;
+        }
+
+        reward.setName(name);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aNome da recompensa '" + reward.getId() + "' atualizado para '" + name + "'."), true);
+        return 1;
+    }
+
+    private static int setRewardWeight(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        double weight = DoubleArgumentType.getDouble(context, "peso");
+        reward.setWeight(weight);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aPeso da recompensa '" + reward.getId() + "' definido para " + weight + "."), true);
+        return 1;
+    }
+
+    private static int setRewardRarity(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        CrateRarity rarity = requireRarity(source, crate, StringArgumentType.getString(context, "rarityId"));
+        if (rarity == null) {
+            return 0;
+        }
+
+        reward.setRarityId(rarity.getId());
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aRaridade da recompensa '" + reward.getId() + "' definida para '" + rarity.getId() + "'."), true);
+        return 1;
+    }
+
+    private static int toggleReward(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        reward.setActive(!reward.isActive());
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            reward.isActive()
+                ? "\u00a7aRecompensa '" + reward.getId() + "' ativada."
+                : "\u00a7cRecompensa '" + reward.getId() + "' desativada."), true);
+        return 1;
+    }
+
+    private static int setRewardIcon(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = requirePlayer(source);
+        if (player == null) {
+            return 0;
+        }
+
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) {
+            return 0;
+        }
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) {
+            return 0;
+        }
+
+        ItemStack heldItem = player.getItemInHand(InteractionHand.MAIN_HAND);
+        if (heldItem == null || heldItem.isEmpty()) {
+            source.sendFailure(Component.literal(CrateMessages.ITEM_REQUIRED));
+            return 0;
+        }
+
+        ItemStack icon = heldItem.copy();
+        icon.setCount(1);
+        reward.setIcon(icon);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7a\u00cdcone da recompensa '" + reward.getId() + "' atualizado."), true);
+        return 1;
     }
 
     // === Key Give ===

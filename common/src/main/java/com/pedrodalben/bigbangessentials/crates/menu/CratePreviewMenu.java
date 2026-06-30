@@ -4,6 +4,7 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateRarity;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateReward;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
+import com.pedrodalben.bigbangessentials.util.ChatComponentUtil;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -164,7 +165,13 @@ public class CratePreviewMenu extends AbstractCrateMenu {
             setItem(50, createItem(new ItemStack(Items.HOPPER), "§e§lAbrir Multiplo",
                 "§7Abre a crate varias vezes",
                 "§7Use: §e/crate massopen " + crateKey + " <quantidade>"),
-                null);
+                p -> {
+                    p.closeContainer();
+                    p.sendSystemMessage(ChatComponentUtil.createClickableSuggestion(
+                        "§eComando pronto: §6/crate massopen " + crateKey + " ",
+                        "crate massopen " + crateKey + " ",
+                        "Clique para preencher o comando e informe a quantidade depois."));
+                });
         }
 
         setItem(53, createItem(new ItemStack(Items.BARRIER), "§c§lFechar",
