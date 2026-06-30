@@ -440,6 +440,86 @@ public class CrateCommand {
                         )
                     )
                 )
+                .then(Commands.literal("setlore")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("lore", StringArgumentType.greedyString())
+                            .executes(CrateCommand::setKeyLore)
+                        )
+                    )
+                )
+                .then(Commands.literal("setperm")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("permission", StringArgumentType.word())
+                            .executes(CrateCommand::setKeyPermission)
+                        )
+                    )
+                )
+                .then(Commands.literal("setgivesound")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("sound", StringArgumentType.word())
+                            .executes(CrateCommand::setKeyGiveSound)
+                        )
+                    )
+                )
+                .then(Commands.literal("settakesound")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("sound", StringArgumentType.word())
+                            .executes(CrateCommand::setKeyTakeSound)
+                        )
+                    )
+                )
+                .then(Commands.literal("setgivecommands")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("comandos", StringArgumentType.greedyString())
+                            .executes(CrateCommand::setKeyGiveCommands)
+                        )
+                    )
+                )
+                .then(Commands.literal("addgivecommand")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("comando", StringArgumentType.greedyString())
+                            .executes(CrateCommand::addKeyGiveCommand)
+                        )
+                    )
+                )
+                .then(Commands.literal("cleargivecommands")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .executes(CrateCommand::clearKeyGiveCommands)
+                    )
+                )
+                .then(Commands.literal("setcrates")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("crates", StringArgumentType.greedyString())
+                            .executes(CrateCommand::setKeyCompatibleCrates)
+                        )
+                    )
+                )
+                .then(Commands.literal("removecrate")
+                    .requires(CrateCommand::canManageKeys)
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .suggests(KEY_SUGGESTIONS)
+                        .then(Commands.argument("crateKey", StringArgumentType.word())
+                            .suggests(CRATE_SUGGESTIONS)
+                            .executes(CrateCommand::removeCrateFromKey)
+                        )
+                    )
+                )
                 .then(Commands.literal("give")
                     .requires(source -> hasPermission(source, CratePermissions.KEY_GIVE))
                     .then(Commands.argument("player", EntityArgument.players())
@@ -2103,6 +2183,179 @@ public class CrateCommand {
         crateService.saveKey(key);
         source.sendSuccess(() -> Component.literal(
             "\u00a7aCrate '" + crate.getKey() + "' adicionada \u00e0 chave '" + key.getId() + "'."), true);
+        return 1;
+    }
+
+    private static int setKeyLore(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        List<String> lore = parseDelimitedValues(StringArgumentType.getString(context, "lore"));
+        key.setLore(lore);
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            lore.isEmpty()
+                ? "\u00a7aLore da chave '" + key.getId() + "' removida."
+                : "\u00a7aLore da chave '" + key.getId() + "' atualizada."), true);
+        return 1;
+    }
+
+    private static int setKeyPermission(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        String permission = normalizeNullableText(StringArgumentType.getString(context, "permission"));
+        key.setRequiredPermission(permission);
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            permission.isBlank()
+                ? "\u00a7aPermiss\u00e3o da chave '" + key.getId() + "' removida."
+                : "\u00a7aPermiss\u00e3o da chave '" + key.getId() + "' definida para '" + permission + "'."), true);
+        return 1;
+    }
+
+    private static int setKeyGiveSound(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        String sound = normalizeNullableText(StringArgumentType.getString(context, "sound"));
+        key.setGiveSound(sound);
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            sound.isBlank()
+                ? "\u00a7aSom de entrega da chave '" + key.getId() + "' removido."
+                : "\u00a7aSom de entrega da chave '" + key.getId() + "' definido para '" + sound + "'."), true);
+        return 1;
+    }
+
+    private static int setKeyTakeSound(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        String sound = normalizeNullableText(StringArgumentType.getString(context, "sound"));
+        key.setTakeSound(sound);
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            sound.isBlank()
+                ? "\u00a7aSom de remo\u00e7\u00e3o da chave '" + key.getId() + "' removido."
+                : "\u00a7aSom de remo\u00e7\u00e3o da chave '" + key.getId() + "' definido para '" + sound + "'."), true);
+        return 1;
+    }
+
+    private static int setKeyGiveCommands(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        List<String> commands = parseDelimitedValues(StringArgumentType.getString(context, "comandos"));
+        key.setGiveCommands(commands);
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            commands.isEmpty()
+                ? "\u00a7aComandos de entrega da chave '" + key.getId() + "' removidos."
+                : "\u00a7aComandos de entrega da chave '" + key.getId() + "' atualizados."), true);
+        return 1;
+    }
+
+    private static int addKeyGiveCommand(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        String command = normalizeNullableText(StringArgumentType.getString(context, "comando"));
+        if (command.isBlank()) {
+            source.sendFailure(Component.literal(CrateMessages.KEY_COMMAND_INVALID));
+            return 0;
+        }
+
+        List<String> commands = new java.util.ArrayList<>(key.getGiveCommands());
+        commands.add(command);
+        key.setGiveCommands(commands);
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aComando de entrega adicionado \u00e0 chave '" + key.getId() + "'."), true);
+        return 1;
+    }
+
+    private static int clearKeyGiveCommands(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        key.setGiveCommands(List.of());
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aComandos de entrega da chave '" + key.getId() + "' removidos."), true);
+        return 1;
+    }
+
+    private static int setKeyCompatibleCrates(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        List<String> normalizedCrates = new java.util.ArrayList<>();
+        for (String rawCrateId : parseDelimitedValues(StringArgumentType.getString(context, "crates"))) {
+            CrateDefinition crate = requireCrate(source, rawCrateId);
+            if (crate == null) {
+                return 0;
+            }
+            if (!normalizedCrates.contains(crate.getKey())) {
+                normalizedCrates.add(crate.getKey());
+            }
+        }
+
+        key.setCompatibleCrateIds(normalizedCrates);
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            normalizedCrates.isEmpty()
+                ? "\u00a7aCrates compativeis da chave '" + key.getId() + "' removidas."
+                : "\u00a7aCrates compativeis da chave '" + key.getId() + "' atualizadas."), true);
+        return 1;
+    }
+
+    private static int removeCrateFromKey(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        KeyDefinition key = requireKey(source, StringArgumentType.getString(context, "id"));
+        if (key == null) {
+            return 0;
+        }
+
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crateKey"));
+        if (crate == null) {
+            return 0;
+        }
+
+        if (!key.getCompatibleCrateIds().contains(crate.getKey())) {
+            source.sendFailure(Component.literal(
+                "\u00a7cA crate '" + crate.getKey() + "' n\u00e3o est\u00e1 vinculada \u00e0 chave '" + key.getId() + "'."));
+            return 0;
+        }
+
+        key.removeCompatibleCrateId(crate.getKey());
+        crateService.saveKey(key);
+        source.sendSuccess(() -> Component.literal(
+            "\u00a7aCrate '" + crate.getKey() + "' removida da chave '" + key.getId() + "'."), true);
         return 1;
     }
 

@@ -75,6 +75,17 @@ As classes de domínio (`CrateDefinition`, `KeyDefinition`, `CrateReward`, `Crat
 # 2. Vincular à crate
 /crate key addcrate chave_teste teste_crate
 
+# 2.1. Testar edição avançada da chave
+/crate key setlore chave_teste "Linha 1 | Linha 2"
+/crate key setperm chave_teste bigbangessentials.vip
+/crate key setgivesound chave_teste minecraft:item.trident.throw
+/crate key settakesound chave_teste minecraft:item.trident.return
+/crate key setgivecommands chave_teste "say {player} recebeu a chave | tellraw {player} {\"text\":\"Entrega realizada\"}"
+/crate key addgivecommand chave_teste "say Chave entregue"
+/crate key cleargivecommands chave_teste
+/crate key setcrates chave_teste teste_crate | evento_crate
+/crate key removecrate chave_teste teste_crate
+
 # 3. Definir chave como requisito da crate (via editor ou comando)
 # No editor, seção "Requisitos"
 

@@ -154,6 +154,15 @@ O `CrateKeyEditorMenu` exibe:
 /crate key toggle <id>
 /crate key seticon <id>
 /crate key addcrate <id> <crateKey>
+/crate key setlore <id> <linha1 | linha2>
+/crate key setperm <id> <permissao | clear>
+/crate key setgivesound <id> <som | clear>
+/crate key settakesound <id> <som | clear>
+/crate key setgivecommands <id> <cmd1 | cmd2>
+/crate key addgivecommand <id> <comando>
+/crate key cleargivecommands <id>
+/crate key setcrates <id> <crate1 | crate2>
+/crate key removecrate <id> <crateKey>
 ```
 
 ## Gerenciando Recompensas

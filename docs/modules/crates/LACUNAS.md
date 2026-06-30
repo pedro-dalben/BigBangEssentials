@@ -2,7 +2,7 @@
 
 Este documento lista o que ainda não está exposto pelo módulo de Crates no estado atual do código.
 
-Atualização: `/crate massopen`, `/crates claim` e a edição avançada de raridades já foram registrados. As lacunas abaixo permanecem em aberto.
+Atualização: `/crate massopen`, `/crates claim` e a edição avançada de raridades e chaves já foram registrados. As lacunas abaixo permanecem em aberto.
 
 A análise foi feita comparando:
 - a árvore de comandos em `CrateCommand`
@@ -33,24 +33,21 @@ Ainda não há comando para expor:
 - `RequirementLogic`
 - `alternativeCosts`
 
-## 3. KeyDefinition: campos ainda sem comando/menu de edição
+## 3. KeyDefinition: edição avançada já exposta
 
-O módulo já expõe:
+Hoje o módulo expõe:
 - criação da chave
 - nome
 - tipo virtual/física
 - ativação
 - ícone físico
-- vínculo de crate compatível via `addcrate`
+- vínculo de crate compatível
+- lore
+- permissão requerida
+- sons de give/take
+- comandos de entrega
 
-Ainda faltam comandos para:
-- editar `lore`
-- editar `requiredPermission`
-- editar `giveSound`
-- editar `takeSound`
-- editar `giveCommands`
-- remover crates compatíveis
-- substituir a lista de crates compatíveis em lote
+Não há lacuna aberta neste subtópico no estado atual do módulo.
 
 ## 4. CrateRarity: edição avançada já exposta
 

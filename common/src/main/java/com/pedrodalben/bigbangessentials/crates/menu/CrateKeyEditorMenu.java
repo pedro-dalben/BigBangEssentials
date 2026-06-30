@@ -85,6 +85,8 @@ public class CrateKeyEditorMenu extends AbstractCrateMenu {
         lore.add(Component.literal("§7Tipo: " + typeStr));
         lore.add(Component.literal("§7Status: " + activeStr));
         lore.add(Component.literal("§7Crates compativeis: §f" + key.getCompatibleCrateIds().size()));
+        lore.add(Component.literal("§7Lore: §f" + key.getLore().size() + " linha(s)"));
+        lore.add(Component.literal("§7Comandos de entrega: §f" + key.getGiveCommands().size()));
         if (key.getRequiredPermission() != null && !key.getRequiredPermission().isBlank()) {
             lore.add(Component.literal("§7Permissao: §f" + key.getRequiredPermission()));
         }
@@ -129,6 +131,15 @@ public class CrateKeyEditorMenu extends AbstractCrateMenu {
         p.sendSystemMessage(Component.literal(" §e/crate key toggle " + key.getId()));
         p.sendSystemMessage(Component.literal(" §e/crate key seticon " + key.getId()));
         p.sendSystemMessage(Component.literal(" §e/crate key addcrate " + key.getId() + " <crateKey>"));
+        p.sendSystemMessage(Component.literal(" §e/crate key setlore " + key.getId() + " <linha1 | linha2>"));
+        p.sendSystemMessage(Component.literal(" §e/crate key setperm " + key.getId() + " <permissao | clear>"));
+        p.sendSystemMessage(Component.literal(" §e/crate key setgivesound " + key.getId() + " <som | clear>"));
+        p.sendSystemMessage(Component.literal(" §e/crate key settakesound " + key.getId() + " <som | clear>"));
+        p.sendSystemMessage(Component.literal(" §e/crate key setgivecommands " + key.getId() + " <cmd1 | cmd2>"));
+        p.sendSystemMessage(Component.literal(" §e/crate key addgivecommand " + key.getId() + " <comando>"));
+        p.sendSystemMessage(Component.literal(" §e/crate key cleargivecommands " + key.getId()));
+        p.sendSystemMessage(Component.literal(" §e/crate key setcrates " + key.getId() + " <crate1 | crate2>"));
+        p.sendSystemMessage(Component.literal(" §e/crate key removecrate " + key.getId() + " <crateKey>"));
     }
 
     private void renderBottomBar() {

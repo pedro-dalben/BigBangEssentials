@@ -54,6 +54,15 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 | `key toggle` | `bigbangessentials.crates.editor` | `/crate key toggle <id>` | Alterna o estado da chave |
 | `key seticon` | `bigbangessentials.crates.editor` | `/crate key seticon <id>` | Define o item na mão como ícone físico da chave |
 | `key addcrate` | `bigbangessentials.crates.editor` | `/crate key addcrate <id> <crateKey>` | Vincula uma crate compatível à chave |
+| `key setlore` | `bigbangessentials.crates.editor` | `/crate key setlore <id> <linha1 \| linha2>` | Define a lore exibida na chave |
+| `key setperm` | `bigbangessentials.crates.editor` | `/crate key setperm <id> <permissão \| clear>` | Define ou remove a permissão necessária |
+| `key setgivesound` | `bigbangessentials.crates.editor` | `/crate key setgivesound <id> <som \| clear>` | Define o som tocado ao entregar a chave |
+| `key settakesound` | `bigbangessentials.crates.editor` | `/crate key settakesound <id> <som \| clear>` | Define o som tocado ao remover a chave |
+| `key setgivecommands` | `bigbangessentials.crates.editor` | `/crate key setgivecommands <id> <cmd1 \| cmd2>` | Substitui a lista de comandos executados ao entregar a chave |
+| `key addgivecommand` | `bigbangessentials.crates.editor` | `/crate key addgivecommand <id> <comando>` | Adiciona um comando à entrega da chave |
+| `key cleargivecommands` | `bigbangessentials.crates.editor` | `/crate key cleargivecommands <id>` | Remove todos os comandos de entrega |
+| `key setcrates` | `bigbangessentials.crates.editor` | `/crate key setcrates <id> <crate1 \| crate2>` | Substitui a lista de crates compatíveis |
+| `key removecrate` | `bigbangessentials.crates.editor` | `/crate key removecrate <id> <crateKey>` | Remove uma crate compatível da chave |
 | `key giveall` | `bigbangessentials.crates.giveall` | `/crate key giveall <chave> [quantidade]` | Dá chaves a todos os jogadores online |
 | `key drop` | `bigbangessentials.crates.admin` | `/crate key drop <chave> <mundo> <x> <y> <z> [quantidade]` | Droppa chaves físicas no mundo |
 | `reward create` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate reward create <crate> <id> <nome> <rarityId>` | Cria uma nova recompensa |
@@ -92,6 +101,17 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 
 # Criar uma chave
 /crate key create chave_minha_crate "Chave da Minha Crate"
+
+# Ajustar metadata avançada de uma chave
+/crate key setlore chave_minha_crate "Linha 1 | Linha 2"
+/crate key setperm chave_minha_crate bigbangessentials.vip
+/crate key setgivesound chave_minha_crate minecraft:item.trident.throw
+/crate key settakesound chave_minha_crate minecraft:item.trident.return
+/crate key setgivecommands chave_minha_crate "say {player} recebeu a chave | tellraw {player} {\"text\":\"Entrega realizada\"}"
+/crate key addgivecommand chave_minha_crate "say Chave entregue"
+/crate key cleargivecommands chave_minha_crate
+/crate key setcrates chave_minha_crate vip_crate | event_crate
+/crate key removecrate chave_minha_crate vip_crate
 
 # Abrir o editor de uma crate
 /crate edit minha_crate

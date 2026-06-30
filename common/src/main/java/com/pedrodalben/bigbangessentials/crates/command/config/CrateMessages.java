@@ -12,6 +12,7 @@ public final class CrateMessages {
     public static final String KEY_ALREADY_EXISTS = "\u00a7cJ\u00e1 existe uma chave com o ID '%s'.";
     public static final String KEY_CREATED = "\u00a7aChave '%s' criada com nome '%s'.";
     public static final String KEY_TYPE_INVALID = "\u00a7cTipo de chave inv\u00e1lido. Use 'virtual' ou 'physical'.";
+    public static final String KEY_COMMAND_INVALID = "\u00a7cO comando da chave n\u00e3o pode ficar em branco.";
     public static final String KEY_INSUFFICIENT = "\u00a7cVoc\u00ea n\u00e3o tem chaves suficientes.";
     public static final String RARITY_INVALID = "\u00a7cID da raridade inv\u00e1lido. Use apenas letras min\u00fasculas, n\u00fameros, '_' e '-'.";
     public static final String RARITY_ALREADY_EXISTS = "\u00a7cJ\u00e1 existe uma raridade com o ID '%s'.";

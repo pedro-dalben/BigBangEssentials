@@ -89,6 +89,15 @@ class CrateCommandTest {
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("editor"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setname"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("settype"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setlore"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setperm"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setgivesound"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("settakesound"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setgivecommands"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("addgivecommand"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("cleargivecommands"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setcrates"));
+        assertNotNull(dispatcher.getRoot().getChild("crate").getChild("key").getChild("removecrate"));
         assertNotNull(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("create"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("create"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("edit"));
@@ -124,6 +133,15 @@ class CrateCommandTest {
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("editor"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("reward").getChild("create"));
         assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("create"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("setlore"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("setperm"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("setgivesound"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("settakesound"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("setgivecommands"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("addgivecommand"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("cleargivecommands"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("setcrates"));
+        assertNotNull(dispatcher.getRoot().getChild("crates").getChild("key").getChild("removecrate"));
     }
 
     @Test
@@ -154,6 +172,8 @@ class CrateCommandTest {
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("settype").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crate").getChild("rarity").canUse(source));
         assertTrue(dispatcher.getRoot().getChild("crates").getChild("rarity").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setlore").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("crates").getChild("key").getChild("removecrate").canUse(source));
     }
 
     @Test
@@ -181,5 +201,7 @@ class CrateCommandTest {
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("reward").getChild("settype").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crate").getChild("rarity").canUse(source));
         assertFalse(dispatcher.getRoot().getChild("crates").getChild("rarity").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crate").getChild("key").getChild("setlore").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("crates").getChild("key").getChild("removecrate").canUse(source));
     }
 }
