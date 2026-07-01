@@ -8,7 +8,7 @@ Este documento descreve o funcionamento, a arquitetura e a especificação do no
 
 O objetivo deste módulo é prover uma infraestrutura de persistência de dados robusta e unificada para o mod, com suporte a **SQLite** (padrão local) e **MySQL** (produção multiserver).
 
-Nesta primeira fase de implementação, **nenhuma funcionalidade de jogo foi migrada para o banco de dados**. Economia, homes, warps, kits e moderação continuam utilizando seus respectivos arquivos JSON locais. A infraestrutura de banco de dados funciona como uma fundação isolada e inerte, pronta para migrações progressivas.
+Nesta fase, a camada JDBC já está sendo usada de forma real para **preferências de jogador, nicknames, tags, lista de ignore e alguns toggles de interface/chat**. Economia, homes, warps, kits e boa parte da moderação continuam utilizando seus respectivos arquivos JSON locais. Ou seja: o banco não é mais apenas infraestrutura, mas ainda não é o armazenamento de todo o mod.
 
 ---
 

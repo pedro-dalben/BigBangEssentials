@@ -361,6 +361,13 @@ public class BigBangEssentials {
             }
 
             try {
+                com.pedrodalben.bigbangessentials.chat.MsgToggleManager.init();
+                com.pedrodalben.bigbangessentials.chat.SocialSpyManager.init();
+            } catch (Exception e) {
+                LOGGER.warn("Failed to warm up chat preference stores: {}", e.getMessage());
+            }
+
+            try {
                 com.pedrodalben.bigbangessentials.kits.command.KitCommands.logRegisteredKitCommandTree(
                     server.getCommands().getDispatcher(),
                     "after server start"
@@ -400,6 +407,15 @@ public class BigBangEssentials {
         }
         
         public static void onPlayerLoggedIn(net.minecraft.server.level.ServerPlayer player) {
+            try {
+                com.pedrodalben.bigbangessentials.BigBangEssentialsManager.getInstance().loadPlayerData(player.getUUID());
+                com.pedrodalben.bigbangessentials.util.commands.NickCommand.refreshNicknameFromDatabase(player);
+                com.pedrodalben.bigbangessentials.chat.MsgToggleManager.refreshFromDatabase(player);
+                com.pedrodalben.bigbangessentials.chat.SocialSpyManager.refreshFromDatabase(player);
+            } catch (Exception e) {
+                LOGGER.debug("Failed to refresh database-backed player state for {}: {}", player.getName().getString(), e.getMessage(), e);
+            }
+
             // Check if we should notify admins about config splitting
             if (ConfigSplitter.shouldNotifyAdmins()) {
                 // Check if player has permission (OP or wildcard permission)
@@ -443,6 +459,16 @@ public class BigBangEssentials {
                         }));
                     }
                 }
+            }
+        }
+
+        public static void onPlayerLoggedOut(net.minecraft.server.level.ServerPlayer player) {
+            try {
+                com.pedrodalben.bigbangessentials.BigBangEssentialsManager.getInstance().savePlayerData(player.getUUID());
+                com.pedrodalben.bigbangessentials.chat.MsgToggleManager.clearPlayer(player);
+                com.pedrodalben.bigbangessentials.chat.SocialSpyManager.clearPlayer(player);
+            } catch (Exception e) {
+                LOGGER.debug("Failed to persist database-backed player state for {}: {}", player.getName().getString(), e.getMessage(), e);
             }
         }
 

@@ -18,6 +18,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,7 +36,7 @@ public class NickCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         if (!ConfigManager.getInstance().isCommandEnabled("nick")) return;
 
-        dbStorage = BigBangEssentialsManager.getInstance().getPreferencesStorage();
+        resolveDbStorage();
         loadNicknameData();
 
         com.mojang.brigadier.tree.LiteralCommandNode<CommandSourceStack> nickCommandNode = dispatcher.register(
@@ -340,6 +341,7 @@ public class NickCommand {
 
     private static void loadNicknameData() {
         try {
+            NICKNAMES.clear();
             if (!Files.exists(NICK_DATA_FILE)) {
                 Files.createDirectories(NICK_DATA_FILE.getParent());
                 return;
@@ -376,17 +378,54 @@ public class NickCommand {
     }
 
     private static void saveNicknameDataToDatabase(UUID playerId) {
-        if (dbStorage == null) return;
+        PlayerPreferencesStorage storage = resolveDbStorage();
+        if (storage == null) return;
         String nickname = NICKNAMES.get(playerId);
         if (nickname != null) {
-            dbStorage.saveNickname(playerId, nickname);
+            storage.saveNickname(playerId, nickname).exceptionally(err -> {
+                System.err.println("Failed to save nickname for " + playerId + ": " + err.getMessage());
+                return null;
+            });
         } else {
-            dbStorage.deleteNickname(playerId);
+            storage.deleteNickname(playerId).exceptionally(err -> {
+                System.err.println("Failed to delete nickname for " + playerId + ": " + err.getMessage());
+                return null;
+            });
         }
     }
 
+    public static CompletableFuture<Void> refreshNicknameFromDatabase(ServerPlayer player) {
+        loadNicknameData();
+        PlayerPreferencesStorage storage = resolveDbStorage();
+        if (storage == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        UUID playerId = player.getUUID();
+        return storage.loadNickname(playerId).thenAccept(nickname -> {
+            if (nickname != null && !nickname.isBlank()) {
+                NICKNAMES.put(playerId, nickname);
+            }
+            updatePlayerDisplayName(player);
+        }).exceptionally(err -> {
+            System.err.println("Failed to refresh nickname for " + playerId + ": " + err.getMessage());
+            return null;
+        });
+    }
+
+    private static PlayerPreferencesStorage resolveDbStorage() {
+        PlayerPreferencesStorage storage = dbStorage;
+        if (storage == null) {
+            storage = BigBangEssentialsManager.getInstance().getPreferencesStorage();
+            dbStorage = storage;
+        }
+        return storage;
+    }
+
     public static void applyNicknamesToOnlinePlayers(net.minecraft.server.MinecraftServer server) {
+        loadNicknameData();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            refreshNicknameFromDatabase(player);
             updatePlayerDisplayName(player);
         }
     }

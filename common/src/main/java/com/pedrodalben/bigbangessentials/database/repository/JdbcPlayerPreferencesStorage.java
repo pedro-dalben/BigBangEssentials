@@ -41,19 +41,8 @@ public class JdbcPlayerPreferencesStorage extends JdbcRepository implements Play
     @Override
     public CompletableFuture<Void> savePreferences(UUID playerId, PlayerPreferences prefs) {
         long now = System.currentTimeMillis();
-        String sql = "INSERT INTO bbe_player_preferences (uuid, vanish_mode, god_mode, fly_mode, " +
-                "tp_toggle, msg_toggle, pay_toggle, socialspy, teleport_menus_enabled, " +
-                "warps_display_mode, homes_display_mode, pwarps_display_mode, last_location, " +
-                "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
-                upsertClause() + " vanish_mode = EXCLUDED.vanish_mode, god_mode = EXCLUDED.god_mode, " +
-                "fly_mode = EXCLUDED.fly_mode, tp_toggle = EXCLUDED.tp_toggle, msg_toggle = EXCLUDED.msg_toggle, " +
-                "pay_toggle = EXCLUDED.pay_toggle, socialspy = EXCLUDED.socialspy, " +
-                "teleport_menus_enabled = EXCLUDED.teleport_menus_enabled, " +
-                "warps_display_mode = EXCLUDED.warps_display_mode, " +
-                "homes_display_mode = EXCLUDED.homes_display_mode, " +
-                "pwarps_display_mode = EXCLUDED.pwarps_display_mode, " +
-                "last_location = EXCLUDED.last_location, updated_at = EXCLUDED.updated_at";
-        return getDatabase().executeUpdate(sql, stmt -> {
+        String sql = buildSavePreferencesSql();
+        return getDatabase().executeUpdate("savePreferences", sql, stmt -> {
             stmt.setString(1, playerId.toString());
             stmt.setBoolean(2, prefs.vanishMode());
             stmt.setBoolean(3, prefs.godMode());
@@ -69,6 +58,10 @@ public class JdbcPlayerPreferencesStorage extends JdbcRepository implements Play
             stmt.setString(13, prefs.lastLocation());
             stmt.setLong(14, now);
             stmt.setLong(15, now);
+        }).whenComplete((count, err) -> {
+            if (err != null) {
+                LOGGER.error("Failed to save player preferences for {}", playerId, err);
+            }
         }).thenApply(count -> null);
     }
 
@@ -90,14 +83,16 @@ public class JdbcPlayerPreferencesStorage extends JdbcRepository implements Play
                 return CompletableFuture.completedFuture(null);
             }
         }
-        String sql = "INSERT INTO bbe_player_preferences (uuid, " + column + ", created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?) " + upsertClause() + " " + column + " = EXCLUDED." + column + ", " +
-                "updated_at = EXCLUDED.updated_at";
-        return getDatabase().executeUpdate(sql, stmt -> {
+        String sql = buildUpdateToggleSql(column);
+        return getDatabase().executeUpdate("updateToggle:" + column, sql, stmt -> {
             stmt.setString(1, playerId.toString());
             stmt.setBoolean(2, value);
             stmt.setLong(3, now);
             stmt.setLong(4, now);
+        }).whenComplete((count, err) -> {
+            if (err != null) {
+                LOGGER.error("Failed to update toggle '{}' for {}", toggleKey, playerId, err);
+            }
         }).thenApply(count -> null);
     }
 
@@ -113,14 +108,16 @@ public class JdbcPlayerPreferencesStorage extends JdbcRepository implements Play
     @Override
     public CompletableFuture<Void> saveNickname(UUID playerId, String nickname) {
         long now = System.currentTimeMillis();
-        String sql = "INSERT INTO bbe_player_nicknames (uuid, nickname, created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?) " + upsertClause("uuid") + " nickname = EXCLUDED.nickname, " +
-                "updated_at = EXCLUDED.updated_at";
-        return getDatabase().executeUpdate(sql, stmt -> {
+        String sql = buildSaveNicknameSql();
+        return getDatabase().executeUpdate("saveNickname", sql, stmt -> {
             stmt.setString(1, playerId.toString());
             stmt.setString(2, nickname);
             stmt.setLong(3, now);
             stmt.setLong(4, now);
+        }).whenComplete((count, err) -> {
+            if (err != null) {
+                LOGGER.error("Failed to save nickname for {}", playerId, err);
+            }
         }).thenApply(count -> null);
     }
 
@@ -145,14 +142,16 @@ public class JdbcPlayerPreferencesStorage extends JdbcRepository implements Play
     public CompletableFuture<Void> saveTag(UUID playerId, String tagName) {
         long now = System.currentTimeMillis();
         String value = tagName != null ? tagName : "";
-        String sql = "INSERT INTO bbe_player_tags (uuid, tag_name, created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?) " + upsertClause("uuid") + " tag_name = EXCLUDED.tag_name, " +
-                "updated_at = EXCLUDED.updated_at";
-        return getDatabase().executeUpdate(sql, stmt -> {
+        String sql = buildSaveTagSql();
+        return getDatabase().executeUpdate("saveTag", sql, stmt -> {
             stmt.setString(1, playerId.toString());
             stmt.setString(2, value);
             stmt.setLong(3, now);
             stmt.setLong(4, now);
+        }).whenComplete((count, err) -> {
+            if (err != null) {
+                LOGGER.error("Failed to save tag for {}", playerId, err);
+            }
         }).thenApply(count -> null);
     }
 
@@ -291,5 +290,53 @@ public class JdbcPlayerPreferencesStorage extends JdbcRepository implements Play
         return DatabaseManager.getInstance().getType() == DatabaseType.MYSQL
                 ? "ON DUPLICATE KEY UPDATE"
                 : "ON CONFLICT(" + primaryKey + ") DO UPDATE SET";
+    }
+
+    private String upsertValueReference(String column) {
+        return DatabaseManager.getInstance().getType() == DatabaseType.MYSQL
+                ? "VALUES(" + column + ")"
+                : "EXCLUDED." + column;
+    }
+
+    private String buildSavePreferencesSql() {
+        return "INSERT INTO bbe_player_preferences (uuid, vanish_mode, god_mode, fly_mode, " +
+                "tp_toggle, msg_toggle, pay_toggle, socialspy, teleport_menus_enabled, " +
+                "warps_display_mode, homes_display_mode, pwarps_display_mode, last_location, " +
+                "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                upsertClause() + " " +
+                "vanish_mode = " + upsertValueReference("vanish_mode") + ", " +
+                "god_mode = " + upsertValueReference("god_mode") + ", " +
+                "fly_mode = " + upsertValueReference("fly_mode") + ", " +
+                "tp_toggle = " + upsertValueReference("tp_toggle") + ", " +
+                "msg_toggle = " + upsertValueReference("msg_toggle") + ", " +
+                "pay_toggle = " + upsertValueReference("pay_toggle") + ", " +
+                "socialspy = " + upsertValueReference("socialspy") + ", " +
+                "teleport_menus_enabled = " + upsertValueReference("teleport_menus_enabled") + ", " +
+                "warps_display_mode = " + upsertValueReference("warps_display_mode") + ", " +
+                "homes_display_mode = " + upsertValueReference("homes_display_mode") + ", " +
+                "pwarps_display_mode = " + upsertValueReference("pwarps_display_mode") + ", " +
+                "last_location = " + upsertValueReference("last_location") + ", " +
+                "updated_at = " + upsertValueReference("updated_at");
+    }
+
+    private String buildUpdateToggleSql(String column) {
+        return "INSERT INTO bbe_player_preferences (uuid, " + column + ", created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?) " + upsertClause() + " " +
+                column + " = " + upsertValueReference(column) + ", " +
+                "updated_at = " + upsertValueReference("updated_at");
+    }
+
+    private String buildSaveNicknameSql() {
+        return "INSERT INTO bbe_player_nicknames (uuid, nickname, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?) " + upsertClause("uuid") + " " +
+                "nickname = " + upsertValueReference("nickname") + ", " +
+                "updated_at = " + upsertValueReference("updated_at");
+    }
+
+    private String buildSaveTagSql() {
+        return "INSERT INTO bbe_player_tags (uuid, tag_name, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?) " + upsertClause("uuid") + " " +
+                "tag_name = " + upsertValueReference("tag_name") + ", " +
+                "updated_at = " + upsertValueReference("updated_at");
     }
 }

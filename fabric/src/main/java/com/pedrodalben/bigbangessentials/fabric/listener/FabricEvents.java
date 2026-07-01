@@ -29,6 +29,7 @@ public class FabricEvents {
 
         // Player Logged Out Event
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            com.pedrodalben.bigbangessentials.BigBangEssentials.GameEvents.onPlayerLoggedOut(handler.getPlayer());
             JobsEventListener.onPlayerLoggedOut(handler.getPlayer());
         });
 

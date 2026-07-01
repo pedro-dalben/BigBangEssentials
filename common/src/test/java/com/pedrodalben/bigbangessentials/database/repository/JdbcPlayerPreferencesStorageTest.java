@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.database.repository;
 
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.database.api.PlayerPreferencesStorage;
 import com.pedrodalben.bigbangessentials.database.api.PlayerPreferencesStorage.PlayerPreferences;
 import com.pedrodalben.bigbangessentials.database.config.DatabaseConfigLoader;
@@ -15,6 +16,7 @@ import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
@@ -270,5 +272,46 @@ public class JdbcPlayerPreferencesStorageTest {
 
         assertEquals("PlayerOne", storage.loadNickname(player1).get(5, TimeUnit.SECONDS));
         assertEquals("PlayerTwo", storage.loadNickname(player2).get(5, TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void testMySqlUpsertSqlDoesNotUseSqliteExcludedSyntax() throws Exception {
+        com.pedrodalben.bigbangessentials.database.DatabaseManager mockDb =
+                Mockito.mock(com.pedrodalben.bigbangessentials.database.DatabaseManager.class);
+        Mockito.when(mockDb.getType()).thenReturn(DatabaseType.MYSQL);
+
+        try (MockedStatic<com.pedrodalben.bigbangessentials.database.DatabaseManager> mockedDb =
+                     Mockito.mockStatic(com.pedrodalben.bigbangessentials.database.DatabaseManager.class)) {
+            mockedDb.when(com.pedrodalben.bigbangessentials.database.DatabaseManager::getInstance)
+                    .thenReturn(mockDb);
+
+            String savePreferencesSql = invokeSqlBuilder("buildSavePreferencesSql");
+            String updateToggleSql = invokeSqlBuilder("buildUpdateToggleSql", "msg_toggle");
+            String saveNicknameSql = invokeSqlBuilder("buildSaveNicknameSql");
+            String saveTagSql = invokeSqlBuilder("buildSaveTagSql");
+
+            assertAll(
+                    () -> assertTrue(savePreferencesSql.contains("ON DUPLICATE KEY UPDATE")),
+                    () -> assertTrue(updateToggleSql.contains("ON DUPLICATE KEY UPDATE")),
+                    () -> assertTrue(saveNicknameSql.contains("ON DUPLICATE KEY UPDATE")),
+                    () -> assertTrue(saveTagSql.contains("ON DUPLICATE KEY UPDATE")),
+                    () -> assertFalse(savePreferencesSql.contains("EXCLUDED.")),
+                    () -> assertFalse(updateToggleSql.contains("EXCLUDED.")),
+                    () -> assertFalse(saveNicknameSql.contains("EXCLUDED.")),
+                    () -> assertFalse(saveTagSql.contains("EXCLUDED.")),
+                    () -> assertTrue(savePreferencesSql.contains("VALUES(vanish_mode)")),
+                    () -> assertTrue(updateToggleSql.contains("VALUES(msg_toggle)"))
+            );
+        }
+    }
+
+    private String invokeSqlBuilder(String methodName, Object... args) throws Exception {
+        Class<?>[] parameterTypes = new Class<?>[args.length];
+        for (int i = 0; i < args.length; i++) {
+            parameterTypes[i] = args[i].getClass();
+        }
+        Method method = JdbcPlayerPreferencesStorage.class.getDeclaredMethod(methodName, parameterTypes);
+        method.setAccessible(true);
+        return (String) method.invoke(storage, args);
     }
 }

@@ -40,7 +40,7 @@ public class TagManager {
     private final PlayerDataStore selectedTagStore = new PlayerDataStore("tags");
     private final File tagsFile = ResourceUtil.getConfigFile(TAGS_FILE_NAME);
     private final Object fileLock = new Object();
-    private PlayerPreferencesStorage dbStorage;
+    private volatile PlayerPreferencesStorage dbStorage;
 
     private TagManager() {
         this.dbStorage = BigBangEssentialsManager.getInstance().getPreferencesStorage();
@@ -163,9 +163,10 @@ public class TagManager {
     }
 
     private String loadSelectedTagFromDatabase(UUID playerId) {
-        if (dbStorage == null) return null;
+        PlayerPreferencesStorage storage = resolveDbStorage();
+        if (storage == null) return null;
         try {
-            return dbStorage.loadTag(playerId).get();
+            return storage.loadTag(playerId).get();
         } catch (Exception e) {
             return null;
         }
@@ -240,13 +241,30 @@ public class TagManager {
     }
 
     private void saveSelectedTagToDatabase(UUID playerId, String tagName) {
-        if (dbStorage == null) return;
-        dbStorage.saveTag(playerId, tagName);
+        PlayerPreferencesStorage storage = resolveDbStorage();
+        if (storage == null) return;
+        storage.saveTag(playerId, tagName).exceptionally(err -> {
+            LOGGER.warn("Failed to save selected tag '{}' for {}", tagName, playerId, err);
+            return null;
+        });
     }
 
     private void deleteSelectedTagFromDatabase(UUID playerId) {
-        if (dbStorage == null) return;
-        dbStorage.deleteTag(playerId);
+        PlayerPreferencesStorage storage = resolveDbStorage();
+        if (storage == null) return;
+        storage.deleteTag(playerId).exceptionally(err -> {
+            LOGGER.warn("Failed to delete selected tag for {}", playerId, err);
+            return null;
+        });
+    }
+
+    private PlayerPreferencesStorage resolveDbStorage() {
+        PlayerPreferencesStorage storage = dbStorage;
+        if (storage == null) {
+            storage = BigBangEssentialsManager.getInstance().getPreferencesStorage();
+            dbStorage = storage;
+        }
+        return storage;
     }
 
     public String applyChatTags(ServerPlayer player, String template) {

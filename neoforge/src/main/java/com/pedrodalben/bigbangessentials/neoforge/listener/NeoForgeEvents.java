@@ -56,6 +56,7 @@ public class NeoForgeEvents {
     @SubscribeEvent
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            BigBangEssentials.GameEvents.onPlayerLoggedOut(player);
             JobsEventListener.onPlayerLoggedOut(player);
         }
     }
@@ -120,4 +121,3 @@ public class NeoForgeEvents {
         }
     }
 }
-

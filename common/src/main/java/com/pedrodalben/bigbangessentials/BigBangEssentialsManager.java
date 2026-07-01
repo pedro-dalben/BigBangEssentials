@@ -142,31 +142,30 @@ public class BigBangEssentialsManager {
         PlayerPreferencesStorage storage = getPreferencesStorage();
         if (storage == null) return;
 
-        storage.updateToggle(playerId, "vanishMode", data.vanishMode);
-        storage.updateToggle(playerId, "godMode", data.godMode);
-        storage.updateToggle(playerId, "flyMode", data.flyMode);
-        storage.updateToggle(playerId, "tpToggle", data.tpToggle);
-        storage.updateToggle(playerId, "msgToggle", data.msgToggle);
-
-        if (data.lastLocation != null) {
-            storage.loadPreferences(playerId).thenCompose(prefs -> {
-                PlayerPreferencesStorage.PlayerPreferences updated = new PlayerPreferencesStorage.PlayerPreferences(
-                        prefs.vanishMode(), prefs.godMode(), prefs.flyMode(),
-                        prefs.tpToggle(), prefs.msgToggle(), prefs.payToggle(),
-                        prefs.socialspy(), prefs.teleportMenusEnabled(),
-                        prefs.warpsDisplayMode(), prefs.homesDisplayMode(),
-                        prefs.pwarpsDisplayMode(), data.lastLocation
-                );
-                return storage.savePreferences(playerId, updated);
-            });
-        }
-
-        for (String ignoredName : data.ignoreList) {
-            try {
-                UUID ignoredUuid = UUID.fromString(ignoredName);
-                storage.addIgnoredPlayer(playerId, ignoredUuid);
-            } catch (Exception ignored) {}
-        }
+        storage.loadPreferences(playerId).thenCompose(prefs -> {
+            PlayerPreferencesStorage.PlayerPreferences updated = new PlayerPreferencesStorage.PlayerPreferences(
+                    data.vanishMode, data.godMode, data.flyMode,
+                    data.tpToggle, data.msgToggle, prefs.payToggle(),
+                    prefs.socialspy(), prefs.teleportMenusEnabled(),
+                    prefs.warpsDisplayMode(), prefs.homesDisplayMode(),
+                    prefs.pwarpsDisplayMode(), data.lastLocation
+            );
+            return storage.savePreferences(playerId, updated);
+        }).thenCompose(v -> {
+            java.util.List<CompletableFuture<Void>> futures = new java.util.ArrayList<>();
+            for (String ignoredName : data.ignoreList) {
+                try {
+                    UUID ignoredUuid = UUID.fromString(ignoredName);
+                    futures.add(storage.addIgnoredPlayer(playerId, ignoredUuid));
+                } catch (Exception ignored) {}
+            }
+            return futures.isEmpty()
+                    ? CompletableFuture.completedFuture(null)
+                    : CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+        }).exceptionally(err -> {
+            LOGGER.error("Failed to save database player data for {}", playerId, err);
+            return null;
+        });
     }
 
     @SuppressWarnings("unused")

@@ -21,9 +21,10 @@ public class TeleportMenuPreferenceService {
     }
 
     public PlayerPreference getPreferences(UUID playerId) {
-        if (dbStorage != null) {
+        PlayerPreferencesStorage storage = resolveDbStorage();
+        if (storage != null) {
             try {
-                PlayerPreferences prefs = dbStorage.loadPreferences(playerId).get();
+                PlayerPreferences prefs = storage.loadPreferences(playerId).get();
                 if (prefs != null && !isDefaultPreferences(prefs)) {
                     return new PlayerPreference(
                         prefs.teleportMenusEnabled(),
@@ -49,24 +50,29 @@ public class TeleportMenuPreferenceService {
     }
 
     public void setPreferences(UUID playerId, PlayerPreference pref) {
-        if (dbStorage == null) return;
+        PlayerPreferencesStorage storage = resolveDbStorage();
+        if (storage == null) return;
 
-        dbStorage.loadPreferences(playerId).thenCompose(current ->
-            dbStorage.savePreferences(playerId, new PlayerPreferences(
+        storage.loadPreferences(playerId).thenCompose(current ->
+            storage.savePreferences(playerId, new PlayerPreferences(
                 current.vanishMode(), current.godMode(), current.flyMode(),
                 current.tpToggle(), current.msgToggle(), current.payToggle(),
                 current.socialspy(), pref.teleportMenusEnabled(),
                 pref.warpsDisplayMode(), pref.homesDisplayMode(),
                 pref.pwarpsDisplayMode(), current.lastLocation()
             ))
-        );
+        ).exceptionally(err -> {
+            System.err.println("Failed to save teleport menu preferences for " + playerId + ": " + err.getMessage());
+            return null;
+        });
     }
 
     public void resetPreferences(UUID playerId) {
-        if (dbStorage == null) return;
+        PlayerPreferencesStorage storage = resolveDbStorage();
+        if (storage == null) return;
 
-        dbStorage.loadPreferences(playerId).thenCompose(current ->
-            dbStorage.savePreferences(playerId, new PlayerPreferences(
+        storage.loadPreferences(playerId).thenCompose(current ->
+            storage.savePreferences(playerId, new PlayerPreferences(
                 current.vanishMode(), current.godMode(), current.flyMode(),
                 current.tpToggle(), current.msgToggle(), current.payToggle(),
                 current.socialspy(), true,
@@ -75,7 +81,17 @@ public class TeleportMenuPreferenceService {
                 TeleportMenuConfig.getPwarpsCommandMode(),
                 current.lastLocation()
             ))
-        );
+        ).exceptionally(err -> {
+            System.err.println("Failed to reset teleport menu preferences for " + playerId + ": " + err.getMessage());
+            return null;
+        });
+    }
+
+    private PlayerPreferencesStorage resolveDbStorage() {
+        if (dbStorage == null) {
+            dbStorage = BigBangEssentialsManager.getInstance().getPreferencesStorage();
+        }
+        return dbStorage;
     }
 
     public record PlayerPreference(
