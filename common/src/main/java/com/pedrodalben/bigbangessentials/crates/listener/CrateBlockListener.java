@@ -14,6 +14,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.LevelAccessor;
@@ -58,14 +59,16 @@ public class CrateBlockListener {
         CrateLocation location = optLocation.get();
         if (!location.isActive()) return;
 
+        // Cancel immediately to prevent item placement (tripwire hook, etc.)
+        event.setCanceled(true);
+        event.setUseItem(TriState.FALSE);
+        event.setUseBlock(TriState.FALSE);
+
         CrateDefinition crate = crateService.getCrateByKey(location.getCrateId());
         if (crate == null || !crate.isEnabled()) {
             player.sendSystemMessage(Component.literal("§cThis crate is not available."));
-            event.setCanceled(true);
             return;
         }
-
-        event.setCanceled(true);
 
         if (player.isShiftKeyDown()) {
             openPreview(player, crate);
