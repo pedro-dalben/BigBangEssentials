@@ -13,9 +13,11 @@ import com.pedrodalben.bigbangessentials.crates.repository.PlayerVirtualKeyRepos
 import com.pedrodalben.bigbangessentials.database.api.DatabaseAPI;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -260,6 +262,7 @@ public class CrateKeyService {
             ItemStack stack = keyItem.copy();
             stack.setCount(chunk);
             embedKeyMarker(stack, keyId);
+            applyKeyDisplay(stack, keyDef);
             CratePendingDeliveryService.getInstance().deliverOrStore(player, stack, source != null ? source.name() : "GIVE");
             remaining -= chunk;
         }
@@ -384,6 +387,19 @@ public class CrateKeyService {
         }
 
         return false;
+    }
+
+    private void applyKeyDisplay(ItemStack stack, KeyDefinition keyDef) {
+        if (keyDef.getName() != null && !keyDef.getName().isEmpty()) {
+            stack.set(DataComponents.CUSTOM_NAME,
+                Component.literal(keyDef.getName().replace('&', '\u00a7')));
+        }
+        if (!keyDef.getLore().isEmpty()) {
+            List<Component> loreLines = keyDef.getLore().stream()
+                .map(line -> (Component) Component.literal(line.replace('&', '\u00a7')))
+                .toList();
+            stack.set(DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(loreLines));
+        }
     }
 
     private void embedKeyMarker(ItemStack stack, String keyId) {
