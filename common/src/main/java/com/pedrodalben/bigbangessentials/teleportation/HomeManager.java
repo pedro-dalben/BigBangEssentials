@@ -83,7 +83,8 @@ public class HomeManager {
 
     /**
      * Returns the maximum number of homes allowed for a player, considering permissions.
-     * If the player has the permission node bigbangessentials.home.<amount>, that value is used if higher than config.
+     * If the player has a {@code bigbangessentials.home.<amount>} permission, that value
+     * is used as the cap. Otherwise the configured default is used.
      */
     public int getMaxHomesForPlayer(ServerPlayer player) {
         if (player == null) {
@@ -99,8 +100,8 @@ public class HomeManager {
 
         int configMax = this.maxHomesPerPlayer;
         int permMax = resolvePermissionHomeLimit(player);
-        // Return the higher value between permission-based and config-based limits
-        int maxHomes = Math.max(permMax, configMax);
+        // Permission nodes are authoritative when present; config is only the fallback.
+        int maxHomes = permMax > 0 ? permMax : configMax;
         maxHomesCache.put(playerId, new CachedHomeLimit(maxHomes, now));
         return maxHomes;
     }
@@ -225,6 +226,12 @@ public class HomeManager {
 
         // Create location
         TeleportLocation location = customLocation != null ? customLocation : new TeleportLocation(player);
+
+        // Check BigBangWorld restriction
+        if (isHomeCreationBlockedByBigBangWorld(player, location)) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.restricted_world"));
+            return false;
+        }
 
         // Check world restriction
         if (!allowCrossDimensionHomes && !isOverworld(location)) {
@@ -750,6 +757,36 @@ public class HomeManager {
             }
         }
         return permMax;
+    }
+
+    private boolean isHomeCreationBlockedByBigBangWorld(ServerPlayer player, TeleportLocation location) {
+        try {
+            Class<?> apiClass = Class.forName("com.pedrodalben.bigbangworld.api.BigBangWorldApi");
+            Object apiInstance = apiClass.getMethod("get").invoke(null);
+            if (apiInstance != null) {
+                net.minecraft.server.MinecraftServer server = player.getServer();
+                if (server != null) {
+                    net.minecraft.resources.ResourceLocation resLoc = net.minecraft.resources.ResourceLocation.tryParse(location.getWorldName());
+                    if (resLoc != null) {
+                        net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> key = 
+                            net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, resLoc);
+                        net.minecraft.server.level.ServerLevel level = server.getLevel(key);
+                        if (level != null) {
+                            java.lang.reflect.Method isTempMethod = apiInstance.getClass().getMethod("isTemporaryWorld", net.minecraft.server.level.ServerLevel.class);
+                            boolean isTemp = (boolean) isTempMethod.invoke(apiInstance, level);
+                            if (isTemp) {
+                                java.lang.reflect.Method isAllowedMethod = apiInstance.getClass().getMethod("isHomeCreationAllowed", ServerPlayer.class);
+                                boolean isAllowed = (boolean) isAllowedMethod.invoke(apiInstance, player);
+                                return !isAllowed;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            // BigBangWorld not installed or API method signature doesn't match
+        }
+        return false;
     }
 
     private static final class CachedHomeLimit {

@@ -86,7 +86,7 @@ public class JobsRepository extends JdbcRepository {
             return CompletableFuture.completedFuture(new HashMap<>());
         }
 
-        String sql = "SELECT skill_id, rank FROM bbe_player_job_skills WHERE uuid = ? AND job_id = ?";
+        String sql = "SELECT skill_id, skill_rank FROM bbe_player_job_skills WHERE uuid = ? AND job_id = ?";
         return getDatabase().queryList("loadPlayerJobSkills", sql,
                 stmt -> {
                     stmt.setString(1, uuid.toString());
@@ -94,7 +94,7 @@ public class JobsRepository extends JdbcRepository {
                 },
                 rs -> {
                     String skillId = rs.getString("skill_id").toLowerCase();
-                    int rank = rs.getInt("rank");
+                    int rank = rs.getInt("skill_rank");
                     return new SkillDb(skillId, rank);
                 }
         ).thenApply(list -> {
@@ -113,10 +113,10 @@ public class JobsRepository extends JdbcRepository {
 
         String sql;
         if (DatabaseManager.getInstance().getType() == DatabaseType.MYSQL) {
-            sql = "INSERT INTO bbe_player_job_skills (uuid, job_id, skill_id, rank) VALUES (?, ?, ?, ?) " +
-                    "ON DUPLICATE KEY UPDATE rank = VALUES(rank)";
+            sql = "INSERT INTO bbe_player_job_skills (uuid, job_id, skill_id, skill_rank) VALUES (?, ?, ?, ?) " +
+                    "ON DUPLICATE KEY UPDATE skill_rank = VALUES(skill_rank)";
         } else {
-            sql = "INSERT OR REPLACE INTO bbe_player_job_skills (uuid, job_id, skill_id, rank) VALUES (?, ?, ?, ?)";
+            sql = "INSERT OR REPLACE INTO bbe_player_job_skills (uuid, job_id, skill_id, skill_rank) VALUES (?, ?, ?, ?)";
         }
 
         return getDatabase().executeUpdate("savePlayerJobSkill", sql,

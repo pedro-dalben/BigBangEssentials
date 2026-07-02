@@ -1,9 +1,12 @@
 package com.pedrodalben.bigbangessentials.database.migration.migrations;
 
+import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.database.dialect.DatabaseDialect;
 import com.pedrodalben.bigbangessentials.database.migration.DatabaseMigration;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -57,10 +60,13 @@ public class V004CreateRankupTables implements DatabaseMigration {
                     "completed_at BIGINT" +
                     ")");
 
-            stmt.execute("CREATE INDEX IF NOT EXISTS idx_rankup_transactions_uuid ON rankup_transactions(uuid)");
+            createIndexIfMissing(connection, stmt, "rankup_transactions", "idx_rankup_transactions_uuid", "uuid");
 
+            String historyIdColumn = dialect.type() == DatabaseType.MYSQL
+                    ? "id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+                    : "id INTEGER PRIMARY KEY AUTOINCREMENT, ";
             stmt.execute("CREATE TABLE IF NOT EXISTS rankup_rank_history (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    historyIdColumn +
                     "uuid VARCHAR(36) NOT NULL, " +
                     "ladder_id VARCHAR(64) NOT NULL, " +
                     "from_rank_id VARCHAR(64) NOT NULL, " +
@@ -70,7 +76,36 @@ public class V004CreateRankupTables implements DatabaseMigration {
                     "created_at BIGINT NOT NULL" +
                     ")");
 
-            stmt.execute("CREATE INDEX IF NOT EXISTS idx_rankup_history_uuid ON rankup_rank_history(uuid)");
+            createIndexIfMissing(connection, stmt, "rankup_rank_history", "idx_rankup_history_uuid", "uuid");
         }
+    }
+
+    private void createIndexIfMissing(Connection connection, Statement stmt, String tableName, String indexName, String columnName)
+            throws SQLException {
+        if (hasIndex(connection, tableName, indexName)) {
+            return;
+        }
+        stmt.execute("CREATE INDEX " + indexName + " ON " + tableName + "(" + columnName + ")");
+    }
+
+    private boolean hasIndex(Connection connection, String tableName, String indexName) throws SQLException {
+        DatabaseMetaData metaData = connection.getMetaData();
+        try (ResultSet indexes = metaData.getIndexInfo(null, null, tableName, false, false)) {
+            while (indexes.next()) {
+                String existingIndex = indexes.getString("INDEX_NAME");
+                if (indexName.equalsIgnoreCase(existingIndex)) {
+                    return true;
+                }
+            }
+        }
+        try (ResultSet indexes = metaData.getIndexInfo(null, null, tableName.toUpperCase(), false, false)) {
+            while (indexes.next()) {
+                String existingIndex = indexes.getString("INDEX_NAME");
+                if (indexName.equalsIgnoreCase(existingIndex)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

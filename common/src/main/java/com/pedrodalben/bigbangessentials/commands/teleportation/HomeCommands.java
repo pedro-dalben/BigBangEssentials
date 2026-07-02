@@ -341,7 +341,7 @@ public class HomeCommands {
         int maxHomes = homeManager.getMaxHomesForPlayer(player);
         int currentHomes = homeManager.getHomeNames(player).size();
         if (homeManager.getHome(player, homeName) == null && currentHomes >= maxHomes) {
-            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.limit_exceeded", maxHomes));
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.limit_reached", maxHomes));
             return 0;
         }
         // If home exists, require confirmation

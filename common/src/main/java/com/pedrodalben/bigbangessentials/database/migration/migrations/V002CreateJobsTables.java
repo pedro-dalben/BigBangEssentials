@@ -46,7 +46,7 @@ public class V002CreateJobsTables implements DatabaseMigration {
                     "uuid VARCHAR(36) NOT NULL, " +
                     "job_id VARCHAR(64) NOT NULL, " +
                     "skill_id VARCHAR(64) NOT NULL, " +
-                    "rank INT NOT NULL DEFAULT 0, " +
+                    "skill_rank INT NOT NULL DEFAULT 0, " +
                     "PRIMARY KEY (uuid, job_id, skill_id)" +
                     ")");
 
