@@ -82,6 +82,17 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
         placeholders.add("afk_time");
         placeholders.add("afk_reason");
         
+        // RankUp placeholders
+        placeholders.add("rankup_current_id");
+        placeholders.add("rankup_current_name");
+        placeholders.add("rankup_next_id");
+        placeholders.add("rankup_next_name");
+        placeholders.add("rankup_progress_percent");
+        placeholders.add("rankup_money_required");
+        placeholders.add("rankup_gems_required");
+        placeholders.add("rankup_tasks_completed");
+        placeholders.add("rankup_tasks_total");
+        
         LOGGER.debug("Initialized {} default placeholders", placeholders.size());
     }
     
@@ -167,6 +178,11 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
                 case "afk_time" -> getAfkTime(player);
                 case "afk_reason" -> getAfkReason(player);
                 
+                // RankUp placeholders
+                case "rankup_current_id", "rankup_current_name", "rankup_next_id", "rankup_next_name",
+                     "rankup_progress_percent", "rankup_money_required", "rankup_gems_required",
+                     "rankup_tasks_completed", "rankup_tasks_total" -> getRankupPlaceholder(player, identifier);
+                
                 default -> null;
             };
         } catch (Exception e) {
@@ -181,6 +197,9 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
     private boolean requiresPlayer(String identifier) {
         return switch (identifier.toLowerCase()) {
             case "server_name", "online_players", "max_players", "time", "time_24", "date", "gems_currency_name", "gems_currency_symbol" -> false;
+            case "rankup_current_id", "rankup_current_name", "rankup_next_id", "rankup_next_name",
+                 "rankup_progress_percent", "rankup_money_required", "rankup_gems_required",
+                 "rankup_tasks_completed", "rankup_tasks_total" -> true;
             default -> true;
         };
     }
@@ -573,6 +592,29 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
         }
     }
     
+    private String getRankupPlaceholder(@Nullable ServerPlayer player, String identifier) {
+        if (player == null) return "";
+        try {
+            var manager = com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance();
+            if (manager == null) return "";
+            return switch (identifier.toLowerCase()) {
+                case "rankup_current_id" -> manager.getPlaceholderService().get(player.getUUID(), "current_id");
+                case "rankup_current_name" -> manager.getPlaceholderService().get(player.getUUID(), "current_name");
+                case "rankup_next_id" -> manager.getPlaceholderService().get(player.getUUID(), "next_id");
+                case "rankup_next_name" -> manager.getPlaceholderService().get(player.getUUID(), "next_name");
+                case "rankup_progress_percent" -> manager.getPlaceholderService().get(player.getUUID(), "progress_percent");
+                case "rankup_money_required" -> manager.getPlaceholderService().get(player.getUUID(), "money_required");
+                case "rankup_gems_required" -> manager.getPlaceholderService().get(player.getUUID(), "gems_required");
+                case "rankup_tasks_completed" -> manager.getPlaceholderService().get(player.getUUID(), "tasks_completed");
+                case "rankup_tasks_total" -> manager.getPlaceholderService().get(player.getUUID(), "tasks_total");
+                default -> "";
+            };
+        } catch (Exception e) {
+            LOGGER.debug("Error resolving rankup placeholder: {}", e.getMessage());
+            return "";
+        }
+    }
+
     /**
      * Get player's AFK reason.
      * Returns the reason text or empty string if no reason or not AFK.
