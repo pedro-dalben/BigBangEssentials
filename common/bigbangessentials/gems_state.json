@@ -2,43 +2,43 @@
   "schemaVersion": 1,
   "revision": 5,
   "balances": {
-    "3eef32b5-7671-4005-94e0-9c8d2f5931f7": 100
+    "bab1d66a-d32d-4a94-bdf7-bb3a58f99a77": 100
   },
   "reservations": {
-    "cc5edfc6-3101-419b-bea6-7e0fb4fede7d": {
-      "reservationId": "cc5edfc6-3101-419b-bea6-7e0fb4fede7d",
-      "playerUuid": "3eef32b5-7671-4005-94e0-9c8d2f5931f7",
+    "48dd4e71-9801-448e-8c78-3468ad53dd43": {
+      "reservationId": "48dd4e71-9801-448e-8c78-3468ad53dd43",
+      "playerUuid": "bab1d66a-d32d-4a94-bdf7-bb3a58f99a77",
       "amount": 30,
       "status": "ACTIVE",
       "source": "test-source",
       "purpose": "TEST",
-      "idempotencyKey": "98639017-ce7b-42c9-97ad-74fea3666d4e",
+      "idempotencyKey": "c1bd5da6-d983-4b31-948a-10cdd1a3c99b",
       "externalReference": "ref-op",
       "metadata": {},
-      "createdAt": 1782828061772,
-      "expiresAt": 1782828121772
+      "createdAt": 1783023237817,
+      "expiresAt": 1783023297817
     }
   },
   "pendingAuditEntries": [],
   "idempotencyRecords": {
-    "e04b1d96-f237-4a78-bc7a-e4aeb50a904c": {
-      "transactionId": "c05c2e20-e1ad-4273-a123-e5aeb4938605",
+    "cdbce18c-cb0b-4ea6-a028-b79fa85bcbbf": {
+      "transactionId": "914d9465-6f0c-4f67-81e2-37fc5096ae42",
       "operationType": "CREDIT",
-      "requestFingerprint": "87b34d2ffb09cb5f1c6a360992d5218ceac5325aa78007a6f364b2cd0d3f0f4a",
-      "playerUuid": "3eef32b5-7671-4005-94e0-9c8d2f5931f7",
+      "requestFingerprint": "d0c22750502502243f84e60509114d1cb7c0bca36ec7c13dec6e9a61d27834fc",
+      "playerUuid": "bab1d66a-d32d-4a94-bdf7-bb3a58f99a77",
       "amount": 100,
       "resultStatus": "SUCCESS",
-      "createdAt": 1782828061771
+      "createdAt": 1783023237815
     },
-    "98639017-ce7b-42c9-97ad-74fea3666d4e": {
-      "transactionId": "12022dbc-ac3b-4b51-8b71-1ea16fedb66e",
+    "c1bd5da6-d983-4b31-948a-10cdd1a3c99b": {
+      "transactionId": "634569e0-768a-4dee-b353-8c07c3dab15c",
       "operationType": "RESERVE",
-      "requestFingerprint": "00558e9197f9fc97f8945244bd0ab9f59a8dec23aa15e070482db9e8cc253eb8",
-      "playerUuid": "3eef32b5-7671-4005-94e0-9c8d2f5931f7",
+      "requestFingerprint": "6a1bb01044cb8ea3e372f0e3a266dcddb3f9aa84af5747dfd1fa9ece8d5bb1a3",
+      "playerUuid": "bab1d66a-d32d-4a94-bdf7-bb3a58f99a77",
       "amount": 30,
-      "reservationId": "cc5edfc6-3101-419b-bea6-7e0fb4fede7d",
+      "reservationId": "48dd4e71-9801-448e-8c78-3468ad53dd43",
       "resultStatus": "SUCCESS",
-      "createdAt": 1782828061772
+      "createdAt": 1783023237817
     }
   }
 }
