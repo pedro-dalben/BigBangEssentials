@@ -44,8 +44,11 @@ public class V008CreateCrateConfigTables implements DatabaseMigration {
                 ")");
 
             if (dialect.type() == DatabaseType.MYSQL) {
-                stmt.execute("ALTER TABLE crate_definitions ADD CONSTRAINT IF NOT EXISTS " +
-                    "uq_crate_definitions_key UNIQUE (key_id)");
+                try {
+                    stmt.execute("ALTER TABLE crate_definitions ADD UNIQUE INDEX uq_crate_definitions_key (key_id)");
+                } catch (SQLException e) {
+                    // Index may already exist on re-run
+                }
             } else {
                 stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_crate_definitions_key " +
                     "ON crate_definitions (key_id)");
@@ -80,11 +83,15 @@ public class V008CreateCrateConfigTables implements DatabaseMigration {
                 "PRIMARY KEY (id)" +
                 ")");
 
-            stmt.execute("CREATE INDEX IF NOT EXISTS idx_crate_locations_crate " +
-                "ON crate_locations (crate_id)");
-
-            stmt.execute("CREATE INDEX IF NOT EXISTS idx_crate_locations_position " +
-                "ON crate_locations (world, x, y, z)");
+            if (dialect.type() == DatabaseType.MYSQL) {
+                try { stmt.execute("CREATE INDEX idx_crate_locations_crate ON crate_locations (crate_id)"); } catch (SQLException e) {}
+                try { stmt.execute("CREATE INDEX idx_crate_locations_position ON crate_locations (world, x, y, z)"); } catch (SQLException e) {}
+            } else {
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_crate_locations_crate " +
+                    "ON crate_locations (crate_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_crate_locations_position " +
+                    "ON crate_locations (world, x, y, z)");
+            }
         }
     }
 }
