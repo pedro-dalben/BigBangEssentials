@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.pedrodalben.bigbangessentials.crates.domain.RewardRollState;
 import com.pedrodalben.bigbangessentials.crates.repository.RewardRollStateRepository;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.database.execution.RowMapper;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcRepository;
 import org.slf4j.Logger;
@@ -30,23 +32,10 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
     private static final String DELETE = "DELETE FROM " + TABLE + " WHERE reward_id = ?";
     private static final String COUNT = "SELECT COUNT(*) FROM " + TABLE;
 
-    private static final String INCREMENT_GLOBAL = "INSERT INTO " + TABLE + " (reward_id, global_count, player_counts) "
-        + "VALUES (?, 1, '{}') "
-        + "ON CONFLICT(reward_id) DO UPDATE SET global_count = global_count + 1";
-
     private static final String SELECT_GLOBAL_COUNT = "SELECT global_count FROM " + TABLE + " WHERE reward_id = ?";
-
-    private static final String INCREMENT_PLAYER = "INSERT INTO " + PLAYER_TABLE + " (reward_id, player_uuid, count) "
-        + "VALUES (?, ?, 1) "
-        + "ON CONFLICT(reward_id, player_uuid) DO UPDATE SET count = count + 1";
-
     private static final String SELECT_PLAYER_COUNT = "SELECT count FROM " + PLAYER_TABLE + " WHERE reward_id = ? AND player_uuid = ?";
-
-    private static final String INIT_GLOBAL = "INSERT OR IGNORE INTO " + TABLE + " (reward_id, global_count, player_counts) VALUES (?, 0, '{}')";
     private static final String RESERVE_GLOBAL = "UPDATE " + TABLE + " SET global_count = global_count + 1 WHERE reward_id = ? AND global_count < ?";
     private static final String RELEASE_GLOBAL = "UPDATE " + TABLE + " SET global_count = CASE WHEN global_count > 0 THEN global_count - 1 ELSE 0 END WHERE reward_id = ?";
-
-    private static final String INIT_PLAYER = "INSERT OR IGNORE INTO " + PLAYER_TABLE + " (reward_id, player_uuid, count) VALUES (?, ?, 0)";
     private static final String RESERVE_PLAYER = "UPDATE " + PLAYER_TABLE + " SET count = count + 1 WHERE reward_id = ? AND player_uuid = ? AND count < ?";
     private static final String RELEASE_PLAYER = "UPDATE " + PLAYER_TABLE + " SET count = CASE WHEN count > 0 THEN count - 1 ELSE 0 END WHERE reward_id = ? AND player_uuid = ?";
 
@@ -188,7 +177,7 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
     @Override
     public int incrementGlobalCount(String rewardId) {
         try {
-            getDatabase().executeUpdate(INCREMENT_GLOBAL,
+            getDatabase().executeUpdate(incrementGlobalSql(),
                 stmt -> stmt.setString(1, rewardId)
             ).join();
             return getDatabase().querySingle(SELECT_GLOBAL_COUNT,
@@ -204,7 +193,7 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
     @Override
     public int incrementPlayerCount(String rewardId, UUID playerId) {
         try {
-            getDatabase().executeUpdate(INCREMENT_PLAYER,
+            getDatabase().executeUpdate(incrementPlayerSql(),
                 stmt -> {
                     stmt.setString(1, rewardId);
                     stmt.setString(2, playerId.toString());
@@ -246,7 +235,7 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
             return true;
         }
         try {
-            getDatabase().executeUpdate(INIT_GLOBAL, stmt -> stmt.setString(1, rewardId)).join();
+            getDatabase().executeUpdate(initGlobalSql(), stmt -> stmt.setString(1, rewardId)).join();
             int updated = getDatabase().executeUpdate(RESERVE_GLOBAL, stmt -> {
                 stmt.setString(1, rewardId);
                 stmt.setInt(2, globalLimit);
@@ -265,7 +254,7 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
             return true;
         }
         try {
-            getDatabase().executeUpdate(INIT_PLAYER, stmt -> {
+            getDatabase().executeUpdate(initPlayerSql(), stmt -> {
                 stmt.setString(1, rewardId);
                 stmt.setString(2, playerId.toString());
             }).join();
@@ -300,5 +289,35 @@ public class JdbcRewardRollStateRepository extends JdbcRepository implements Rew
         } catch (Exception e) {
             LOGGER.error("Failed to release player limit for reward {}: {}", rewardId, e.getMessage(), e);
         }
+    }
+
+    private String incrementGlobalSql() {
+        if (DatabaseManager.getInstance().getType() == DatabaseType.MYSQL) {
+            return "INSERT INTO " + TABLE + " (reward_id, global_count, player_counts) VALUES (?, 1, '{}') "
+                + "ON DUPLICATE KEY UPDATE global_count = global_count + 1";
+        }
+        return "INSERT INTO " + TABLE + " (reward_id, global_count, player_counts) VALUES (?, 1, '{}') "
+            + "ON CONFLICT(reward_id) DO UPDATE SET global_count = global_count + 1";
+    }
+
+    private String incrementPlayerSql() {
+        if (DatabaseManager.getInstance().getType() == DatabaseType.MYSQL) {
+            return "INSERT INTO " + PLAYER_TABLE + " (reward_id, player_uuid, count) VALUES (?, ?, 1) "
+                + "ON DUPLICATE KEY UPDATE count = count + 1";
+        }
+        return "INSERT INTO " + PLAYER_TABLE + " (reward_id, player_uuid, count) VALUES (?, ?, 1) "
+            + "ON CONFLICT(reward_id, player_uuid) DO UPDATE SET count = count + 1";
+    }
+
+    private String initGlobalSql() {
+        return DatabaseManager.getInstance().getType() == DatabaseType.MYSQL
+            ? "INSERT IGNORE INTO " + TABLE + " (reward_id, global_count, player_counts) VALUES (?, 0, '{}')"
+            : "INSERT OR IGNORE INTO " + TABLE + " (reward_id, global_count, player_counts) VALUES (?, 0, '{}')";
+    }
+
+    private String initPlayerSql() {
+        return DatabaseManager.getInstance().getType() == DatabaseType.MYSQL
+            ? "INSERT IGNORE INTO " + PLAYER_TABLE + " (reward_id, player_uuid, count) VALUES (?, ?, 0)"
+            : "INSERT OR IGNORE INTO " + PLAYER_TABLE + " (reward_id, player_uuid, count) VALUES (?, ?, 0)";
     }
 }

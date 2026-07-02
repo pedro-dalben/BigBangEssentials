@@ -1,12 +1,12 @@
 package com.pedrodalben.bigbangessentials.crates;
 
 import com.pedrodalben.bigbangessentials.BigBangEssentialsManager;
+import com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager;
+import com.pedrodalben.bigbangessentials.crates.particle.CrateParticleManager;
 import com.pedrodalben.bigbangessentials.crates.service.CrateAuditService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateKeyService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateMetricsService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateOpeningService;
-import com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager;
-import com.pedrodalben.bigbangessentials.crates.particle.CrateParticleManager;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
 import com.pedrodalben.bigbangessentials.crates.service.RewardService;
 import org.slf4j.Logger;
@@ -28,12 +28,7 @@ public class CrateManager {
     private boolean initialized = false;
     private boolean enabled = true;
 
-    private CrateService crateService;
-    private CrateKeyService keyService;
-    private RewardService rewardService;
-    private CrateOpeningService openingService;
-    private CrateAuditService auditService;
-    private CrateMetricsService metricsService;
+    private CrateModuleContext context;
 
     private final ScheduledExecutorService cleanupScheduler =
         Executors.newSingleThreadScheduledExecutor(r -> {
@@ -59,18 +54,8 @@ public class CrateManager {
         LOGGER.info("Initializing CrateManager...");
 
         try {
-            this.crateService = CrateService.getInstance();
-            this.keyService = CrateKeyService.getInstance();
-            this.rewardService = RewardService.getInstance();
-            this.openingService = CrateOpeningService.getInstance();
-            this.auditService = CrateAuditService.getInstance();
-            this.metricsService = CrateMetricsService.getInstance();
-
-            crateService.reload();
-            keyService.reload();
-            rewardService.reload();
-            openingService.reload();
-            auditService.reload();
+            context = CrateModuleContext.getInstance();
+            context.initialize();
 
             startCleanupTask();
 
@@ -96,7 +81,7 @@ public class CrateManager {
     private void runAuditCleanup() {
         try {
             Instant cutoff = Instant.now().minusSeconds(AUDIT_RETENTION_DAYS * 86400L);
-            auditService.cleanOldAudits(cutoff);
+            context.getAuditService().cleanOldAudits(cutoff);
             LOGGER.debug("Audit cleanup completed (cutoff: {})", cutoff);
         } catch (Exception e) {
             LOGGER.error("Error during audit cleanup: {}", e.getMessage(), e);
@@ -137,6 +122,10 @@ public class CrateManager {
             LOGGER.error("Failed to stop particles during shutdown: {}", e.getMessage());
         }
 
+        if (context != null) {
+            context.shutdown();
+        }
+
         initialized = false;
         enabled = false;
         LOGGER.info("CrateManager shutdown complete");
@@ -146,13 +135,10 @@ public class CrateManager {
         LOGGER.info("Reloading CrateManager...");
 
         try {
-            crateService.reload();
-            keyService.reload();
-            rewardService.reload();
-            openingService.reload();
-            auditService.reload();
-            metricsService.reload();
-
+            if (context == null) {
+                context = CrateModuleContext.getInstance();
+                context.initialize();
+            }
             LOGGER.info("CrateManager reloaded successfully");
         } catch (Exception e) {
             LOGGER.error("Failed to reload CrateManager: {}", e.getMessage(), e);
@@ -168,26 +154,30 @@ public class CrateManager {
     }
 
     public CrateService getCrateService() {
-        return crateService;
+        return context != null ? context.getCrateService() : null;
     }
 
     public CrateKeyService getKeyService() {
-        return keyService;
+        return context != null ? context.getKeyService() : null;
     }
 
     public RewardService getRewardService() {
-        return rewardService;
+        return context != null ? context.getRewardService() : null;
     }
 
     public CrateOpeningService getOpeningService() {
-        return openingService;
+        return context != null ? context.getOpeningService() : null;
     }
 
     public CrateAuditService getAuditService() {
-        return auditService;
+        return context != null ? context.getAuditService() : null;
     }
 
     public CrateMetricsService getMetricsService() {
-        return metricsService;
+        return context != null ? context.getMetricsService() : null;
+    }
+
+    public CrateModuleContext getContext() {
+        return context;
     }
 }

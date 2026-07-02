@@ -161,7 +161,7 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
                 "status VARCHAR(32) NOT NULL, " +
                 "cost_consumed DOUBLE NOT NULL DEFAULT 0.0, " +
                 "timestamp BIGINT NOT NULL, " +
-                "idempotency_key VARCHAR(64), " +
+                "idempotency_key VARCHAR(255), " +
                 "server_id VARCHAR(64), " +
                 "error_detail TEXT, " +
                 "PRIMARY KEY (id)" +
@@ -186,11 +186,11 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
             addColumnIfNotExists("completed_at BIGINT DEFAULT 0");
             addColumnIfNotExists("compensation_reason TEXT");
 
-            getDatabase().executeUpdate("CREATE INDEX IF NOT EXISTS idx_crate_audit_player ON " + TABLE + " (player_uuid)", null).join();
-            getDatabase().executeUpdate("CREATE INDEX IF NOT EXISTS idx_crate_audit_crate ON " + TABLE + " (crate_id)", null).join();
-            getDatabase().executeUpdate("CREATE INDEX IF NOT EXISTS idx_crate_audit_timestamp ON " + TABLE + " (timestamp)", null).join();
+            createIndexIfMissing("idx_crate_audit_player", "player_uuid", false);
+            createIndexIfMissing("idx_crate_audit_crate", "crate_id", false);
+            createIndexIfMissing("idx_crate_audit_timestamp", "timestamp", false);
             try {
-                getDatabase().executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS uq_crate_audit_idempotency ON " + TABLE + " (idempotency_key)", null).join();
+                createIndexIfMissing("uq_crate_audit_idempotency", "idempotency_key", true);
             } catch (Exception ignored) {}
 
             tableCreated = true;
@@ -204,6 +204,14 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
         try {
             getDatabase().executeUpdate("ALTER TABLE " + TABLE + " ADD COLUMN " + colDef, null).join();
         } catch (Exception ignored) {}
+    }
+
+    private void createIndexIfMissing(String indexName, String columnName, boolean unique) {
+        try {
+            String createSql = (unique ? "CREATE UNIQUE INDEX " : "CREATE INDEX ") + indexName + " ON " + TABLE + " (" + columnName + ")";
+            getDatabase().executeUpdate(createSql, null).join();
+        } catch (Exception ignored) {
+        }
     }
 
     @Override

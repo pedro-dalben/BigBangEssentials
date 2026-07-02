@@ -18,5 +18,6 @@ public interface CrateLocationRepository {
     CrateLocation save(CrateLocation location);
     void delete(CrateLocation location);
     void deleteById(UUID id);
+    void deleteByCrateId(String crateId);
     long count();
 }

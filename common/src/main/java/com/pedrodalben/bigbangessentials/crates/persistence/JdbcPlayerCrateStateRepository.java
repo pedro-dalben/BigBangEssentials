@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.pedrodalben.bigbangessentials.crates.domain.PlayerCrateState;
 import com.pedrodalben.bigbangessentials.crates.repository.PlayerCrateStateRepository;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.database.execution.RowMapper;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcRepository;
 import org.slf4j.Logger;
@@ -28,18 +30,6 @@ public class JdbcPlayerCrateStateRepository extends JdbcRepository implements Pl
     private static final String DELETE = "DELETE FROM " + TABLE + " WHERE player_uuid = ? AND crate_id = ?";
     private static final String DELETE_BY_PLAYER = "DELETE FROM " + TABLE + " WHERE player_uuid = ?";
     private static final String COUNT = "SELECT COUNT(*) FROM " + TABLE;
-
-    private static final String RECORD_OPENING = "INSERT INTO " + TABLE + " (player_uuid, crate_id, total_opened, latest_opened_at, milestone_progress) "
-        + "VALUES (?, ?, 1, ?, 1) "
-        + "ON CONFLICT(player_uuid, crate_id) DO UPDATE SET "
-        + "total_opened = total_opened + 1, "
-        + "latest_opened_at = ?, "
-        + "milestone_progress = milestone_progress + 1";
-
-    private static final String START_COOLDOWN = "INSERT INTO " + TABLE + " (player_uuid, crate_id, cooldown_until) "
-        + "VALUES (?, ?, ?) "
-        + "ON CONFLICT(player_uuid, crate_id) DO UPDATE SET "
-        + "cooldown_until = ?";
 
     private static final String CLEAR_COOLDOWN = "UPDATE " + TABLE + " SET cooldown_until = 0 WHERE player_uuid = ? AND crate_id = ?";
 
@@ -228,12 +218,14 @@ public class JdbcPlayerCrateStateRepository extends JdbcRepository implements Pl
     @Override
     public void startCooldown(UUID playerId, String crateId, long cooldownUntil) {
         try {
-            getDatabase().executeUpdate(START_COOLDOWN,
+            getDatabase().executeUpdate(startCooldownSql(),
                 stmt -> {
                     stmt.setString(1, playerId.toString());
                     stmt.setString(2, crateId);
                     stmt.setLong(3, cooldownUntil);
-                    stmt.setLong(4, cooldownUntil);
+                    if (DatabaseManager.getInstance().getType() != DatabaseType.MYSQL) {
+                        stmt.setLong(4, cooldownUntil);
+                    }
                 }
             ).join();
         } catch (Exception e) {
@@ -246,12 +238,14 @@ public class JdbcPlayerCrateStateRepository extends JdbcRepository implements Pl
     public PlayerCrateState recordOpening(UUID playerId, String crateId) {
         try {
             long now = System.currentTimeMillis();
-            getDatabase().executeUpdate(RECORD_OPENING,
+            getDatabase().executeUpdate(recordOpeningSql(),
                 stmt -> {
                     stmt.setString(1, playerId.toString());
                     stmt.setString(2, crateId);
                     stmt.setLong(3, now);
-                    stmt.setLong(4, now);
+                    if (DatabaseManager.getInstance().getType() != DatabaseType.MYSQL) {
+                        stmt.setLong(4, now);
+                    }
                 }
             ).join();
             return findByPlayerAndCrate(playerId, crateId)
@@ -274,5 +268,26 @@ public class JdbcPlayerCrateStateRepository extends JdbcRepository implements Pl
         } catch (Exception e) {
             LOGGER.error("Failed to clear cooldown: {}", e.getMessage(), e);
         }
+    }
+
+    private String recordOpeningSql() {
+        if (DatabaseManager.getInstance().getType() == DatabaseType.MYSQL) {
+            return "INSERT INTO " + TABLE + " (player_uuid, crate_id, total_opened, latest_opened_at, milestone_progress) "
+                + "VALUES (?, ?, 1, ?, 1) "
+                + "ON DUPLICATE KEY UPDATE total_opened = total_opened + 1, latest_opened_at = VALUES(latest_opened_at), "
+                + "milestone_progress = milestone_progress + 1";
+        }
+        return "INSERT INTO " + TABLE + " (player_uuid, crate_id, total_opened, latest_opened_at, milestone_progress) "
+            + "VALUES (?, ?, 1, ?, 1) "
+            + "ON CONFLICT(player_uuid, crate_id) DO UPDATE SET total_opened = total_opened + 1, latest_opened_at = ?, milestone_progress = milestone_progress + 1";
+    }
+
+    private String startCooldownSql() {
+        if (DatabaseManager.getInstance().getType() == DatabaseType.MYSQL) {
+            return "INSERT INTO " + TABLE + " (player_uuid, crate_id, cooldown_until) VALUES (?, ?, ?) "
+                + "ON DUPLICATE KEY UPDATE cooldown_until = VALUES(cooldown_until)";
+        }
+        return "INSERT INTO " + TABLE + " (player_uuid, crate_id, cooldown_until) VALUES (?, ?, ?) "
+            + "ON CONFLICT(player_uuid, crate_id) DO UPDATE SET cooldown_until = ?";
     }
 }

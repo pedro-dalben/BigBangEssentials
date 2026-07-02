@@ -2,6 +2,8 @@ package com.pedrodalben.bigbangessentials.crates.persistence;
 
 import com.pedrodalben.bigbangessentials.crates.domain.CrateIdempotencyRecord;
 import com.pedrodalben.bigbangessentials.crates.repository.CrateIdempotencyRepository;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.database.execution.RowMapper;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcRepository;
 import org.slf4j.Logger;
@@ -15,8 +17,6 @@ public class JdbcCrateIdempotencyRepository extends JdbcRepository implements Cr
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcCrateIdempotencyRepository.class);
 
     private static final String TABLE = "crate_idempotency";
-    private static final String INSERT_SIMPLE = "INSERT OR IGNORE INTO " + TABLE + " (idempotency_key, operation_type, created_at, status) VALUES (?, ?, ?, 'SUCCEEDED')";
-    private static final String INSERT_FULL = "INSERT OR IGNORE INTO " + TABLE + " (idempotency_key, operation_type, player_uuid, crate_id, key_id, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'STARTED', ?)";
     private static final String SELECT_BY_KEY = "SELECT * FROM " + TABLE + " WHERE idempotency_key = ?";
     private static final String UPDATE_SUCCESS = "UPDATE " + TABLE + " SET status = 'SUCCEEDED', result = ?, completed_at = ? WHERE idempotency_key = ?";
     private static final String UPDATE_FAILURE = "UPDATE " + TABLE + " SET status = 'FAILED', failure_reason = ?, completed_at = ? WHERE idempotency_key = ?";
@@ -91,8 +91,9 @@ public class JdbcCrateIdempotencyRepository extends JdbcRepository implements Cr
     @Override
     public boolean markProcessed(String idempotencyKey, String operationType) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) return true;
+        ensureTable();
         try {
-            int inserted = getDatabase().executeUpdate(INSERT_SIMPLE,
+            int inserted = getDatabase().executeUpdate(insertSimpleSql(),
                 stmt -> {
                     stmt.setString(1, idempotencyKey);
                     stmt.setString(2, operationType);
@@ -113,6 +114,7 @@ public class JdbcCrateIdempotencyRepository extends JdbcRepository implements Cr
     @Override
     public Optional<CrateIdempotencyRecord> findRecord(String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) return Optional.empty();
+        ensureTable();
         try {
             return getDatabase().querySingle(SELECT_BY_KEY, stmt -> stmt.setString(1, idempotencyKey), MAPPER).join();
         } catch (Exception e) {
@@ -124,8 +126,9 @@ public class JdbcCrateIdempotencyRepository extends JdbcRepository implements Cr
     @Override
     public boolean recordStart(String idempotencyKey, String operationType, UUID playerUuid, String crateId, String keyId, int amount) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) return true;
+        ensureTable();
         try {
-            int inserted = getDatabase().executeUpdate(INSERT_FULL,
+            int inserted = getDatabase().executeUpdate(insertFullSql(),
                 stmt -> {
                     stmt.setString(1, idempotencyKey);
                     stmt.setString(2, operationType);
@@ -146,6 +149,7 @@ public class JdbcCrateIdempotencyRepository extends JdbcRepository implements Cr
     @Override
     public void recordSuccess(String idempotencyKey, String result) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) return;
+        ensureTable();
         try {
             getDatabase().executeUpdate(UPDATE_SUCCESS,
                 stmt -> {
@@ -162,6 +166,7 @@ public class JdbcCrateIdempotencyRepository extends JdbcRepository implements Cr
     @Override
     public void recordFailure(String idempotencyKey, String failureReason) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) return;
+        ensureTable();
         try {
             getDatabase().executeUpdate(UPDATE_FAILURE,
                 stmt -> {
@@ -173,5 +178,17 @@ public class JdbcCrateIdempotencyRepository extends JdbcRepository implements Cr
         } catch (Exception e) {
             LOGGER.error("Failed to record failure for idempotency key '{}': {}", idempotencyKey, e.getMessage(), e);
         }
+    }
+
+    private String insertSimpleSql() {
+        return DatabaseManager.getInstance().getType() == DatabaseType.MYSQL
+            ? "INSERT IGNORE INTO " + TABLE + " (idempotency_key, operation_type, created_at, status) VALUES (?, ?, ?, 'SUCCEEDED')"
+            : "INSERT OR IGNORE INTO " + TABLE + " (idempotency_key, operation_type, created_at, status) VALUES (?, ?, ?, 'SUCCEEDED')";
+    }
+
+    private String insertFullSql() {
+        return DatabaseManager.getInstance().getType() == DatabaseType.MYSQL
+            ? "INSERT IGNORE INTO " + TABLE + " (idempotency_key, operation_type, player_uuid, crate_id, key_id, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'STARTED', ?)"
+            : "INSERT OR IGNORE INTO " + TABLE + " (idempotency_key, operation_type, player_uuid, crate_id, key_id, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'STARTED', ?)";
     }
 }

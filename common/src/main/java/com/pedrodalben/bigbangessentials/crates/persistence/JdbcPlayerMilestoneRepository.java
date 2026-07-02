@@ -2,6 +2,8 @@ package com.pedrodalben.bigbangessentials.crates.persistence;
 
 import com.pedrodalben.bigbangessentials.crates.domain.PlayerMilestoneRecord;
 import com.pedrodalben.bigbangessentials.crates.repository.PlayerMilestoneRepository;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.database.execution.RowMapper;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcRepository;
 import org.slf4j.Logger;
@@ -14,7 +16,6 @@ public class JdbcPlayerMilestoneRepository extends JdbcRepository implements Pla
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcPlayerMilestoneRepository.class);
 
     private static final String TABLE = "crate_player_milestones";
-    private static final String INSERT = "INSERT OR IGNORE INTO " + TABLE + " (player_uuid, crate_id, milestone_id, threshold_mult, reached_at, delivered_at, status, opening_id, repeatable) VALUES (?, ?, ?, ?, ?, ?, 'DELIVERED', ?, ?)";
     private static final String SELECT = "SELECT * FROM " + TABLE + " WHERE player_uuid = ? AND crate_id = ? AND milestone_id = ? AND threshold_mult = ?";
 
     private boolean tableCreated = false;
@@ -78,7 +79,7 @@ public class JdbcPlayerMilestoneRepository extends JdbcRepository implements Pla
     @Override
     public boolean recordDelivery(UUID playerUuid, String crateId, String milestoneId, int thresholdMult, long reachedAt, long deliveredAt, String openingId, boolean repeatable) {
         try {
-            int inserted = getDatabase().executeUpdate(INSERT,
+            int inserted = getDatabase().executeUpdate(insertSql(),
                 stmt -> {
                     stmt.setString(1, playerUuid.toString());
                     stmt.setString(2, crateId);
@@ -95,5 +96,11 @@ public class JdbcPlayerMilestoneRepository extends JdbcRepository implements Pla
             LOGGER.error("Failed to record milestone delivery: {}", e.getMessage(), e);
             return false;
         }
+    }
+
+    private String insertSql() {
+        return DatabaseManager.getInstance().getType() == DatabaseType.MYSQL
+            ? "INSERT IGNORE INTO " + TABLE + " (player_uuid, crate_id, milestone_id, threshold_mult, reached_at, delivered_at, status, opening_id, repeatable) VALUES (?, ?, ?, ?, ?, ?, 'DELIVERED', ?, ?)"
+            : "INSERT OR IGNORE INTO " + TABLE + " (player_uuid, crate_id, milestone_id, threshold_mult, reached_at, delivered_at, status, opening_id, repeatable) VALUES (?, ?, ?, ?, ?, ?, 'DELIVERED', ?, ?)";
     }
 }

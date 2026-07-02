@@ -1,5 +1,6 @@
 package com.pedrodalben.bigbangessentials.crates.service;
 
+import com.pedrodalben.bigbangessentials.crates.CrateModuleContext;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateOpenAudit;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateRarity;
@@ -7,8 +8,6 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateReward;
 import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
 import com.pedrodalben.bigbangessentials.crates.domain.PlayerCrateState;
 import com.pedrodalben.bigbangessentials.crates.integration.CrateEconomyIntegration;
-import com.pedrodalben.bigbangessentials.crates.persistence.JdbcPlayerCrateStateRepository;
-import com.pedrodalben.bigbangessentials.crates.persistence.JdbcPlayerMilestoneRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.PlayerCrateStateRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.PlayerMilestoneRepository;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,7 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class CrateOpeningService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CrateOpeningService.class);
-    private static final CrateOpeningService INSTANCE = new CrateOpeningService();
+    private static CrateOpeningService instance;
 
     private final CrateKeyService keyService;
     private final RewardService rewardService;
@@ -35,19 +34,37 @@ public class CrateOpeningService {
     private final CrateEconomyIntegration economyIntegration;
     private final ConcurrentHashMap<UUID, ReentrantLock> playerLocks;
 
-    private CrateOpeningService() {
-        this.keyService = CrateKeyService.getInstance();
-        this.rewardService = RewardService.getInstance();
-        this.auditService = CrateAuditService.getInstance();
-        this.metricsService = CrateMetricsService.getInstance();
-        this.playerStateRepo = new JdbcPlayerCrateStateRepository();
-        this.milestoneRepo = new JdbcPlayerMilestoneRepository();
-        this.economyIntegration = CrateEconomyIntegration.getInstance();
+    public CrateOpeningService(CrateKeyService keyService, RewardService rewardService,
+                               CrateAuditService auditService, CrateMetricsService metricsService,
+                               PlayerCrateStateRepository playerStateRepo,
+                               PlayerMilestoneRepository milestoneRepo,
+                               CrateEconomyIntegration economyIntegration) {
+        this.keyService = keyService;
+        this.rewardService = rewardService;
+        this.auditService = auditService;
+        this.metricsService = metricsService;
+        this.playerStateRepo = playerStateRepo;
+        this.milestoneRepo = milestoneRepo;
+        this.economyIntegration = economyIntegration;
         this.playerLocks = new ConcurrentHashMap<>();
     }
 
     public static CrateOpeningService getInstance() {
-        return INSTANCE;
+        if (instance == null) {
+            CrateOpeningService ctx = CrateModuleContext.getInstance().getOpeningService();
+            if (ctx != null) {
+                instance = ctx;
+            } else {
+                instance = new CrateOpeningService(
+                    CrateKeyService.getInstance(), RewardService.getInstance(),
+                    CrateAuditService.getInstance(), CrateMetricsService.getInstance(),
+                    new com.pedrodalben.bigbangessentials.crates.persistence.JdbcPlayerCrateStateRepository(),
+                    new com.pedrodalben.bigbangessentials.crates.persistence.JdbcPlayerMilestoneRepository(),
+                    com.pedrodalben.bigbangessentials.crates.integration.CrateEconomyIntegration.getInstance()
+                );
+            }
+        }
+        return instance;
     }
 
     public CrateOpeningResult openCrate(ServerPlayer player, CrateDefinition crate, GrantSource source, String idempotencyKey) {
@@ -175,8 +192,9 @@ public class CrateOpeningService {
         StringBuilder failReason = new StringBuilder();
 
         try {
-            if (keyConsumed) {
-                keyService.giveVirtualKey(playerId, crate.getRequirements().getAcceptedKeyIds().get(0), 1, GrantSource.ROLLBACK, null);
+            if (keyConsumed && !crate.getRequirements().getAcceptedKeyIds().isEmpty()) {
+                String keyId = crate.getRequirements().getAcceptedKeyIds().get(0);
+                keyService.giveVirtualKey(playerId, keyId, 1, GrantSource.ROLLBACK, null);
                 LOGGER.info("Rollback: restored 1 key for player {}", playerId);
             }
         } catch (Exception e) {

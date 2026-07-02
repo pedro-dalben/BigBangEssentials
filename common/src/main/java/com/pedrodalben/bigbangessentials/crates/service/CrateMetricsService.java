@@ -1,8 +1,8 @@
 package com.pedrodalben.bigbangessentials.crates.service;
 
+import com.pedrodalben.bigbangessentials.crates.CrateModuleContext;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateOpenAudit;
 import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
-import com.pedrodalben.bigbangessentials.crates.persistence.JdbcCrateMetricsRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.CrateMetricsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,16 +11,26 @@ import java.util.Map;
 
 public class CrateMetricsService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CrateMetricsService.class);
-    private static final CrateMetricsService INSTANCE = new CrateMetricsService();
+    private static CrateMetricsService instance;
 
     private final CrateMetricsRepository metricsRepo;
 
-    private CrateMetricsService() {
-        this.metricsRepo = new JdbcCrateMetricsRepository();
+    public CrateMetricsService(CrateMetricsRepository metricsRepo) {
+        this.metricsRepo = metricsRepo;
     }
 
     public static CrateMetricsService getInstance() {
-        return INSTANCE;
+        if (instance == null) {
+            CrateMetricsService ctx = CrateModuleContext.getInstance().getMetricsService();
+            if (ctx != null) {
+                instance = ctx;
+            } else {
+                instance = new CrateMetricsService(
+                    new com.pedrodalben.bigbangessentials.crates.persistence.JdbcCrateMetricsRepository()
+                );
+            }
+        }
+        return instance;
     }
 
     public void recordOpening(String crateKey, boolean success) {

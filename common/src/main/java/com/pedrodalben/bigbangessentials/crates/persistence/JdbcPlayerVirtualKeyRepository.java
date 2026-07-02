@@ -2,6 +2,8 @@ package com.pedrodalben.bigbangessentials.crates.persistence;
 
 import com.pedrodalben.bigbangessentials.crates.domain.PlayerVirtualKeyBalance;
 import com.pedrodalben.bigbangessentials.crates.repository.PlayerVirtualKeyRepository;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.database.execution.RowMapper;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcRepository;
 import org.slf4j.Logger;
@@ -195,16 +197,24 @@ public class JdbcPlayerVirtualKeyRepository extends JdbcRepository implements Pl
     @Override
     public int incrementBalance(UUID playerId, String keyId, int amount) {
         try {
-            String sql = "INSERT INTO " + TABLE + " (player_uuid, key_id, amount, updated_at) VALUES (?, ?, ?, ?) " +
-                         "ON CONFLICT(player_uuid, key_id) DO UPDATE SET amount = amount + ?, updated_at = ?";
+            String sql;
+            if (DatabaseManager.getInstance().getType() == DatabaseType.MYSQL) {
+                sql = "INSERT INTO " + TABLE + " (player_uuid, key_id, amount, updated_at) VALUES (?, ?, ?, ?) " +
+                      "ON DUPLICATE KEY UPDATE amount = amount + VALUES(amount), updated_at = VALUES(updated_at)";
+            } else {
+                sql = "INSERT INTO " + TABLE + " (player_uuid, key_id, amount, updated_at) VALUES (?, ?, ?, ?) " +
+                      "ON CONFLICT(player_uuid, key_id) DO UPDATE SET amount = amount + ?, updated_at = ?";
+            }
             getDatabase().executeUpdate(sql,
                 stmt -> {
                     stmt.setString(1, playerId.toString());
                     stmt.setString(2, keyId);
                     stmt.setInt(3, amount);
                     stmt.setLong(4, System.currentTimeMillis());
-                    stmt.setInt(5, amount);
-                    stmt.setLong(6, System.currentTimeMillis());
+                    if (DatabaseManager.getInstance().getType() != DatabaseType.MYSQL) {
+                        stmt.setInt(5, amount);
+                        stmt.setLong(6, System.currentTimeMillis());
+                    }
                 }
             ).join();
             return findByPlayerAndKey(playerId, keyId)

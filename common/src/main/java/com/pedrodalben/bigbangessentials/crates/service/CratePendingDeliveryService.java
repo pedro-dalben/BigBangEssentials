@@ -49,13 +49,20 @@ public class CratePendingDeliveryService extends JdbcRepository {
                 "created_at BIGINT NOT NULL, " +
                 "PRIMARY KEY (id)" +
                 ")", null).join();
-            getDatabase().executeUpdate("CREATE INDEX IF NOT EXISTS idx_pending_delivery_player ON " + TABLE + " (player_uuid)", null).join();
+            createIndexIfMissing("idx_pending_delivery_player", "player_uuid");
             tableCreated = true;
             LOGGER.debug("Ensured table {} exists", TABLE);
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to create table {}: {}", TABLE, e.getMessage(), e);
             return false;
+        }
+    }
+
+    private void createIndexIfMissing(String indexName, String columnName) {
+        try {
+            getDatabase().executeUpdate("CREATE INDEX " + indexName + " ON " + TABLE + " (" + columnName + ")", null).join();
+        } catch (Exception ignored) {
         }
     }
 

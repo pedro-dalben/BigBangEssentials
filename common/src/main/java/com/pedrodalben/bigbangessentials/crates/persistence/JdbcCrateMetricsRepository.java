@@ -1,6 +1,8 @@
 package com.pedrodalben.bigbangessentials.crates.persistence;
 
 import com.pedrodalben.bigbangessentials.crates.repository.CrateMetricsRepository;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.database.execution.RowMapper;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcRepository;
 import org.slf4j.Logger;
@@ -13,10 +15,6 @@ public class JdbcCrateMetricsRepository extends JdbcRepository implements CrateM
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcCrateMetricsRepository.class);
 
     private static final String TABLE = "crate_metrics";
-    private static final String UPSERT = "INSERT INTO " + TABLE + " (metric_key, metric_value) VALUES (?, 1) "
-        + "ON CONFLICT(metric_key) DO UPDATE SET metric_value = metric_value + 1";
-    private static final String UPSERT_AMOUNT = "INSERT INTO " + TABLE + " (metric_key, metric_value) VALUES (?, ?) "
-        + "ON CONFLICT(metric_key) DO UPDATE SET metric_value = metric_value + ?";
     private static final String SELECT_ALL = "SELECT * FROM " + TABLE;
     private static final String SELECT_BY_KEY = "SELECT metric_value FROM " + TABLE + " WHERE metric_key = ?";
     private static final String DELETE_ALL = "DELETE FROM " + TABLE;
@@ -51,10 +49,12 @@ public class JdbcCrateMetricsRepository extends JdbcRepository implements CrateM
     public long addCounter(String metricKey, long amount) {
         if (amount <= 0) return getCounter(metricKey);
         try {
-            getDatabase().executeUpdate(UPSERT_AMOUNT, stmt -> {
+            getDatabase().executeUpdate(upsertAmountSql(), stmt -> {
                 stmt.setString(1, metricKey);
                 stmt.setLong(2, amount);
-                stmt.setLong(3, amount);
+                if (DatabaseManager.getInstance().getType() != DatabaseType.MYSQL) {
+                    stmt.setLong(3, amount);
+                }
             }).join();
             return getDatabase().querySingle(SELECT_BY_KEY,
                 stmt -> stmt.setString(1, metricKey),
@@ -104,5 +104,14 @@ public class JdbcCrateMetricsRepository extends JdbcRepository implements CrateM
         } catch (Exception e) {
             LOGGER.error("Failed to reset metrics: {}", e.getMessage(), e);
         }
+    }
+
+    private String upsertAmountSql() {
+        if (DatabaseManager.getInstance().getType() == DatabaseType.MYSQL) {
+            return "INSERT INTO " + TABLE + " (metric_key, metric_value) VALUES (?, ?) "
+                + "ON DUPLICATE KEY UPDATE metric_value = metric_value + VALUES(metric_value)";
+        }
+        return "INSERT INTO " + TABLE + " (metric_key, metric_value) VALUES (?, ?) "
+            + "ON CONFLICT(metric_key) DO UPDATE SET metric_value = metric_value + ?";
     }
 }

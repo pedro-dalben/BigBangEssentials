@@ -137,6 +137,17 @@ public class JsonCrateLocationRepository implements CrateLocationRepository {
     }
 
     @Override
+    public void deleteByCrateId(String crateId) {
+        ensureLoaded();
+        List<UUID> toRemove = cache.values().stream()
+            .filter(loc -> loc.getCrateId().equals(crateId))
+            .map(CrateLocation::getId)
+            .toList();
+        toRemove.forEach(cache::remove);
+        if (!toRemove.isEmpty()) saveToFile();
+    }
+
+    @Override
     public void deleteById(UUID id) {
         ensureLoaded();
         cache.remove(id);
