@@ -9,6 +9,7 @@ import com.pedrodalben.bigbangessentials.crates.command.config.CratePermissions;
 import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
 import com.pedrodalben.bigbangessentials.crates.service.CrateKeyService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
+import com.pedrodalben.bigbangessentials.database.api.DatabaseAPI;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -55,13 +56,22 @@ public class KeyGiveCommand {
             return 0;
         }
 
+        if (!DatabaseAPI.isAvailable()) {
+            source.sendFailure(net.minecraft.network.chat.Component.literal(CrateMessages.DATABASE_UNAVAILABLE));
+            return 0;
+        }
+
         try {
+            CrateKeyService keyService = CrateKeyService.getInstance();
             Collection<ServerPlayer> targets = EntityArgument.getPlayers(context, "player");
             for (ServerPlayer target : targets) {
-                CrateKeyService.getInstance().giveVirtualKey(
+                if (!keyService.giveVirtualKey(
                     target.getUUID(), keyId, amount, GrantSource.ADMIN_COMMAND,
                     "keygive:" + target.getUUID() + ":" + keyId + ":" + amount + ":" + System.currentTimeMillis()
-                );
+                )) {
+                    source.sendFailure(net.minecraft.network.chat.Component.literal(CrateMessages.INTERNAL_ERROR));
+                    return 0;
+                }
 
                 source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(
                     String.format(CrateMessages.GIVE_SUCCESS, amount, keyId, target.getName().getString())), true);

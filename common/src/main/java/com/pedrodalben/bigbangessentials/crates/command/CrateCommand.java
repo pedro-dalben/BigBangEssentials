@@ -31,6 +31,7 @@ import com.pedrodalben.bigbangessentials.crates.service.CrateService;
 import com.pedrodalben.bigbangessentials.crates.menu.CrateEditMenu;
 import com.pedrodalben.bigbangessentials.crates.menu.CrateKeyEditorMenu;
 import com.pedrodalben.bigbangessentials.crates.service.CratePendingDeliveryService;
+import com.pedrodalben.bigbangessentials.database.api.DatabaseAPI;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -65,6 +66,14 @@ public class CrateCommand {
     private static final CrateAuditService auditService = CrateAuditService.getInstance();
     private static final CrateMetricsService metricsService = CrateMetricsService.getInstance();
     private static final CrateManager crateManager = CrateManager.getInstance();
+
+    private static boolean requireCratesDatabase(CommandSourceStack source) {
+        if (DatabaseAPI.isAvailable()) {
+            return true;
+        }
+        source.sendFailure(Component.literal(CrateMessages.DATABASE_UNAVAILABLE));
+        return false;
+    }
 
     private static final SuggestionProvider<CommandSourceStack> CRATE_SUGGESTIONS = (ctx, builder) -> {
         List<CrateDefinition> crates = crateService.getAllCrates();
@@ -1457,11 +1466,24 @@ public class CrateCommand {
             return 0;
         }
 
+        if (!requireCratesDatabase(source)) {
+            return 0;
+        }
+
         try {
             CratePendingDeliveryService pendingDeliveryService = CratePendingDeliveryService.getInstance();
             int claimed = pendingDeliveryService.claimDeliveries(player);
+            if (claimed < 0) {
+                source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+                return 0;
+            }
+
             if (claimed <= 0) {
                 int pendingCount = pendingDeliveryService.countPendingDeliveries(player);
+                if (pendingCount < 0) {
+                    source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+                    return 0;
+                }
                 if (pendingCount > 0) {
                     source.sendFailure(Component.literal(CrateMessages.INVENTORY_FULL));
                     return 0;
@@ -3654,12 +3676,19 @@ public class CrateCommand {
             return 0;
         }
 
+        if (!requireCratesDatabase(source)) {
+            return 0;
+        }
+
         try {
             for (ServerPlayer target : EntityArgument.getPlayers(context, "player")) {
                 String idempotencyKey = "cratekeygive:" + target.getUUID() + ":" + keyId + ":" + amount
                     + ":" + System.currentTimeMillis();
 
-                keyService.giveVirtualKey(target.getUUID(), keyId, amount, GrantSource.ADMIN_COMMAND, idempotencyKey);
+                if (!keyService.giveVirtualKey(target.getUUID(), keyId, amount, GrantSource.ADMIN_COMMAND, idempotencyKey)) {
+                    source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+                    return 0;
+                }
 
                 source.sendSuccess(() -> Component.literal(
                     String.format(CrateMessages.GIVE_SUCCESS, amount, keyId, target.getName().getString())), true);
@@ -3683,6 +3712,10 @@ public class CrateCommand {
 
         if (!crateService.keyExists(keyId)) {
             source.sendFailure(Component.literal(String.format(CrateMessages.KEY_NOT_FOUND, keyId)));
+            return 0;
+        }
+
+        if (!requireCratesDatabase(source)) {
             return 0;
         }
 
@@ -3716,6 +3749,10 @@ public class CrateCommand {
             return 0;
         }
 
+        if (!requireCratesDatabase(source)) {
+            return 0;
+        }
+
         try {
             ServerPlayer target = EntityArgument.getPlayer(context, "player");
             keyService.setVirtualKey(target.getUUID(), keyId, amount, GrantSource.ADMIN_COMMAND);
@@ -3734,6 +3771,10 @@ public class CrateCommand {
 
     private static int keyInspect(CommandContext<CommandSourceStack> context, ServerPlayer targetPlayer) {
         CommandSourceStack source = context.getSource();
+
+        if (!requireCratesDatabase(source)) {
+            return 0;
+        }
 
         try {
             ServerPlayer subject = targetPlayer;
@@ -3781,6 +3822,10 @@ public class CrateCommand {
             return 0;
         }
 
+        if (!requireCratesDatabase(source)) {
+            return 0;
+        }
+
         try {
             net.minecraft.server.MinecraftServer server = source.getServer();
             List<ServerPlayer> onlinePlayers = server.getPlayerList().getPlayers();
@@ -3788,7 +3833,10 @@ public class CrateCommand {
             for (ServerPlayer target : onlinePlayers) {
                 String idempotencyKey = "giveall:" + target.getUUID() + ":" + keyId + ":" + amount
                     + ":" + System.currentTimeMillis();
-                keyService.giveVirtualKey(target.getUUID(), keyId, amount, GrantSource.ADMIN_COMMAND, idempotencyKey);
+                if (!keyService.giveVirtualKey(target.getUUID(), keyId, amount, GrantSource.ADMIN_COMMAND, idempotencyKey)) {
+                    source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
+                    return 0;
+                }
                 target.sendSystemMessage(Component.literal(
                     String.format(CrateMessages.GIVE_RECEIVE, amount, keyId)));
             }

@@ -3,6 +3,7 @@ package com.pedrodalben.bigbangessentials.crates.service;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.pedrodalben.bigbangessentials.crates.domain.ItemSerializer;
+import com.pedrodalben.bigbangessentials.database.api.DatabaseAPI;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcRepository;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,15 +29,17 @@ public class CratePendingDeliveryService extends JdbcRepository {
     private boolean tableCreated = false;
 
     private CratePendingDeliveryService() {
-        ensureTable();
     }
 
     public static CratePendingDeliveryService getInstance() {
         return INSTANCE;
     }
 
-    private synchronized void ensureTable() {
-        if (tableCreated) return;
+    private synchronized boolean ensureTable() {
+        if (tableCreated) return true;
+        if (!DatabaseAPI.isAvailable()) {
+            return false;
+        }
         try {
             getDatabase().executeUpdate("CREATE TABLE IF NOT EXISTS " + TABLE + " (" +
                 "id VARCHAR(36) NOT NULL, " +
@@ -49,23 +52,32 @@ public class CratePendingDeliveryService extends JdbcRepository {
             getDatabase().executeUpdate("CREATE INDEX IF NOT EXISTS idx_pending_delivery_player ON " + TABLE + " (player_uuid)", null).join();
             tableCreated = true;
             LOGGER.debug("Ensured table {} exists", TABLE);
+            return true;
         } catch (Exception e) {
             LOGGER.error("Failed to create table {}: {}", TABLE, e.getMessage(), e);
+            return false;
         }
     }
 
     public void deliverOrStore(ServerPlayer player, ItemStack stack, String source) {
         if (stack == null || stack.isEmpty()) return;
-        boolean added = player.getInventory().add(stack);
+        player.getInventory().add(stack);
         if (!stack.isEmpty()) {
-            storePending(player.getUUID(), stack.copy(), source);
+            boolean stored = storePending(player.getUUID(), stack.copy(), source);
+            if (!stored) {
+                player.drop(stack.copy(), false);
+                player.sendSystemMessage(Component.literal("§eYour inventory was full, but the crate mailbox is unavailable. The remaining items were dropped nearby."));
+                stack.setCount(0);
+                return;
+            }
             player.sendSystemMessage(Component.literal("§eYour inventory was full! " + stack.getCount() + "x items were sent to your crate mailbox. Use §6/crates claim §eto retrieve them."));
             stack.setCount(0);
         }
     }
 
-    public void storePending(UUID playerUuid, ItemStack stack, String source) {
-        if (stack == null || stack.isEmpty()) return;
+    public boolean storePending(UUID playerUuid, ItemStack stack, String source) {
+        if (stack == null || stack.isEmpty()) return true;
+        if (!ensureTable()) return false;
         try {
             JsonObject json = ItemSerializer.serialize(stack);
             String id = UUID.randomUUID().toString();
@@ -77,8 +89,10 @@ public class CratePendingDeliveryService extends JdbcRepository {
                 stmt.setLong(5, System.currentTimeMillis());
             }).join();
             LOGGER.info("Stored pending delivery {} for player {} (source: {})", id, playerUuid, source);
+            return true;
         } catch (Exception e) {
             LOGGER.error("Failed to store pending delivery for player {}: {}", playerUuid, e.getMessage(), e);
+            return false;
         }
     }
 
@@ -86,6 +100,9 @@ public class CratePendingDeliveryService extends JdbcRepository {
         UUID playerUuid = player.getUUID();
         record PendingItem(String id, ItemStack stack) {}
         List<PendingItem> pending = new ArrayList<>();
+        if (!ensureTable()) {
+            return -1;
+        }
         try {
             getDatabase().queryList(SELECT_BY_PLAYER, stmt -> stmt.setString(1, playerUuid.toString()), rs -> {
                 String id = rs.getString("id");
@@ -101,7 +118,7 @@ public class CratePendingDeliveryService extends JdbcRepository {
             }).join();
         } catch (Exception e) {
             LOGGER.error("Failed to query pending deliveries for player {}: {}", playerUuid, e.getMessage(), e);
-            throw new IllegalStateException("Failed to query pending deliveries", e);
+            return -1;
         }
 
         if (pending.isEmpty()) return 0;
@@ -128,16 +145,20 @@ public class CratePendingDeliveryService extends JdbcRepository {
 
     public int countPendingDeliveries(ServerPlayer player) {
         UUID playerUuid = player.getUUID();
+        if (!ensureTable()) {
+            return -1;
+        }
         try {
             return getDatabase().querySingle(COUNT_BY_PLAYER, stmt -> stmt.setString(1, playerUuid.toString()),
                 rs -> rs.getInt(1)).join().orElse(0);
         } catch (Exception e) {
             LOGGER.error("Failed to count pending deliveries for player {}: {}", playerUuid, e.getMessage(), e);
-            throw new IllegalStateException("Failed to count pending deliveries", e);
+            return -1;
         }
     }
 
     private void deleteDelivery(String id) {
+        if (!ensureTable()) return;
         try {
             getDatabase().executeUpdate(DELETE, stmt -> stmt.setString(1, id)).join();
         } catch (Exception e) {
@@ -146,6 +167,7 @@ public class CratePendingDeliveryService extends JdbcRepository {
     }
 
     private void updateDelivery(String id, ItemStack remaining) {
+        if (!ensureTable()) return;
         try {
             JsonObject json = ItemSerializer.serialize(remaining);
             getDatabase().executeUpdate("UPDATE " + TABLE + " SET item_json = ? WHERE id = ?", stmt -> {

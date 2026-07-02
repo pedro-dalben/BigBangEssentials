@@ -11,6 +11,7 @@ import com.pedrodalben.bigbangessentials.crates.persistence.JsonKeyRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.CrateIdempotencyRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.KeyRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.PlayerVirtualKeyRepository;
+import com.pedrodalben.bigbangessentials.database.api.DatabaseAPI;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
@@ -59,22 +60,32 @@ public class CrateKeyService {
         return INSTANCE;
     }
 
-    public void giveVirtualKey(UUID playerId, String keyId, int amount, GrantSource source, String idempotencyKey) {
-        if (amount <= 0) return;
+    public boolean giveVirtualKey(UUID playerId, String keyId, int amount, GrantSource source, String idempotencyKey) {
+        if (amount <= 0) return false;
+        if (!DatabaseAPI.isAvailable()) {
+            LOGGER.warn("Skipping virtual key grant for player {} because the database is unavailable", playerId);
+            return false;
+        }
 
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             Optional<CrateIdempotencyRecord> recOpt = idempotencyRepo.findRecord(idempotencyKey);
             if (recOpt.isPresent() && recOpt.get().isSucceeded()) {
                 LOGGER.debug("Idempotent giveVirtualKey '{}' skipped for key '{}'", idempotencyKey, keyId);
-                return;
+                return true;
             }
             if (!idempotencyRepo.recordStart(idempotencyKey, "GIVE_KEY", playerId, null, keyId, amount)) {
-                return;
+                return false;
             }
         }
 
         try {
-            virtualKeyRepo.incrementBalance(playerId, keyId, amount);
+            int updatedBalance = virtualKeyRepo.incrementBalance(playerId, keyId, amount);
+            if (updatedBalance <= 0) {
+                if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                    idempotencyRepo.recordFailure(idempotencyKey, "BALANCE_UPDATE_FAILED");
+                }
+                return false;
+            }
             if (idempotencyKey != null && !idempotencyKey.isBlank()) {
                 idempotencyRepo.recordSuccess(idempotencyKey, "SUCCESS");
             }
@@ -88,6 +99,7 @@ public class CrateKeyService {
         metricsService.recordKeyGiven(keyId, amount, source);
         LOGGER.info("Gave {} virtual key(s) '{}' to player {} (source: {}, idempotency: {})",
             amount, keyId, playerId, source, idempotencyKey);
+        return true;
     }
 
     public boolean takeVirtualKey(UUID playerId, String keyId, int amount, GrantSource source) {
@@ -96,6 +108,10 @@ public class CrateKeyService {
 
     public boolean takeVirtualKey(UUID playerId, String keyId, int amount, GrantSource source, String idempotencyKey) {
         if (amount <= 0) return false;
+        if (!DatabaseAPI.isAvailable()) {
+            LOGGER.warn("Skipping virtual key take for player {} because the database is unavailable", playerId);
+            return false;
+        }
 
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             Optional<CrateIdempotencyRecord> recOpt = idempotencyRepo.findRecord(idempotencyKey);
@@ -142,6 +158,9 @@ public class CrateKeyService {
 
     public void setVirtualKey(UUID playerId, String keyId, int amount, GrantSource source) {
         if (amount < 0) amount = 0;
+        if (!DatabaseAPI.isAvailable()) {
+            throw new IllegalStateException("Database is not available");
+        }
 
         PlayerVirtualKeyBalance balance = virtualKeyRepo.findByPlayerAndKey(playerId, keyId)
             .orElse(new PlayerVirtualKeyBalance(playerId, keyId, 0));
@@ -154,6 +173,9 @@ public class CrateKeyService {
     }
 
     public int getVirtualKeyBalance(UUID playerId, String keyId) {
+        if (!DatabaseAPI.isAvailable()) {
+            return 0;
+        }
         return virtualKeyRepo.findByPlayerAndKey(playerId, keyId)
             .map(PlayerVirtualKeyBalance::getAmount)
             .orElse(0);
@@ -238,6 +260,9 @@ public class CrateKeyService {
     }
 
     public Map<String, Integer> inspectKeys(UUID playerId) {
+        if (!DatabaseAPI.isAvailable()) {
+            return Collections.emptyMap();
+        }
         List<PlayerVirtualKeyBalance> balances = virtualKeyRepo.findByPlayer(playerId);
         Map<String, Integer> result = new HashMap<>();
         for (PlayerVirtualKeyBalance balance : balances) {

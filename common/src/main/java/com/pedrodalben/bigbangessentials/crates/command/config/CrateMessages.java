@@ -31,6 +31,7 @@ public final class CrateMessages {
     public static final String REWARD_UNAVAILABLE = "\u00a7cNenhuma recompensa dispon\u00edvel no momento.";
     public static final String LIMIT_REACHED = "\u00a7cVoc\u00ea atingiu o limite desta recompensa.";
     public static final String INVENTORY_FULL = "\u00a7cSeu invent\u00e1rio est\u00e1 cheio.";
+    public static final String DATABASE_UNAVAILABLE = "\u00a7cO banco de dados das crates est\u00e1 indispon\u00edvel no momento.";
     public static final String OPENING_STARTED = "\u00a7aAbrindo crate...";
     public static final String OPENING_COMPLETED = "\u00a7aVoc\u00ea recebeu: \u00a7f%s";
     public static final String MILESTONE_COMPLETED = "\u00a76\u00a7lMarco atingido! \u00a7e%s";
