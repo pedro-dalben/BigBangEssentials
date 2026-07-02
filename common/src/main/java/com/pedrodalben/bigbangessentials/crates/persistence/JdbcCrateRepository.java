@@ -39,9 +39,9 @@ public class JdbcCrateRepository extends JdbcRepository implements CrateReposito
     private static final String COUNT = "SELECT COUNT(*) FROM " + TABLE;
 
     private final Gson gson = new GsonBuilder().create();
-    private final ConcurrentHashMap<String, CrateDefinition> keyCache = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<UUID, CrateDefinition> idCache = new ConcurrentHashMap<>();
-    private volatile boolean cacheLoaded = false;
+    private static final ConcurrentHashMap<String, CrateDefinition> keyCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, CrateDefinition> idCache = new ConcurrentHashMap<>();
+    private static volatile boolean cacheLoaded = false;
 
     private final RowMapper<CrateDefinition> MAPPER = (rs) -> {
         String json = rs.getString("definition_json");
@@ -51,7 +51,7 @@ public class JdbcCrateRepository extends JdbcRepository implements CrateReposito
 
     private void ensureCache() {
         if (cacheLoaded) return;
-        synchronized (this) {
+        synchronized (JdbcCrateRepository.class) {
             if (cacheLoaded) return;
             try {
                 List<CrateDefinition> all = getDatabase().queryList(SELECT_ALL, null, MAPPER).join();

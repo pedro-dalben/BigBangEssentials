@@ -38,8 +38,8 @@ public class JdbcKeyRepository extends JdbcRepository implements KeyRepository {
     private static final String COUNT = "SELECT COUNT(*) FROM " + TABLE;
 
     private final Gson gson = new GsonBuilder().create();
-    private final ConcurrentHashMap<String, KeyDefinition> cache = new ConcurrentHashMap<>();
-    private volatile boolean cacheLoaded = false;
+    private static final ConcurrentHashMap<String, KeyDefinition> cache = new ConcurrentHashMap<>();
+    private static volatile boolean cacheLoaded = false;
 
     private final RowMapper<KeyDefinition> MAPPER = (rs) -> {
         String id = rs.getString("id");
@@ -102,7 +102,7 @@ public class JdbcKeyRepository extends JdbcRepository implements KeyRepository {
 
     private void ensureCache() {
         if (cacheLoaded) return;
-        synchronized (this) {
+        synchronized (JdbcKeyRepository.class) {
             if (cacheLoaded) return;
             try {
                 List<KeyDefinition> all = getDatabase().queryList(SELECT_ALL, null, MAPPER).join();
