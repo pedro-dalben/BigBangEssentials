@@ -250,6 +250,11 @@ public class DatabaseManagerTest {
             assertEquals(1, list.size());
             assertEquals("test_key", list.get(0));
 
+            try (Connection conn = manager.getDataSource().getConnection();
+                 ResultSet columns = conn.getMetaData().getColumns(null, null, "bbe_player_job_skills", "skill_rank")) {
+                assertTrue(columns.next(), "Expected bbe_player_job_skills.skill_rank to exist after migrations");
+            }
+
             // Test executeBatch
             List<com.pedrodalben.bigbangessentials.database.execution.StatementBinder> batchBinders = new ArrayList<>();
             batchBinders.add(stmt -> {
@@ -314,7 +319,7 @@ public class DatabaseManagerTest {
             // Test health check
             DatabaseHealth health = manager.getHealth();
             assertTrue(health.connected());
-            assertEquals(3L, health.schemaVersion());
+            assertEquals(8L, health.schemaVersion());
             assertEquals(DatabaseState.READY, health.state());
 
             // Test metrics snapshot

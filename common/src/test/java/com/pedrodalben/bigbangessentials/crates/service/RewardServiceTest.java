@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.crates.service;
 
 import com.pedrodalben.bigbangessentials.crates.domain.*;
+import com.pedrodalben.bigbangessentials.crates.repository.RewardRollStateRepository;
 import net.minecraft.server.Bootstrap;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -19,7 +20,7 @@ class RewardServiceTest {
         try {
             Bootstrap.bootStrap();
         } catch (Throwable ignored) {}
-        rewardService = RewardService.getInstance();
+        rewardService = new RewardService(null, null);
     }
 
     @Test
