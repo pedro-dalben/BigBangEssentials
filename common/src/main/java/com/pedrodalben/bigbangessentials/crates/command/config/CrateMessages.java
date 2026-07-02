@@ -56,6 +56,11 @@ public final class CrateMessages {
     public static final String GIVE_SUCCESS = "\u00a7a%dx chave(s) '%s' fornecida(s) para %s.";
     public static final String GIVE_RECEIVE = "\u00a7aVoc\u00ea recebeu %dx chave(s) '%s'.";
     public static final String TAKE_SUCCESS = "\u00a7a%dx chave(s) '%s' removida(s) de %s.";
+    public static final String KEY_USE_ONLY_ON_CRATE = "\u00a7cVoc\u00ea s\u00f3 pode usar esta chave em uma crate.";
+    public static final String CRATE_REQUIRES_KEY = "\u00a7cEsta crate precisa da chave \u00a76%s \u00a7cpara abrir.";
+    public static final String CRATE_NO_REWARDS = "\u00a7cEsta crate n\u00e3o tem recompensas dispon\u00edveis.";
+    public static final String CRATE_OPENED = "\u00a7aVoc\u00ea abriu a crate \u00a76%s \u00a7ae recebeu: \u00a7f%s";
+    public static final String CRATE_OPEN_FAILED = "\u00a7cN\u00e3o foi poss\u00edvel abrir a crate: %s";
 
     private CrateMessages() {}
 }

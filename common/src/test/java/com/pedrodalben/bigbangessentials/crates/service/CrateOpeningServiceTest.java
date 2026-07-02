@@ -58,7 +58,7 @@ class CrateOpeningServiceTest {
         CrateOpeningService.CrateOpeningResult result =
             service.openCrate(player, crate, GrantSource.ADMIN_COMMAND, null);
         assertFalse(result.success());
-        assertEquals("Crate is disabled", result.message());
+        assertEquals("Esta crate está desabilitada", result.message());
     }
 
     @Test
@@ -75,7 +75,7 @@ class CrateOpeningServiceTest {
         CrateOpeningService.CrateOpeningResult result =
             service.openCrate(player, crate, GrantSource.ADMIN_COMMAND, null);
         assertFalse(result.success());
-        assertEquals("Crate has no valid rewards", result.message());
+        assertEquals("Esta crate não tem recompensas disponíveis", result.message());
     }
 
     @Test
@@ -105,7 +105,7 @@ class CrateOpeningServiceTest {
         var results = service.massOpen(player, crate, 1, GrantSource.ADMIN_COMMAND);
         assertEquals(1, results.size());
         assertFalse(results.get(0).success());
-        assertEquals("Crate is disabled", results.get(0).message());
+        assertEquals("Esta crate está desabilitada", results.get(0).message());
     }
 
     @Test

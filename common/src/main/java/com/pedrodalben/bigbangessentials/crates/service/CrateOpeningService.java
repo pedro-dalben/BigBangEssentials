@@ -73,7 +73,7 @@ public class CrateOpeningService {
 
         if (!lock.tryLock()) {
             LOGGER.warn("Player {} tried to open crate while already opening one", playerId);
-            return new CrateOpeningResult(false, "You are already opening a crate!", null);
+            return new CrateOpeningResult(false, "Você já está abrindo uma crate!", null);
         }
 
         try {
@@ -119,7 +119,7 @@ public class CrateOpeningService {
                     audit.transitionTo(CrateOpenAudit.OpenStatus.FAILED);
                     audit.setFailureReason("Failed to consume key");
                     auditService.saveAudit(audit);
-                    return new CrateOpeningResult(false, "Failed to consume key", audit);
+                    return new CrateOpeningResult(false, "Não foi possível consumir a chave", audit);
                 }
                 audit.transitionTo(CrateOpenAudit.OpenStatus.KEY_CONSUMED);
                 audit.setConsumedKey(expectedKey, "VIRTUAL/PHYSICAL", null, 1);
@@ -131,7 +131,7 @@ public class CrateOpeningService {
                 if (!costPaid) {
                     audit.setFailureReason("Insufficient funds");
                     rollback(player.getUUID(), crate, keyConsumed, false, false, null, audit);
-                    return new CrateOpeningResult(false, "Insufficient funds", audit);
+                    return new CrateOpeningResult(false, "Saldo insuficiente", audit);
                 }
                 audit.setCost(crate.getCost(), "PAID");
                 auditService.saveAudit(audit);
@@ -150,7 +150,7 @@ public class CrateOpeningService {
             if (selectedReward == null) {
                 audit.setFailureReason("No eligible rewards available");
                 rollback(player.getUUID(), crate, keyConsumed, costPaid, cooldownApplied, savedState, audit);
-                return new CrateOpeningResult(false, "No eligible rewards available", audit);
+                return new CrateOpeningResult(false, "Nenhuma recompensa disponível no momento", audit);
             }
 
             audit.transitionTo(CrateOpenAudit.OpenStatus.REWARD_SELECTED);
@@ -243,11 +243,11 @@ public class CrateOpeningService {
 
     private ValidationResult validateRequirements(ServerPlayer player, CrateDefinition crate) {
         if (!crate.isEnabled()) {
-            return new ValidationResult(false, "Crate is disabled");
+            return new ValidationResult(false, "Esta crate está desabilitada");
         }
 
         if (!crate.hasValidRewards()) {
-            return new ValidationResult(false, "Crate has no valid rewards");
+            return new ValidationResult(false, "Esta crate não tem recompensas disponíveis");
         }
 
         var requirements = crate.getRequirements();
@@ -258,7 +258,7 @@ public class CrateOpeningService {
                 if (permNode == null || permNode.isBlank()
                     || !com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
                         player.getUUID(), permNode)) {
-                    return new ValidationResult(false, "You don't have permission to open this crate");
+                    return new ValidationResult(false, "Você não tem permissão para abrir esta crate");
                 }
             }
         }
@@ -267,20 +267,22 @@ public class CrateOpeningService {
             .orElse(null);
         if (playerState != null) {
             if (playerState.isOnCooldown()) {
-                return new ValidationResult(false, "Crate is on cooldown");
+                return new ValidationResult(false, "Esta crate está em cooldown");
             }
         }
 
         if (requirements.hasKeyRequirement()) {
             boolean hasKey = keyService.hasRequiredKey(player, crate);
             if (!hasKey) {
-                return new ValidationResult(false, "You don't have the required key");
+                List<String> acceptedKeys = requirements.getAcceptedKeyIds();
+                String keyInfo = acceptedKeys.isEmpty() ? "" : acceptedKeys.get(0);
+                return new ValidationResult(false, "Esta crate precisa da chave: " + keyInfo);
             }
         }
 
         if (requirements.hasCostRequirement()) {
             if (!economyIntegration.hasBalance(player.getUUID(), requirements.getRequiredCost())) {
-                return new ValidationResult(false, "Insufficient funds");
+                return new ValidationResult(false, "Saldo insuficiente");
             }
         }
 

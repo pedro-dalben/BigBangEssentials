@@ -415,7 +415,7 @@ public class CrateKeyService {
         stack.set(DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
     }
 
-    String getKeyMarker(ItemStack stack) {
+    public String getKeyMarker(ItemStack stack) {
         if (stack.isEmpty()) return null;
         CompoundTag tag = stack.get(DataComponents.CUSTOM_DATA) != null
             ? stack.get(DataComponents.CUSTOM_DATA).copyTag()

@@ -35,9 +35,9 @@ public class JdbcCrateLocationRepository extends JdbcRepository implements Crate
     private static final String DELETE = "DELETE FROM " + TABLE + " WHERE id = ?";
     private static final String DELETE_BY_CRATE = "DELETE FROM " + TABLE + " WHERE crate_id = ?";
 
-    private final ConcurrentHashMap<UUID, CrateLocation> idCache = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, List<CrateLocation>> crateCache = new ConcurrentHashMap<>();
-    private volatile boolean cacheLoaded = false;
+    private static final ConcurrentHashMap<UUID, CrateLocation> idCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, List<CrateLocation>> crateCache = new ConcurrentHashMap<>();
+    private static volatile boolean cacheLoaded = false;
 
     private final RowMapper<CrateLocation> MAPPER = (rs) -> {
         UUID id = UUID.fromString(rs.getString("id"));
@@ -58,7 +58,7 @@ public class JdbcCrateLocationRepository extends JdbcRepository implements Crate
 
     private void ensureCache() {
         if (cacheLoaded) return;
-        synchronized (this) {
+        synchronized (JdbcCrateLocationRepository.class) {
             if (cacheLoaded) return;
             try {
                 List<CrateLocation> all = getDatabase().queryList(SELECT_ALL, null, MAPPER).join();
