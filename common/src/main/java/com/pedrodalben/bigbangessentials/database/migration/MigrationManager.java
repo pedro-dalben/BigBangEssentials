@@ -6,6 +6,7 @@ import com.pedrodalben.bigbangessentials.database.exception.MigrationException;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V001CreateDatabaseInfrastructure;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V002CreateJobsTables;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V003CreatePlayerPreferencesTables;
+import com.pedrodalben.bigbangessentials.database.migration.migrations.V004CreateRankupTables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +26,7 @@ public class MigrationManager {
         registeredMigrations.add(new V001CreateDatabaseInfrastructure());
         registeredMigrations.add(new V002CreateJobsTables());
         registeredMigrations.add(new V003CreatePlayerPreferencesTables());
+        registeredMigrations.add(new V004CreateRankupTables());
     }
 
     /**

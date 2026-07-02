@@ -85,6 +85,7 @@ public class MenuSystem {
         com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuIntegration.getInstance().register(configDir);
         com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.getInstance().register(configDir);
         com.pedrodalben.bigbangessentials.menu.integration.jobs.JobsMenuIntegration.getInstance().register(configDir);
+        com.pedrodalben.bigbangessentials.menu.integration.rankup.RankupMenuIntegration.getInstance().register(configDir);
 
         // Load all menus
         persistenceService.loadAllMenus();

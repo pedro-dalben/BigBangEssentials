@@ -2,6 +2,7 @@ package com.pedrodalben.bigbangessentials.neoforge.listener;
 
 import com.pedrodalben.bigbangessentials.BigBangEssentials;
 import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
+import com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -9,6 +10,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.MobSpawnEvent;
+import net.neoforged.neoforge.event.entity.player.AdvancementEvent;
 import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -50,6 +52,7 @@ public class NeoForgeEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             BigBangEssentials.GameEvents.onPlayerLoggedIn(player);
             JobsEventListener.onPlayerLoggedIn(player);
+            RankupEventListener.onPlayerLoggedIn(player);
         }
     }
 
@@ -58,6 +61,7 @@ public class NeoForgeEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             BigBangEssentials.GameEvents.onPlayerLoggedOut(player);
             JobsEventListener.onPlayerLoggedOut(player);
+            RankupEventListener.onPlayerLoggedOut(player);
         }
     }
 
@@ -70,6 +74,12 @@ public class NeoForgeEvents {
     public static void onServerTick(ServerTickEvent.Post event) {
         com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(event.getServer());
         com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
+        var server = event.getServer();
+        if (server != null) {
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                RankupEventListener.onPlayerTick(player);
+            }
+        }
     }
 
     @SubscribeEvent
@@ -90,6 +100,7 @@ public class NeoForgeEvents {
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
         if (event.getPlayer() instanceof ServerPlayer player) {
             JobsEventListener.onBlockBreak(player, event.getPos(), event.getState());
+            RankupEventListener.onBlockBreak(player, event.getPos(), event.getState(), event.isCanceled());
         }
     }
 
@@ -97,6 +108,7 @@ public class NeoForgeEvents {
     public static void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             JobsEventListener.onBlockPlace(player, event.getPos(), event.getPlacedBlock());
+            RankupEventListener.onBlockPlace(player, event.getPos(), event.getPlacedBlock(), event.isCanceled());
         }
     }
 
@@ -111,6 +123,7 @@ public class NeoForgeEvents {
     public static void onLivingDeath(LivingDeathEvent event) {
         if (event.getSource().getEntity() instanceof ServerPlayer player) {
             JobsEventListener.onLivingDeath(event.getEntity(), player);
+            RankupEventListener.onLivingDeath(event.getEntity(), player, event.isCanceled());
         }
     }
 
@@ -118,6 +131,14 @@ public class NeoForgeEvents {
     public static void onItemFished(ItemFishedEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             JobsEventListener.onItemFished(player, event.getDrops());
+            RankupEventListener.onItemFished(player, event.getDrops(), event.isCanceled());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onAdvancement(AdvancementEvent.AdvancementEarnEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            RankupEventListener.onAdvancement(player, event.getAdvancement().id().toString(), false);
         }
     }
 }

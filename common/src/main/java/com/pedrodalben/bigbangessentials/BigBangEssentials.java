@@ -192,6 +192,11 @@ public class BigBangEssentials {
         registry.registerManager("CrateManager", "crates",
             com.pedrodalben.bigbangessentials.crates.CrateManager.class,
             com.pedrodalben.bigbangessentials.crates.CrateManager::getInstance);
+
+        // RankUp Manager
+        registry.registerManager("RankupManager", "rankup",
+            com.pedrodalben.bigbangessentials.rankup.RankupManager.class,
+            com.pedrodalben.bigbangessentials.rankup.RankupManager::getInstance);
         
         LOGGER.debug("Manager registration complete - {} managers registered", registry.getManagerCount());
     }
@@ -317,6 +322,17 @@ public class BigBangEssentials {
                 ManagerRegistry.getInstance().markFailed("CrateManager", e.getMessage());
             }
 
+            // Initialize RankUp system
+            try {
+                LOGGER.info("⚙ Initializing RankUp system...");
+                com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().reload();
+                ManagerRegistry.getInstance().markInitialized("RankupManager");
+                LOGGER.info("✓ RankUp system initialized successfully");
+            } catch (Exception e) {
+                LOGGER.error("✗ RankUp system failed to initialize: {}", e.getMessage(), e);
+                ManagerRegistry.getInstance().markFailed("RankupManager", e.getMessage());
+            }
+
             // Display manager registry diagnostics
             try {
                 String diagnosticReport = ManagerRegistry.getInstance().generateDiagnosticReport();
@@ -409,6 +425,7 @@ public class BigBangEssentials {
         public static void onPlayerLoggedIn(net.minecraft.server.level.ServerPlayer player) {
             try {
                 com.pedrodalben.bigbangessentials.BigBangEssentialsManager.getInstance().loadPlayerData(player.getUUID());
+                com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().onPlayerLogin(player.getUUID());
                 com.pedrodalben.bigbangessentials.util.commands.NickCommand.refreshNicknameFromDatabase(player);
                 com.pedrodalben.bigbangessentials.chat.MsgToggleManager.refreshFromDatabase(player);
                 com.pedrodalben.bigbangessentials.chat.SocialSpyManager.refreshFromDatabase(player);
@@ -465,6 +482,7 @@ public class BigBangEssentials {
         public static void onPlayerLoggedOut(net.minecraft.server.level.ServerPlayer player) {
             try {
                 com.pedrodalben.bigbangessentials.BigBangEssentialsManager.getInstance().savePlayerData(player.getUUID());
+                com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().onPlayerLogout(player.getUUID());
                 com.pedrodalben.bigbangessentials.chat.MsgToggleManager.clearPlayer(player);
                 com.pedrodalben.bigbangessentials.chat.SocialSpyManager.clearPlayer(player);
             } catch (Exception e) {
@@ -572,6 +590,14 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.crates.CrateManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown Crates Manager", e);
+            }
+
+            // Shutdown RankUp Manager
+            try {
+                LOGGER.info("Shutting down RankUp Manager...");
+                com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().shutdown();
+            } catch (Exception e) {
+                LOGGER.error("Failed to shutdown RankUp Manager", e);
             }
 
             // Shutdown Database Manager
@@ -1062,6 +1088,12 @@ public class BigBangEssentials {
         registry.registerCommand("jobsadmin", "Jobs administrator commands");
         com.pedrodalben.bigbangessentials.jobs.command.JobsCommand.register(dispatcher);
         com.pedrodalben.bigbangessentials.jobs.command.JobsAdminCommand.register(dispatcher);
+
+        // ========== RANKUP MODULE ==========
+        registry.registerCommand("rankup", "RankUp progression command");
+        registry.registerCommand("rankupadmin", "RankUp administrator commands");
+        com.pedrodalben.bigbangessentials.rankup.command.RankupCommand.register(dispatcher);
+        com.pedrodalben.bigbangessentials.rankup.command.RankupAdminCommand.register(dispatcher);
 
         // Register all user-defined custom commands from custom_commands.json
         try {

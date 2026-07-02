@@ -1,8 +1,10 @@
 package com.pedrodalben.bigbangessentials.fabric.listener;
 
 import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
+import com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,10 +12,13 @@ import net.minecraft.server.level.ServerPlayer;
 public class FabricEvents {
 
     public static void register() {
-        // Server Tick Event (Task Scheduler + Kit Menu Refresh)
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+        // Server Tick Event (Task Scheduler + Kit Menu Refresh + RankUp Playtime)
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
             com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(server);
             com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                RankupEventListener.onPlayerTick(player);
+            }
         });
 
         // Server Chat Event
@@ -27,10 +32,17 @@ public class FabricEvents {
             return allow[0];
         });
 
+        // Player Logged In Event
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            com.pedrodalben.bigbangessentials.BigBangEssentials.GameEvents.onPlayerLoggedIn(handler.getPlayer());
+            RankupEventListener.onPlayerLoggedIn(handler.getPlayer());
+        });
+
         // Player Logged Out Event
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             com.pedrodalben.bigbangessentials.BigBangEssentials.GameEvents.onPlayerLoggedOut(handler.getPlayer());
             JobsEventListener.onPlayerLoggedOut(handler.getPlayer());
+            RankupEventListener.onPlayerLoggedOut(handler.getPlayer());
         });
 
         // Chunk Load Event
@@ -47,13 +59,15 @@ public class FabricEvents {
         PlayerBlockBreakEvents.AFTER.register((level, player, pos, state, blockEntity) -> {
             if (player instanceof ServerPlayer serverPlayer) {
                 JobsEventListener.onBlockBreak(serverPlayer, pos, state);
+                RankupEventListener.onBlockBreak(serverPlayer, pos, state, false);
             }
         });
 
-        // Living Death Event (Entity Kill Job)
+        // Living Death Event (Entity Kill)
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
             if (damageSource.getEntity() instanceof ServerPlayer player) {
                 JobsEventListener.onLivingDeath(entity, player);
+                RankupEventListener.onLivingDeath(entity, player, false);
             }
         });
     }
