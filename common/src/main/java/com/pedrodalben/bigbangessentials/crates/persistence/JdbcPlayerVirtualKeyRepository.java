@@ -3,6 +3,7 @@ package com.pedrodalben.bigbangessentials.crates.persistence;
 import com.pedrodalben.bigbangessentials.crates.domain.PlayerVirtualKeyBalance;
 import com.pedrodalben.bigbangessentials.crates.repository.PlayerVirtualKeyRepository;
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.exception.DatabaseUnavailableException;
 import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.database.execution.RowMapper;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcRepository;
@@ -53,6 +54,8 @@ public class JdbcPlayerVirtualKeyRepository extends JdbcRepository implements Pl
                 ")", null).join();
             tableCreated = true;
             LOGGER.debug("Ensured table {} exists", TABLE);
+        } catch (DatabaseUnavailableException e) {
+            LOGGER.warn("Database not ready yet, table {} deferred until first use", TABLE);
         } catch (Exception e) {
             LOGGER.error("Failed to create table {}: {}", TABLE, e.getMessage(), e);
         }

@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateOpenAudit;
 import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
 import com.pedrodalben.bigbangessentials.crates.repository.CrateAuditRepository;
+import com.pedrodalben.bigbangessentials.database.exception.DatabaseUnavailableException;
 import com.pedrodalben.bigbangessentials.database.execution.RowMapper;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcRepository;
 import org.slf4j.Logger;
@@ -195,6 +196,8 @@ public class JdbcCrateAuditRepository extends JdbcRepository implements CrateAud
 
             tableCreated = true;
             LOGGER.debug("Ensured table {} exists with indexes", TABLE);
+        } catch (DatabaseUnavailableException e) {
+            LOGGER.warn("Database not ready yet, table {} deferred until first use", TABLE);
         } catch (Exception e) {
             LOGGER.error("Failed to create table {}: {}", TABLE, e.getMessage(), e);
         }

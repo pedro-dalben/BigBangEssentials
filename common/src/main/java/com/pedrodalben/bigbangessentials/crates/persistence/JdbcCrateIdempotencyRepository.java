@@ -5,6 +5,7 @@ import com.pedrodalben.bigbangessentials.crates.repository.CrateIdempotencyRepos
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.database.execution.RowMapper;
+import com.pedrodalben.bigbangessentials.database.exception.DatabaseUnavailableException;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,6 +78,8 @@ public class JdbcCrateIdempotencyRepository extends JdbcRepository implements Cr
 
             tableCreated = true;
             LOGGER.debug("Ensured table {} exists", TABLE);
+        } catch (DatabaseUnavailableException e) {
+            LOGGER.warn("Database not ready yet, table {} deferred until first use", TABLE);
         } catch (Exception e) {
             LOGGER.error("Failed to create table {}: {}", TABLE, e.getMessage(), e);
         }
