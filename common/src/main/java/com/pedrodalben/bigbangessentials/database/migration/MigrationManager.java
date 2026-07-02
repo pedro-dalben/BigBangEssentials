@@ -7,6 +7,10 @@ import com.pedrodalben.bigbangessentials.database.migration.migrations.V001Creat
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V002CreateJobsTables;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V003CreatePlayerPreferencesTables;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V004CreateRankupTables;
+import com.pedrodalben.bigbangessentials.database.migration.migrations.V005NormalizeJobSkillRankColumn;
+import com.pedrodalben.bigbangessentials.database.migration.migrations.V006CreateCratesTables;
+import com.pedrodalben.bigbangessentials.database.migration.migrations.V007ExpandCrateAuditIdempotencyKey;
+import com.pedrodalben.bigbangessentials.database.migration.migrations.V008CreateCrateConfigTables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +31,10 @@ public class MigrationManager {
         registeredMigrations.add(new V002CreateJobsTables());
         registeredMigrations.add(new V003CreatePlayerPreferencesTables());
         registeredMigrations.add(new V004CreateRankupTables());
+        registeredMigrations.add(new V005NormalizeJobSkillRankColumn());
+        registeredMigrations.add(new V006CreateCratesTables());
+        registeredMigrations.add(new V007ExpandCrateAuditIdempotencyKey());
+        registeredMigrations.add(new V008CreateCrateConfigTables());
     }
 
     /**
