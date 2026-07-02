@@ -23,6 +23,8 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateReward;
 import com.pedrodalben.bigbangessentials.crates.domain.GrantSource;
 import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.RewardType;
+import com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager;
+import com.pedrodalben.bigbangessentials.crates.particle.CrateParticleManager;
 import com.pedrodalben.bigbangessentials.crates.service.CrateAuditService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateKeyService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateMetricsService;
@@ -2514,7 +2516,11 @@ public class CrateCommand {
         crateService.getLocationByPosition(dimension, pos)
             .ifPresent(existing -> crateService.deleteLocation(existing.getId()));
 
-        crateService.addLocation(crate.getKey(), dimension, pos);
+        CrateLocation location = crateService.addLocation(crate.getKey(), dimension, pos);
+        CrateHologramManager.getInstance().spawnHologram(location, crate);
+        if (crate.getVisualConfig() != null) {
+            CrateParticleManager.getInstance().startIdleParticles(location, crate.getVisualConfig().getIdleParticleConfig());
+        }
         source.sendSuccess(() -> Component.literal(
             "\u00a7aCrate '" + crate.getKey() + "' vinculada ao bloco " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + "."), true);
         return 1;

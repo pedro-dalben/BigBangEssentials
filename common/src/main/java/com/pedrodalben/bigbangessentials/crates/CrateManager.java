@@ -6,9 +6,12 @@ import com.pedrodalben.bigbangessentials.crates.particle.CrateParticleManager;
 import com.pedrodalben.bigbangessentials.crates.service.CrateAuditService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateKeyService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateMetricsService;
+import com.pedrodalben.bigbangessentials.crates.listener.CrateBlockListener;
+import com.pedrodalben.bigbangessentials.crates.listener.CratePlayerListener;
 import com.pedrodalben.bigbangessentials.crates.service.CrateOpeningService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
 import com.pedrodalben.bigbangessentials.crates.service.RewardService;
+import com.pedrodalben.bigbangessentials.util.Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +59,9 @@ public class CrateManager {
         try {
             context = CrateModuleContext.getInstance();
             context.initialize();
+
+            Platform.registerEventListener(new CrateBlockListener());
+            Platform.registerEventListener(new CratePlayerListener());
 
             startCleanupTask();
 
