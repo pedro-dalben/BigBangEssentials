@@ -65,8 +65,8 @@ public class GiveKeyCommand {
             CrateKeyService keyService = CrateKeyService.getInstance();
             Collection<ServerPlayer> targets = EntityArgument.getPlayers(context, "player");
             for (ServerPlayer target : targets) {
-                if (!keyService.giveVirtualKey(
-                    target.getUUID(), keyId, amount, GrantSource.ADMIN_COMMAND,
+                if (!keyService.giveKey(
+                    target, keyId, amount, GrantSource.ADMIN_COMMAND,
                     "givekey:" + target.getUUID() + ":" + keyId + ":" + amount + ":" + System.currentTimeMillis()
                 )) {
                     source.sendFailure(net.minecraft.network.chat.Component.literal(CrateMessages.INTERNAL_ERROR));

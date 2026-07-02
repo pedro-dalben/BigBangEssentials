@@ -3685,7 +3685,7 @@ public class CrateCommand {
                 String idempotencyKey = "cratekeygive:" + target.getUUID() + ":" + keyId + ":" + amount
                     + ":" + System.currentTimeMillis();
 
-                if (!keyService.giveVirtualKey(target.getUUID(), keyId, amount, GrantSource.ADMIN_COMMAND, idempotencyKey)) {
+                if (!keyService.giveKey(target, keyId, amount, GrantSource.ADMIN_COMMAND, idempotencyKey)) {
                     source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
                     return 0;
                 }
@@ -3833,7 +3833,7 @@ public class CrateCommand {
             for (ServerPlayer target : onlinePlayers) {
                 String idempotencyKey = "giveall:" + target.getUUID() + ":" + keyId + ":" + amount
                     + ":" + System.currentTimeMillis();
-                if (!keyService.giveVirtualKey(target.getUUID(), keyId, amount, GrantSource.ADMIN_COMMAND, idempotencyKey)) {
+                if (!keyService.giveKey(target, keyId, amount, GrantSource.ADMIN_COMMAND, idempotencyKey)) {
                     source.sendFailure(Component.literal(CrateMessages.INTERNAL_ERROR));
                     return 0;
                 }
