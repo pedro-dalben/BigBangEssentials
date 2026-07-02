@@ -1,14 +1,12 @@
 package com.pedrodalben.bigbangessentials.crates.service;
 
+import com.pedrodalben.bigbangessentials.crates.CrateModuleContext;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateLocation;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateMilestone;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateRarity;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateReward;
 import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
-import com.pedrodalben.bigbangessentials.crates.persistence.JsonCrateLocationRepository;
-import com.pedrodalben.bigbangessentials.crates.persistence.JsonCrateRepository;
-import com.pedrodalben.bigbangessentials.crates.persistence.JsonKeyRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.CrateLocationRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.CrateRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.KeyRepository;
@@ -26,20 +24,32 @@ import java.util.UUID;
 
 public class CrateService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CrateService.class);
-    private static final CrateService INSTANCE = new CrateService();
+    private static CrateService instance;
 
     private final CrateRepository crateRepo;
     private final CrateLocationRepository locationRepo;
     private final KeyRepository keyRepo;
 
-    private CrateService() {
-        this.crateRepo = new JsonCrateRepository();
-        this.locationRepo = new JsonCrateLocationRepository();
-        this.keyRepo = new JsonKeyRepository();
+    public CrateService(CrateRepository crateRepo, CrateLocationRepository locationRepo, KeyRepository keyRepo) {
+        this.crateRepo = crateRepo;
+        this.locationRepo = locationRepo;
+        this.keyRepo = keyRepo;
     }
 
     public static CrateService getInstance() {
-        return INSTANCE;
+        if (instance == null) {
+            CrateService ctx = CrateModuleContext.getInstance().getCrateService();
+            if (ctx != null) {
+                instance = ctx;
+            } else {
+                instance = new CrateService(
+                    new com.pedrodalben.bigbangessentials.crates.persistence.JdbcCrateRepository(),
+                    new com.pedrodalben.bigbangessentials.crates.persistence.JdbcCrateLocationRepository(),
+                    new com.pedrodalben.bigbangessentials.crates.persistence.JdbcKeyRepository()
+                );
+            }
+        }
+        return instance;
     }
 
     // === Crate Definition CRUD ===
@@ -242,14 +252,5 @@ public class CrateService {
     }
 
     public void reload() {
-        if (crateRepo instanceof JsonCrateRepository) {
-            ((JsonCrateRepository) crateRepo).reload();
-        }
-        if (locationRepo instanceof JsonCrateLocationRepository) {
-            ((JsonCrateLocationRepository) locationRepo).reload();
-        }
-        if (keyRepo instanceof JsonKeyRepository) {
-            ((JsonKeyRepository) keyRepo).reload();
-        }
     }
 }

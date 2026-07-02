@@ -14,7 +14,7 @@ public class KeyDefinition {
     private ItemStack physicalItem;
     private List<String> lore;
     private boolean active;
-    private boolean virtual;
+    private CrateKeyType keyType;
     private List<String> compatibleCrateIds;
     private String requiredPermission;
     private String giveSound;
@@ -27,7 +27,7 @@ public class KeyDefinition {
         this.id = validateId(id);
         this.name = name != null ? name : id;
         this.active = true;
-        this.virtual = false;
+        this.keyType = CrateKeyType.PHYSICAL;
         this.compatibleCrateIds = new ArrayList<>();
         this.lore = new ArrayList<>();
         this.requiredPermission = "";
@@ -54,7 +54,8 @@ public class KeyDefinition {
     public ItemStack getPhysicalItem() { return physicalItem; }
     public List<String> getLore() { return new ArrayList<>(lore); }
     public boolean isActive() { return active; }
-    public boolean isVirtual() { return virtual; }
+    public boolean isVirtual() { return keyType == CrateKeyType.VIRTUAL; }
+    public CrateKeyType getKeyType() { return keyType; }
     public List<String> getCompatibleCrateIds() { return new ArrayList<>(compatibleCrateIds); }
     public String getRequiredPermission() { return requiredPermission; }
     public String getGiveSound() { return giveSound; }
@@ -67,7 +68,8 @@ public class KeyDefinition {
     public void setPhysicalItem(ItemStack item) { this.physicalItem = item; touch(); }
     public void setLore(List<String> lore) { this.lore = lore != null ? new ArrayList<>(lore) : new ArrayList<>(); touch(); }
     public void setActive(boolean active) { this.active = active; touch(); }
-    public void setVirtual(boolean virtual) { this.virtual = virtual; touch(); }
+    public void setKeyType(CrateKeyType keyType) { this.keyType = keyType != null ? keyType : CrateKeyType.PHYSICAL; touch(); }
+    @Deprecated public void setVirtual(boolean virtual) { this.keyType = virtual ? CrateKeyType.VIRTUAL : CrateKeyType.PHYSICAL; touch(); }
     public void setCompatibleCrateIds(List<String> ids) { this.compatibleCrateIds = ids != null ? new ArrayList<>(ids) : new ArrayList<>(); touch(); }
     public void addCompatibleCrateId(String crateId) { if (!compatibleCrateIds.contains(crateId)) compatibleCrateIds.add(crateId); touch(); }
     public void removeCompatibleCrateId(String crateId) { compatibleCrateIds.remove(crateId); touch(); }
@@ -83,7 +85,8 @@ public class KeyDefinition {
         json.addProperty("id", id);
         json.addProperty("name", name);
         json.addProperty("active", active);
-        json.addProperty("virtual", virtual);
+        json.addProperty("virtual", isVirtual());
+        json.addProperty("keyType", keyType.name());
         json.addProperty("requiredPermission", requiredPermission);
         json.addProperty("giveSound", giveSound);
         json.addProperty("takeSound", takeSound);
@@ -116,7 +119,11 @@ public class KeyDefinition {
         KeyDefinition key = new KeyDefinition(id, name);
 
         if (json.has("active")) key.active = json.get("active").getAsBoolean();
-        if (json.has("virtual")) key.virtual = json.get("virtual").getAsBoolean();
+        if (json.has("keyType")) {
+            key.keyType = CrateKeyType.valueOf(json.get("keyType").getAsString());
+        } else if (json.has("virtual")) {
+            key.keyType = json.get("virtual").getAsBoolean() ? CrateKeyType.VIRTUAL : CrateKeyType.PHYSICAL;
+        }
         if (json.has("requiredPermission")) key.requiredPermission = json.get("requiredPermission").getAsString();
         if (json.has("giveSound")) key.giveSound = json.get("giveSound").getAsString();
         if (json.has("takeSound")) key.takeSound = json.get("takeSound").getAsString();

@@ -1,11 +1,9 @@
 package com.pedrodalben.bigbangessentials.crates.service;
 
-import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
+import com.pedrodalben.bigbangessentials.crates.CrateModuleContext;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateRarity;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateReward;
-import com.pedrodalben.bigbangessentials.crates.domain.RewardRollState;
-import com.pedrodalben.bigbangessentials.crates.persistence.JdbcRewardRollStateRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.RewardRollStateRepository;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
@@ -15,33 +13,37 @@ import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.UUID;
 
 public class RewardService {
     private static final Logger LOGGER = LoggerFactory.getLogger(RewardService.class);
-    private static final RewardService INSTANCE = new RewardService();
+    private static RewardService instance;
     private static final Random RANDOM = new Random();
 
     private final RewardRollStateRepository rollStateRepo;
+    private final RewardEligibilityService eligibilityService;
 
-    private RewardService() {
-        this.rollStateRepo = new JdbcRewardRollStateRepository();
+    public RewardService(RewardRollStateRepository rollStateRepo, RewardEligibilityService eligibilityService) {
+        this.rollStateRepo = rollStateRepo;
+        this.eligibilityService = eligibilityService;
     }
 
     public static RewardService getInstance() {
-        return INSTANCE;
+        if (instance == null) {
+            RewardService ctx = CrateModuleContext.getInstance().getRewardService();
+            if (ctx != null) {
+                instance = ctx;
+            } else {
+                var rollRepo = new com.pedrodalben.bigbangessentials.crates.persistence.JdbcRewardRollStateRepository();
+                instance = new RewardService(rollRepo, new RewardEligibilityService(rollRepo));
+            }
+        }
+        return instance;
     }
 
-    /**
-     * Stage 1: Select a rarity by weighted random.
-     */
     public CrateRarity selectRarityByWeight(CrateDefinition crate) {
         List<CrateRarity> activeRarities = crate.getRarities().stream()
             .filter(CrateRarity::isActive)
@@ -69,9 +71,6 @@ public class RewardService {
         return activeRarities.get(activeRarities.size() - 1);
     }
 
-    /**
-     * Stage 2: Select a reward within rarity by weight.
-     */
     public CrateReward selectRewardByWeight(CrateDefinition crate, String rarityId) {
         List<CrateReward> eligibleRewards = crate.getRewardsByRarity(rarityId).stream()
             .filter(CrateReward::isActive)
@@ -99,40 +98,6 @@ public class RewardService {
         return eligibleRewards.get(eligibleRewards.size() - 1);
     }
 
-    /**
-     * Checks if a reward is eligible for the given player based on limits and permissions.
-     */
-    public boolean isEligible(CrateReward reward, ServerPlayer player,
-                              Map<String, Integer> playerRewardCounts,
-                              Map<String, Integer> globalRewardCounts) {
-        Set<String> permissions = getPlayerPermissions(player);
-        return reward.isEligible(permissions, playerRewardCounts, globalRewardCounts);
-    }
-
-    /**
-     * Gets player permissions relevant for crate eligibility checks.
-     */
-    private Set<String> getPlayerPermissions(ServerPlayer player) {
-        Set<String> permissions = new HashSet<>();
-        UUID playerId = player.getUUID();
-
-        String[] nodesToCheck = {
-            "bigbangessentials.crates.reward.*",
-            "bigbangessentials.crates.reward." + player.getName().getString()
-        };
-
-        for (String node : nodesToCheck) {
-            if (PermissionAPI.hasPermission(playerId, node)) {
-                permissions.add(node);
-            }
-        }
-
-        return permissions;
-    }
-
-    /**
-     * Deliver a reward to the player.
-     */
     public void deliverReward(ServerPlayer player, CrateReward reward) {
         if (reward.getType().name().equals("ITEM")) {
             for (ItemStack item : reward.getItems()) {
@@ -160,9 +125,6 @@ public class RewardService {
         recordRewardRoll(reward, player.getUUID());
     }
 
-    /**
-     * Give item to player with overflow protection (drops on ground if inventory full).
-     */
     private void giveItemToPlayer(ServerPlayer player, ItemStack stack) {
         Inventory inventory = player.getInventory();
         if (!inventory.add(stack)) {
@@ -170,23 +132,11 @@ public class RewardService {
         }
     }
 
-    /**
-     * Get eligible rewards for a player considering all limits.
-     */
     public List<CrateReward> getEligibleRewardsForPlayer(CrateDefinition crate, ServerPlayer player) {
-        Map<String, Integer> globalCounts = new HashMap<>();
-        Map<String, Integer> playerCounts = new HashMap<>();
-
-        for (CrateReward reward : crate.getRewards()) {
-            rollStateRepo.findByRewardId(reward.getId()).ifPresent(rs ->
-                globalCounts.put(reward.getId(), rs.getGlobalCount()));
-            int pc = rollStateRepo.getPlayerCount(reward.getId(), player.getUUID());
-            if (pc > 0) {
-                playerCounts.put(reward.getId(), pc);
-            }
-        }
-
-        Set<String> permissions = getPlayerPermissions(player);
+        Map<String, Integer> globalCounts = eligibilityService.getGlobalCounts(
+            crate.getRewards().toArray(new CrateReward[0]));
+        Map<String, Integer> playerCounts = eligibilityService.getPlayerCounts(
+            crate.getRewards().toArray(new CrateReward[0]), player.getUUID());
 
         return crate.getRewards().stream()
             .filter(CrateReward::isActive)
@@ -194,34 +144,19 @@ public class RewardService {
                 CrateRarity rarity = crate.getRarity(r.getRarityId());
                 return rarity != null && rarity.isActive();
             })
-            .filter(r -> r.isEligible(permissions, playerCounts, globalCounts))
+            .filter(r -> eligibilityService.isEligible(r, player, playerCounts, globalCounts))
             .toList();
     }
 
-    /**
-     * Record a reward roll for limit tracking (atomic SQL).
-     */
     private void recordRewardRoll(CrateReward reward, UUID playerId) {
         rollStateRepo.incrementGlobalCount(reward.getId());
         rollStateRepo.incrementPlayerCount(reward.getId(), playerId);
     }
 
-    /**
-     * Roll a reward for the player, considering eligibility limits (permissions, global/player limits).
-     * Returns null if no eligible reward is available.
-     */
     public CrateReward rollEligibleReward(CrateDefinition crate, ServerPlayer player) {
-        Map<String, Integer> globalCounts = new HashMap<>();
-        Map<String, Integer> playerCounts = new HashMap<>();
-
-        for (CrateReward reward : crate.getRewards()) {
-            rollStateRepo.findByRewardId(reward.getId()).ifPresent(rs ->
-                globalCounts.put(reward.getId(), rs.getGlobalCount()));
-            int pc = rollStateRepo.getPlayerCount(reward.getId(), player.getUUID());
-            if (pc > 0) {
-                playerCounts.put(reward.getId(), pc);
-            }
-        }
+        CrateReward[] allRewards = crate.getRewards().toArray(new CrateReward[0]);
+        Map<String, Integer> globalCounts = eligibilityService.getGlobalCounts(allRewards);
+        Map<String, Integer> playerCounts = eligibilityService.getPlayerCounts(allRewards, player.getUUID());
 
         CrateRarity selectedRarity = selectRarityByWeight(crate);
         if (selectedRarity == null) return null;
@@ -229,7 +164,7 @@ public class RewardService {
         List<CrateReward> eligible = crate.getRewardsByRarity(selectedRarity.getId()).stream()
             .filter(CrateReward::isActive)
             .filter(r -> !r.isMilestoneOnly())
-            .filter(r -> isEligible(r, player, playerCounts, globalCounts))
+            .filter(r -> eligibilityService.isEligible(r, player, playerCounts, globalCounts))
             .toList();
 
         if (eligible.isEmpty()) return null;
