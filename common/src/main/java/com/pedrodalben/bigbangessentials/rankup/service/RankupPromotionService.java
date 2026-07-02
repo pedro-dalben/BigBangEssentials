@@ -20,12 +20,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 public class RankupPromotionService {
     private static final Logger LOGGER = LoggerFactory.getLogger(RankupPromotionService.class);
 
     private final RankupManager manager = RankupManager.getInstance();
-    private final Map<UUID, Object> promotionLocks = new ConcurrentHashMap<>();
+    private final Map<UUID, CompletableFuture<RankupPromotionResult>> promotionQueue = new ConcurrentHashMap<>();
 
     public CompletableFuture<RankupPromotionResult> promote(ServerPlayer player, RankupRank targetRank) {
         return promote(player, targetRank, true);
@@ -33,14 +34,11 @@ public class RankupPromotionService {
 
     public CompletableFuture<RankupPromotionResult> promote(ServerPlayer player, RankupRank targetRank, boolean executeActions) {
         UUID uuid = player.getUUID();
-        Object lock = promotionLocks.computeIfAbsent(uuid, k -> new Object());
-        synchronized (lock) {
-            try {
-                return doPromote(player, targetRank, executeActions);
-            } finally {
-                promotionLocks.remove(uuid, lock);
-            }
-        }
+        Supplier<CompletableFuture<RankupPromotionResult>> chain = () -> doPromote(player, targetRank, executeActions)
+                .whenComplete((r, t) -> promotionQueue.remove(uuid));
+        CompletableFuture<RankupPromotionResult> result = promotionQueue.compute(uuid, (k, prev) ->
+                prev == null ? chain.get() : prev.thenCompose(r -> chain.get()));
+        return result;
     }
 
     private CompletableFuture<RankupPromotionResult> doPromote(ServerPlayer player, RankupRank targetRank, boolean executeActions) {
@@ -145,6 +143,8 @@ public class RankupPromotionService {
                     }
                     RankupTransaction lpUpdated = chargedTransaction.withStatus(RankupTransactionStatus.LUCKPERMS_UPDATED);
                     manager.getRepository().saveTransaction(lpUpdated);
+
+                    manager.getTaskProgressService().resetAllTaskProgress(uuid);
 
                     // Add history
                     RankupRankHistoryEntry history = new RankupRankHistoryEntry(

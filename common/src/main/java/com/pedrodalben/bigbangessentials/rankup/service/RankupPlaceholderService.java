@@ -37,6 +37,10 @@ public class RankupPlaceholderService {
             map.put("progress_percent", "0");
             map.put("money_required", "0");
             map.put("gems_required", "0");
+            map.put("money_balance", "0");
+            map.put("gems_balance", "0");
+            map.put("money_status", "");
+            map.put("gems_status", "");
             map.put("tasks_completed", "0");
             map.put("tasks_total", "0");
             return map;
@@ -50,8 +54,18 @@ public class RankupPlaceholderService {
         map.put("current_name", current != null ? stripColor(current.displayName()) : "None");
         map.put("next_id", next != null ? next.id() : "");
         map.put("next_name", next != null ? stripColor(next.displayName()) : "Max Rank");
-        map.put("money_required", next != null ? String.valueOf(next.requirements().money()) : "0");
-        map.put("gems_required", next != null ? String.valueOf(next.requirements().gems()) : "0");
+
+        double moneyRequired = next != null ? next.requirements().money() : 0;
+        int gemsRequired = next != null ? next.requirements().gems() : 0;
+        double moneyBalance = com.pedrodalben.bigbangessentials.api.EconomyAPI.getBalance(uuid).doubleValue();
+        long gemsBalanceLong = com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance().getBalanceView(uuid).availableBalance();
+
+        map.put("money_required", String.valueOf(moneyRequired));
+        map.put("gems_required", String.valueOf(gemsRequired));
+        map.put("money_balance", String.valueOf(moneyBalance));
+        map.put("gems_balance", String.valueOf(gemsBalanceLong));
+        map.put("money_status", (moneyBalance >= moneyRequired && moneyRequired > 0) ? "\u00a7a\u2714" : (moneyRequired > 0 ? "\u00a7c\u2718" : ""));
+        map.put("gems_status", (gemsBalanceLong >= gemsRequired && gemsRequired > 0) ? "\u00a7a\u2714" : (gemsRequired > 0 ? "\u00a7c\u2718" : ""));
 
         int completed = next != null ? data.countCompletedTasks(next) : 0;
         int total = next != null ? (int) next.requirements().tasks().stream().filter(t -> t.enabled()).count() : 0;

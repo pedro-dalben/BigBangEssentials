@@ -25,7 +25,8 @@ public class RankupRankDataProvider implements MenuDataProvider {
     @Override
     public CompletionStage<MenuDataResult> provide(ServerPlayer player, MenuContext context, PaginationRequest request) {
         RankupManager mgr = RankupManager.getInstance();
-        RankupConfig config = mgr.getConfig();
+        boolean isAdmin = "rankupadmin".equals(context.sourceCommand());
+        RankupConfig config = isAdmin ? mgr.getDraftConfig() : mgr.getConfig();
         List<RankupRank> ranks = config != null ? config.getOrderedRanks() : List.of();
         RankupRank current = mgr.getCurrentRank(player.getUUID());
         RankupRank next = mgr.getNextRank(player.getUUID());

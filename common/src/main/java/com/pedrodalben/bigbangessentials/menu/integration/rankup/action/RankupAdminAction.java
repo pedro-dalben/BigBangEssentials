@@ -9,6 +9,7 @@ import com.pedrodalben.bigbangessentials.menu.session.MenuContext;
 import com.pedrodalben.bigbangessentials.rankup.RankupManager;
 import com.pedrodalben.bigbangessentials.rankup.admin.RankupAdminEditorService;
 import com.pedrodalben.bigbangessentials.rankup.admin.RankupAdminChatInputHandler;
+import com.pedrodalben.bigbangessentials.rankup.config.RankupConfig;
 import com.pedrodalben.bigbangessentials.rankup.domain.RankupRank;
 import com.pedrodalben.bigbangessentials.rankup.domain.RankupTask;
 import net.minecraft.network.chat.Component;
@@ -43,8 +44,9 @@ public class RankupAdminAction implements MenuActionHandler {
         switch (action) {
             case "create_rank" -> {
                 RankupRank rank = editor.createRank(uuid);
+                editor.getSession(uuid).setSelectedRankId(rank.id());
                 player.sendSystemMessage(Component.literal("§aCreated rank: " + rank.id()));
-                refreshAdminMenu(player);
+                openRankEditor(player, rank.id());
             }
             case "delete_rank" -> {
                 String rankId = resolveRankId(context, player);
@@ -231,10 +233,17 @@ public class RankupAdminAction implements MenuActionHandler {
 
     private String resolveRankId(ActionContext context, ServerPlayer player) {
         String rankId = context.param("rank_id", String.class);
-        if (rankId != null) return rankId;
+        if (rankId != null && !rankId.contains("{") && !rankId.contains("}")) return rankId;
+
         String resolved = PlaceholderService.resolve("{context:rank_id}", player, context.context());
         if (resolved != null && !resolved.isEmpty() && !resolved.equals("{context:rank_id}")) {
             return resolved;
+        }
+        if (rankId != null) {
+            String directResolved = PlaceholderService.resolve(rankId, player, context.context());
+            if (directResolved != null && !directResolved.isEmpty() && !directResolved.equals(rankId)) {
+                return directResolved;
+            }
         }
         RankupAdminEditorService.EditorSession session = RankupAdminEditorService.getInstance().getSession(player.getUUID());
         return session != null ? session.getSelectedRankId() : null;
@@ -245,7 +254,8 @@ public class RankupAdminAction implements MenuActionHandler {
     }
 
     private void openRankEditor(ServerPlayer player, String rankId) {
-        RankupRank rank = RankupManager.getInstance().getDraftConfig().getRank(rankId);
+        RankupConfig draftConfig = RankupManager.getInstance().getDraftConfig();
+        RankupRank rank = draftConfig != null ? draftConfig.getRank(rankId) : null;
         if (rank == null) {
             rank = RankupManager.getInstance().getConfig().getRank(rankId);
         }

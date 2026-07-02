@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.Map;
+import java.util.HashMap;
 
 public class ActionExecutor {
     private final MenuActionRegistry registry;
@@ -37,10 +38,12 @@ public class ActionExecutor {
 
                 MenuActionHandler handler = registry.getHandler(spec.type()).orElse(null);
                 if (handler == null) return CompletableFuture.completedFuture(null);
+
+                Map<String, Object> resolvedParams = resolveParams(spec.params(), context);
                 
                 ActionContext newContext = new ActionContext(
                     context.player(), context.session(), context.menu(), context.page(),
-                    context.item(), context.clickType(), context.context(), spec.params()
+                    context.item(), context.clickType(), context.context(), resolvedParams
                 );
                 
                 return handler.execute(newContext).thenCompose(result -> {
@@ -55,5 +58,19 @@ public class ActionExecutor {
             });
         }
         return future;
+    }
+
+    private Map<String, Object> resolveParams(Map<String, Object> rawParams, ActionContext context) {
+        if (rawParams == null || rawParams.isEmpty()) return Map.of();
+        Map<String, Object> resolved = new HashMap<>(rawParams.size());
+        for (Map.Entry<String, Object> entry : rawParams.entrySet()) {
+            Object value = entry.getValue();
+            if (value instanceof String str && str.contains("{") && str.contains("}")) {
+                resolved.put(entry.getKey(), com.pedrodalben.bigbangessentials.menu.placeholder.PlaceholderService.resolve(str, context.player(), context.context()));
+            } else {
+                resolved.put(entry.getKey(), value);
+            }
+        }
+        return resolved;
     }
 }

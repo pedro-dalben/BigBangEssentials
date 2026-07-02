@@ -93,7 +93,7 @@ public class RankupMenuIntegration {
                   - "<gray>Tasks: <white>{rank_task_count}"
                   - "<gray>Status: {rank_status_color}{rank_status}"
                   - ""
-                  - "<green>Status do rank para referência."
+                  - "<green>Status do rank para refer\\u00eancia."
 
             pages:
               main:
@@ -110,8 +110,18 @@ public class RankupMenuIntegration {
                         - ""
                         - "<gray>Progress: <white>{rankup:progress_percent}%"
                         - "<gray>Tasks: <white>{rankup:tasks_completed} / {rankup:tasks_total}"
-                        - "<gray>Money Required: <white>{rankup:money_required}"
-                        - "<gray>Gems Required: <white>{rankup:gems_required}"
+                        - "<gray>Money: {rankup:money_status} <white>{rankup:money_balance} / {rankup:money_required}"
+                        - "<gray>Gems: {rankup:gems_status} <white>{rankup:gems_balance} / {rankup:gems_required}"
+                  refresh_btn:
+                    slot: 8
+                    item:
+                      material-id: "minecraft:clock"
+                      display-name: "<yellow>Refresh"
+                      lore:
+                        - "<gray>Click to refresh balances"
+                        - "<gray>and task progress."
+                    actions:
+                      - type: "refresh_page"
                   promote_btn:
                     slot: 22
                     item:

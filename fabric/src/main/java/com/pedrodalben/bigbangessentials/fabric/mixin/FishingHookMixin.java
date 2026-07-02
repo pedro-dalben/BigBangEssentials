@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.fabric.mixin;
 
 import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
+import com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.item.ItemStack;
@@ -28,6 +29,7 @@ public abstract class FishingHookMixin {
         net.minecraft.world.entity.player.Player player = this.getPlayerOwner();
         if (player instanceof ServerPlayer serverPlayer) {
             JobsEventListener.onItemFished(serverPlayer, list);
+            RankupEventListener.onItemFished(serverPlayer, list, false);
         }
     }
 }

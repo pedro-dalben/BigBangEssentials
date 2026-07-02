@@ -69,7 +69,10 @@ public class RankupAdminCommand {
 
     private static int openAdminMenu(CommandContext<CommandSourceStack> ctx) {
         ServerPlayer player = ctx.getSource().getPlayer();
-        if (player == null) return 0;
+        if (player == null) {
+            ctx.getSource().sendFailure(Component.literal("This command requires an in-game player."));
+            return 0;
+        }
         try {
             var menuService = com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService();
             var context = new com.pedrodalben.bigbangessentials.menu.session.MenuContext(

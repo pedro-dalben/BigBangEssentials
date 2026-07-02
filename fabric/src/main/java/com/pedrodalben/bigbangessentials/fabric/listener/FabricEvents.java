@@ -24,6 +24,10 @@ public class FabricEvents {
         // Server Chat Event
         net.fabricmc.fabric.api.message.v1.ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
             boolean[] allow = {true};
+            if (com.pedrodalben.bigbangessentials.rankup.admin.RankupAdminChatInputHandler.getInstance()
+                    .onChat(sender, message.signedContent())) {
+                return false;
+            }
             com.pedrodalben.bigbangessentials.chat.ChatHandler.handleChat(
                 sender,
                 message.signedContent(),

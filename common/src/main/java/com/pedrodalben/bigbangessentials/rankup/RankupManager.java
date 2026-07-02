@@ -4,6 +4,7 @@ import com.pedrodalben.bigbangessentials.rankup.config.RankupConfig;
 import com.pedrodalben.bigbangessentials.rankup.database.RankupRepository;
 import com.pedrodalben.bigbangessentials.rankup.domain.*;
 import com.pedrodalben.bigbangessentials.rankup.service.*;
+import com.pedrodalben.bigbangessentials.util.Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +27,6 @@ public class RankupManager {
     private final RankupPlaceholderService placeholderService = new RankupPlaceholderService();
 
     private RankupManager() {
-        reload();
     }
 
     public static RankupManager getInstance() {
@@ -70,7 +70,15 @@ public class RankupManager {
             RankupConfig newConfig = RankupConfig.loadAndValidate();
             this.config = newConfig;
             this.draftConfig = newConfig.copy();
-            LOGGER.info("RankUp configuration loaded successfully.");
+            int rankCount = config.getRanks().size();
+            int taskCount = config.getRanks().values().stream()
+                    .mapToInt(r -> r.requirements().tasks().size()).sum();
+            boolean lpAvailable = Platform.isModLoaded("luckperms");
+            boolean cobblemonAvailable = Platform.isModLoaded("cobblemon");
+            LOGGER.info("[RankUp] Module initialized.");
+            LOGGER.info("[RankUp] Loaded {} ranks ({} tasks total).", rankCount, taskCount);
+            LOGGER.info("[RankUp] LuckPerms integration available: {}.", lpAvailable);
+            LOGGER.info("[RankUp] Cobblemon integration available: {}.", cobblemonAvailable);
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to load RankUp configuration. Previous configuration kept.", e);
@@ -167,7 +175,14 @@ public class RankupManager {
     public boolean isReadyForPromotion(UUID uuid, RankupRank targetRank) {
         if (config == null || targetRank == null) return false;
         RankupPlayerData data = getOrCreatePlayerData(uuid);
-        return data.areTasksCompleted(targetRank);
+        if (!data.areTasksCompleted(targetRank)) return false;
+        double moneyRequired = targetRank.requirements().money();
+        int gemsRequired = targetRank.requirements().gems();
+        if (moneyRequired > 0 && com.pedrodalben.bigbangessentials.api.EconomyAPI.getBalance(uuid)
+                .compareTo(java.math.BigDecimal.valueOf(moneyRequired)) < 0) return false;
+        if (gemsRequired > 0 && !com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance()
+                .hasAvailable(uuid, gemsRequired)) return false;
+        return true;
     }
 
     public double getMoneyRequired(RankupRank targetRank) {

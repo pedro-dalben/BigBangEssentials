@@ -25,6 +25,10 @@ public class RankupConfig {
     public RankupLadder getLadder() { return ladder; }
 
     public Map<String, RankupRank> getRanks() {
+        return ranks;
+    }
+
+    public Map<String, RankupRank> getRanksView() {
         return Collections.unmodifiableMap(ranks);
     }
 

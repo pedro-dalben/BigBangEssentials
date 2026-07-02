@@ -25,6 +25,11 @@ public class NeoForgeEvents {
 
     @SubscribeEvent
     public static void onServerChat(ServerChatEvent event) {
+        if (com.pedrodalben.bigbangessentials.rankup.admin.RankupAdminChatInputHandler.getInstance()
+                .onChat(event.getPlayer(), event.getRawText())) {
+            event.setCanceled(true);
+            return;
+        }
         com.pedrodalben.bigbangessentials.chat.ChatHandler.handleChat(
             event.getPlayer(),
             event.getRawText(),

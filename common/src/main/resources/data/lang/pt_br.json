@@ -86,6 +86,7 @@
   "commands.bigbangessentials.teleport.home.none_set": "Você não tem nenhum lar definido.",
   "commands.bigbangessentials.teleport.home.not_found": "Lar ''{0}'' não encontrado.",
   "commands.bigbangessentials.teleport.home.overworld_only": "Lares só podem ser definidos no Overworld.",
+  "commands.bigbangessentials.teleport.home.restricted_world": "Você não pode criar homes em mundos temporários de exploração.",
   "commands.bigbangessentials.teleport.home.unsafe_command_blocked": "Este comando contém operações potencialmente perigosas. Para usar este comando, ative 'allowUnsafeCommands' em sua configuração.",
   "commands.bigbangessentials.teleport.home.delete_confirm": "Tem certeza que deseja excluir o lar '{HOME}'? Esta ação não pode ser desfeita. Clique em [Confirmar] ou [Recusar].",
   "commands.bigbangessentials.teleport.home.delete_success": "Lar '{HOME}' foi excluído com sucesso.",

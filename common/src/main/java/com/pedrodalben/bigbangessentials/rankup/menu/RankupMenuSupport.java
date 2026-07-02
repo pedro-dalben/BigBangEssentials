@@ -71,8 +71,19 @@ public class RankupMenuSupport {
         map.put("current_name", current != null ? strip(current.displayName()) : "None");
         map.put("next_id", next != null ? next.id() : "");
         map.put("next_name", next != null ? strip(next.displayName()) : "Max Rank");
-        map.put("money_required", next != null ? String.valueOf(next.requirements().money()) : "0");
-        map.put("gems_required", next != null ? String.valueOf(next.requirements().gems()) : "0");
+
+        double moneyRequired = next != null ? next.requirements().money() : 0;
+        int gemsRequired = next != null ? next.requirements().gems() : 0;
+        double moneyBalance = com.pedrodalben.bigbangessentials.api.EconomyAPI.getBalance(player.getUUID()).doubleValue();
+        long gemsBalanceLong = com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance().getBalanceView(player.getUUID()).availableBalance();
+
+        map.put("money_required", String.valueOf(moneyRequired));
+        map.put("gems_required", String.valueOf(gemsRequired));
+        map.put("money_balance", String.valueOf(moneyBalance));
+        map.put("gems_balance", String.valueOf(gemsBalanceLong));
+        map.put("money_status", (moneyBalance >= moneyRequired && moneyRequired > 0) ? "\u00a7a\u2714" : (moneyRequired > 0 ? "\u00a7c\u2718" : ""));
+        map.put("gems_status", (gemsBalanceLong >= gemsRequired && gemsRequired > 0) ? "\u00a7a\u2714" : (gemsRequired > 0 ? "\u00a7c\u2718" : ""));
+
         RankupPlayerData data = mgr.getOrCreatePlayerData(player.getUUID());
         int completed = next != null ? data.countCompletedTasks(next) : 0;
         int total = next != null ? (int) next.requirements().tasks().stream().filter(RankupTask::enabled).count() : 0;
