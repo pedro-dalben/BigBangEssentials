@@ -67,6 +67,8 @@ public class FabricEvents {
             }
         });
 
+        FabricCrateEvents.register();
+
         // Living Death Event (Entity Kill)
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
             if (damageSource.getEntity() instanceof ServerPlayer player) {

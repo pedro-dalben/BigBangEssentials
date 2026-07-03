@@ -6,7 +6,8 @@
     "EntityPersistentDataMixin",
     "BlockItemMixin",
     "MobMixin",
-    "FishingHookMixin"
+    "FishingHookMixin",
+    "CrateInteractionMixin"
   ],
   "client": [],
   "injectors": {
