@@ -8,15 +8,14 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 
 | Subcomando | Permissão | Sintaxe | Descrição |
 |-----------|-----------|---------|-----------|
-| `create` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate create <id> [nome]` | Cria uma nova crate |
+| `create` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crates create <id> [nome]` | Cria crate + chave física + vincula 1:1 automaticamente |
 | `edit` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate edit <crate>` | Abre o editor da crate |
 | `setname` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate setname <crate> <nome>` | Altera o nome de exibição da crate |
 | `setdesc` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate setdesc <crate> <descrição>` | Altera a descrição da crate |
 | `toggle` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate toggle <crate>` | Alterna o estado da crate |
 | `seticon` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate seticon <crate>` | Define o item do inventário como ícone da crate |
-| `setopening` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate setopening <crate> <NONE|VIRTUAL|PHYSICAL>` | Define o tipo de abertura da crate |
-| `setkey` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate setkey <crate> <keyId>` | Define a chave aceita pela crate |
-| `setcost` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate setcost <crate> <valor>` | Define o custo econômico da crate |
+| `setopening` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crates setopening <crate> <NONE|VIRTUAL|PHYSICAL>` | Define o tipo de abertura da crate |
+| `setcost` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crates setcost <crate> <valor>` | Define o custo econômico da crate |
 | `setcooldown` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate setcooldown <crate> <ms>` | Define o cooldown da crate |
 | `setperm` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate setperm <crate> <permissão>` | Define a permissão exigida pela crate |
 | `addrarity` | `bigbangessentials.crates.manage` / `bigbangessentials.crates.editor` | `/crate addrarity <crate> <id> <nome> <cor> <peso>` | Adiciona uma raridade à crate |
@@ -108,14 +107,28 @@ Comando principal do sistema de crates. Registrado nos literais `crates` e `crat
 ### Exemplos
 
 ```bash
+# Criar crate (chave física criada e vinculada automaticamente)
+/crates create mineracao "&4Mineração"
+
 # Abrir o editor
-/crate editor
+/crates editor
 
-# Criar uma crate
-/crate create minha_crate "Minha Crate"
+# Adicionar raridades
+/crates addrarity mineracao comum "&7Comum" "#AAAAAA" 50
+/crates addrarity mineracao raro "&eRaro" "#FFD700" 30
 
-# Criar uma chave
-/crate key create chave_minha_crate "Chave da Minha Crate"
+# Criar recompensa e definir itens
+/crates reward create mineracao diamante "Diamante" raro
+/crates reward setitems mineracao diamante
+
+# Vincular ao bloco que você está olhando
+/crates setlocation mineracao
+
+# Dar chave ao jogador
+/crates key give @p mineracao 1
+
+# Abrir crate (clique direito no bloco com a chave na mão)
+# Sem chave → preview. Botão esquerdo na crate → preview.
 
 # Ajustar metadata avançada de uma chave
 /crate key setlore chave_minha_crate "Linha 1 | Linha 2"

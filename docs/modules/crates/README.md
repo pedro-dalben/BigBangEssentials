@@ -88,58 +88,54 @@ O sistema segue uma arquitetura em camadas:
 
 ## Guia Rápido
 
-### 1. Criar uma Crate
+### 1. Criar uma Crate (chave física criada e vinculada automaticamente)
 
 ```
-/crate create minha_crate "Minha Crate"
+/crates create mineracao "&4Mineração"
 ```
+
+Cria a crate + chave física "Chave Mineração" (tripwire hook) + vincula 1:1.
 
 ### 2. Adicionar Raridades
 
 ```
-/crate addrarity minha_crate comum "Comum" "#AAAAAA" 50
-/crate addrarity minha_crate raro "Raro" "#FFD700" 30
-/crate addrarity minha_crate lendario "Lendario" "#FF0000" 20
+/crates addrarity mineracao comum "Comum" "#AAAAAA" 50
+/crates addrarity mineracao raro "Raro" "#FFD700" 30
+/crates addrarity mineracao lendario "Lendario" "#FF0000" 20
 ```
 
 ### 3. Adicionar Recompensas
 
 ```
-/crate reward create minha_crate recompensa1 "Recompensa 1" comum
-/crate reward create minha_crate recompensa2 "Recompensa 2" raro
+/crates reward create mineracao recompensa1 "Recompensa 1" comum
+/crates reward create mineracao recompensa2 "Recompensa 2" raro
 ```
 
-### 4. Criar uma Chave
+Segure o item na mão e use `/crates reward setitems mineracao recompensa1` para definir os itens.
 
-```
-/crate key create chave_minha_crate "Chave da Minha Crate"
-/crate key addcrate chave_minha_crate minha_crate
-```
+### 4. Vincular a um Bloco no Mundo
 
-### 5. Vincular a um Bloco no Mundo
-
+Olhe para o bloco desejado e execute:
 ```
-/crate setlocation minha_crate
-```
-(Clique no bloco desejado segurando o item de configuração)
-
-### 6. Dar Chaves a Jogadores
-
-```
-/givekey chave_minha_crate jogador 1
+/crates setlocation mineracao
 ```
 
-### 7. Abrir a Crate
-
-Clique com botão direito no bloco vinculado, ou use:
-```
-/crate open minha_crate
-```
-
-### 8. Visualizar/Editar pelo Editor
+### 5. Dar a Chave ao Jogador
 
 ```
-/crate editor
+/crates key give @p mineracao 1
+```
+
+### 6. Abrir a Crate
+
+Clique com botão direito na crate com a chave na mão.
+Sem chave na mão → abre o preview das recompensas.
+Botão esquerdo na crate → abre o preview.
+
+### 7. Editor Gráfico
+
+```
+/crates editor
 ```
 
 ## Estrutura de Arquivos
