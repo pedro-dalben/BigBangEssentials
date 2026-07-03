@@ -1276,6 +1276,20 @@ public class CrateCommand {
         return trimmed;
     }
 
+    private static String normalizeCommandInput(String rawInput) {
+        String trimmed = normalizeNullableText(rawInput);
+        if (trimmed.isBlank()) {
+            return "";
+        }
+        if (trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+        }
+        if (trimmed.startsWith("/")) {
+            trimmed = trimmed.substring(1).trim();
+        }
+        return trimmed;
+    }
+
     // === Editor ===
 
     private static int openEditor(CommandContext<CommandSourceStack> context) {
@@ -3118,7 +3132,16 @@ public class CrateCommand {
             return 0;
         }
 
-        reward.setCommands(commands);
+        List<String> cleaned = commands.stream()
+            .map(CrateCommand::normalizeCommandInput)
+            .filter(c -> !c.isBlank())
+            .collect(Collectors.toList());
+        if (cleaned.isEmpty()) {
+            source.sendFailure(Component.literal(CrateMessages.REWARD_COMMAND_INVALID));
+            return 0;
+        }
+
+        reward.setCommands(cleaned);
         reward.setType(RewardType.COMMAND);
         crateService.updateReward(crate.getKey(), reward);
         source.sendSuccess(() -> Component.literal(
@@ -3138,7 +3161,7 @@ public class CrateCommand {
             return 0;
         }
 
-        String command = normalizeNullableText(StringArgumentType.getString(context, "comando"));
+        String command = normalizeCommandInput(StringArgumentType.getString(context, "comando"));
         if (command.isBlank()) {
             source.sendFailure(Component.literal(CrateMessages.REWARD_COMMAND_INVALID));
             return 0;

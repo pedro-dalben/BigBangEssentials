@@ -110,7 +110,8 @@ public class RewardService {
             if (server != null) {
                 CommandSourceStack source = server.createCommandSourceStack();
                 for (String command : reward.getCommands()) {
-                    String resolved = command
+                    String cleaned = normalizeCommandString(command);
+                    String resolved = cleaned
                         .replace("{player}", player.getGameProfile().getName())
                         .replace("{uuid}", player.getUUID().toString());
                     try {
@@ -123,6 +124,18 @@ public class RewardService {
         }
 
         recordRewardRoll(reward, player.getUUID());
+    }
+
+    private static String normalizeCommandString(String command) {
+        if (command == null) return "";
+        String trimmed = command.trim();
+        if (trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+        }
+        if (trimmed.startsWith("/")) {
+            trimmed = trimmed.substring(1).trim();
+        }
+        return trimmed;
     }
 
     private void giveItemToPlayer(ServerPlayer player, ItemStack stack) {

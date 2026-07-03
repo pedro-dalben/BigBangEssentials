@@ -103,16 +103,34 @@ public class CrateInteractionHandler {
 
         if (animationHandler != null) {
             if (crate.getOpeningType() == CrateOpeningType.VIRTUAL) {
-                List<CrateReward> crateRewards = crate.getRewards().stream()
-                    .filter(CrateReward::isActive)
-                    .toList();
-                CrateReward displayReward = crateRewards.isEmpty() ? null : crateRewards.get(0);
+                CrateReward displayReward = null;
+                if (result.audit() != null) {
+                    String selectedId = result.audit().getSelectedRewardId();
+                    if (selectedId != null) {
+                        displayReward = crate.getReward(selectedId);
+                    }
+                }
+                if (displayReward == null) {
+                    List<CrateReward> crateRewards = crate.getRewards().stream()
+                        .filter(CrateReward::isActive)
+                        .toList();
+                    displayReward = crateRewards.isEmpty() ? null : crateRewards.get(0);
+                }
                 animationHandler.startVirtualAnimation(player, crate, displayReward);
             } else if (crate.getOpeningType() == CrateOpeningType.PHYSICAL) {
-                List<CrateReward> crateRewards = crate.getRewards().stream()
-                    .filter(CrateReward::isActive)
-                    .toList();
-                CrateReward displayReward = crateRewards.isEmpty() ? null : crateRewards.get(0);
+                CrateReward displayReward = null;
+                if (result.audit() != null) {
+                    String selectedId = result.audit().getSelectedRewardId();
+                    if (selectedId != null) {
+                        displayReward = crate.getReward(selectedId);
+                    }
+                }
+                if (displayReward == null) {
+                    List<CrateReward> crateRewards = crate.getRewards().stream()
+                        .filter(CrateReward::isActive)
+                        .toList();
+                    displayReward = crateRewards.isEmpty() ? null : crateRewards.get(0);
+                }
                 animationHandler.startPhysicalAnimation(level, pos, crate, displayReward);
             }
         }

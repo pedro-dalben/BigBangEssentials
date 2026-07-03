@@ -5,6 +5,7 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateParticleConfig;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateReward;
 import com.pedrodalben.bigbangessentials.crates.domain.ParticleShape;
+import com.pedrodalben.bigbangessentials.crates.domain.RewardType;
 import com.pedrodalben.bigbangessentials.crates.service.RewardService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
@@ -59,39 +60,13 @@ public class CrateAnimationHandler {
         }
 
         CrateAnimationConfig animConfig = crate.getAnimationConfig();
-        AnimationState state = new AnimationState();
-        state.playerId = player.getUUID();
-        state.player = player;
-        state.reward = reward;
-        state.totalTicks = animConfig.getDurationTicks();
-        state.ticksElapsed = 0;
-        state.skipRequested = false;
-
-        SimpleContainer container = new SimpleContainer(54);
-        state.container = container;
-
-        populateRollingItems(container, crate, animConfig);
-
-        player.openMenu(new MenuProvider() {
-            @Override
-            public Component getDisplayName() {
-                return Component.literal("§8§l" + crate.getDisplayName());
-            }
-
-            @Override
-            public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player p) {
-                VirtualOpeningMenu menu = new VirtualOpeningMenu(containerId, playerInventory, container, reward, animConfig);
-                state.menu = menu;
-                return menu;
-            }
-        });
-
         playSound(player, animConfig.getStartSound());
-
-        activeAnimations.put(player.getUUID(), state);
-        running = true;
-
-        LOGGER.info("Started virtual animation for player {} on crate '{}'", player.getUUID(), crate.getKey());
+        if (reward != null) {
+            playSound(player, "minecraft:entity.player.levelup");
+        }
+        LOGGER.info("Skipped virtual animation for reward '{}' (reward already delivered) for player {}",
+            reward != null ? reward.getName() : "null", player.getUUID());
+        return;
     }
 
     public void startPhysicalAnimation(Level level, BlockPos pos, CrateDefinition crate, CrateReward reward) {
