@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.crates;
 
 import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
+import com.pedrodalben.bigbangessentials.crates.domain.CrateKeyType;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateLocation;
 import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
 import com.pedrodalben.bigbangessentials.crates.integration.CrateEconomyIntegration;
@@ -154,12 +155,25 @@ public class CrateModuleContext {
             List<KeyDefinition> jsonKeys = jsonKeyRepo.findAll();
             for (KeyDefinition key : jsonKeys) {
                 if (!keyRepository.existsById(key.getId())) {
+                    normalizeKeyDefaults(key);
                     keyRepository.save(key);
                     LOGGER.info("Migrated key '{}' from JSON to database", key.getId());
                 }
             }
         } catch (Exception e) {
             LOGGER.warn("Failed to migrate keys from JSON: {}", e.getMessage());
+        }
+
+        try {
+            for (KeyDefinition key : keyRepository.findAll()) {
+                boolean changed = normalizeKeyDefaults(key);
+                if (changed) {
+                    keyRepository.save(key);
+                    LOGGER.info("Normalized existing key '{}' to PHYSICAL with default item", key.getId());
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to normalize existing keys: {}", e.getMessage());
         }
 
         try {
@@ -174,6 +188,24 @@ public class CrateModuleContext {
         } catch (Exception e) {
             LOGGER.warn("Failed to migrate locations from JSON: {}", e.getMessage());
         }
+    }
+
+    private boolean normalizeKeyDefaults(KeyDefinition key) {
+        boolean changed = false;
+        if (key.getKeyType() == CrateKeyType.VIRTUAL) {
+            key.setKeyType(CrateKeyType.PHYSICAL);
+            changed = true;
+        }
+        if (key.getName() != null && !key.getName().toLowerCase().startsWith("chave ")) {
+            key.setName("Chave " + key.getName());
+            changed = true;
+        }
+        if (key.getPhysicalItem() == null || key.getPhysicalItem().isEmpty()) {
+            net.minecraft.world.item.ItemStack defaultItem = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.TRIPWIRE_HOOK);
+            key.setPhysicalItem(defaultItem);
+            changed = true;
+        }
+        return changed;
     }
 
     public synchronized void shutdown() {
