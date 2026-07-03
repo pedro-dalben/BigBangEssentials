@@ -319,7 +319,7 @@ public class DatabaseManagerTest {
             // Test health check
             DatabaseHealth health = manager.getHealth();
             assertTrue(health.connected());
-            assertEquals(8L, health.schemaVersion());
+            assertEquals(9L, health.schemaVersion());
             assertEquals(DatabaseState.READY, health.state());
 
             // Test metrics snapshot

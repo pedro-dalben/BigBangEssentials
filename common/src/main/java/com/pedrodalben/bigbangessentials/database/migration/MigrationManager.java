@@ -11,6 +11,7 @@ import com.pedrodalben.bigbangessentials.database.migration.migrations.V005Norma
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V006CreateCratesTables;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V007ExpandCrateAuditIdempotencyKey;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V008CreateCrateConfigTables;
+import com.pedrodalben.bigbangessentials.database.migration.migrations.V009UpdateCrateKeysPhysicalDefault;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +36,7 @@ public class MigrationManager {
         registeredMigrations.add(new V006CreateCratesTables());
         registeredMigrations.add(new V007ExpandCrateAuditIdempotencyKey());
         registeredMigrations.add(new V008CreateCrateConfigTables());
+        registeredMigrations.add(new V009UpdateCrateKeysPhysicalDefault());
     }
 
     /**
