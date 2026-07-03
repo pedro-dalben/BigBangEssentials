@@ -41,6 +41,10 @@ import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -202,16 +206,6 @@ public class CrateCommand {
                     .suggests(CRATE_SUGGESTIONS)
                     .then(Commands.argument("tipo", StringArgumentType.word())
                         .executes(CrateCommand::setCrateOpeningType)
-                    )
-                )
-            )
-            .then(Commands.literal("setkey")
-                .requires(CrateCommand::canManageCrates)
-                .then(Commands.argument("crate", StringArgumentType.word())
-                    .suggests(CRATE_SUGGESTIONS)
-                    .then(Commands.argument("keyId", StringArgumentType.word())
-                        .suggests(KEY_SUGGESTIONS)
-                        .executes(CrateCommand::setCrateKeyRequirement)
                     )
                 )
             )
@@ -1145,10 +1139,26 @@ public class CrateCommand {
 
         try {
             crateService.createCrate(crateId, resolvedDisplayName);
+
+            if (!crateService.keyExists(crateId)) {
+                String keyName = "Chave " + resolvedDisplayName;
+                crateService.createKey(crateId, keyName);
+            } else {
+                LOGGER.info("Key '{}' already exists, skipping auto-creation for crate '{}'", crateId, crateId);
+            }
+
+            CrateDefinition created = crateService.getCrateByKey(crateId);
+            if (created != null) {
+                created.getRequirements().setAcceptedKeyIds(java.util.List.of(crateId));
+                created.getRequirements().setRequirePhysicalKey(true);
+                crateService.saveCrate(created);
+            }
+
             source.sendSuccess(() -> Component.literal(
-                String.format(CrateMessages.CRATE_CREATED, crateId, resolvedDisplayName)), true);
-            LOGGER.info("Crate '{}' created by {} with display name '{}'",
-                crateId, source.getTextName(), resolvedDisplayName);
+                String.format(CrateMessages.CRATE_CREATED, crateId, resolvedDisplayName)
+                + " \u00a7a(Chave \u00a7e" + crateId + "\u00a7a criada e vinculada)"), true);
+            LOGGER.info("Crate '{}' created by {} with auto-linked physical key '{}'",
+                crateId, source.getTextName(), crateId);
             return 1;
         } catch (IllegalArgumentException e) {
             source.sendFailure(Component.literal(CrateMessages.CRATE_INVALID_ID));
@@ -1780,21 +1790,48 @@ public class CrateCommand {
                 String active = loc.isActive() ? "\u00a7aAtiva" : "\u00a7cInativa";
                 String hologram = loc.isHologramEnabled() ? "\u00a7aSim" : "\u00a7cNao";
                 String particles = loc.isParticleEnabled() ? "\u00a7aSim" : "\u00a7cNao";
+                String fullId = loc.getId().toString();
+                String coords = loc.getX() + ", " + loc.getY() + ", " + loc.getZ();
 
-                source.sendSuccess(() -> Component.literal(
-                    "\u00a77- " + loc.getId().toString().substring(0, 8) + "... "
-                        + "\u00a7f" + crateName + " "
-                        + "\u00a77@ " + loc.getWorldName() + " "
-                        + loc.getX() + ", " + loc.getY() + ", " + loc.getZ()
-                        + " \u00a77[" + active + "\u00a77]"
-                        + " \u00a77[Holograma: " + hologram + "\u00a77]"
-                        + " \u00a77[Particulas: " + particles + "\u00a77]"
-                        + " \u00a77[OffsetY: " + loc.getHologramOffsetY() + "]"
-                ), false);
+                MutableComponent line = Component.empty();
+
+                MutableComponent idComp = Component.literal("\u00a77[\u00a7eID\u00a77] ")
+                    .withStyle(Style.EMPTY
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, fullId))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            Component.literal("\u00a7f" + fullId + "\n\u00a77Clique para copiar o ID"))));
+                line.append(idComp);
+
+                line.append(Component.literal("\u00a7f" + crateName + " "));
+
+                String tpCommand = "/tp @s " + loc.getX() + " " + loc.getY() + " " + loc.getZ();
+                MutableComponent coordComp = Component.literal("\u00a77[\u00a7b" + coords + "\u00a77] ")
+                    .withStyle(Style.EMPTY
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, tpCommand))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            Component.literal("\u00a77" + loc.getWorldName() + "\n\u00a7eClique para teleportar"))));
+                line.append(coordComp);
+
+                line.append(Component.literal("\u00a77[" + active + "\u00a77] "));
+                line.append(Component.literal("\u00a77[Holograma: " + hologram + "\u00a77] "));
+                line.append(Component.literal("\u00a77[Particulas: " + particles + "\u00a77] "));
+                line.append(Component.literal("\u00a77[OffsetY: " + loc.getHologramOffsetY() + "]"));
+
+                source.sendSuccess(() -> line, false);
+
+                MutableComponent detailLine = Component.empty();
                 if (loc.getHologramTemplate() != null && !loc.getHologramTemplate().isBlank()) {
-                    source.sendSuccess(() -> Component.literal(
-                        "\u00a78  Template: \u00a77" + loc.getHologramTemplate()), false);
+                    detailLine.append(Component.literal("  \u00a78Template: \u00a77" + loc.getHologramTemplate() + " "));
                 }
+
+                String removeCmd = "crates location remove " + fullId;
+                MutableComponent removeBtn = Component.literal("\u00a7c[Remover]")
+                    .withStyle(Style.EMPTY
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/" + removeCmd))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            Component.literal("\u00a7cClique para remover esta localizacao\n\u00a77Comando: /" + removeCmd))));
+                detailLine.append(removeBtn);
+                source.sendSuccess(() -> detailLine, false);
             }
             return 1;
         } catch (Exception e) {

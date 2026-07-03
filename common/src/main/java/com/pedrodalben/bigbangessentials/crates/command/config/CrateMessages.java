@@ -49,10 +49,12 @@ public final class CrateMessages {
     public static final String CRATE_NOT_FOUND = "\u00a7cCrate n\u00e3o encontrada: %s";
     public static final String KEY_NOT_FOUND = "\u00a7cChave n\u00e3o encontrada: %s";
     public static final String PLAYER_NOT_FOUND = "\u00a7cJogador n\u00e3o encontrado.";
-    public static final String CREATE_USAGE = "\u00a77Use: \u00a7e/crate create <id> [nome de exibi\u00e7\u00e3o]\n"
-        + "\u00a77Exemplo: \u00a7e/crate create minha_crate \"Minha Crate\"";
-    public static final String KEY_CREATE_USAGE = "\u00a77Use: \u00a7e/crate key create <id> [nome]\n"
-        + "\u00a77Exemplo: \u00a7e/crate key create chave_vip \"Chave VIP\"";
+    public static final String CREATE_USAGE = "\u00a77Use: \u00a7e/crates create <id> [nome]\n"
+        + "\u00a77Exemplo: \u00a7e/crates create vip \"Caixa VIP\"\n"
+        + "\u00a7aCria a crate + chave f\u00edsica + vincula automaticamente.";
+    public static final String KEY_CREATE_USAGE = "\u00a77Use: \u00a7e/crates key create <id> [nome]\n"
+        + "\u00a77Exemplo: \u00a7e/crates key create chave_extra \"Chave Extra\"\n"
+        + "\u00a77(O \u00a7ecreate \u00a77da crate j\u00e1 cria chave automaticamente)";
     public static final String GIVE_SUCCESS = "\u00a7a%dx chave(s) '%s' fornecida(s) para %s.";
     public static final String GIVE_RECEIVE = "\u00a7aVoc\u00ea recebeu %dx chave(s) '%s'.";
     public static final String TAKE_SUCCESS = "\u00a7a%dx chave(s) '%s' removida(s) de %s.";

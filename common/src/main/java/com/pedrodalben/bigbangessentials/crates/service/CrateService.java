@@ -12,6 +12,8 @@ import com.pedrodalben.bigbangessentials.crates.repository.CrateRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.KeyRepository;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,6 +83,10 @@ public class CrateService {
 
     public void deleteCrate(String key) {
         crateRepo.deleteByKey(key);
+        if (keyRepo.existsById(key)) {
+            keyRepo.deleteById(key);
+            LOGGER.info("Auto-deleted key '{}' linked to crate '{}'", key, key);
+        }
     }
 
     public boolean crateExists(String key) {
@@ -122,6 +128,8 @@ public class CrateService {
 
     public KeyDefinition createKey(String id, String name) {
         KeyDefinition key = new KeyDefinition(id, name);
+        ItemStack defaultItem = new ItemStack(Items.TRIPWIRE_HOOK);
+        key.setPhysicalItem(defaultItem);
         return keyRepo.save(key);
     }
 
