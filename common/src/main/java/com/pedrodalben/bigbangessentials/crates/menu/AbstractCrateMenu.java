@@ -124,7 +124,7 @@ public abstract class AbstractCrateMenu extends AbstractContainerMenu {
     private List<Component> toComponents(String... lines) {
         java.util.List<Component> result = new java.util.ArrayList<>();
         for (String line : lines) {
-            if (line != null) result.add(Component.literal(line));
+            if (line != null) result.add(Component.literal(translateColorCodes(line)));
         }
         return result;
     }
@@ -132,7 +132,7 @@ public abstract class AbstractCrateMenu extends AbstractContainerMenu {
     protected ItemStack createItem(ItemStack template, String displayName, String... loreLines) {
         ItemStack stack = template.copy();
         if (displayName != null) {
-            stack.set(DataComponents.CUSTOM_NAME, Component.literal(displayName));
+            stack.set(DataComponents.CUSTOM_NAME, Component.literal(translateColorCodes(displayName)));
         }
         if (loreLines.length > 0) {
             stack.set(DataComponents.LORE, new ItemLore(toComponents(loreLines)));
@@ -143,12 +143,18 @@ public abstract class AbstractCrateMenu extends AbstractContainerMenu {
     protected ItemStack createItem(ItemStack template, String displayName, List<String> loreLines) {
         ItemStack stack = template.copy();
         if (displayName != null) {
-            stack.set(DataComponents.CUSTOM_NAME, Component.literal(displayName));
+            stack.set(DataComponents.CUSTOM_NAME, Component.literal(translateColorCodes(displayName)));
         }
         if (!loreLines.isEmpty()) {
             stack.set(DataComponents.LORE, new ItemLore(toComponents(loreLines.toArray(new String[0]))));
         }
         return stack;
+    }
+
+    public static String translateColorCodes(String text) {
+        if (text == null) return "";
+        String result = text.replace('&', '\u00a7');
+        return result.replaceAll("§#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])", "§x§$1§$2§$3§$4§$5§$6");
     }
 
     protected static ItemStack glassPane(int colorIndex) {
@@ -180,7 +186,7 @@ public abstract class AbstractCrateMenu extends AbstractContainerMenu {
     protected void fillBorder(int glassColor, String name) {
         ItemStack pane = glassPane(glassColor);
         if (name != null && !name.equals(" ")) {
-            pane.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+            pane.set(DataComponents.CUSTOM_NAME, Component.literal(translateColorCodes(name)));
         } else {
             pane.set(DataComponents.CUSTOM_NAME, Component.literal(" "));
         }
@@ -226,7 +232,7 @@ public abstract class AbstractCrateMenu extends AbstractContainerMenu {
         if (loreLines.length > 0) {
             java.util.List<Component> lore = new java.util.ArrayList<>();
             for (String line : loreLines) {
-                if (line != null) lore.add(Component.literal(line));
+                if (line != null) lore.add(Component.literal(translateColorCodes(line)));
             }
             stack.set(DataComponents.LORE, new ItemLore(lore));
         }

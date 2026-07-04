@@ -81,7 +81,7 @@ public class CrateMainEditorMenu extends AbstractCrateMenu {
         List<Component> loreList = new ArrayList<>();
         loreList.add(Component.literal("§7ID: §f" + crate.getKey()));
         if (crate.getDescription() != null && !crate.getDescription().isEmpty()) {
-            loreList.add(Component.literal("§7" + truncate(crate.getDescription(), 50)));
+            loreList.add(Component.literal("§7" + translateColorCodes(truncate(crate.getDescription(), 50))));
         }
         loreList.add(Component.literal("§7Recompensas: §f" + crate.getRewards().size()));
         loreList.add(Component.literal("§7Raridades: §f" + crate.getRarities().size()));
@@ -90,7 +90,7 @@ public class CrateMainEditorMenu extends AbstractCrateMenu {
         loreList.add(Component.literal("§e§lClique para editar"));
 
         display.set(DataComponents.CUSTOM_NAME, Component.literal(
-            (crate.isEnabled() ? "§a" : "§c") + crate.getDisplayName()
+            (crate.isEnabled() ? "§a" : "§c") + translateColorCodes(crate.getDisplayName())
         ));
         display.set(DataComponents.LORE, new ItemLore(loreList));
 

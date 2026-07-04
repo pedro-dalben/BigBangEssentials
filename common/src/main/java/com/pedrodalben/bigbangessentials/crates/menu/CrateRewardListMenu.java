@@ -16,6 +16,7 @@ import net.minecraft.world.item.component.ItemLore;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class CrateRewardListMenu extends AbstractCrateMenu {
 
@@ -60,6 +61,56 @@ public class CrateRewardListMenu extends AbstractCrateMenu {
         renderBottomBar();
     }
 
+    @Override
+    public void clicked(int slotId, int button, net.minecraft.world.inventory.ClickType clickType, net.minecraft.world.entity.player.Player player) {
+        if (clickType == net.minecraft.world.inventory.ClickType.PICKUP_ALL || clickType == net.minecraft.world.inventory.ClickType.QUICK_CRAFT) {
+            return;
+        }
+        if (slotId >= this.size || slotId < 0) {
+            super.clicked(slotId, button, clickType, player);
+            return;
+        }
+        ItemStack cursor = getCarried();
+        if (!cursor.isEmpty() && player instanceof ServerPlayer sp) {
+            for (int i = 0; i < CONTENT_SLOTS.length && i < rewards.size(); i++) {
+                if (CONTENT_SLOTS[i] == slotId) {
+                    int rewardIndex = currentPage * ITEMS_PER_PAGE + i;
+                    if (rewardIndex >= 0 && rewardIndex < rewards.size()) {
+                        CrateReward reward = rewards.get(rewardIndex);
+                        reward.setIcon(cursor.copy());
+                        CrateService.getInstance().updateReward(crateKey, reward);
+                        sp.sendSystemMessage(Component.literal("§aIcone da recompensa '" + translateColorCodes(reward.getName()) + "' atualizado."));
+                        render();
+                        return;
+                    }
+                }
+            }
+        }
+        if (clickType == net.minecraft.world.inventory.ClickType.THROW && player instanceof ServerPlayer sp) {
+            for (int i = 0; i < CONTENT_SLOTS.length && i < rewards.size(); i++) {
+                if (CONTENT_SLOTS[i] == slotId) {
+                    int rewardIndex = currentPage * ITEMS_PER_PAGE + i;
+                    if (rewardIndex >= 0 && rewardIndex < rewards.size()) {
+                        CrateReward reward = rewards.get(rewardIndex);
+                        CrateRewardEffectsMenu.open(sp, crateKey, reward);
+                        return;
+                    }
+                }
+            }
+        }
+        Consumer<ServerPlayer> handler = clickHandlers.get(slotId);
+        if (handler != null && player instanceof ServerPlayer sp) {
+            sp.getServer().submit(() -> {
+                try {
+                    handler.accept(sp);
+                } catch (Exception ignored) {
+                } finally {
+                    this.sendAllDataToRemote();
+                }
+            });
+        }
+    }
+
     private void renderRewardItems() {
         int totalItems = rewards.size();
         int totalPages = Math.max(1, (int) Math.ceil((double) totalItems / ITEMS_PER_PAGE));
@@ -78,9 +129,14 @@ public class CrateRewardListMenu extends AbstractCrateMenu {
     }
 
     private void renderRewardItem(int slot, CrateReward reward, int index) {
-        ItemStack icon = reward.getIcon() != null && !reward.getIcon().isEmpty()
-            ? reward.getIcon().copy()
-            : new ItemStack(Items.PAPER);
+        ItemStack icon;
+        if (reward.getType().name().equals("ITEM") && !reward.getItems().isEmpty()) {
+            icon = reward.getItems().get(0).copy();
+        } else {
+            icon = reward.getIcon() != null && !reward.getIcon().isEmpty()
+                ? reward.getIcon().copy()
+                : new ItemStack(Items.PAPER);
+        }
 
         CrateDefinition crate = CrateService.getInstance().getCrateByKey(crateKey);
         CrateRarity rarity = crate != null ? crate.getRarity(reward.getRarityId()) : null;
@@ -101,12 +157,14 @@ public class CrateRewardListMenu extends AbstractCrateMenu {
         List<Component> lore = new ArrayList<>();
         lore.add(Component.literal("§7Ordem: §f" + index));
         lore.add(Component.literal("§7Tipo: §f" + rewardType));
-        lore.add(Component.literal("§7Raridade: §f" + rarityName));
+        lore.add(Component.literal("§7Raridade: §f" + translateColorCodes(rarityName)));
         lore.add(Component.literal("§7Peso: §f" + reward.getWeight()));
         lore.add(Component.literal("§7Chance: §f" + chanceStr));
         lore.add(Component.literal("§7Ativo: " + activeStatus));
         lore.add(Component.literal("§7Visivel: " + visibleStatus));
         lore.add(Component.literal("§7Milestone: " + boolDisplay(reward.isMilestoneOnly())));
+        int effectCount = reward.getWinEffects().size();
+        lore.add(Component.literal("§7Efeitos: " + (effectCount > 0 ? "§a" + effectCount : "§7" + effectCount)));
         if (reward.getGlobalLimit() > 0) {
             lore.add(Component.literal("§7Limite global: §f" + reward.getGlobalLimit()));
         }
@@ -115,10 +173,11 @@ public class CrateRewardListMenu extends AbstractCrateMenu {
         }
         lore.add(Component.literal(""));
         lore.add(Component.literal("§e§lClique para editar"));
+        lore.add(Component.literal("§7Q para configurar efeitos"));
         lore.add(Component.literal("§7Shift+clique para deletar"));
 
         icon.set(DataComponents.CUSTOM_NAME, Component.literal(
-            (reward.isActive() ? "§a" : "§c") + reward.getName()
+            (reward.isActive() ? "§a" : "§c") + translateColorCodes(reward.getName())
         ));
         icon.set(DataComponents.LORE, new ItemLore(lore));
 
@@ -187,6 +246,16 @@ public class CrateRewardListMenu extends AbstractCrateMenu {
         p.sendSystemMessage(Component.literal(" §e/crate reward setgloballimit " + crateKey + " " + reward.getId() + " <limite>"));
         p.sendSystemMessage(Component.literal(" §e/crate reward setplayerlimit " + crateKey + " " + reward.getId() + " <limite>"));
         p.sendSystemMessage(Component.literal(" §e/crate reward setblockingperms " + crateKey + " " + reward.getId() + " <perm1 | perm2>"));
+        p.sendSystemMessage(Component.literal(""));
+        p.sendSystemMessage(Component.literal("§eEfeitos ao ganhar:"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward addeffect " + crateKey + " " + reward.getId() + " <SOUND|FIREWORK|PARTICLE> <valor>"));
+        p.sendSystemMessage(Component.literal(" §7Ex: /crate reward addeffect " + crateKey + " " + reward.getId() + " SOUND minecraft:entity.player.levelup"));
+        p.sendSystemMessage(Component.literal(" §7Ex: /crate reward addeffect " + crateKey + " " + reward.getId() + " FIREWORK RED_STAR"));
+        p.sendSystemMessage(Component.literal(" §7Ex: /crate reward addeffect " + crateKey + " " + reward.getId() + " PARTICLE minecraft:heart"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward removeeffect " + crateKey + " " + reward.getId() + " <indice>"));
+        p.sendSystemMessage(Component.literal(" §e/crate reward cleareffects " + crateKey + " " + reward.getId()));
+        p.sendSystemMessage(Component.literal(" §e/crate reward listeffects " + crateKey + " " + reward.getId()));
+        p.sendSystemMessage(Component.literal(" §7Ou pressione Q na recompensa para abrir o menu de efeitos"));
     }
 
     private void renderBottomBar() {

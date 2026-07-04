@@ -5,11 +5,24 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateRarity;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateReward;
 import com.pedrodalben.bigbangessentials.crates.repository.RewardRollStateRepository;
+import it.unimi.dsi.fastutil.ints.IntList;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.FireworkExplosion;
+import net.minecraft.world.item.component.Fireworks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -124,6 +137,72 @@ public class RewardService {
         }
 
         recordRewardRoll(reward, player.getUUID());
+
+        executeWinEffects(player, reward);
+    }
+
+    private void executeWinEffects(ServerPlayer player, CrateReward reward) {
+        ServerLevel level = player.serverLevel();
+        BlockPos pos = player.blockPosition();
+
+        for (String effect : reward.getWinEffects()) {
+            if (effect == null || effect.isBlank()) continue;
+            int colonIdx = effect.indexOf(':');
+            if (colonIdx <= 0) continue;
+            String type = effect.substring(0, colonIdx).toUpperCase();
+            String value = effect.substring(colonIdx + 1);
+            if (value.isBlank()) continue;
+
+            try {
+                switch (type) {
+                    case "SOUND" -> {
+                        ResourceLocation soundKey = ResourceLocation.parse(value);
+                        SoundEvent sound = BuiltInRegistries.SOUND_EVENT.getOptional(soundKey).orElse(null);
+                        if (sound != null) {
+                            level.playSound(null, pos, sound, SoundSource.MASTER, 1.0f, 1.0f);
+                        }
+                    }
+                    case "FIREWORK" -> {
+                        String[] parts = value.split("_", 2);
+                        FireworkExplosion.Shape shape = FireworkExplosion.Shape.SMALL_BALL;
+                        if (parts.length > 1) {
+                            try {
+                                shape = FireworkExplosion.Shape.valueOf(parts[1].toUpperCase());
+                            } catch (IllegalArgumentException ignored) {}
+                        }
+                        int color = switch (parts[0].toUpperCase()) {
+                            case "RED" -> 0xFF0000;
+                            case "ORANGE" -> 0xFF8800;
+                            case "YELLOW" -> 0xFFFF00;
+                            case "GREEN" -> 0x00FF00;
+                            case "LIME" -> 0x88FF00;
+                            case "BLUE" -> 0x0000FF;
+                            case "CYAN" -> 0x00FFFF;
+                            case "PURPLE" -> 0x8800FF;
+                            case "MAGENTA" -> 0xFF00FF;
+                            case "PINK" -> 0xFF69B4;
+                            case "WHITE" -> 0xFFFFFF;
+                            case "BLACK" -> 0x000000;
+                            default -> 0xFFFFFF;
+                        };
+                        ItemStack rocket = new ItemStack(Items.FIREWORK_ROCKET);
+                        var explosion = new FireworkExplosion(shape, IntList.of(color), IntList.of(), false, false);
+                        rocket.set(net.minecraft.core.component.DataComponents.FIREWORKS, new Fireworks(1, List.of(explosion)));
+                        var firework = new net.minecraft.world.entity.projectile.FireworkRocketEntity(level, pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5, rocket);
+                        level.addFreshEntity(firework);
+                    }
+                    case "PARTICLE" -> {
+                        ResourceLocation particleKey = ResourceLocation.parse(value);
+                        var particle = BuiltInRegistries.PARTICLE_TYPE.getOptional(particleKey).orElse(null);
+                        if (particle instanceof SimpleParticleType simple) {
+                            level.sendParticles(simple, pos.getX() + 0.5, pos.getY() + 1.5, pos.getZ() + 0.5, 20, 0.5, 0.5, 0.5, 0.1);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.error("Failed to execute win effect: {} for reward: {}", effect, reward.getId(), e);
+            }
+        }
     }
 
     private static String normalizeCommandString(String command) {

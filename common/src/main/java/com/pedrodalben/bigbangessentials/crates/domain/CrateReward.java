@@ -32,6 +32,7 @@ public class CrateReward {
     private boolean visibleInPreview; // Show in preview
     private boolean milestoneOnly; // Only available as milestone reward
     private int displayOrder; // Order in editor/preview
+    private List<String> winEffects; // Effects played when reward is won: SOUND:key, FIREWORK:color_shape, PARTICLE:key
     
     public CrateReward(String id, String crateId, String name, RewardType type, String rarityId) {
         this.id = validateId(id);
@@ -53,6 +54,7 @@ public class CrateReward {
         this.visibleInPreview = true;
         this.milestoneOnly = false;
         this.displayOrder = 0;
+        this.winEffects = new ArrayList<>();
         this.lore = new ArrayList<>();
         this.icon = createDefaultIcon();
     }
@@ -104,6 +106,7 @@ public class CrateReward {
     public boolean isVisibleInPreview() { return visibleInPreview; }
     public boolean isMilestoneOnly() { return milestoneOnly; }
     public int getDisplayOrder() { return displayOrder; }
+    public List<String> getWinEffects() { return new ArrayList<>(winEffects); }
 
     // Setters
     public void setName(String name) { this.name = name; }
@@ -125,6 +128,10 @@ public class CrateReward {
     public void setVisibleInPreview(boolean visibleInPreview) { this.visibleInPreview = visibleInPreview; }
     public void setMilestoneOnly(boolean milestoneOnly) { this.milestoneOnly = milestoneOnly; }
     public void setDisplayOrder(int displayOrder) { this.displayOrder = displayOrder; }
+    public void setWinEffects(List<String> winEffects) { this.winEffects = winEffects != null ? new ArrayList<>(winEffects) : new ArrayList<>(); }
+    public void addWinEffect(String effect) { if (effect != null && !effect.isBlank()) this.winEffects.add(effect); }
+    public void removeWinEffect(int index) { if (index >= 0 && index < winEffects.size()) this.winEffects.remove(index); }
+    public void clearWinEffects() { this.winEffects.clear(); }
 
     /**
      * Checks if this reward is eligible for the given player/context.
@@ -198,6 +205,10 @@ public class CrateReward {
         for (String cmd : commands) commandsArray.add(cmd);
         json.add("commands", commandsArray);
         
+        JsonArray effectsArray = new JsonArray();
+        for (String effect : winEffects) effectsArray.add(effect);
+        json.add("winEffects", effectsArray);
+        
         return json;
     }
 
@@ -246,6 +257,12 @@ public class CrateReward {
             JsonArray commandsArray = json.getAsJsonArray("commands");
             reward.commands = new ArrayList<>();
             for (JsonElement e : commandsArray) reward.commands.add(e.getAsString());
+        }
+        
+        if (json.has("winEffects")) {
+            JsonArray effectsArray = json.getAsJsonArray("winEffects");
+            reward.winEffects = new ArrayList<>();
+            for (JsonElement e : effectsArray) reward.winEffects.add(e.getAsString());
         }
         
         return reward;

@@ -98,8 +98,19 @@ public class CrateInteractionHandler {
 
         if (result.audit() != null && result.audit().getSelectedRewardName() != null) {
             player.sendSystemMessage(Component.literal(
-                String.format(CrateMessages.CRATE_OPENED, crate.getDisplayName(), result.audit().getSelectedRewardName())));
+                String.format(CrateMessages.CRATE_OPENED,
+                    com.pedrodalben.bigbangessentials.crates.menu.AbstractCrateMenu.translateColorCodes(crate.getDisplayName()),
+                    com.pedrodalben.bigbangessentials.crates.menu.AbstractCrateMenu.translateColorCodes(result.audit().getSelectedRewardName()))));
         }
+
+        level.playSound(null, pos, net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
+            net.minecraft.resources.ResourceLocation.parse("minecraft:entity.firework_rocket.launch")),
+            net.minecraft.sounds.SoundSource.BLOCKS, 1.0F, 1.0F
+        );
+        level.playSound(null, pos, net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
+            net.minecraft.resources.ResourceLocation.parse("minecraft:entity.firework_rocket.twinkle")),
+            net.minecraft.sounds.SoundSource.BLOCKS, 1.0F, 1.0F
+        );
 
         if (animationHandler != null) {
             if (crate.getOpeningType() == CrateOpeningType.VIRTUAL) {
@@ -162,13 +173,19 @@ public class CrateInteractionHandler {
         Optional<CrateLocation> optLocation = crateService.getLocationByPosition(level.dimension(), pos);
         if (optLocation.isEmpty()) return false;
 
+        CrateLocation location = optLocation.get();
+        if (!location.isActive()) return false;
+
         boolean hasAdminPermission = player.hasPermissions(2);
         if (!hasAdminPermission) {
             player.sendSystemMessage(Component.literal("\u00a7cVoc\u00ea n\u00e3o pode quebrar blocos de crate."));
             return true;
         }
 
-        crateService.deleteLocation(optLocation.get().getId());
+        com.pedrodalben.bigbangessentials.crates.particle.CrateParticleManager.getInstance().stopParticles(location.getId());
+        com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager.getInstance().removeHologram(location.getId());
+
+        crateService.deleteLocation(location.getId());
         player.sendSystemMessage(Component.literal("\u00a7aLocaliza\u00e7\u00e3o de crate removida."));
         LOGGER.info("Player {} removed crate location at {}", player.getUUID(), pos);
         return true;

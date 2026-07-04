@@ -43,7 +43,7 @@ class CrateLocationTest {
         CrateLocation loc = new CrateLocation(UUID.randomUUID(), "crate_test", dimension, new BlockPos(10, 20, 30));
 
         assertNull(loc.getHologramTemplate());
-        assertEquals(2.0, loc.getHologramOffsetY(), 0.001);
+        assertEquals(1.0, loc.getHologramOffsetY(), 0.001);
         assertTrue(loc.isHologramEnabled());
         assertTrue(loc.isParticleEnabled());
         assertTrue(loc.isActive());

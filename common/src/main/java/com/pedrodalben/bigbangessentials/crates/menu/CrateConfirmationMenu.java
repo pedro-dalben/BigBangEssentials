@@ -47,8 +47,8 @@ public class CrateConfirmationMenu extends AbstractCrateMenu {
 
     public static void open(ServerPlayer player, String title, String[] messages, Consumer<Boolean> callback) {
         player.openMenu(new SimpleMenuProvider(
-            (id, inv, p) -> new CrateConfirmationMenu(id, inv, (ServerPlayer) p, title, callback, messages),
-            Component.literal(title != null ? title : "§8§lConfirmacao")
+            (id, inv, p) -> new CrateConfirmationMenu(id, inv, (ServerPlayer) p, translateColorCodes(title), callback, messages),
+            Component.literal(title != null ? translateColorCodes(title) : "§8§lConfirmacao")
         ));
     }
 
@@ -77,7 +77,7 @@ public class CrateConfirmationMenu extends AbstractCrateMenu {
             if (messages != null && messages.length > 0) {
                 List<Component> lore = new ArrayList<>();
                 for (String msg : messages) {
-                    lore.add(Component.literal(msg));
+                    lore.add(Component.literal(translateColorCodes(msg)));
                 }
                 titleItem.set(DataComponents.LORE, new ItemLore(lore));
             }
@@ -90,7 +90,7 @@ public class CrateConfirmationMenu extends AbstractCrateMenu {
         confirmLore.add(Component.literal("§7Clique para confirmar"));
         if (messages != null) {
             for (String msg : messages) {
-                confirmLore.add(Component.literal("§7" + msg));
+                confirmLore.add(Component.literal(translateColorCodes(msg)));
             }
         }
         confirmItem.set(DataComponents.LORE, new ItemLore(confirmLore));

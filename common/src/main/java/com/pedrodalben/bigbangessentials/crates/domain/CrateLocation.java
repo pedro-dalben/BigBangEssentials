@@ -27,7 +27,7 @@ public class CrateLocation {
         this.dimension = dimension;
         this.position = position;
         this.hologramEnabled = true;
-        this.hologramOffsetY = 2.0;
+        this.hologramOffsetY = 1.0;
         this.particleEnabled = true;
         this.active = true;
         this.createdAt = Instant.now();

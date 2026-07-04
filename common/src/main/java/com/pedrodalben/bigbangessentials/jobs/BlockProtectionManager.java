@@ -109,6 +109,7 @@ public class BlockProtectionManager {
     }
 
     public void handleChunkLoad(LevelChunk chunk) {
+        if (ioExecutor.isShutdown()) return;
         String dimension = chunk.getLevel().dimension().location().toString();
         int chunkX = chunk.getPos().x;
         int chunkZ = chunk.getPos().z;
@@ -123,6 +124,7 @@ public class BlockProtectionManager {
     }
 
     public void handleChunkUnload(LevelChunk chunk) {
+        if (ioExecutor.isShutdown()) return;
         String dimension = chunk.getLevel().dimension().location().toString();
         int chunkX = chunk.getPos().x;
         int chunkZ = chunk.getPos().z;

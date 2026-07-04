@@ -46,7 +46,7 @@ public class CrateEditMenu extends AbstractCrateMenu {
             return;
         }
 
-        fillBorder(7, "§8§m                §r §8[§6" + truncate(crate.getDisplayName(), 20) + "§8] §8§m                ");
+        fillBorder(7, "§8§m                §r §8[§6" + translateColorCodes(truncate(crate.getDisplayName(), 20)) + "§8] §8§m                ");
 
         renderGeneralInfo();
         renderEditingSections();
@@ -60,8 +60,8 @@ public class CrateEditMenu extends AbstractCrateMenu {
 
         List<Component> infoLore = new ArrayList<>();
         infoLore.add(Component.literal("§7ID: §f" + crate.getKey()));
-        infoLore.add(Component.literal("§7Nome: §f" + crate.getDisplayName()));
-        infoLore.add(Component.literal("§7Descricao: §f" + truncate(nonNull(crate.getDescription(), ""), 40)));
+        infoLore.add(Component.literal("§7Nome: §f" + translateColorCodes(crate.getDisplayName())));
+        infoLore.add(Component.literal("§7Descricao: §f" + translateColorCodes(truncate(nonNull(crate.getDescription(), ""), 40))));
         infoLore.add(Component.literal("§7Tipo: §f" + crate.getOpeningType().name()));
         infoLore.add(Component.literal("§7Cooldown: §f" + crate.getCooldownMillis() + "ms"));
         infoLore.add(Component.literal("§7Custo: §f" + (crate.getCost() > 0 ? "$" + crate.getCost() : "Gratuito")));
@@ -71,7 +71,7 @@ public class CrateEditMenu extends AbstractCrateMenu {
         infoLore.add(Component.literal("§7Milestones: §f" + crate.getMilestones().size()));
         infoLore.add(Component.literal("§7Locais: §f" + CrateService.getInstance().getLocationsByCrate(crate.getKey()).size()));
         icon.set(DataComponents.CUSTOM_NAME, Component.literal(
-            (crate.isEnabled() ? "§a" : "§c") + crate.getDisplayName()
+            (crate.isEnabled() ? "§a" : "§c") + translateColorCodes(crate.getDisplayName())
         ));
         icon.set(DataComponents.LORE, new ItemLore(infoLore));
 
@@ -132,7 +132,7 @@ public class CrateEditMenu extends AbstractCrateMenu {
             p.sendSystemMessage(Component.literal("§6=== Raridades: " + crate.getDisplayName() + " ==="));
             for (CrateRarity r : crate.getRarities()) {
                 String status = r.isActive() ? "§aAtivo" : "§cInativo";
-                p.sendSystemMessage(Component.literal(" §f- " + r.getName() + " §7(" + r.getId() + ") " + status + " §7Peso: " + r.getWeight()));
+                p.sendSystemMessage(Component.literal(" §f- " + translateColorCodes(r.getName()) + " §7(" + r.getId() + ") " + status + " §7Peso: " + r.getWeight()));
             }
             p.sendSystemMessage(Component.literal(""));
             p.sendSystemMessage(Component.literal("§e/crate addrarity " + crateKey + " <id> <nome> <cor> <peso>"));
@@ -156,7 +156,7 @@ public class CrateEditMenu extends AbstractCrateMenu {
                 String status = m.isActive() ? "§aAtivo" : "§cInativo";
                 String repeatable = m.isRepeatable() ? "§dRepetivel" : "§7Unico";
                 p.sendSystemMessage(Component.literal(
-                    " §f- " + m.getName() + " §7(" + m.getId() + ") "
+                    " §f- " + translateColorCodes(m.getName()) + " §7(" + m.getId() + ") "
                         + status + " §7Reward: " + m.getRewardId()
                         + " §7Aberturas: " + m.getRequiredOpenings()
                         + " §7Tipo: " + repeatable

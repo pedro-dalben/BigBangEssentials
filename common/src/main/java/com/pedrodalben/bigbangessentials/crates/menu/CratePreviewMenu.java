@@ -68,7 +68,7 @@ public class CratePreviewMenu extends AbstractCrateMenu {
 
         List<Component> lore = new ArrayList<>();
         if (crate.getDescription() != null && !crate.getDescription().isEmpty()) {
-            lore.add(Component.literal("§7" + crate.getDescription()));
+            lore.add(Component.literal("§7" + translateColorCodes(crate.getDescription())));
             lore.add(Component.literal(""));
         }
         lore.add(Component.literal("§7Recompensas: §f" + crate.getRewards().size()));
@@ -82,7 +82,7 @@ public class CratePreviewMenu extends AbstractCrateMenu {
             }
         }
 
-        icon.set(DataComponents.CUSTOM_NAME, Component.literal("§6§l" + crate.getDisplayName()));
+        icon.set(DataComponents.CUSTOM_NAME, Component.literal("§6§l" + translateColorCodes(crate.getDisplayName())));
         icon.set(DataComponents.LORE, new ItemLore(lore));
         setItem(4, icon);
     }
@@ -114,9 +114,14 @@ public class CratePreviewMenu extends AbstractCrateMenu {
     }
 
     private void renderRewardItem(int slot, CrateReward reward, CrateRarity rarity) {
-        ItemStack icon = reward.getIcon() != null && !reward.getIcon().isEmpty()
-            ? reward.getIcon().copy()
-            : new ItemStack(Items.PAPER);
+        ItemStack icon;
+        if (reward.getType().name().equals("ITEM") && !reward.getItems().isEmpty()) {
+            icon = reward.getItems().get(0).copy();
+        } else {
+            icon = reward.getIcon() != null && !reward.getIcon().isEmpty()
+                ? reward.getIcon().copy()
+                : new ItemStack(Items.PAPER);
+        }
 
         double chance = crate.calculateRewardChance(reward.getId());
         String chanceStr = String.format("%.2f%%", chance);
@@ -124,10 +129,10 @@ public class CratePreviewMenu extends AbstractCrateMenu {
         String rarityColor = rarity != null && rarity.getColor() != null ? rarity.getColor() : "§f";
         String rarityName = rarity != null ? rarity.getName() : reward.getRarityId();
 
-        String displayName = rarityColor + reward.getName();
+        String displayName = rarityColor + translateColorCodes(reward.getName());
 
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.literal("§7Raridade: " + rarityColor + rarityName));
+        lore.add(Component.literal("§7Raridade: " + rarityColor + translateColorCodes(rarityName)));
         lore.add(Component.literal("§7Chance: §f" + chanceStr));
 
         if (reward.getType().name().equals("ITEM") && !reward.getItems().isEmpty()) {
@@ -135,7 +140,7 @@ public class CratePreviewMenu extends AbstractCrateMenu {
             lore.add(Component.literal("§7Itens:"));
             for (ItemStack item : reward.getItems()) {
                 if (!item.isEmpty()) {
-                    lore.add(Component.literal(" §8- §f" + item.getHoverName().getString() + " §7x" + item.getCount()));
+                    lore.add(Component.literal(" §8- §r" + item.getHoverName().getString() + " §7x" + item.getCount()));
                 }
             }
         }

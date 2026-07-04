@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": 5,
+  "revision": 3,
   "balances": {
     "79227fe0-9815-4a62-a333-e27bc624735c": 100
   },
@@ -19,7 +19,27 @@
       "expiresAt": 1783109169263
     }
   },
-  "pendingAuditEntries": [],
+  "pendingAuditEntries": [
+    {
+      "transactionId": "cbf61819-dce8-4509-829b-7b18f94692c1",
+      "revision": 3,
+      "type": "RESERVATION_CREATED",
+      "playerUuid": "79227fe0-9815-4a62-a333-e27bc624735c",
+      "amount": 30,
+      "balanceBefore": 100,
+      "balanceAfter": 100,
+      "heldBefore": 0,
+      "heldAfter": 30,
+      "reservationId": "f743b9cc-acc0-4e09-b221-dfeb78b3922e",
+      "source": "test-source",
+      "purpose": "TEST",
+      "idempotencyKey": "d73e42d6-0d1f-467d-ba1c-06810b1f086a",
+      "requestFingerprint": "2d7ed616acd59e832172b2eb3b14809a346ee17f20eef55e083cba0f74bf97cf",
+      "externalReference": "ref-op",
+      "createdAt": 1783109109263,
+      "reconciled": false
+    }
+  ],
   "idempotencyRecords": {
     "4b991f76-feae-4e15-9e4a-c54dc91cc472": {
       "transactionId": "c4cf7a33-f179-4b4c-b6c3-eafb61e6ae34",

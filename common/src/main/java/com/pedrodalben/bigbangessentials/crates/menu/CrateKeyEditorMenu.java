@@ -95,7 +95,7 @@ public class CrateKeyEditorMenu extends AbstractCrateMenu {
         lore.add(Component.literal("§7Shift+clique para deletar"));
 
         icon.set(DataComponents.CUSTOM_NAME, Component.literal(
-            (key.isActive() ? "§a" : "§c") + key.getName()
+            (key.isActive() ? "§a" : "§c") + translateColorCodes(key.getName())
         ));
         icon.set(DataComponents.LORE, new ItemLore(lore));
 
@@ -119,9 +119,9 @@ public class CrateKeyEditorMenu extends AbstractCrateMenu {
 
     private void editKey(ServerPlayer p, KeyDefinition key) {
         p.closeContainer();
-        p.sendSystemMessage(Component.literal("§6=== Chave: " + key.getName() + " ==="));
+        p.sendSystemMessage(Component.literal("§6=== Chave: " + translateColorCodes(key.getName()) + " ==="));
         p.sendSystemMessage(Component.literal(" §7ID: " + key.getId()));
-        p.sendSystemMessage(Component.literal(" §7Nome: " + key.getName()));
+        p.sendSystemMessage(Component.literal(" §7Nome: " + translateColorCodes(key.getName())));
         p.sendSystemMessage(Component.literal(" §7Virtual: " + boolDisplay(key.isVirtual())));
         p.sendSystemMessage(Component.literal(" §7Ativo: " + boolDisplay(key.isActive())));
         p.sendSystemMessage(Component.literal(""));

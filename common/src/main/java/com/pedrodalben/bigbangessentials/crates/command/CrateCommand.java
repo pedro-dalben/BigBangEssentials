@@ -1017,6 +1017,58 @@ public class CrateCommand {
                         )
                     )
                 )
+                .then(Commands.literal("addeffect")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("tipo", StringArgumentType.word())
+                                .suggests((ctx, sb) -> {
+                                    sb.suggest("SOUND");
+                                    sb.suggest("FIREWORK");
+                                    sb.suggest("PARTICLE");
+                                    return sb.buildFuture();
+                                })
+                                .then(Commands.argument("valor", StringArgumentType.greedyString())
+                                    .executes(CrateCommand::addRewardEffect)
+                                )
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("removeeffect")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .then(Commands.argument("indice", IntegerArgumentType.integer(0))
+                                .executes(CrateCommand::removeRewardEffect)
+                            )
+                        )
+                    )
+                )
+                .then(Commands.literal("cleareffects")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .executes(CrateCommand::clearRewardEffects)
+                        )
+                    )
+                )
+                .then(Commands.literal("listeffects")
+                    .requires(CrateCommand::canManageCrates)
+                    .then(Commands.argument("crate", StringArgumentType.word())
+                        .suggests(CRATE_SUGGESTIONS)
+                        .then(Commands.argument("rewardId", StringArgumentType.word())
+                            .suggests(REWARD_SUGGESTIONS)
+                            .executes(CrateCommand::listRewardEffects)
+                        )
+                    )
+                )
             )
             .then(Commands.literal("rarity")
                 .requires(CrateCommand::canManageCrates)
@@ -1358,7 +1410,7 @@ public class CrateCommand {
                 }
 
                 source.sendSuccess(() -> Component.literal(
-                    String.format(CrateMessages.GIVE_SUCCESS, amount, crate.getDisplayName(),
+                    String.format(CrateMessages.GIVE_SUCCESS, amount, com.pedrodalben.bigbangessentials.crates.menu.AbstractCrateMenu.translateColorCodes(crate.getDisplayName()),
                         target.getName().getString())), true);
             }
         } catch (Exception e) {
@@ -1619,7 +1671,7 @@ public class CrateCommand {
             repo.save(state);
 
             source.sendSuccess(() -> Component.literal(
-                "\u00a7aCooldown resetado para " + target.getName().getString() + " na crate '" + crate.getDisplayName() + "'."), true);
+                "\u00a7aCooldown resetado para " + target.getName().getString() + " na crate '" + com.pedrodalben.bigbangessentials.crates.menu.AbstractCrateMenu.translateColorCodes(crate.getDisplayName()) + "'."), true);
             return 1;
         } catch (Exception e) {
             LOGGER.error("Error resetting cooldown", e);
@@ -1800,7 +1852,7 @@ public class CrateCommand {
 
             for (CrateLocation loc : locations) {
                 CrateDefinition crate = crateService.getCrateByKey(loc.getCrateId());
-                String crateName = crate != null ? crate.getDisplayName() : loc.getCrateId();
+                String crateName = crate != null ? com.pedrodalben.bigbangessentials.crates.menu.AbstractCrateMenu.translateColorCodes(crate.getDisplayName()) : loc.getCrateId();
                 String active = loc.isActive() ? "\u00a7aAtiva" : "\u00a7cInativa";
                 String hologram = loc.isHologramEnabled() ? "\u00a7aSim" : "\u00a7cNao";
                 String particles = loc.isParticleEnabled() ? "\u00a7aSim" : "\u00a7cNao";
@@ -3728,6 +3780,93 @@ public class CrateCommand {
             blockingPermissions.isEmpty()
                 ? "\u00a7aPermiss\u00f5es bloqueadoras da recompensa '" + reward.getId() + "' removidas."
                 : "\u00a7aPermiss\u00f5es bloqueadoras da recompensa '" + reward.getId() + "' atualizadas."), true);
+        return 1;
+    }
+
+    // === Reward Effects ===
+
+    private static int addRewardEffect(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) return 0;
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) return 0;
+
+        String tipo = StringArgumentType.getString(context, "tipo").toUpperCase();
+        if (!tipo.equals("SOUND") && !tipo.equals("FIREWORK") && !tipo.equals("PARTICLE")) {
+            source.sendFailure(Component.literal("§cTipo invalido. Use: SOUND, FIREWORK ou PARTICLE."));
+            return 0;
+        }
+
+        String valor = StringArgumentType.getString(context, "valor");
+        if (valor.isBlank()) {
+            source.sendFailure(Component.literal("§cValor nao pode ser vazio."));
+            return 0;
+        }
+
+        String effect = tipo + ":" + valor;
+        reward.addWinEffect(effect);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal("§aEfeito adicionado: " + effect), true);
+        return 1;
+    }
+
+    private static int removeRewardEffect(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) return 0;
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) return 0;
+
+        int indice = IntegerArgumentType.getInteger(context, "indice");
+        List<String> effects = reward.getWinEffects();
+        if (indice < 0 || indice >= effects.size()) {
+            source.sendFailure(Component.literal("§cIndice invalido. Use /crate reward listeffects " + crate.getKey() + " " + reward.getId()));
+            return 0;
+        }
+
+        String removed = effects.get(indice);
+        reward.removeWinEffect(indice);
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal("§aEfeito removido: " + removed), true);
+        return 1;
+    }
+
+    private static int clearRewardEffects(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) return 0;
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) return 0;
+
+        int count = reward.getWinEffects().size();
+        reward.clearWinEffects();
+        crateService.updateReward(crate.getKey(), reward);
+        source.sendSuccess(() -> Component.literal("§a" + count + " efeitos removidos da recompensa '" + reward.getId() + "'."), true);
+        return 1;
+    }
+
+    private static int listRewardEffects(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        CrateDefinition crate = requireCrate(source, StringArgumentType.getString(context, "crate"));
+        if (crate == null) return 0;
+
+        CrateReward reward = requireReward(source, crate, StringArgumentType.getString(context, "rewardId"));
+        if (reward == null) return 0;
+
+        List<String> effects = reward.getWinEffects();
+        source.sendSuccess(() -> Component.literal("§6=== Efeitos: " + reward.getName() + " ==="), false);
+        if (effects.isEmpty()) {
+            source.sendSuccess(() -> Component.literal(" §7Nenhum efeito configurado."), false);
+        } else {
+            for (int i = 0; i < effects.size(); i++) {
+                final int idx = i;
+                source.sendSuccess(() -> Component.literal(" §e" + idx + "§7: §f" + effects.get(idx)), false);
+            }
+        }
         return 1;
     }
 

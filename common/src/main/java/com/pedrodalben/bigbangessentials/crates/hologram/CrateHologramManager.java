@@ -3,7 +3,9 @@ package com.pedrodalben.bigbangessentials.crates.hologram;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateLocation;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateVisualConfig;
+import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
+import com.pedrodalben.bigbangessentials.crates.menu.AbstractCrateMenu;
 import com.pedrodalben.bigbangessentials.util.Platform;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -208,23 +210,47 @@ public class CrateHologramManager {
             CrateLocation location, CrateDefinition crate, CrateVisualConfig config) {
         List<String> lines = new ArrayList<>();
 
+        String keyInfo = resolveKeyInfo(crate);
+
         if (config.getHologramTemplate() != null && !config.getHologramTemplate().isBlank()) {
             String processed = config.getHologramTemplate()
                 .replace("{name}", crate.getDisplayName() != null ? crate.getDisplayName() : crate.getKey())
                 .replace("{description}", crate.getDescription() != null ? crate.getDescription() : "")
-                .replace("{key}", crate.getKey());
-            lines.add(processed);
+                .replace("{key}", crate.getKey())
+                .replace("{key_amount}", keyInfo);
+            lines.add(AbstractCrateMenu.translateColorCodes(processed));
         } else {
             for (String line : config.getHologramLines()) {
                 String processed = line
                     .replace("{name}", crate.getDisplayName() != null ? crate.getDisplayName() : crate.getKey())
                     .replace("{description}", crate.getDescription() != null ? crate.getDescription() : "")
-                    .replace("{key}", crate.getKey());
-                lines.add(processed);
+                    .replace("{key}", crate.getKey())
+                    .replace("{key_amount}", keyInfo);
+                processed = AbstractCrateMenu.translateColorCodes(processed);
+                if (!processed.isBlank()) {
+                    lines.add(processed);
+                }
             }
         }
 
         return lines;
+    }
+
+    private String resolveKeyInfo(CrateDefinition crate) {
+        if (crate.getRequirements().hasKeyRequirement()) {
+            List<String> keyIds = crate.getRequirements().getAcceptedKeyIds();
+            if (!keyIds.isEmpty()) {
+                CrateService crateService = CrateService.getInstance();
+                if (crateService != null) {
+                    java.util.Optional<KeyDefinition> keyDef = crateService.getKeyById(keyIds.get(0));
+                    if (keyDef.isPresent()) {
+                        return "§f" + AbstractCrateMenu.translateColorCodes(keyDef.get().getName());
+                    }
+                }
+                return "§f" + keyIds.get(0);
+            }
+        }
+        return "";
     }
 
     private ServerLevel resolveLevel(CrateLocation location) {

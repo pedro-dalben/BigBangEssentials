@@ -30,10 +30,9 @@ public class CrateVisualConfig {
         this.hologramLines = Arrays.asList(
             "§6§l{name}",
             "§7{description}",
-            "§e§lChaves: §f{key_amount}",
             "§7Clique para abrir"
         );
-        this.hologramOffsetY = 2.0;
+        this.hologramOffsetY = 1.0;
         this.hologramUpdateIntervalTicks = 20; // Update every second
         this.hologramViewDistance = 16;
         this.idleParticleConfig = new CrateParticleConfig();
