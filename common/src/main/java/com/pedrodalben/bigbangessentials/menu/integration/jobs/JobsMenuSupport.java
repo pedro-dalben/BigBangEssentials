@@ -79,22 +79,62 @@ public final class JobsMenuSupport {
         }
 
         boolean hasPerm = player == null || PermissionAPI.hasPermission(player.getUUID(), job.permission);
+        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus licStatus =
+                player != null ? com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().getLicenseStatus(player.getUUID(), job.id) : com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.LICENSED;
+
         String statusLabel;
         String statusColor;
         String statusKey;
         if (isActive) {
-            statusLabel = "Ativo";
+            statusLabel = "Ativo no Slot";
             statusColor = "<green>";
             statusKey = "active";
-        } else if (hasPerm) {
-            statusLabel = "Disponível";
+        } else if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.LICENSED) {
+            statusLabel = "Licenciado";
+            statusColor = "<aqua>";
+            statusKey = "licensed";
+        } else if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.READY_TO_CLAIM) {
+            statusLabel = "Licença Pronta!";
+            statusColor = "<gold>";
+            statusKey = "ready_to_claim";
+        } else if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.IN_PROGRESS) {
+            statusLabel = "Em Andamento";
             statusColor = "<yellow>";
-            statusKey = "ready";
+            statusKey = "in_progress";
+        } else if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.ELIGIBLE && hasPerm) {
+            statusLabel = "Licença Disponível";
+            statusColor = "<yellow>";
+            statusKey = "eligible";
         } else {
-            statusLabel = "Bloqueado";
+            statusLabel = "Bloqueado por Rank";
             statusColor = "<red>";
             statusKey = "locked";
         }
+
+        String licLabel;
+        if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.LICENSED) {
+            licLabel = "<aqua>Licenciado";
+        } else if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.READY_TO_CLAIM) {
+            licLabel = "<gold>Pronta para Resgatar";
+        } else if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.IN_PROGRESS) {
+            licLabel = "<yellow>Em Andamento";
+        } else if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.ELIGIBLE && hasPerm) {
+            licLabel = "<yellow>Disponível";
+        } else {
+            licLabel = "<red>Bloqueado por Rank";
+        }
+
+        String assignedSlot = "Nenhum";
+        if (player != null) {
+            Map<String, com.pedrodalben.bigbangessentials.jobs.slot.JobSlot> slots = com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().getSlots(player.getUUID());
+            for (com.pedrodalben.bigbangessentials.jobs.slot.JobSlot slot : slots.values()) {
+                if (slot.activeJobId().isPresent() && slot.activeJobId().get().equalsIgnoreCase(job.id)) {
+                    assignedSlot = slot.slotType();
+                    break;
+                }
+            }
+        }
+        String categoryLabel = job.category != null ? (job.category.contains("POKEMON") ? "Especialização Pokémon" : "Profissão Comum") : "Profissão Comum";
 
         values.put("job_id", job.id);
         values.put("job_name", job.id);
@@ -109,6 +149,9 @@ public final class JobsMenuSupport {
         values.put("job_status", statusLabel);
         values.put("job_status_color", statusColor);
         values.put("job_status_key", statusKey);
+        values.put("job_license_label", licLabel);
+        values.put("job_slot_assigned", assignedSlot);
+        values.put("job_category_label", categoryLabel);
         values.put("job_icon", getJobIcon(job.id));
         values.put("job_active", String.valueOf(isActive));
         values.put("job_has_permission", String.valueOf(hasPerm));

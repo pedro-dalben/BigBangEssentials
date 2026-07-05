@@ -66,6 +66,10 @@ public class JobsCommand {
         return builder.buildFuture();
     };
 
+    private static final SuggestionProvider<CommandSourceStack> SUGGEST_SLOTS = (ctx, builder) -> {
+        return SharedSuggestionProvider.suggest(List.of("COMMON_PRIMARY", "COMMON_SECONDARY", "POKEMON_SPECIALIZATION"), builder);
+    };
+
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("jobs")
             .requires(src -> hasPermission(src, "jobs.command.jobs"))
@@ -139,6 +143,52 @@ public class JobsCommand {
                 .then(Commands.argument("profissao", StringArgumentType.word())
                     .suggests(SUGGEST_PROFESSIONS)
                     .executes(ctx -> executeTop(ctx, StringArgumentType.getString(ctx, "profissao")))))
+            .then(Commands.literal("licenca")
+                .requires(src -> hasPermission(src, "jobs.command.license"))
+                .executes(ctx -> executeLicenseStatus(ctx, null))
+                .then(Commands.literal("status")
+                    .executes(ctx -> executeLicenseStatus(ctx, null))
+                    .then(Commands.argument("profissao", StringArgumentType.word())
+                        .suggests(SUGGEST_PROFESSIONS)
+                        .executes(ctx -> executeLicenseStatus(ctx, StringArgumentType.getString(ctx, "profissao")))))
+                .then(Commands.literal("iniciar")
+                    .then(Commands.argument("profissao", StringArgumentType.word())
+                        .suggests(SUGGEST_PROFESSIONS)
+                        .executes(ctx -> executeLicenseStart(ctx, StringArgumentType.getString(ctx, "profissao")))))
+                .then(Commands.literal("reivindicar")
+                    .then(Commands.argument("profissao", StringArgumentType.word())
+                        .suggests(SUGGEST_PROFESSIONS)
+                        .executes(ctx -> executeLicenseClaim(ctx, StringArgumentType.getString(ctx, "profissao")))))
+                .then(Commands.literal("cancelar")
+                    .then(Commands.argument("profissao", StringArgumentType.word())
+                        .suggests(SUGGEST_PROFESSIONS)
+                        .executes(ctx -> executeLicenseCancel(ctx, StringArgumentType.getString(ctx, "profissao"))))))
+            .then(Commands.literal("slot")
+                .requires(src -> hasPermission(src, "jobs.command.slot"))
+                .executes(JobsCommand::executeSlotList)
+                .then(Commands.literal("list")
+                    .executes(JobsCommand::executeSlotList))
+                .then(Commands.literal("alocar")
+                    .then(Commands.argument("slot", StringArgumentType.word())
+                        .suggests(SUGGEST_SLOTS)
+                        .then(Commands.argument("profissao", StringArgumentType.word())
+                            .suggests(SUGGEST_PROFESSIONS)
+                            .executes(ctx -> executeSlotAssign(ctx, StringArgumentType.getString(ctx, "slot"), StringArgumentType.getString(ctx, "profissao"))))))
+                .then(Commands.literal("remover")
+                    .then(Commands.argument("slot", StringArgumentType.word())
+                        .suggests(SUGGEST_SLOTS)
+                        .executes(ctx -> executeSlotRemove(ctx, StringArgumentType.getString(ctx, "slot"))))))
+            .then(Commands.literal("fragmentos")
+                .executes(JobsCommand::executeFragments)
+                .then(Commands.literal("trocar")
+                    .executes(JobsCommand::executeFragmentExchange)))
+            .then(Commands.literal("contratos")
+                .executes(JobsCommand::executeContractList)
+                .then(Commands.literal("list")
+                    .executes(JobsCommand::executeContractList))
+                .then(Commands.literal("resgatar")
+                    .then(Commands.argument("id", StringArgumentType.string())
+                        .executes(ctx -> executeContractClaim(ctx, StringArgumentType.getString(ctx, "id"))))))
         );
     }
 
@@ -155,6 +205,10 @@ public class JobsCommand {
         source.sendSuccess(() -> Component.literal("§e/jobs habilidade <trabalho> desbloquear <habilidade> §7- Investe pontos"), false);
         source.sendSuccess(() -> Component.literal("§e/jobs ganhos §7- Mostra ganhos de hoje e limite diário"), false);
         source.sendSuccess(() -> Component.literal("§e/jobs top <trabalho> §7- Ranking de maiores níveis"), false);
+        source.sendSuccess(() -> Component.literal("§e/jobs licenca [status|iniciar|reivindicar|cancelar] §7- Gestão de licenças"), false);
+        source.sendSuccess(() -> Component.literal("§e/jobs slot [list|alocar|remover] §7- Gestão de slots de profissão"), false);
+        source.sendSuccess(() -> Component.literal("§e/jobs fragmentos [trocar] §7- Gestão e troca de Fragmentos de Jornada"), false);
+        source.sendSuccess(() -> Component.literal("§e/jobs contratos [list|resgatar <id>] §7- Missões diárias e semanais"), false);
         source.sendSuccess(() -> Component.literal("§e/jobs notificacoes <on|off> §7- Alterna alertas na actionbar"), false);
         return 1;
     }
@@ -682,6 +736,132 @@ public class JobsCommand {
             ctx.getSource().sendSuccess(() -> Component.literal("§cAlertas na actionbar desativados!"), false);
         }
 
+        return 1;
+    }
+
+    private static int executeLicenseStatus(CommandContext<CommandSourceStack> ctx, String jobName) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        JobsConfig cfg = JobsManager.getInstance().getConfig();
+        if (cfg == null) return 0;
+
+        if (jobName == null) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§6§l=== STATUS DE LICENÇAS ==="), false);
+            for (JobDefinition job : cfg.getProfessions().values()) {
+                if (!job.enabled) continue;
+                var status = com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().getLicenseStatus(player.getUUID(), job.id);
+                String color = status == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.LICENSED ? "§a" :
+                               status == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.READY_TO_CLAIM ? "§6" :
+                               status == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.IN_PROGRESS ? "§e" :
+                               status == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.ELIGIBLE ? "§b" : "§c";
+                ctx.getSource().sendSuccess(() -> Component.literal("§7- §f" + job.displayName + ": " + color + status), false);
+            }
+        } else {
+            JobDefinition job = cfg.getJob(jobName);
+            if (job == null) {
+                ctx.getSource().sendFailure(Component.literal("§cProfissão não encontrada."));
+                return 0;
+            }
+            var status = com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().getLicenseStatus(player.getUUID(), job.id);
+            ctx.getSource().sendSuccess(() -> Component.literal("§6Status da Licença para §l" + job.displayName + "§6: §e" + status), false);
+            if (status == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.IN_PROGRESS) {
+                com.pedrodalben.bigbangessentials.jobs.license.InProgressLicense prog = com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().getInProgressLicenses(player.getUUID()).get(job.id.toLowerCase());
+                if (prog != null) {
+                    for (var obj : prog.objectives()) {
+                        ctx.getSource().sendSuccess(() -> Component.literal("§eObjetivo: §f" + obj.currentAmount() + " / " + obj.requiredAmount() + " (" + obj.actionType() + ")"), false);
+                    }
+                }
+            }
+        }
+        return 1;
+    }
+
+    private static int executeLicenseStart(CommandContext<CommandSourceStack> ctx, String jobName) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().startLicenseQuest(player, jobName);
+        return 1;
+    }
+
+    private static int executeLicenseClaim(CommandContext<CommandSourceStack> ctx, String jobName) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().claimLicense(player, jobName);
+        return 1;
+    }
+
+    private static int executeLicenseCancel(CommandContext<CommandSourceStack> ctx, String jobName) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().cancelLicenseQuest(player, jobName);
+        return 1;
+    }
+
+    private static int executeSlotList(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        ctx.getSource().sendSuccess(() -> Component.literal("§6§l=== SEUS SLOTS DE PROFISSÃO ==="), false);
+        var slots = com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().getSlots(player.getUUID());
+        long now = System.currentTimeMillis();
+        for (var slot : slots.values()) {
+            String status = slot.activeJobId().map(id -> "§aOcupado (" + id + ")").orElse("§eVazio");
+            if (slot.isOnCooldown(now)) {
+                long remSec = Math.max(0, slot.cooldownUntil() - now) / 1000;
+                status += " §c(Cooldown: " + remSec + "s)";
+            }
+            final String finalStatus = status;
+            ctx.getSource().sendSuccess(() -> Component.literal("§7- §f" + slot.slotType() + " [" + slot.category() + "]: " + finalStatus), false);
+        }
+        return 1;
+    }
+
+    private static int executeSlotAssign(CommandContext<CommandSourceStack> ctx, String slotType, String jobName) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().assignJobToSlot(player, slotType, jobName);
+        return 1;
+    }
+
+    private static int executeSlotRemove(CommandContext<CommandSourceStack> ctx, String slotType) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().unassignJobFromSlot(player, slotType);
+        return 1;
+    }
+
+    private static int executeFragments(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        long balance = com.pedrodalben.bigbangessentials.jobs.rewards.JourneyFragmentService.getInstance().getBalance(player.getUUID());
+        player.sendSystemMessage(MessageUtil.coloredText("<gold><bold>=== FRAGMENTOS DE JORNADA ===</bold>"));
+        player.sendSystemMessage(MessageUtil.coloredText("<yellow>Seu saldo atual: <bold><white>" + balance + " Fragmentos</white></bold>"));
+        player.sendSystemMessage(MessageUtil.coloredText("<gray>Use <yellow>/jobs fragmentos trocar<gray> para trocar 12 fragmentos por 1 Chave do Ofício (Craft Key)."));
+        return 1;
+    }
+
+    private static int executeFragmentExchange(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var result = com.pedrodalben.bigbangessentials.jobs.rewards.FragmentExchangeService.getInstance().exchangeFragmentsForKey(player.getUUID(), 1);
+        if (!result.success()) {
+            player.sendSystemMessage(MessageUtil.coloredText("<red>" + result.message()));
+        } else {
+            player.sendSystemMessage(MessageUtil.coloredText("<green><bold>¡Troca realizada!</bold> <yellow>" + result.message()));
+        }
+        return 1;
+    }
+
+    private static int executeContractList(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var contracts = com.pedrodalben.bigbangessentials.jobs.contracts.JobContractService.getInstance().getOrGenerateContracts(player.getUUID());
+        player.sendSystemMessage(MessageUtil.coloredText("<gold><bold>=== CONTRATOS DE TRABALHO ===</bold>"));
+        for (var c : contracts) {
+            var obj = c.parseObjective();
+            String statusCol = switch (c.status()) {
+                case ACTIVE -> "<yellow>Ativo (" + c.progressAmount() + "/" + obj.requiredAmount() + ")";
+                case COMPLETED -> "<green><bold>CONCLUÍDO!</bold> <yellow>(Use /jobs contratos resgatar " + c.contractId() + ")";
+                case CLAIMED -> "<gray>Resgatado";
+                case EXPIRED -> "<red>Expirado";
+            };
+            player.sendSystemMessage(MessageUtil.coloredText("<white>[" + c.periodType() + "] <gold>" + obj.description() + " - " + statusCol));
+        }
+        return 1;
+    }
+
+    private static int executeContractClaim(CommandContext<CommandSourceStack> ctx, String contractId) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        com.pedrodalben.bigbangessentials.jobs.contracts.JobContractService.getInstance().claimContract(player, contractId);
         return 1;
     }
 }

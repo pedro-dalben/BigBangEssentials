@@ -18,6 +18,9 @@ pages:
             - "<gray>XP: <white>{context:job_xp} / {context:job_xp_required}"
             - "{context:job_xp_progress_bar}"
             - "<gray>Limite Diário: <white>${context:job_earnings} / ${context:job_limit}"
+            - "<gray>Categoria: <white>{context:job_category_label}"
+            - "<gray>Licença: {context:job_license_label}"
+            - "<gray>Slot Ocupado: <yellow>{context:job_slot_assigned}"
             - "<gray>Status: {context:job_status_color}{context:job_status}"
       toggle_action:
         slot: 13
