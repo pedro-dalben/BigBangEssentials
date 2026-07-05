@@ -12,6 +12,9 @@ import com.pedrodalben.bigbangessentials.database.migration.migrations.V006Creat
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V007ExpandCrateAuditIdempotencyKey;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V008CreateCrateConfigTables;
 import com.pedrodalben.bigbangessentials.database.migration.migrations.V009UpdateCrateKeysPhysicalDefault;
+import com.pedrodalben.bigbangessentials.database.migration.migrations.V010CreateJobActionReceiptsTable;
+import com.pedrodalben.bigbangessentials.database.migration.migrations.V011CreateJobExplorationDiscoveriesTable;
+import com.pedrodalben.bigbangessentials.database.migration.migrations.V012CreateJobProgressionTables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +40,10 @@ public class MigrationManager {
         registeredMigrations.add(new V007ExpandCrateAuditIdempotencyKey());
         registeredMigrations.add(new V008CreateCrateConfigTables());
         registeredMigrations.add(new V009UpdateCrateKeysPhysicalDefault());
+        registeredMigrations.add(new V010CreateJobActionReceiptsTable());
+        registeredMigrations.add(new V011CreateJobExplorationDiscoveriesTable());
+        registeredMigrations.add(new V012CreateJobProgressionTables());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V013CreateJobRewardsAndContractsTables());
     }
 
     /**

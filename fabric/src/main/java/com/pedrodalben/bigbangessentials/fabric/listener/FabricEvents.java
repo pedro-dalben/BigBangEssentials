@@ -18,6 +18,7 @@ public class FabricEvents {
             com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 RankupEventListener.onPlayerTick(player);
+                JobsEventListener.onPlayerTick(player);
             }
         });
 

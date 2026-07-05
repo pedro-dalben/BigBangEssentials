@@ -11,6 +11,7 @@ import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository;
 import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository.JobProgress;
 import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository.RankingEntry;
 import com.pedrodalben.bigbangessentials.jobs.events.JobsEvents.*;
+import com.pedrodalben.bigbangessentials.jobs.pipeline.JobActionPublisher;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -57,6 +58,8 @@ public class JobsManager {
 
     private JobsManager() {
         reload();
+        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseProgressService.getInstance().init();
+        com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().initializeAll();
     }
 
     public CompletableFuture<List<RankingEntry>> getRanking(String jobId) {
@@ -94,6 +97,7 @@ public class JobsManager {
         try {
             JobsConfig newConfig = JobConfigurationLoader.loadAndValidate();
             this.config = newConfig;
+            com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().reload();
             LOGGER.info("Jobs configuration loaded/reloaded successfully.");
             return true;
         } catch (Exception e) {
@@ -116,6 +120,11 @@ public class JobsManager {
         }
 
         BlockProtectionManager.getInstance().shutdown();
+        com.pedrodalben.bigbangessentials.jobs.progression.JobRankMilestoneService.getInstance().shutdown();
+        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().shutdown();
+        com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().shutdown();
+        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseProgressService.getInstance().shutdown();
+        com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().shutdownAll();
         playerDataCache.clear();
         LOGGER.info("JobsManager shutdown complete.");
     }
@@ -207,161 +216,7 @@ public class JobsManager {
     }
 
     public void processAction(ServerPlayer player, String actionType, Object target, String registryId) {
-        if (config == null || player == null) return;
-
-        PlayerJobsData data = playerDataCache.get(player.getUUID());
-        if (data == null) return;
-
-        // Central day cycle check
-        data.setCurrentCycleStart(calculateCurrentCycleStart());
-
-        // Check if player is AFK
-        boolean isAfk = AfkManager.getInstance().isAfk(player.getUUID());
-        boolean preventEarnings = isAfk && config.isPreventEarningsWhileAfk();
-        boolean preventXp = isAfk && config.isPreventXpWhileAfk();
-
-        for (Map.Entry<String, JobProgress> entry : data.getJobs().entrySet()) {
-            String jobId = entry.getKey();
-            JobProgress progress = entry.getValue();
-
-            if (!progress.isActive()) continue;
-
-            JobDefinition jobDef = config.getJob(jobId);
-            if (jobDef == null || !jobDef.enabled) continue;
-
-            // Resolve action reward matching registry ID or tag pattern
-            ActionReward reward = null;
-            reward = jobDef.getReward(actionType, registryId);
-            if (reward == null) {
-                Map<String, ActionReward> map = jobDef.actions.get(actionType.toUpperCase().replace('_', '-'));
-                if (map != null) {
-                    for (Map.Entry<String, ActionReward> actEntry : map.entrySet()) {
-                        String key = actEntry.getKey();
-                        if (key.startsWith("#")) {
-                            boolean tagMatches = false;
-                            if (target instanceof BlockState bs) {
-                                tagMatches = blockMatches(bs, key);
-                            } else if (target instanceof EntityType<?> et) {
-                                tagMatches = entityMatches(et, key);
-                            } else if (target instanceof ItemStack is) {
-                                tagMatches = itemMatches(is, key);
-                            }
-                            if (tagMatches) {
-                                reward = actEntry.getValue();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (reward == null) continue;
-
-            // Compute reward multipliers
-            double baseReward = reward.money;
-            double baseXp = reward.xp;
-
-            double levelMultiplier = JobRewardService.getInstance().calculateLevelMultiplier(progress.getLevel(), jobDef);
-            double skillMultiplier = calculateSkillMultiplier(data, jobDef, "money-multiplier");
-            double permissionMultiplier = getGanhosPermissionMultiplier(player);
-            double tempMultiplier = 1.0;
-
-            // Calculation Event
-            JobRewardCalculateEvent calcEvent = new JobRewardCalculateEvent(
-                    player.getUUID(), jobId, baseReward, levelMultiplier, skillMultiplier, permissionMultiplier, tempMultiplier
-            );
-            com.pedrodalben.bigbangessentials.util.Platform.postEvent(calcEvent);
-            if (calcEvent.isCanceled()) {
-                if (data.isDebugMode() || globalDebugMode) {
-                    player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                            String.format("§7[Debug] Evento de recompensa cancelado para a ação %s (%s). Motivo: EVENT_CANCELLED", actionType, registryId)
-                    ));
-                }
-                continue;
-            }
-
-            double finalPayout = calcEvent.getFinalAmount();
-
-            // Daily limits logic
-            double dailyLimit = JobDailyLimitService.getInstance().getDailyLimit(jobDef, config, player);
-
-            double currentEarnings = data.getDailyEarnings(jobId);
-            double allowedPayout = finalPayout;
-            boolean limitReached = false;
-
-            if (config.isDailyLimitEnabled() && dailyLimit > 0.0) {
-                allowedPayout = JobDailyLimitService.getInstance().calculatePayoutAfterLimits(currentEarnings, finalPayout, dailyLimit, config.isDailyLimitEnabled());
-                if (currentEarnings >= dailyLimit || currentEarnings + finalPayout > dailyLimit) {
-                    limitReached = true;
-                }
-            }
-
-            // AFK checks overriding values
-            if (preventEarnings) {
-                allowedPayout = 0.0;
-            }
-
-            boolean deposited = false;
-            if (allowedPayout > 0.0) {
-                deposited = EconomyAPI.deposit(player.getUUID(), BigDecimal.valueOf(allowedPayout));
-            }
-
-            if (deposited) {
-                double newEarnings = currentEarnings + allowedPayout;
-                data.setDailyEarnings(jobId, newEarnings);
-                repository.savePlayerJobEarnings(player.getUUID(), jobId, data.getCurrentCycleStart(), newEarnings);
-
-                com.pedrodalben.bigbangessentials.util.Platform.postEvent(new JobRewardPaidEvent(player.getUUID(), jobId, allowedPayout));
-
-                // Send debug info if active
-                if (data.isDebugMode() || globalDebugMode) {
-                    player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                            String.format("§7[Debug] Ação: %s | Alvo: %s | Base: %.2f | Nível: %.2f | Hab: %.2f | VIP: %.2f | Final: %.2f (Pago: %.2f)",
-                                     actionType, registryId, baseReward, levelMultiplier, skillMultiplier, permissionMultiplier, finalPayout, allowedPayout)
-                    ));
-                }
-
-                if (config.isDailyLimitEnabled() && dailyLimit > 0.0) {
-                    checkDailyLimitWarnings(player, data, jobId, newEarnings, dailyLimit);
-                }
-            } else if (allowedPayout > 0.0) {
-                LOGGER.error("Failed to deposit jobs reward of {} for player {}", allowedPayout, player.getName().getString());
-            } else if (limitReached && (data.isDebugMode() || globalDebugMode)) {
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                        String.format("§7[Debug] Pagamento bloqueado. Motivo: DAILY_LIMIT_REACHED")
-                ));
-            } else if (preventEarnings && (data.isDebugMode() || globalDebugMode)) {
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                        String.format("§7[Debug] Pagamento blocked. Motivo: PLAYER_AFK")
-                ));
-            }
-
-            // XP Progression
-            double skillXpMultiplier = calculateSkillMultiplier(data, jobDef, "xp-multiplier");
-            double permissionXpMultiplier = getXpPermissionMultiplier(player);
-            double finalXp = baseXp * skillXpMultiplier * permissionXpMultiplier;
-
-            if (preventXp) {
-                finalXp = 0.0;
-            }
-
-            if (finalXp > 0.0 && (!limitReached || config.isContinueXpAfterLimit())) {
-                JobExperienceGainEvent xpEvent = new JobExperienceGainEvent(player.getUUID(), jobId, finalXp);
-                com.pedrodalben.bigbangessentials.util.Platform.postEvent(xpEvent);
-                if (!xpEvent.isCanceled()) {
-                    addExperience(player, data, jobId, xpEvent.getAmount());
-                } else if (data.isDebugMode() || globalDebugMode) {
-                    player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                            String.format("§7[Debug] XP cancelado. Motivo: EVENT_CANCELLED")
-                    ));
-                }
-            }
-
-            // Play notification / action bar
-            if (data.isNotificationsEnabled() && (allowedPayout > 0.0 || finalXp > 0.0)) {
-                sendActionBarNotification(player, jobDef, allowedPayout, finalXp);
-            }
-        }
+        JobActionPublisher.getInstance().publish(player, actionType, target, registryId);
     }
 
     private void checkDailyLimitWarnings(ServerPlayer player, PlayerJobsData data, String jobId, double currentEarnings, double dailyLimit) {

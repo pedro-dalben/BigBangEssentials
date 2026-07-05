@@ -67,3 +67,6 @@ logs/
 world/
 config/
 /bigbangessentials/
+common/bigbangessentials/
+fabric/bigbangessentials/
+neoforge/bigbangessentials/

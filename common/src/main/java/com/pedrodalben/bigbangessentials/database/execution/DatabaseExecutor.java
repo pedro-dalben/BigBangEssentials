@@ -74,12 +74,13 @@ public class DatabaseExecutor {
             threadPool.execute(() -> {
                 long startTime = System.currentTimeMillis();
                 boolean success = false;
+                T result = null;
+                Throwable error = null;
                 try {
-                    T result = task.execute();
+                    result = task.execute();
                     success = true;
-                    future.complete(result);
                 } catch (Throwable e) {
-                    future.completeExceptionally(e);
+                    error = e;
                 } finally {
                     long duration = System.currentTimeMillis() - startTime;
                     boolean slow = duration >= config.getDebug().getSlowQueryThresholdMs();
@@ -92,6 +93,11 @@ public class DatabaseExecutor {
                     if (config.getDebug().isLogQueries()) {
                         LOGGER.info("Database query executed: {} [{}ms] (success={})", 
                             operationName, duration, success);
+                    }
+                    if (success) {
+                        future.complete(result);
+                    } else {
+                        future.completeExceptionally(error);
                     }
                 }
             });

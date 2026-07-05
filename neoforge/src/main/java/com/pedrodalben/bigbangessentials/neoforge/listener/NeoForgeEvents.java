@@ -83,6 +83,7 @@ public class NeoForgeEvents {
         if (server != null) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 RankupEventListener.onPlayerTick(player);
+                JobsEventListener.onPlayerTick(player);
             }
         }
     }
@@ -137,6 +138,20 @@ public class NeoForgeEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             JobsEventListener.onItemFished(player, event.getDrops());
             RankupEventListener.onItemFished(player, event.getDrops(), event.isCanceled());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onItemCrafted(PlayerEvent.ItemCraftedEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            JobsEventListener.onItemCrafted(player, event.getCrafting(), event.getCrafting().getCount());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onItemSmelted(PlayerEvent.ItemSmeltedEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            JobsEventListener.onItemSmelted(player, event.getSmelting(), event.getSmelting().getCount(), "furnace", null);
         }
     }
 

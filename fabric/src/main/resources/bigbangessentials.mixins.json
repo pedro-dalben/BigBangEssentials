@@ -7,7 +7,9 @@
     "BlockItemMixin",
     "MobMixin",
     "FishingHookMixin",
-    "CrateInteractionMixin"
+    "CrateInteractionMixin",
+    "ResultSlotMixin",
+    "FurnaceResultSlotMixin"
   ],
   "client": [],
   "injectors": {
