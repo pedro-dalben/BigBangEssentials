@@ -47,8 +47,12 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
@@ -498,6 +502,10 @@ public class CrateCommand {
                     .then(Commands.argument("locationId", StringArgumentType.word())
                         .executes(CrateCommand::toggleLocationActive)
                     )
+                )
+                .then(Commands.literal("cleanup")
+                    .requires(source -> hasPermission(source, CratePermissions.ADMIN))
+                    .executes(CrateCommand::cleanupOrphanHolograms)
                 )
             )
             .then(Commands.literal("key")
@@ -1907,6 +1915,27 @@ public class CrateCommand {
         }
     }
 
+    // === Cleanup Orphan Holograms ===
+
+    private static int cleanupOrphanHolograms(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        MinecraftServer server = source.getServer();
+        int total = 0;
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getEntities(EntityTypeTest.forClass(Entity.class), e -> e.getTags().contains("crate_hologram"))) {
+                entity.remove(Entity.RemovalReason.DISCARDED);
+                total++;
+            }
+        }
+        if (total > 0) {
+            CrateHologramManager.getInstance().getActiveHolograms().clear();
+            LOGGER.info("Cleaned up {} orphan hologram entities", total);
+        }
+        final int finalTotal = total;
+        source.sendSuccess(() -> Component.literal("\u00a7a" + finalTotal + " hologramas \u00f3rf\u00e3os removidos."), true);
+        return 1;
+    }
+
     // === Remove Location ===
 
     private static int removeLocation(CommandContext<CommandSourceStack> context) {
@@ -1922,6 +1951,8 @@ public class CrateCommand {
                 return 0;
             }
 
+            CrateHologramManager.getInstance().removeHologram(locationId);
+            CrateParticleManager.getInstance().stopParticles(locationId);
             crateService.deleteLocation(locationId);
             source.sendSuccess(() -> Component.literal(CrateMessages.CRATE_UNLINKED), true);
             return 1;

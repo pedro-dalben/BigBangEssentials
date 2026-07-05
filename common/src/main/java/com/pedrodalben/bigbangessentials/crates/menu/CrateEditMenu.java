@@ -4,6 +4,8 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateLocation;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateMilestone;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateRarity;
+import com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager;
+import com.pedrodalben.bigbangessentials.crates.particle.CrateParticleManager;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -225,7 +227,13 @@ public class CrateEditMenu extends AbstractCrateMenu {
                     "§7a crate §f" + crate.getDisplayName() + "§7?",
                     confirmed -> {
                         if (confirmed) {
-                            CrateService.getInstance().deleteCrate(crateKey);
+                            CrateService svc = CrateService.getInstance();
+                            for (CrateLocation loc : svc.getLocationsByCrate(crateKey)) {
+                                CrateHologramManager.getInstance().removeHologram(loc.getId());
+                                CrateParticleManager.getInstance().stopParticles(loc.getId());
+                                svc.deleteLocation(loc.getId());
+                            }
+                            svc.deleteCrate(crateKey);
                             p.sendSystemMessage(Component.literal("§aCrate '" + crate.getDisplayName() + "' deletada."));
                             CrateMainEditorMenu.open(p);
                         } else {

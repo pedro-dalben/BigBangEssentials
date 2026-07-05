@@ -11,5 +11,8 @@ public enum GrantSource {
     OPENING,
     MILESTONE,
     MASS_OPEN,
-    ROLLBACK
+    ROLLBACK,
+    JOB,
+    CONTRACT,
+    RANKUP
 }
