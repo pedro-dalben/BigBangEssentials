@@ -42,20 +42,39 @@ public class JobCommandService {
             return JoinResult.NO_PERMISSION;
         }
 
+        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus licStatus =
+                com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().getLicenseStatus(player.getUUID(), job.id);
+
+        if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.LOCKED_BY_RANK) {
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cVocê ainda não alcançou o marco de Rank necessário para esta profissão."));
+            return JoinResult.NO_PERMISSION;
+        } else if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.ELIGIBLE) {
+            com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().startLicenseQuest(player, job.id);
+            return JoinResult.CANCELLED;
+        } else if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.IN_PROGRESS) {
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§eA missão de licença para " + job.displayName + " está em andamento! Conclua os objetivos realizando ações do trabalho."));
+            return JoinResult.CANCELLED;
+        } else if (licStatus == com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus.READY_TO_CLAIM) {
+            com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().claimLicense(player, job.id);
+        }
+
         JobProgress prog = data.getProgress(job.id);
         if (prog != null && prog.isActive()) {
             return JoinResult.ALREADY_ACTIVE;
         }
 
-        boolean joined = JobProgressService.getInstance().joinJob(player, data, job);
-        if (!joined) {
-            int activeCount = data.getActiveJobsCount();
-            int maxJobs = JobPermissionService.getInstance().getMaxActiveJobs(player, cfg.getMaxActiveJobs());
-            if (activeCount >= maxJobs) {
-                return JoinResult.LIMIT_REACHED;
-            }
-            return JoinResult.CANCELLED;
+        java.util.Optional<com.pedrodalben.bigbangessentials.jobs.slot.JobSlot> emptySlot =
+                com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().getSlots(player.getUUID()).values().stream()
+                        .filter(s -> s.isEmpty() && s.category().equalsIgnoreCase(job.category))
+                        .findFirst();
+
+        if (emptySlot.isEmpty()) {
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cTodos os seus slots da categoria " + job.category + " estão ocupados ou bloqueados! Remova uma profissão de um slot antes de alocar esta."));
+            return JoinResult.LIMIT_REACHED;
         }
+
+        com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().assignJobToSlot(player, emptySlot.get().slotType(), job.id);
+        JobProgressService.getInstance().joinJob(player, data, job);
 
         return JoinResult.SUCCESS;
     }
@@ -85,10 +104,15 @@ public class JobCommandService {
             return LeaveResult.NOT_ACTIVE;
         }
 
-        boolean left = JobProgressService.getInstance().leaveJob(player, data, job);
-        if (!left) {
-            return LeaveResult.CANCELLED;
+        java.util.Optional<com.pedrodalben.bigbangessentials.jobs.slot.JobSlot> occSlot =
+                com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().getSlots(player.getUUID()).values().stream()
+                        .filter(s -> s.activeJobId().isPresent() && s.activeJobId().get().equalsIgnoreCase(job.id))
+                        .findFirst();
+
+        if (occSlot.isPresent()) {
+            com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().unassignJobFromSlot(player, occSlot.get().slotType());
         }
+        JobProgressService.getInstance().leaveJob(player, data, job);
 
         return LeaveResult.SUCCESS;
     }

@@ -9,7 +9,22 @@ class GrantSourceTest {
     @Test
     void enum_HasAllExpectedValues() {
         GrantSource[] sources = GrantSource.values();
-        assertEquals(11, sources.length);
+        assertEquals(14, sources.length);
+    }
+
+    @Test
+    void enum_ContainsJob() {
+        assertTrue(contains(GrantSource.JOB));
+    }
+
+    @Test
+    void enum_ContainsContract() {
+        assertTrue(contains(GrantSource.CONTRACT));
+    }
+
+    @Test
+    void enum_ContainsRankup() {
+        assertTrue(contains(GrantSource.RANKUP));
     }
 
     @Test
@@ -74,6 +89,9 @@ class GrantSourceTest {
         assertEquals(GrantSource.MILESTONE, GrantSource.valueOf("MILESTONE"));
         assertEquals(GrantSource.MASS_OPEN, GrantSource.valueOf("MASS_OPEN"));
         assertEquals(GrantSource.ROLLBACK, GrantSource.valueOf("ROLLBACK"));
+        assertEquals(GrantSource.JOB, GrantSource.valueOf("JOB"));
+        assertEquals(GrantSource.CONTRACT, GrantSource.valueOf("CONTRACT"));
+        assertEquals(GrantSource.RANKUP, GrantSource.valueOf("RANKUP"));
     }
 
     @Test

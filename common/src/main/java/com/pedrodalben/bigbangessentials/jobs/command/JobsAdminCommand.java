@@ -193,6 +193,74 @@ public class JobsAdminCommand {
                 .then(Commands.argument("estado", StringArgumentType.word())
                     .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(List.of("on", "off"), builder))
                     .executes(JobsAdminCommand::executeDebug)))
+
+            // diag
+            .then(Commands.literal("diag")
+                .requires(src -> hasAdminPermission(src, "jobs.admin.info"))
+                .executes(JobsAdminCommand::executeDiag))
+
+            // integrations
+            .then(Commands.literal("integrations")
+                .requires(src -> hasAdminPermission(src, "jobs.admin.info"))
+                .executes(JobsAdminCommand::executeIntegrations))
+
+            // audit <player>
+            .then(Commands.literal("audit")
+                .requires(src -> hasAdminPermission(src, "jobs.admin.info"))
+                .then(Commands.argument("jogador", StringArgumentType.word())
+                    .suggests(SUGGEST_PLAYERS)
+                    .executes(ctx -> executeAudit(ctx, StringArgumentType.getString(ctx, "jogador")))))
+
+            // pokemon [status|grantkey|resetcd]
+            .then(Commands.literal("pokemon")
+                .requires(src -> hasAdminPermission(src, "jobs.admin.modify"))
+                .then(Commands.literal("status")
+                    .then(Commands.argument("jogador", StringArgumentType.word())
+                        .suggests(SUGGEST_PLAYERS)
+                        .executes(ctx -> executePokemonStatus(ctx, StringArgumentType.getString(ctx, "jogador")))))
+                .then(Commands.literal("grantkey")
+                    .then(Commands.argument("jogador", StringArgumentType.word())
+                        .suggests(SUGGEST_PLAYERS)
+                        .then(Commands.argument("quantidade", IntegerArgumentType.integer(1, 100))
+                            .executes(ctx -> executePokemonGrantKey(ctx, StringArgumentType.getString(ctx, "jogador"), IntegerArgumentType.getInteger(ctx, "quantidade"))))))
+                .then(Commands.literal("resetcd")
+                    .then(Commands.argument("jogador", StringArgumentType.word())
+                        .suggests(SUGGEST_PLAYERS)
+                        .executes(ctx -> executePokemonResetCd(ctx, StringArgumentType.getString(ctx, "jogador"))))))
+
+            // licenca <jogador> [conceder|revogar] <profissao>
+            .then(Commands.literal("licenca")
+                .requires(src -> hasAdminPermission(src, "jobs.admin.modify"))
+                .then(Commands.argument("jogador", StringArgumentType.word())
+                    .suggests(SUGGEST_PLAYERS)
+                    .then(Commands.literal("conceder")
+                        .then(Commands.argument("profissao", StringArgumentType.word())
+                            .suggests(SUGGEST_PROFESSIONS)
+                            .executes(ctx -> executeAdminLicenseGrant(ctx, StringArgumentType.getString(ctx, "jogador"), StringArgumentType.getString(ctx, "profissao")))))
+                    .then(Commands.literal("revogar")
+                        .then(Commands.argument("profissao", StringArgumentType.word())
+                            .suggests(SUGGEST_PROFESSIONS)
+                            .executes(ctx -> executeAdminLicenseRevoke(ctx, StringArgumentType.getString(ctx, "jogador"), StringArgumentType.getString(ctx, "profissao")))))))
+
+            // slot <jogador> [alocar|remover|resetcooldown] <slot> [profissao]
+            .then(Commands.literal("slot")
+                .requires(src -> hasAdminPermission(src, "jobs.admin.modify"))
+                .then(Commands.argument("jogador", StringArgumentType.word())
+                    .suggests(SUGGEST_PLAYERS)
+                    .then(Commands.literal("alocar")
+                        .then(Commands.argument("slot", StringArgumentType.word())
+                            .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(List.of("COMMON_PRIMARY", "COMMON_SECONDARY", "POKEMON_SPECIALIZATION"), builder))
+                            .then(Commands.argument("profissao", StringArgumentType.word())
+                                .suggests(SUGGEST_PROFESSIONS)
+                                .executes(ctx -> executeAdminSlotAssign(ctx, StringArgumentType.getString(ctx, "jogador"), StringArgumentType.getString(ctx, "slot"), StringArgumentType.getString(ctx, "profissao"))))))
+                    .then(Commands.literal("remover")
+                        .then(Commands.argument("slot", StringArgumentType.word())
+                            .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(List.of("COMMON_PRIMARY", "COMMON_SECONDARY", "POKEMON_SPECIALIZATION"), builder))
+                            .executes(ctx -> executeAdminSlotRemove(ctx, StringArgumentType.getString(ctx, "jogador"), StringArgumentType.getString(ctx, "slot")))))
+                    .then(Commands.literal("resetcooldown")
+                        .then(Commands.argument("slot", StringArgumentType.word())
+                            .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(List.of("COMMON_PRIMARY", "COMMON_SECONDARY", "POKEMON_SPECIALIZATION"), builder))
+                            .executes(ctx -> executeAdminSlotResetCooldown(ctx, StringArgumentType.getString(ctx, "jogador"), StringArgumentType.getString(ctx, "slot")))))))
         );
     }
 
@@ -769,4 +837,170 @@ public class JobsAdminCommand {
         ctx.getSource().sendSuccess(() -> Component.literal("§aModo debug global de trabalhos definido para: " + (enabled ? "§aON" : "§cOFF")), true);
         return 1;
     }
+
+    private static int executeDiag(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        long published = com.pedrodalben.bigbangessentials.jobs.pipeline.JobActionPublisher.getInstance().getPublishedCount();
+        long processed = com.pedrodalben.bigbangessentials.jobs.pipeline.JobActionProcessor.getInstance().getProcessedCount();
+        long success = com.pedrodalben.bigbangessentials.jobs.pipeline.JobActionProcessor.getInstance().getSuccessCount();
+        long duplicates = com.pedrodalben.bigbangessentials.jobs.pipeline.JobActionProcessor.getInstance().getDuplicateRejectedCount();
+        int cacheSize = com.pedrodalben.bigbangessentials.jobs.database.JobActionReceiptRepository.getInstance().getMemoryCacheSize();
+        boolean globalDebug = JobsManager.isGlobalDebugMode();
+
+        source.sendSuccess(() -> Component.literal("§6§l=== DIAGNÓSTICO DO PIPELINE DE JOBS ==="), false);
+        source.sendSuccess(() -> Component.literal(String.format("§eModo Debug Global: §f%s", globalDebug ? "§aON" : "§cOFF")), false);
+        source.sendSuccess(() -> Component.literal(String.format("§eAções Publicadas: §f%d", published)), false);
+        source.sendSuccess(() -> Component.literal(String.format("§eAções Processadas: §f%d", processed)), false);
+        source.sendSuccess(() -> Component.literal(String.format("§eRecompensas Concedidas: §a%d", success)), false);
+        source.sendSuccess(() -> Component.literal(String.format("§eDuplicatas/Processando Rejeitadas: §c%d", duplicates)), false);
+        source.sendSuccess(() -> Component.literal(String.format("§eTamanho do Cache de Recibos: §b%d", cacheSize)), false);
+        return 1;
+    }
+
+    private static int executeAdminLicenseGrant(CommandContext<CommandSourceStack> ctx, String playerName, String jobName) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        Optional<UUID> uuidOpt = EconomyPlayerUtil.getUUIDByName(server, playerName);
+        if (uuidOpt.isEmpty()) {
+            source.sendFailure(Component.literal("§cJogador '" + playerName + "' não encontrado."));
+            return 0;
+        }
+        UUID uuid = uuidOpt.get();
+        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().adminGrantLicense(source.getPlayer(), uuid, jobName);
+        source.sendSuccess(() -> Component.literal("§aLicença permanente de " + jobName + " concedida para " + playerName + "."), true);
+        return 1;
+    }
+
+    private static int executeAdminLicenseRevoke(CommandContext<CommandSourceStack> ctx, String playerName, String jobName) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        Optional<UUID> uuidOpt = EconomyPlayerUtil.getUUIDByName(server, playerName);
+        if (uuidOpt.isEmpty()) {
+            source.sendFailure(Component.literal("§cJogador '" + playerName + "' não encontrado."));
+            return 0;
+        }
+        UUID uuid = uuidOpt.get();
+        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().adminRevokeLicense(source.getPlayer(), uuid, jobName);
+        source.sendSuccess(() -> Component.literal("§cLicença permanente de " + jobName + " revogada de " + playerName + "."), true);
+        return 1;
+    }
+
+    private static int executeAdminSlotAssign(CommandContext<CommandSourceStack> ctx, String playerName, String slotType, String jobName) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        ServerPlayer target = server.getPlayerList().getPlayerByName(playerName);
+        if (target == null) {
+            source.sendFailure(Component.literal("§cJogador '" + playerName + "' precisa estar online para alocar slot."));
+            return 0;
+        }
+        com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().assignJobToSlot(target, slotType, jobName);
+        source.sendSuccess(() -> Component.literal("§aTrabalho " + jobName + " alocado no slot " + slotType + " para " + playerName + "."), true);
+        return 1;
+    }
+
+    private static int executeAdminSlotRemove(CommandContext<CommandSourceStack> ctx, String playerName, String slotType) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        ServerPlayer target = server.getPlayerList().getPlayerByName(playerName);
+        if (target == null) {
+            source.sendFailure(Component.literal("§cJogador '" + playerName + "' precisa estar online para remover slot."));
+            return 0;
+        }
+        com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().unassignJobFromSlot(target, slotType);
+        source.sendSuccess(() -> Component.literal("§aTrabalho removido do slot " + slotType + " de " + playerName + "."), true);
+        return 1;
+    }
+
+    private static int executeAdminSlotResetCooldown(CommandContext<CommandSourceStack> ctx, String playerName, String slotType) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        Optional<UUID> uuidOpt = EconomyPlayerUtil.getUUIDByName(server, playerName);
+        if (uuidOpt.isEmpty()) {
+            source.sendFailure(Component.literal("§cJogador '" + playerName + "' não encontrado."));
+            return 0;
+        }
+        UUID uuid = uuidOpt.get();
+        com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService.getInstance().resetSlotCooldown(uuid, slotType, source.getPlayer() != null ? source.getPlayer().getUUID() : null);
+        source.sendSuccess(() -> Component.literal("§aCooldown do slot " + slotType + " resetado para " + playerName + "."), true);
+        return 1;
+    }
+
+    private static int executeIntegrations(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        source.sendSuccess(() -> Component.literal("§6§l=== PAINEL DE INTEGRAÇÕES COBBLEVERSE ==="), false);
+        for (com.pedrodalben.bigbangessentials.jobs.compat.IntegrationStatus st : com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().getAllStatuses()) {
+            String color = st.isOperational() ? "§a" : "§c";
+            source.sendSuccess(() -> Component.literal(String.format("%s[%s] §eEstado: %s%s §f| §7Mod: %s (v%s)", color, st.integrationId(), color, st.state(), st.detectedModId(), st.detectedVersion())), false);
+            source.sendSuccess(() -> Component.literal("  §7Detalhes: §f" + st.details()), false);
+        }
+        return 1;
+    }
+
+    private static int executeAudit(CommandContext<CommandSourceStack> ctx, String playerName) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        Optional<UUID> uuidOpt = EconomyPlayerUtil.getUUIDByName(server, playerName);
+        if (uuidOpt.isEmpty()) {
+            source.sendFailure(Component.literal("§cJogador '" + playerName + "' não encontrado."));
+            return 0;
+        }
+        UUID uuid = uuidOpt.get();
+        List<com.pedrodalben.bigbangessentials.jobs.pokemon.PokemonJobAuditService.AuditEntry> logs =
+                com.pedrodalben.bigbangessentials.jobs.pokemon.PokemonJobAuditService.getInstance().getPlayerLogs(uuid, 10);
+        source.sendSuccess(() -> Component.literal("§6§l=== AUDITORIA DE POKEMON JOBS: " + playerName + " ==="), false);
+        if (logs.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("§7Nenhum registro recente encontrado para este jogador."), false);
+        } else {
+            for (com.pedrodalben.bigbangessentials.jobs.pokemon.PokemonJobAuditService.AuditEntry e : logs) {
+                source.sendSuccess(() -> Component.literal(String.format("§e[%s] §b%s §f- §7%s", e.timestamp().toString().substring(11, 19), e.eventType(), e.details())), false);
+            }
+        }
+        return 1;
+    }
+
+    private static int executePokemonStatus(CommandContext<CommandSourceStack> ctx, String playerName) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        Optional<UUID> uuidOpt = EconomyPlayerUtil.getUUIDByName(server, playerName);
+        if (uuidOpt.isEmpty()) {
+            source.sendFailure(Component.literal("§cJogador '" + playerName + "' não encontrado."));
+            return 0;
+        }
+        UUID uuid = uuidOpt.get();
+        int dexCount = com.pedrodalben.bigbangessentials.jobs.researcher.DexDiscoveryService.getInstance().getDiscoveredCount(uuid);
+        int diversity = com.pedrodalben.bigbangessentials.jobs.pasture.PastureDiversityService.getInstance().getDiversityScore(uuid);
+        source.sendSuccess(() -> Component.literal("§6§l=== STATUS POKEMON JOBS: " + playerName + " ==="), false);
+        source.sendSuccess(() -> Component.literal("§eEspécies Descobertas na Pokédex: §a" + dexCount), false);
+        source.sendSuccess(() -> Component.literal("§eÍndice de Diversidade no Pasture: §a" + diversity), false);
+        return 1;
+    }
+
+    private static int executePokemonGrantKey(CommandContext<CommandSourceStack> ctx, String playerName, int amount) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        Optional<UUID> uuidOpt = EconomyPlayerUtil.getUUIDByName(server, playerName);
+        if (uuidOpt.isEmpty()) {
+            source.sendFailure(Component.literal("§cJogador '" + playerName + "' não encontrado."));
+            return 0;
+        }
+        UUID uuid = uuidOpt.get();
+        com.pedrodalben.bigbangessentials.jobs.pokemon.SpecialistKeyService.GrantOutcome out =
+                com.pedrodalben.bigbangessentials.jobs.pokemon.SpecialistKeyService.getInstance().grantSpecialistKey(
+                        uuid, amount, com.pedrodalben.bigbangessentials.jobs.crates.CrateKeyGrantSource.ADMIN_COMMAND, "Concedido por admin " + source.getTextName());
+        if (out.success()) {
+            source.sendSuccess(() -> Component.literal("§a" + out.message()), true);
+        } else {
+            source.sendFailure(Component.literal("§c" + out.message()));
+        }
+        return 1;
+    }
+
+    private static int executePokemonResetCd(CommandContext<CommandSourceStack> ctx, String playerName) {
+        CommandSourceStack source = ctx.getSource();
+        com.pedrodalben.bigbangessentials.jobs.pokemon.SpecialistKeyService.getInstance().resetDailyLimits();
+        com.pedrodalben.bigbangessentials.jobs.pokemon.SpecialistKeyService.getInstance().resetWeeklyLimits();
+        source.sendSuccess(() -> Component.literal("§aLimites e cooldowns de Chaves de Especialista resetados com sucesso."), true);
+        return 1;
+    }
 }
+

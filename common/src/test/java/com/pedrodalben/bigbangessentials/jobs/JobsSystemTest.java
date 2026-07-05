@@ -118,7 +118,7 @@ class JobsSystemTest {
 
         return new JobDefinition(
                 id, enabled, id.toUpperCase(), "Dummy Description", "jobs.profissao." + id,
-                true, false, 100, 1000.0, bonusPerLevel, 50.0,
+                true, "COMMON", false, new ArrayList<>(), false, 100, 1000.0, bonusPerLevel, 50.0,
                 100, 1.2, null, 2, actions, skills, new HashMap<>(), new HashMap<>()
         );
     }
@@ -215,7 +215,7 @@ class JobsSystemTest {
         skills.put("b", new SkillDefinition("b", "Skill B", "", 5, 1, 1, List.of("a:1"), new HashMap<>()));
 
         JobDefinition job = new JobDefinition(
-                "miner", true, "Minerador", "", "jobs.permission", true, false, 100, 1000.0, 0.5, 50.0,
+                "miner", true, "Minerador", "", "jobs.permission", true, "COMMON", false, new ArrayList<>(), false, 100, 1000.0, 0.5, 50.0,
                 100, 1.2, null, 2, new HashMap<>(), skills, new HashMap<>(), new HashMap<>()
         );
 
