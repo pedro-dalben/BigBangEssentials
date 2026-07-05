@@ -14,6 +14,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.phys.AABB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +44,7 @@ public class CrateHologramManager {
         if (!location.isActive()) return;
 
         removeHologram(location.getId());
+        removePersistedHologramEntities(location);
 
         CrateVisualConfig visualConfig = crate.getVisualConfig();
         if (!visualConfig.isHologramEnabled()) return;
@@ -68,14 +70,7 @@ public class CrateHologramManager {
                 pos.getY() + offsetY + (lines.size() - 1 - i) * lineSpacing,
                 pos.getZ() + 0.5
             );
-            stand.setCustomName(Component.literal(lines.get(i)));
-            stand.setCustomNameVisible(true);
-            stand.setInvisible(true);
-            stand.setNoGravity(true);
-            stand.setInvulnerable(true);
-            stand.setSilent(true);
-            stand.addTag("crate_hologram");
-            stand.addTag("crate_hologram_" + location.getId().toString());
+            configureHologramStand(stand, location, lines.get(i));
 
             level.addFreshEntity(stand);
             armorStandIds.add(stand.getUUID());
@@ -151,14 +146,7 @@ public class CrateHologramManager {
                         pos.getY() + offsetY + (newLines.size() - 1 - i) * lineSpacing,
                         pos.getZ() + 0.5
                     );
-                    stand.setCustomName(Component.literal(newLines.get(i)));
-                    stand.setCustomNameVisible(true);
-                    stand.setInvisible(true);
-                    stand.setNoGravity(true);
-                    stand.setInvulnerable(true);
-                    stand.setSilent(true);
-                    stand.addTag("crate_hologram");
-                    stand.addTag("crate_hologram_" + location.getId().toString());
+                    configureHologramStand(stand, location, newLines.get(i));
                     level.addFreshEntity(stand);
                     newIds.add(stand.getUUID());
                 }
@@ -170,6 +158,7 @@ public class CrateHologramManager {
     }
 
     public void removeAll() {
+        removePersistedHologramEntities();
         for (HologramData data : activeHolograms.values()) {
             for (UUID id : data.armorStandIds) {
                 removeEntity(id);
@@ -204,6 +193,44 @@ public class CrateHologramManager {
 
     public Map<UUID, HologramData> getActiveHolograms() {
         return Collections.unmodifiableMap(activeHolograms);
+    }
+
+    public void removePersistedHologramEntities() {
+        MinecraftServer server = Platform.getCurrentServer();
+        if (server == null) return;
+
+        int removed = 0;
+        for (ServerLevel level : server.getAllLevels()) {
+            for (ArmorStand stand : level.getEntitiesOfClass(ArmorStand.class, level.getWorldBorder().getCollisionShape().bounds())) {
+                if (stand.getTags().contains("crate_hologram")) {
+                    stand.remove(Entity.RemovalReason.DISCARDED);
+                    removed++;
+                }
+            }
+        }
+
+        if (removed > 0) {
+            LOGGER.info("Removed {} persisted crate hologram entities from loaded worlds", removed);
+        }
+    }
+
+    public void removePersistedHologramEntities(CrateLocation location) {
+        ServerLevel level = resolveLevel(location);
+        if (level == null) return;
+
+        BlockPos pos = location.getPosition();
+        AABB searchBox = new AABB(
+            pos.getX() - 1.0, pos.getY() - 1.0, pos.getZ() - 1.0,
+            pos.getX() + 2.0, pos.getY() + 5.0, pos.getZ() + 2.0
+        );
+        String locationTag = "crate_hologram_" + location.getId();
+
+        for (ArmorStand stand : level.getEntitiesOfClass(ArmorStand.class, searchBox)) {
+            if (stand.getTags().contains("crate_hologram")
+                || stand.getTags().contains(locationTag)) {
+                stand.remove(Entity.RemovalReason.DISCARDED);
+            }
+        }
     }
 
     private List<String> resolveHologramLines(
@@ -281,6 +308,23 @@ public class CrateHologramManager {
                 return;
             }
         }
+    }
+
+    private void configureHologramStand(ArmorStand stand, CrateLocation location, String line) {
+        stand.setCustomName(Component.literal(line));
+        stand.setCustomNameVisible(true);
+        stand.setInvisible(true);
+        stand.setNoGravity(true);
+        stand.setInvulnerable(true);
+        stand.setSilent(true);
+        stand.setNoBasePlate(true);
+        byte flags = stand.getEntityData().get(ArmorStand.DATA_CLIENT_FLAGS);
+        flags |= 0x01; // small
+        flags |= 0x08; // no base plate
+        flags |= 0x10; // marker
+        stand.getEntityData().set(ArmorStand.DATA_CLIENT_FLAGS, flags);
+        stand.addTag("crate_hologram");
+        stand.addTag("crate_hologram_" + location.getId().toString());
     }
 
     static class HologramData {

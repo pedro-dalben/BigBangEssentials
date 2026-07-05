@@ -105,6 +105,7 @@ public class FabricCrateEvents {
         CrateHologramManager hologramManager = CrateHologramManager.getInstance();
         if (hologramManager == null) return;
 
+        hologramManager.removePersistedHologramEntities();
         List<CrateLocation> locations = crateService.getAllLocations();
         for (CrateLocation location : locations) {
             if (!location.isActive() || !location.isHologramEnabled()) continue;

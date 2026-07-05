@@ -60,8 +60,12 @@ public class CrateManager {
             context = CrateModuleContext.getInstance();
             context.initialize();
 
-            Platform.registerEventListener(new CrateBlockListener());
-            Platform.registerEventListener(new CratePlayerListener());
+            // Fabric wires crate events through FabricCrateEvents; registering the
+            // NeoForge-style listeners there only creates duplicate visual lifecycle.
+            if (!"Fabric".equalsIgnoreCase(Platform.getLoaderName())) {
+                Platform.registerEventListener(new CrateBlockListener());
+                Platform.registerEventListener(new CratePlayerListener());
+            }
 
             startCleanupTask();
 

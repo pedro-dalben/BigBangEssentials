@@ -34,6 +34,7 @@ public class CratePlayerListener {
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
+        hologramManager.removePersistedHologramEntities();
         ServerLevel level = player.serverLevel();
         List<CrateLocation> locations = crateService.getAllLocations();
 
@@ -57,6 +58,7 @@ public class CratePlayerListener {
         if (!(event.getEntity() instanceof ServerPlayer)) return;
 
         ServerPlayer player = (ServerPlayer) event.getEntity();
+        hologramManager.removePersistedHologramEntities();
         ServerLevel level = player.serverLevel();
 
         List<CrateLocation> locations = crateService.getAllLocations();
