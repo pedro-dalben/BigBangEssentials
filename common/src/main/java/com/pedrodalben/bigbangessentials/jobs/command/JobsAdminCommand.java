@@ -155,6 +155,13 @@ public class JobsAdminCommand {
                     .suggests(SUGGEST_PLAYERS)
                     .executes(JobsAdminCommand::executeResetGanhos)))
 
+            // sync-rank <jogador>
+            .then(Commands.literal("sync-rank")
+                .requires(src -> hasAdminPermission(src, "jobs.admin.modify"))
+                .then(Commands.argument("jogador", StringArgumentType.word())
+                    .suggests(SUGGEST_PLAYERS)
+                    .executes(ctx -> executeSyncRank(ctx, StringArgumentType.getString(ctx, "jogador")))))
+
             // pontos <jogador> <profissao> adicionar/remover <quantidade>
             .then(Commands.literal("pontos")
                 .requires(src -> hasAdminPermission(src, "jobs.admin.modify"))
@@ -1000,6 +1007,24 @@ public class JobsAdminCommand {
         com.pedrodalben.bigbangessentials.jobs.pokemon.SpecialistKeyService.getInstance().resetDailyLimits();
         com.pedrodalben.bigbangessentials.jobs.pokemon.SpecialistKeyService.getInstance().resetWeeklyLimits();
         source.sendSuccess(() -> Component.literal("§aLimites e cooldowns de Chaves de Especialista resetados com sucesso."), true);
+        return 1;
+    }
+    private static int executeSyncRank(CommandContext<CommandSourceStack> ctx, String playerName) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        Optional<UUID> uuidOpt = EconomyPlayerUtil.getUUIDByName(server, playerName);
+        if (uuidOpt.isEmpty()) {
+            source.sendFailure(Component.literal("§cJogador '" + playerName + "' não encontrado."));
+            return 0;
+        }
+        UUID uuid = uuidOpt.get();
+        com.pedrodalben.bigbangessentials.jobs.progression.JobRankMilestoneService.getInstance().synchronizeMilestones(uuid)
+                .thenAccept(unlocked -> {
+                    source.sendSuccess(() -> Component.literal("§aSincronização de Rank concluída para " + playerName + ". Marcos desbloqueados: " + unlocked.size()), true);
+                }).exceptionally(e -> {
+                    source.sendFailure(Component.literal("§cErro ao sincronizar Rank."));
+                    return null;
+                });
         return 1;
     }
 }
