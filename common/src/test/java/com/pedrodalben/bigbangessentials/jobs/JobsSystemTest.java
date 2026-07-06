@@ -119,7 +119,7 @@ class JobsSystemTest {
         return new JobDefinition(
                 id, enabled, id.toUpperCase(), "Dummy Description", "jobs.profissao." + id,
                 true, "COMMON", false, new ArrayList<>(), false, 100, 1000.0, bonusPerLevel, 50.0,
-                100, 1.2, null, 2, actions, skills, new HashMap<>(), new HashMap<>()
+                2, 1.2, null, 2, actions, skills, new HashMap<>(), new HashMap<>()
         );
     }
 
@@ -289,6 +289,7 @@ class JobsSystemTest {
         assertNotNull(initialConfig);
         
         java.io.File jobsDir = new java.io.File("world/serverconfig/bigbangessentials/jobs");
+        jobsDir.mkdirs();
         java.io.File woodcutterFile = new java.io.File(jobsDir, "woodcutter.json");
         String originalContent = "";
         if (woodcutterFile.exists()) {
@@ -306,6 +307,8 @@ class JobsSystemTest {
             // Restore woodcutter.json
             if (!originalContent.isEmpty()) {
                 java.nio.file.Files.writeString(woodcutterFile.toPath(), originalContent);
+            } else {
+                woodcutterFile.delete();
             }
             JobsManager.getInstance().reload();
         }

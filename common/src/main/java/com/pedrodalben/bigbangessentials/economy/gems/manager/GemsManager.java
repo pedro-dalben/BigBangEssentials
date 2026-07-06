@@ -968,6 +968,9 @@ public class GemsManager {
             if (reservation.getStatus() != GemReservationStatus.ACTIVE) {
                 return GemOperationResult.fail(GemOperationFailure.RESERVATION_NOT_ACTIVE, "Only active reservations can be renewed");
             }
+            if (reservation.getExpiresAt() < System.currentTimeMillis()) {
+                return GemOperationResult.fail(GemOperationFailure.RESERVATION_NOT_ACTIVE, "Reservation has expired");
+            }
 
             long currentTotal = getBalanceTotal(currentState, reservation.getPlayerUuid());
             long held = calculateHeldBalance(currentState, reservation.getPlayerUuid());
