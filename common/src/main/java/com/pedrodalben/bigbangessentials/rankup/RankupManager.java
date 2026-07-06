@@ -25,8 +25,13 @@ public class RankupManager {
     private final RankupPromotionService promotionService = new RankupPromotionService();
     private final RankupTaskProgressService taskProgressService = RankupTaskProgressService.getInstance();
     private final RankupPlaceholderService placeholderService = new RankupPlaceholderService();
+    private final RankTransitionService transitionService;
+    private final RankProgressionApiImpl progressionApi;
 
     private RankupManager() {
+        this.transitionService = new RankTransitionService(this);
+        this.progressionApi = new RankProgressionApiImpl(this, this.transitionService);
+        com.pedrodalben.bigbangessentials.api.rankup.RankupAPI.setProvider(this.progressionApi);
     }
 
     public static RankupManager getInstance() {
@@ -63,6 +68,10 @@ public class RankupManager {
 
     public RankupPlaceholderService getPlaceholderService() {
         return placeholderService;
+    }
+
+    public RankTransitionService getTransitionService() {
+        return transitionService;
     }
 
     public boolean reload() {

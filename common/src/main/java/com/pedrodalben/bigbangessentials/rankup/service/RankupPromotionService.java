@@ -147,13 +147,27 @@ public class RankupPromotionService {
                     manager.getTaskProgressService().resetAllTaskProgress(uuid);
 
                     // Add history
+                    com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause cause = executeActions ? com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause.NORMAL_RANKUP : com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause.ADMIN_PROMOTE;
                     RankupRankHistoryEntry history = new RankupRankHistoryEntry(
                             null, uuid, manager.getConfig().getLadder().id(),
                             currentRank != null ? currentRank.id() : "", targetRank.id(),
-                            uuid.toString(), executeActions ? "player_menu" : "admin_command",
+                            uuid.toString(), cause.name(),
                             System.currentTimeMillis()
                     );
                     manager.getRepository().addRankHistory(history);
+                    
+                    // Fire integration event
+                    com.pedrodalben.bigbangessentials.api.rankup.RankTransitionCompletedEvent event = new com.pedrodalben.bigbangessentials.api.rankup.RankTransitionCompletedEvent(
+                            UUID.nameUUIDFromBytes(chargedTransaction.transactionId().getBytes()),
+                            uuid,
+                            currentRank != null ? currentRank.id() : "",
+                            currentRank != null ? currentRank.order() : 0,
+                            targetRank.id(),
+                            targetRank.order(),
+                            cause,
+                            java.time.Instant.now()
+                    );
+                    manager.getTransitionService().fireTransitionEvent(event);
 
                     if (executeActions) {
                         executePostRankActions(uuid, currentRank, targetRank);
