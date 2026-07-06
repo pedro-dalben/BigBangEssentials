@@ -65,7 +65,7 @@ Issues_Discovered.md
 var/
 logs/
 world/
-config/
+# config/ - Commented out because it ignored all java config directories!
 /bigbangessentials/
 common/bigbangessentials/
 fabric/bigbangessentials/
