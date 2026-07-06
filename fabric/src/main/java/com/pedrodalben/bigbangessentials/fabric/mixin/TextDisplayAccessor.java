@@ -11,7 +11,7 @@ import java.util.Optional;
 @Mixin(Display.TextDisplay.class)
 public interface TextDisplayAccessor {
     @Accessor("DATA_TEXT_ID")
-    static EntityDataAccessor<Optional<Component>> getDataTextId() {
+    static EntityDataAccessor<Component> getDataTextId() {
         throw new AssertionError();
     }
 
@@ -21,7 +21,7 @@ public interface TextDisplayAccessor {
     }
 
     @Accessor("DATA_TEXT_OPACITY_ID")
-    static EntityDataAccessor<Integer> getDataTextOpacityId() {
+    static EntityDataAccessor<Byte> getDataTextOpacityId() {
         throw new AssertionError();
     }
 
