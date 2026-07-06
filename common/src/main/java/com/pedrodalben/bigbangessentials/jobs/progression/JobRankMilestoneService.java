@@ -2,8 +2,9 @@ package com.pedrodalben.bigbangessentials.jobs.progression;
 
 import com.pedrodalben.bigbangessentials.jobs.JobsManager;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig;
-import com.pedrodalben.bigbangessentials.rankup.RankupManager;
-import com.pedrodalben.bigbangessentials.rankup.domain.RankupRank;
+import com.pedrodalben.bigbangessentials.api.rankup.RankupAPI;
+import com.pedrodalben.bigbangessentials.api.rankup.RankDefinition;
+import com.pedrodalben.bigbangessentials.api.rankup.RankTransitionCompletedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +28,22 @@ public class JobRankMilestoneService implements JobRankProgressionProvider {
 
     private JobRankMilestoneService() {}
 
+    public void initListener() {
+        try {
+            RankupAPI.get().addRankTransitionListener(this::onRankTransition);
+            LOGGER.info("Registered RankUp transition listener for Jobs milestones.");
+        } catch (IllegalStateException e) {
+            LOGGER.warn("RankupAPI provider not found, cannot register transition listener.");
+        }
+    }
+
+    private void onRankTransition(RankTransitionCompletedEvent event) {
+        LOGGER.info("Rank changed for player {}, synchronizing milestones...", event.playerId());
+        synchronizeMilestones(event.playerId()).thenAccept(milestones -> {
+            LOGGER.info("Synchronized milestones for player {}: {}", event.playerId(), milestones);
+        });
+    }
+
     public void loadPlayer(UUID playerId) {
         synchronizeMilestones(playerId).exceptionally(e -> {
             LOGGER.error("Failed to load/synchronize milestones for {}", playerId, e);
@@ -45,10 +62,15 @@ public class JobRankMilestoneService implements JobRankProgressionProvider {
     @Override
     public CompletableFuture<RankProgressionSnapshot> getProgression(UUID playerId) {
         return synchronizeMilestones(playerId).thenApply(unlocked -> {
-            RankupRank rank = RankupManager.getInstance().getCurrentRank(playerId);
-            String rankId = rank != null ? rank.id() : "starter";
-            String rankName = rank != null ? rank.displayName() : "Starter";
-            int rankOrder = rank != null ? rank.order() : 0;
+            Optional<RankDefinition> rankOpt;
+            try {
+                rankOpt = RankupAPI.get().getCurrentRank(playerId);
+            } catch (IllegalStateException e) {
+                rankOpt = Optional.empty();
+            }
+            String rankId = rankOpt.map(RankDefinition::id).orElse("starter");
+            String rankName = rankOpt.map(RankDefinition::displayName).orElse("Starter");
+            int rankOrder = rankOpt.map(RankDefinition::order).orElse(0);
             return new RankProgressionSnapshot(playerId, rankId, rankName, rankOrder, unlocked);
         });
     }
@@ -57,9 +79,14 @@ public class JobRankMilestoneService implements JobRankProgressionProvider {
     public CompletableFuture<Set<String>> synchronizeMilestones(UUID playerId) {
         return repository.loadPlayerMilestones(playerId).thenCompose(dbMilestones -> {
             Set<String> unlocked = new HashSet<>(dbMilestones);
-            RankupRank rank = RankupManager.getInstance().getCurrentRank(playerId);
-            int currentOrder = rank != null ? rank.order() : 0;
-            String currentRankId = rank != null ? rank.id() : "";
+            Optional<RankDefinition> rankOpt;
+            try {
+                rankOpt = RankupAPI.get().getCurrentRank(playerId);
+            } catch (IllegalStateException e) {
+                rankOpt = Optional.empty();
+            }
+            int currentOrder = rankOpt.map(RankDefinition::order).orElse(0);
+            String currentRankId = rankOpt.map(RankDefinition::id).orElse("");
 
             JobsConfig config = JobsManager.getInstance().getConfig();
             if (config != null) {
@@ -92,9 +119,14 @@ public class JobRankMilestoneService implements JobRankProgressionProvider {
         if (unlocked != null && unlocked.contains(milestoneId.toLowerCase())) {
             return true;
         }
-        RankupRank rank = RankupManager.getInstance().getCurrentRank(playerId);
-        int currentOrder = rank != null ? rank.order() : 0;
-        String currentRankId = rank != null ? rank.id() : "";
+        Optional<RankDefinition> rankOpt;
+        try {
+            rankOpt = RankupAPI.get().getCurrentRank(playerId);
+        } catch (IllegalStateException e) {
+            rankOpt = Optional.empty();
+        }
+        int currentOrder = rankOpt.map(RankDefinition::order).orElse(0);
+        String currentRankId = rankOpt.map(RankDefinition::id).orElse("");
         Optional<RankMilestoneDefinition> defOpt = getMilestoneDefinition(milestoneId);
         return defOpt.map(def -> currentOrder >= def.requiredRankOrder() || currentRankId.equalsIgnoreCase(def.requiredRankId())).orElse(false);
     }

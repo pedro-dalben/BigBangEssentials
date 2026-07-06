@@ -434,6 +434,13 @@ public class BigBangEssentials {
             } catch (Exception e) {
                 LOGGER.error("Failed to initialize TablistManager: {}", e.getMessage());
             }
+
+            // Initialize Jobs RankUp integration
+            try {
+                com.pedrodalben.bigbangessentials.jobs.progression.JobRankMilestoneService.getInstance().initListener();
+            } catch (Exception e) {
+                LOGGER.error("Failed to initialize Jobs RankUp integration listener: {}", e.getMessage());
+            }
         }
         
         public static void onPlayerLoggedIn(net.minecraft.server.level.ServerPlayer player) {
