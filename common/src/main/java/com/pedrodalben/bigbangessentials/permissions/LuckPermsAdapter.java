@@ -455,6 +455,18 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
             try {
                 luckPermsApi = LuckPermsProvider.get();
                 LOGGER.info("LuckPerms API resolved successfully");
+                
+                try {
+                    luckPermsApi.getEventBus().subscribe(net.luckperms.api.event.user.UserDataRecalculateEvent.class, e -> {
+                        UUID uuid = e.getUser().getUniqueId();
+                        com.pedrodalben.bigbangessentials.teleportation.HomeManager.getInstance().invalidateMaxHomesCache(uuid);
+                        com.pedrodalben.bigbangessentials.teleportation.Warp.WarpManager.getInstance().invalidateMaxPlayerWarpsCache(uuid);
+                        LOGGER.debug("Invalidated home/warp cache for user {} due to LuckPerms recalculation", uuid);
+                    });
+                    LOGGER.info("Successfully registered LuckPerms event listener for cache invalidation");
+                } catch (Exception e) {
+                    LOGGER.debug("Could not register LuckPerms event listener for cache invalidation: {}", e.getMessage());
+                }
             } catch (IllegalStateException e) {
                 LOGGER.debug("LuckPerms API is not ready yet: {}", e.getMessage());
             } catch (Exception e) {

@@ -957,12 +957,55 @@ public class PermissionsCommand {
         }
 
         UUID playerUUID = uuidOpt.get();
-        boolean hasPermission = PermissionAPI.getManager().hasPermission(playerUUID, permission);
-
+        boolean hasPermission = PermissionAPI.hasPermission(playerUUID, permission);
+        
+        ctx.getSource().sendSuccess(() -> MessageUtil.info("=== Permission Check: " + playerName + " ==="), false);
+        String provider = PermissionAPI.isUsingExternal() ? (PermissionAPI.getExternalAdapter() != null ? PermissionAPI.getExternalAdapter().getName() : "EXTERNAL (Failed)") : "INTERNAL";
+        boolean useExternal = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isExternalPermissionsEnabled();
+        ctx.getSource().sendSuccess(() -> MessageUtil.info("Provider: " + provider + " (useExternalPermissions=" + useExternal + ")"), false);
+        ctx.getSource().sendSuccess(() -> MessageUtil.info("UUID: " + playerUUID), false);
+        ctx.getSource().sendSuccess(() -> MessageUtil.info("Primary Group: " + PermissionAPI.getPrimaryGroup(playerUUID)), false);
+        
         if (hasPermission) {
             ctx.getSource().sendSuccess(() -> MessageUtil.success("✓ " + playerName + " has permission: " + permission), false);
         } else {
             ctx.getSource().sendSuccess(() -> MessageUtil.error("✗ " + playerName + " does NOT have permission: " + permission), false);
+        }
+        
+        ServerPlayer target = server.getPlayerList().getPlayer(playerUUID);
+        if (target != null) {
+            int homeLimit = com.pedrodalben.bigbangessentials.teleportation.HomeManager.getInstance().getMaxHomesForPlayer(target);
+            int warpLimit = com.pedrodalben.bigbangessentials.teleportation.Warp.WarpManager.getInstance().getMaxPlayerWarpsForPlayer(target);
+            
+            String homeNode = "config (default)";
+            if (PermissionAPI.hasExactPermission(playerUUID, "bigbangessentials.home.unlimited")) {
+                homeNode = "bigbangessentials.home.unlimited";
+            } else {
+                for (int i = 100; i >= 1; i--) {
+                    if (PermissionAPI.hasExactPermission(playerUUID, "bigbangessentials.home." + i)) {
+                        homeNode = "bigbangessentials.home." + i;
+                        break;
+                    }
+                }
+            }
+            final String finalHomeNode = homeNode;
+            ctx.getSource().sendSuccess(() -> MessageUtil.info("Home Limit: " + (homeLimit == Integer.MAX_VALUE ? "Unlimited" : homeLimit) + " (Node: " + finalHomeNode + ")"), false);
+            
+            String warpNode = "config (default)";
+            if (PermissionAPI.hasExactPermission(playerUUID, "bigbangessentials.warp.limit.unlimited")) {
+                warpNode = "bigbangessentials.warp.limit.unlimited";
+            } else {
+                for (int i = 100; i >= 1; i--) {
+                    if (PermissionAPI.hasExactPermission(playerUUID, "bigbangessentials.warp.limit." + i)) {
+                        warpNode = "bigbangessentials.warp.limit." + i;
+                        break;
+                    }
+                }
+            }
+            final String finalWarpNode = warpNode;
+            ctx.getSource().sendSuccess(() -> MessageUtil.info("Warp Limit: " + (warpLimit == -1 ? "Unlimited" : warpLimit) + " (Node: " + finalWarpNode + ")"), false);
+        } else {
+            ctx.getSource().sendSuccess(() -> MessageUtil.info("Player is offline; cannot resolve dynamic limits safely."), false);
         }
 
         return 1;

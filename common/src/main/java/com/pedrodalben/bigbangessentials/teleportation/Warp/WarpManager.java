@@ -217,8 +217,10 @@ public class WarpManager {
         if (player == null) {
             return this.maxPlayerWarps;
         }
+        return getMaxPlayerWarpsForPlayer(player.getUUID());
+    }
 
-        UUID playerId = player.getUUID();
+    public int getMaxPlayerWarpsForPlayer(UUID playerId) {
         long now = System.currentTimeMillis();
         CachedWarpLimit cached = playerWarpLimitCache.get(playerId);
         if (cached != null && (now - cached.timestampMs) < PLAYER_WARP_LIMIT_CACHE_TTL_MS) {
@@ -226,7 +228,7 @@ public class WarpManager {
         }
 
         int configMax = this.maxPlayerWarps;
-        int permMax = resolvePermissionWarpLimit(player);
+        int permMax = resolvePermissionWarpLimit(playerId);
         if (permMax == -1) {
             playerWarpLimitCache.put(playerId, new CachedWarpLimit(-1, now));
             return -1;
@@ -992,11 +994,9 @@ public class WarpManager {
         playerWarpLimitCache.clear();
     }
 
-    private int resolvePermissionWarpLimit(ServerPlayer player) {
-        UUID playerId = player.getUUID();
-
+    private int resolvePermissionWarpLimit(UUID playerId) {
         // Check for unlimited permission first
-        if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+        if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasExactPermission(
                 playerId, "bigbangessentials.warp.limit.unlimited")) {
             return -1; // Unlimited
         }
@@ -1006,7 +1006,7 @@ public class WarpManager {
         // Check for permissions bigbangessentials.warp.limit.<amount> from high to low (e.g., 100 down to 1)
         for (int i = 100; i >= 1; i--) {
             String perm = "bigbangessentials.warp.limit." + i;
-            if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(playerId, perm)) {
+            if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasExactPermission(playerId, perm)) {
                 permMax = i;
                 break;
             }

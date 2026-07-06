@@ -90,8 +90,10 @@ public class HomeManager {
         if (player == null) {
             return this.maxHomesPerPlayer;
         }
+        return getMaxHomesForPlayer(player.getUUID());
+    }
 
-        UUID playerId = player.getUUID();
+    public int getMaxHomesForPlayer(UUID playerId) {
         long now = System.currentTimeMillis();
         CachedHomeLimit cached = maxHomesCache.get(playerId);
         if (cached != null && (now - cached.timestampMs) < MAX_HOMES_CACHE_TTL_MS) {
@@ -99,7 +101,7 @@ public class HomeManager {
         }
 
         int configMax = this.maxHomesPerPlayer;
-        int permMax = resolvePermissionHomeLimit(player);
+        int permMax = resolvePermissionHomeLimit(playerId);
         // Permission nodes are authoritative when present; config is only the fallback.
         int maxHomes = permMax > 0 ? permMax : configMax;
         maxHomesCache.put(playerId, new CachedHomeLimit(maxHomes, now));
@@ -744,14 +746,17 @@ public class HomeManager {
         maxHomesCache.clear();
     }
 
-    private int resolvePermissionHomeLimit(ServerPlayer player) {
-        int permMax = -1;
-        UUID playerId = player.getUUID();
+    private int resolvePermissionHomeLimit(UUID playerId) {
+        // Check for explicit unlimited permission first
+        if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasExactPermission(playerId, "bigbangessentials.home.unlimited")) {
+            return Integer.MAX_VALUE;
+        }
 
+        int permMax = -1;
         // Check for permissions bigbangessentials.home.<amount> from high to low (e.g., 100 down to 1)
         for (int i = 100; i >= 1; i--) {
             String perm = "bigbangessentials.home." + i;
-            if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(playerId, perm)) {
+            if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasExactPermission(playerId, perm)) {
                 permMax = i;
                 break;
             }

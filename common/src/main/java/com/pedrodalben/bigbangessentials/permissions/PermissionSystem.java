@@ -69,14 +69,22 @@ public class PermissionSystem {
                     manager = null;
                     initialized = true;
                     LOGGER.info("✓ Permission system initialized with {} (internal groups loaded but NOT USED)", externalAdapter.getName());
+                    LOGGER.info("[BigBangEssentials Permissions] mode=EXTERNAL configExternal=true adapter={} ready=true", externalAdapter.getName());
                     LOGGER.info("═══════════════════════════════════════════════════════════");
                     return;
                 }
 
-                LOGGER.warn("✗ External permissions enabled but no compatible system found!");
-                LOGGER.warn("✗ Falling back to internal BigBangEssentials permission system");
-                LOGGER.warn("✗ To use LuckPerms: Install LuckPerms mod and set useExternalPermissions: true");
+                String failedAdapter = (externalAdapter != null) ? externalAdapter.getName() : "None";
+                LOGGER.error("[BigBangEssentials Permissions] mode=EXTERNAL configExternal=true adapter={} ready=false", failedAdapter);
+                LOGGER.error("✗ External permissions requested but adapter failed or unavailable: {}", failedAdapter);
+                LOGGER.error("✗ The internal permission system will NOT be activated as fallback.");
+                LOGGER.error("✗ ACTION REQUIRED: Install LuckPerms/FTB Ranks or set useExternalPermissions=false in config and restart.");
+                usingExternal = true;
+                manager = null;
+                initialized = true;
+                return;
             } else {
+                LOGGER.info("[BigBangEssentials Permissions] mode=INTERNAL configExternal=false adapter=none ready=true");
                 LOGGER.info("External permissions disabled in config");
             }
 
