@@ -3,7 +3,7 @@ package com.pedrodalben.bigbangessentials.fabric.listener;
 import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
 import com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener;
 import com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager;
-import net.fabricmc.fabric.api.entity.event.v1.ServerEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
