@@ -1,7 +1,8 @@
-package com.pedrodalben.bigbangessentials.teleportation;
+package com.pedrodalben.bigbangessentials.teleportation.Warp;
 
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -14,89 +15,79 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class HomeManagerPermissionLimitTest {
-    private HomeManager homeManager;
+class WarpManagerPermissionLimitTest {
+    private WarpManager warpManager;
     private UUID playerId;
-    private int originalMaxHomesPerPlayer;
+    private int originalMaxPlayerWarps;
 
     @BeforeEach
     void setUp() throws Exception {
-        HomeManager.setInstance(null);
-        homeManager = HomeManager.getInstance();
-        originalMaxHomesPerPlayer = getIntField(homeManager, "maxHomesPerPlayer");
-        setIntField(homeManager, "maxHomesPerPlayer", 5);
-        homeManager.clearMaxHomesCache();
+        WarpManager.setInstance(null);
+        warpManager = WarpManager.getInstance();
+        originalMaxPlayerWarps = getIntField(warpManager, "maxPlayerWarps");
+        setIntField(warpManager, "maxPlayerWarps", 3);
+        warpManager.clearMaxPlayerWarpsCache();
 
         playerId = UUID.randomUUID();
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        if (homeManager != null) {
-            setIntField(homeManager, "maxHomesPerPlayer", originalMaxHomesPerPlayer);
-            homeManager.clearMaxHomesCache();
+        if (warpManager != null) {
+            setIntField(warpManager, "maxPlayerWarps", originalMaxPlayerWarps);
+            warpManager.clearMaxPlayerWarpsCache();
         }
-        HomeManager.setInstance(null);
+        WarpManager.setInstance(null);
     }
 
     @Test
     void permissionLimitOverridesHigherConfigLimit() {
         try (MockedStatic<PermissionAPI> permissionApi = Mockito.mockStatic(PermissionAPI.class)) {
-            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.home.1"))
+            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.warp.limit.5"))
                 .thenReturn(true);
 
-            assertEquals(1, homeManager.getMaxHomesForPlayer(playerId));
-        }
-    }
-
-    @Test
-    void higherPermissionLimitIsReturnedWhenPresent() {
-        try (MockedStatic<PermissionAPI> permissionApi = Mockito.mockStatic(PermissionAPI.class)) {
-            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.home.10"))
-                .thenReturn(true);
-
-            assertEquals(10, homeManager.getMaxHomesForPlayer(playerId));
+            assertEquals(5, warpManager.getMaxPlayerWarpsForPlayer(playerId));
         }
     }
 
     @Test
     void unlimitedPermissionLimitIsReturnedWhenPresent() {
         try (MockedStatic<PermissionAPI> permissionApi = Mockito.mockStatic(PermissionAPI.class)) {
-            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.home.unlimited"))
+            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.warp.limit.unlimited"))
                 .thenReturn(true);
 
-            assertEquals(Integer.MAX_VALUE, homeManager.getMaxHomesForPlayer(playerId));
+            assertEquals(-1, warpManager.getMaxPlayerWarpsForPlayer(playerId));
         }
     }
 
     @Test
     void fallsBackToConfigWhenNoPermissionLimitExists() {
         try (MockedStatic<PermissionAPI> permissionApi = Mockito.mockStatic(PermissionAPI.class)) {
-            assertEquals(5, homeManager.getMaxHomesForPlayer(playerId));
+            assertEquals(3, warpManager.getMaxPlayerWarpsForPlayer(playerId));
         }
     }
 
     @Test
     void cacheInvalidationUpdatesValue() {
         try (MockedStatic<PermissionAPI> permissionApi = Mockito.mockStatic(PermissionAPI.class)) {
-            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.home.10"))
+            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.warp.limit.10"))
                 .thenReturn(true);
-            assertEquals(10, homeManager.getMaxHomesForPlayer(playerId));
+            assertEquals(10, warpManager.getMaxPlayerWarpsForPlayer(playerId));
             
             // Assume permission changed to 20
-            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.home.10"))
+            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.warp.limit.10"))
                 .thenReturn(false);
-            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.home.20"))
+            permissionApi.when(() -> PermissionAPI.hasExactPermission(playerId, "bigbangessentials.warp.limit.20"))
                 .thenReturn(true);
                 
             // Should still return 10 due to cache
-            assertEquals(10, homeManager.getMaxHomesForPlayer(playerId));
+            assertEquals(10, warpManager.getMaxPlayerWarpsForPlayer(playerId));
             
             // Clear cache
-            homeManager.invalidateMaxHomesCache(playerId);
+            warpManager.invalidateMaxPlayerWarpsCache(playerId);
             
             // Should return new value
-            assertEquals(20, homeManager.getMaxHomesForPlayer(playerId));
+            assertEquals(20, warpManager.getMaxPlayerWarpsForPlayer(playerId));
         }
     }
 
@@ -106,10 +97,10 @@ class HomeManagerPermissionLimitTest {
             // Player has wildcard, but exact check returns false for limits
             permissionApi.when(() -> PermissionAPI.hasPermission(playerId, "bigbangessentials.*"))
                 .thenReturn(true);
-            permissionApi.when(() -> PermissionAPI.hasPermission(playerId, "bigbangessentials.home.*"))
+            permissionApi.when(() -> PermissionAPI.hasPermission(playerId, "bigbangessentials.warp.*"))
                 .thenReturn(true);
                 
-            assertEquals(5, homeManager.getMaxHomesForPlayer(playerId));
+            assertEquals(3, warpManager.getMaxPlayerWarpsForPlayer(playerId));
         }
     }
 
