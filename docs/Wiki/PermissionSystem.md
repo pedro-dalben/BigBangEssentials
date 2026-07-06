@@ -90,12 +90,19 @@ These are **not pre-registered** but are checked at runtime:
 Pattern: `bigbangessentials.home.<number>` (1–100)  
 The **highest number** the player has is used as their home limit.  
 Example: `bigbangessentials.home.5` → player can set 5 homes.  
+Special: `bigbangessentials.home.unlimited` → no limit.  
 If no home-limit node is found, the config default is used.
 
 ### Warp limit
 Pattern: `bigbangessentials.warp.limit.<number>` (1–100)  
 Example: `bigbangessentials.warp.limit.10` → player can create 10 player-warps.  
 Special: `bigbangessentials.warp.limit.unlimited` → no limit.
+
+> **⚠️ IMPORTANT NOTE ON WILDCARDS AND LIMITS:**  
+> Dynamic limits (like homes and warps) are checked using **Strict Matching** (`hasExactPermission`). This means that granting a wildcard like `bigbangessentials.*` or `bigbangessentials.home.*` will **NOT** implicitly grant `bigbangessentials.home.100`. You must explicitly assign the desired limit node (e.g. `bigbangessentials.home.15` or `bigbangessentials.home.unlimited`) to the player or their group.
+
+> **⚠️ EXTERNAL PERMISSIONS (LuckPerms) CACHING:**  
+> When using LuckPerms, BigBangEssentials caches dynamic limits for performance. It will automatically invalidate the cache when LuckPerms fires a `UserDataRecalculateEvent` (which happens almost immediately when permissions are changed). If for any reason the event is not fired or handled, changes to a player's home or warp limits might take up to 5 minutes (default `permissionCacheExpiryMinutes`) to reflect, unless forced via `/permissions reload`.
 
 ### Per-kit nodes
 Pattern: `bigbangessentials.kits.<kitname>` — grants access to that specific kit.  
