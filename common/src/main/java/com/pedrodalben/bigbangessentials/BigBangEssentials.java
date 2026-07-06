@@ -193,6 +193,10 @@ public class BigBangEssentials {
             com.pedrodalben.bigbangessentials.crates.CrateManager.class,
             com.pedrodalben.bigbangessentials.crates.CrateManager::getInstance);
 
+        registry.registerManager("BigBangHologramsManager", "holograms",
+            com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.class,
+            com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager::getInstance);
+
         // RankUp Manager
         registry.registerManager("RankupManager", "rankup",
             com.pedrodalben.bigbangessentials.rankup.RankupManager.class,
@@ -320,6 +324,16 @@ public class BigBangEssentials {
             } catch (Exception e) {
                 LOGGER.error("✗ Crates system failed to initialize: {}", e.getMessage(), e);
                 ManagerRegistry.getInstance().markFailed("CrateManager", e.getMessage());
+            }
+
+            try {
+                LOGGER.info("⚙ Initializing BigBangHolograms...");
+                com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().initialize();
+                ManagerRegistry.getInstance().markInitialized("BigBangHologramsManager");
+                LOGGER.info("✓ BigBangHolograms initialized successfully");
+            } catch (Exception e) {
+                LOGGER.error("✗ BigBangHolograms failed to initialize: {}", e.getMessage(), e);
+                ManagerRegistry.getInstance().markFailed("BigBangHologramsManager", e.getMessage());
             }
 
             // Initialize RankUp system
@@ -590,6 +604,13 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.crates.CrateManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown Crates Manager", e);
+            }
+
+            try {
+                LOGGER.info("Shutting down BigBangHolograms...");
+                com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().shutdown();
+            } catch (Exception e) {
+                LOGGER.error("Failed to shutdown BigBangHolograms", e);
             }
 
             // Shutdown RankUp Manager
@@ -1109,6 +1130,9 @@ public class BigBangEssentials {
         com.pedrodalben.bigbangessentials.crates.command.CrateCommand.register(dispatcher);
         com.pedrodalben.bigbangessentials.crates.command.GiveKeyCommand.register(dispatcher);
         com.pedrodalben.bigbangessentials.crates.command.KeyGiveCommand.register(dispatcher);
+
+        registry.registerCommand("hologram", "Manage holograms", "holograms");
+        com.pedrodalben.bigbangessentials.holograms.command.HologramCommand.register(dispatcher);
     }
         /*
          * All command registration and related logic that was previously outside of methods has been moved here as a block comment.

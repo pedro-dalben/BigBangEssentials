@@ -183,8 +183,6 @@ public class CrateInteractionHandler {
         }
 
         com.pedrodalben.bigbangessentials.crates.particle.CrateParticleManager.getInstance().stopParticles(location.getId());
-        com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager.getInstance().removeHologram(location.getId());
-
         crateService.deleteLocation(location.getId());
         player.sendSystemMessage(Component.literal("\u00a7aLocaliza\u00e7\u00e3o de crate removida."));
         LOGGER.info("Player {} removed crate location at {}", player.getUUID(), pos);

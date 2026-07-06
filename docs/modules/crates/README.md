@@ -1,5 +1,14 @@
 # Módulo de Crates — BigBangEssentials
 
+## Hologramas
+
+Os hologramas de crates agora usam o módulo compartilhado `BigBangHolograms`.
+
+- novas crates usam `TextDisplay` virtual enviado apenas ao cliente
+- o renderer antigo com `ArmorStand` fica restrito ao fluxo de limpeza legada
+- `/crates location cleanup` continua disponível
+- `/hologram cleanup legacy` usa a mesma limpeza compartilhada
+
 ## Visão Geral
 
 O módulo de Crates do BigBangEssentials é um sistema completo de loot boxes (caixas de recompensas) com suporte a abrir cas, chaves físicas e virtuais, animações, hologramas, partículas, milestones, raridades, limites globais/por jogador, logs de auditoria e integração com economia.

@@ -5,24 +5,21 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateLocation;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateVisualConfig;
 import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
-import com.pedrodalben.bigbangessentials.crates.menu.AbstractCrateMenu;
-import com.pedrodalben.bigbangessentials.util.Platform;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.decoration.ArmorStand;
-import net.minecraft.world.phys.AABB;
+import com.pedrodalben.bigbangessentials.holograms.api.BigBangHolograms;
+import com.pedrodalben.bigbangessentials.holograms.api.HologramDefinition;
+import com.pedrodalben.bigbangessentials.holograms.api.HologramLocation;
+import com.pedrodalben.bigbangessentials.holograms.api.HologramUpdatePolicy;
+import com.pedrodalben.bigbangessentials.holograms.api.HologramVisibilityPolicy;
+import com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -30,8 +27,7 @@ public class CrateHologramManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(CrateHologramManager.class);
     private static final CrateHologramManager INSTANCE = new CrateHologramManager();
 
-    private final Map<UUID, HologramData> activeHolograms = new ConcurrentHashMap<>();
-    private int tickCounter;
+    private final Map<UUID, String> activeHolograms = new ConcurrentHashMap<>();
 
     private CrateHologramManager() {
     }
@@ -41,202 +37,147 @@ public class CrateHologramManager {
     }
 
     public void spawnHologram(CrateLocation location, CrateDefinition crate) {
-        if (!location.isActive()) return;
-
-        removeHologram(location.getId());
-        removePersistedHologramEntities(location);
-
-        CrateVisualConfig visualConfig = crate.getVisualConfig();
-        if (!visualConfig.isHologramEnabled()) return;
-
-        ServerLevel level = resolveLevel(location);
-        if (level == null) return;
-
-        List<String> lines = resolveHologramLines(location, crate, visualConfig);
-        if (lines.isEmpty()) return;
-
-        BlockPos pos = location.getPosition();
-        double offsetY = location.getHologramOffsetY() > 0
-            ? location.getHologramOffsetY()
-            : visualConfig.getHologramOffsetY();
-
-        List<UUID> armorStandIds = new ArrayList<>();
-        double lineSpacing = 0.3;
-
-        for (int i = 0; i < lines.size(); i++) {
-            ArmorStand stand = new ArmorStand(EntityType.ARMOR_STAND, level);
-            stand.setPos(
-                pos.getX() + 0.5,
-                pos.getY() + offsetY + (lines.size() - 1 - i) * lineSpacing,
-                pos.getZ() + 0.5
-            );
-            configureHologramStand(stand, location, lines.get(i));
-
-            level.addFreshEntity(stand);
-            armorStandIds.add(stand.getUUID());
+        if (!location.isActive()) {
+            removeHologram(location.getId());
+            return;
         }
 
-        HologramData data = new HologramData(
-            location.getId(), crate.getKey(),
-            armorStandIds, visualConfig.getHologramUpdateIntervalTicks()
-        );
-        activeHolograms.put(location.getId(), data);
+        CrateVisualConfig visualConfig = crate.getVisualConfig();
+        if (visualConfig == null || !visualConfig.isHologramEnabled() || !location.isHologramEnabled()) {
+            removeHologram(location.getId());
+            return;
+        }
 
-        LOGGER.debug("Spawned hologram with {} lines for crate location {} in world '{}'",
-            lines.size(), location.getId(), location.getWorldName());
+        String hologramId = hologramId(location);
+        HologramDefinition definition = HologramDefinition.builder(hologramId)
+            .ownerId("bigbangessentials:crate")
+            .location(new HologramLocation(
+                location.getDimension(),
+                location.getX() + 0.5D,
+                location.getY(),
+                location.getZ() + 0.5D
+            ))
+            .lines(resolveHologramLines(location, crate, visualConfig))
+            .viewDistance(visualConfig.getHologramViewDistance())
+            .visibilityPolicy(HologramVisibilityPolicy.NEARBY_PLAYERS)
+            .updatePolicy(visualConfig.getHologramUpdateIntervalTicks() > 0 ? HologramUpdatePolicy.DYNAMIC : HologramUpdatePolicy.STATIC)
+            .refreshIntervalTicks(Math.max(0, visualConfig.getHologramUpdateIntervalTicks()))
+            .persistent(false)
+            .offset(0.0D, location.getHologramOffsetY() > 0 ? location.getHologramOffsetY() : visualConfig.getHologramOffsetY(), 0.0D)
+            .metadata(Map.of(
+                "name", crate.getDisplayName() != null ? crate.getDisplayName() : crate.getKey(),
+                "description", crate.getDescription() != null ? crate.getDescription() : "",
+                "key", crate.getKey(),
+                "key_amount", resolveKeyInfo(crate)
+            ))
+            .build();
+
+        BigBangHolograms.getApi().createOrUpdate(definition);
+        BigBangHologramsManager.getInstance().getLegacyCleaner().cleanupAround(location);
+        activeHolograms.put(location.getId(), hologramId);
     }
 
     public void removeHologram(UUID locationId) {
-        HologramData data = activeHolograms.remove(locationId);
-        if (data == null) return;
-        for (UUID id : data.armorStandIds) {
-            removeEntity(id);
+        String hologramId = activeHolograms.remove(locationId);
+        if (hologramId != null) {
+            BigBangHolograms.getApi().delete(hologramId);
         }
     }
 
     public void updateHologramContent(UUID locationId) {
-        HologramData data = activeHolograms.get(locationId);
-        if (data == null) return;
-
         CrateLocation location = CrateService.getInstance().getLocationById(locationId).orElse(null);
         if (location == null || !location.isActive()) {
             removeHologram(locationId);
             return;
         }
-
-        CrateDefinition crate = CrateService.getInstance().getCrateByKey(data.crateKey);
+        CrateDefinition crate = CrateService.getInstance().getCrateByKey(location.getCrateId());
         if (crate == null) {
             removeHologram(locationId);
             return;
         }
+        spawnHologram(location, crate);
+    }
 
-        CrateVisualConfig visualConfig = crate.getVisualConfig();
-        List<String> newLines = resolveHologramLines(location, crate, visualConfig);
+    public void synchronizeLocation(CrateLocation location) {
+        if (location == null) {
+            return;
+        }
+        CrateDefinition crate = CrateService.getInstance().getCrateByKey(location.getCrateId());
+        if (crate == null || !crate.isEnabled()) {
+            removeHologram(location.getId());
+            return;
+        }
+        spawnHologram(location, crate);
+    }
 
-        List<UUID> oldIds = data.armorStandIds;
-        List<UUID> newIds = new ArrayList<>();
-        ServerLevel level = resolveLevel(location);
-        double lineSpacing = 0.3;
-        BlockPos pos = location.getPosition();
-        double offsetY = location.getHologramOffsetY() > 0
-            ? location.getHologramOffsetY()
-            : visualConfig.getHologramOffsetY();
-
-        if (level != null) {
-            int lineCount = Math.max(newLines.size(), oldIds.size());
-            for (int i = 0; i < lineCount; i++) {
-                if (i < oldIds.size() && i < newLines.size()) {
-                    ArmorStand existing = findArmorStand(oldIds.get(i));
-                    if (existing != null) {
-                        existing.setCustomName(Component.literal(newLines.get(i)));
-                        existing.setCustomNameVisible(true);
-                        newIds.add(existing.getUUID());
-                        continue;
-                    }
-                }
-
-                if (i < oldIds.size()) {
-                    removeEntity(oldIds.get(i));
-                }
-
-                if (i < newLines.size()) {
-                    ArmorStand stand = new ArmorStand(EntityType.ARMOR_STAND, level);
-                    stand.setPos(
-                        pos.getX() + 0.5,
-                        pos.getY() + offsetY + (newLines.size() - 1 - i) * lineSpacing,
-                        pos.getZ() + 0.5
-                    );
-                    configureHologramStand(stand, location, newLines.get(i));
-                    level.addFreshEntity(stand);
-                    newIds.add(stand.getUUID());
-                }
+    public void synchronizeCrate(String crateKey) {
+        if (crateKey == null || crateKey.isBlank()) {
+            return;
+        }
+        CrateService crateService = CrateService.getInstance();
+        CrateDefinition crate = crateService.getCrateByKey(crateKey);
+        List<CrateLocation> locations = crateService.getLocationsByCrate(crateKey);
+        if (crate == null || !crate.isEnabled()) {
+            for (CrateLocation location : locations) {
+                removeHologram(location.getId());
             }
+            return;
+        }
+        for (CrateLocation location : locations) {
+            synchronizeLocation(location);
+        }
+    }
+
+    public void reconcileAll() {
+        CrateService crateService = CrateService.getInstance();
+        Set<UUID> validLocations = new HashSet<>();
+
+        for (CrateLocation location : crateService.getAllLocations()) {
+            validLocations.add(location.getId());
+            synchronizeLocation(location);
         }
 
-        data.armorStandIds = newIds;
-        activeHolograms.put(locationId, data);
+        for (UUID locationId : new ArrayList<>(activeHolograms.keySet())) {
+            if (!validLocations.contains(locationId)) {
+                removeHologram(locationId);
+            }
+        }
+    }
+
+    public void removeByCrate(String crateKey) {
+        if (crateKey == null || crateKey.isBlank()) {
+            return;
+        }
+        for (CrateLocation location : CrateService.getInstance().getLocationsByCrate(crateKey)) {
+            removeHologram(location.getId());
+        }
     }
 
     public void removeAll() {
-        removePersistedHologramEntities();
-        for (HologramData data : activeHolograms.values()) {
-            for (UUID id : data.armorStandIds) {
-                removeEntity(id);
-            }
+        for (String hologramId : activeHolograms.values()) {
+            BigBangHolograms.getApi().delete(hologramId);
         }
         activeHolograms.clear();
-        LOGGER.info("Removed all crate holograms");
     }
 
     public void tick() {
-        if (activeHolograms.isEmpty()) return;
-
-        tickCounter++;
-        if (tickCounter < 20) return;
-        tickCounter = 0;
-
-        Iterator<Map.Entry<UUID, HologramData>> iterator = activeHolograms.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<UUID, HologramData> entry = iterator.next();
-            HologramData data = entry.getValue();
-
-            if (data.updateIntervalTicks <= 0) continue;
-
-            if (data.ticksSinceUpdate >= data.updateIntervalTicks) {
-                data.ticksSinceUpdate = 0;
-                updateHologramContent(entry.getKey());
-            } else {
-                data.ticksSinceUpdate++;
-            }
-        }
+        BigBangHologramsManager.getInstance().tick();
     }
 
-    public Map<UUID, HologramData> getActiveHolograms() {
+    public Map<UUID, String> getActiveHolograms() {
         return Collections.unmodifiableMap(activeHolograms);
     }
 
     public void removePersistedHologramEntities() {
-        MinecraftServer server = Platform.getCurrentServer();
-        if (server == null) return;
-
-        int removed = 0;
-        for (ServerLevel level : server.getAllLevels()) {
-            for (ArmorStand stand : level.getEntitiesOfClass(ArmorStand.class, level.getWorldBorder().getCollisionShape().bounds())) {
-                if (stand.getTags().contains("crate_hologram")) {
-                    stand.remove(Entity.RemovalReason.DISCARDED);
-                    removed++;
-                }
-            }
-        }
-
-        if (removed > 0) {
-            LOGGER.info("Removed {} persisted crate hologram entities from loaded worlds", removed);
-        }
+        BigBangHologramsManager.getInstance().getLegacyCleaner().cleanupLoadedLevels();
     }
 
     public void removePersistedHologramEntities(CrateLocation location) {
-        ServerLevel level = resolveLevel(location);
-        if (level == null) return;
-
-        BlockPos pos = location.getPosition();
-        AABB searchBox = new AABB(
-            pos.getX() - 1.0, pos.getY() - 1.0, pos.getZ() - 1.0,
-            pos.getX() + 2.0, pos.getY() + 5.0, pos.getZ() + 2.0
-        );
-        String locationTag = "crate_hologram_" + location.getId();
-
-        for (ArmorStand stand : level.getEntitiesOfClass(ArmorStand.class, searchBox)) {
-            if (stand.getTags().contains("crate_hologram")
-                || stand.getTags().contains(locationTag)) {
-                stand.remove(Entity.RemovalReason.DISCARDED);
-            }
-        }
+        BigBangHologramsManager.getInstance().getLegacyCleaner().cleanupAround(location);
     }
 
-    private List<String> resolveHologramLines(
-            CrateLocation location, CrateDefinition crate, CrateVisualConfig config) {
+    private List<String> resolveHologramLines(CrateLocation location, CrateDefinition crate, CrateVisualConfig config) {
         List<String> lines = new ArrayList<>();
-
         String keyInfo = resolveKeyInfo(crate);
 
         if (config.getHologramTemplate() != null && !config.getHologramTemplate().isBlank()) {
@@ -245,7 +186,14 @@ public class CrateHologramManager {
                 .replace("{description}", crate.getDescription() != null ? crate.getDescription() : "")
                 .replace("{key}", crate.getKey())
                 .replace("{key_amount}", keyInfo);
-            lines.add(AbstractCrateMenu.translateColorCodes(processed));
+            lines.add(translateColorCodes(processed));
+        } else if (location.getHologramTemplate() != null && !location.getHologramTemplate().isBlank()) {
+            String processed = location.getHologramTemplate()
+                .replace("{name}", crate.getDisplayName() != null ? crate.getDisplayName() : crate.getKey())
+                .replace("{description}", crate.getDescription() != null ? crate.getDescription() : "")
+                .replace("{key}", crate.getKey())
+                .replace("{key_amount}", keyInfo);
+            lines.add(translateColorCodes(processed));
         } else {
             for (String line : config.getHologramLines()) {
                 String processed = line
@@ -253,13 +201,14 @@ public class CrateHologramManager {
                     .replace("{description}", crate.getDescription() != null ? crate.getDescription() : "")
                     .replace("{key}", crate.getKey())
                     .replace("{key_amount}", keyInfo);
-                processed = AbstractCrateMenu.translateColorCodes(processed);
+                processed = translateColorCodes(processed);
                 if (!processed.isBlank()) {
                     lines.add(processed);
                 }
             }
         }
 
+        LOGGER.debug("Resolved {} hologram line(s) for crate location {}", lines.size(), location.getId());
         return lines;
     }
 
@@ -271,7 +220,7 @@ public class CrateHologramManager {
                 if (crateService != null) {
                     java.util.Optional<KeyDefinition> keyDef = crateService.getKeyById(keyIds.get(0));
                     if (keyDef.isPresent()) {
-                        return "§f" + AbstractCrateMenu.translateColorCodes(keyDef.get().getName());
+                        return "§f" + translateColorCodes(keyDef.get().getName());
                     }
                 }
                 return "§f" + keyIds.get(0);
@@ -280,66 +229,11 @@ public class CrateHologramManager {
         return "";
     }
 
-    private ServerLevel resolveLevel(CrateLocation location) {
-        MinecraftServer server = Platform.getCurrentServer();
-        if (server == null) return null;
-        return server.getLevel(location.getDimension());
+    public static String hologramId(CrateLocation location) {
+        return "bigbangessentials:crate/" + location.getId().toString().toLowerCase();
     }
 
-    private ArmorStand findArmorStand(UUID uuid) {
-        MinecraftServer server = Platform.getCurrentServer();
-        if (server == null) return null;
-        for (ServerLevel level : server.getAllLevels()) {
-            Entity entity = level.getEntity(uuid);
-            if (entity instanceof ArmorStand stand) {
-                return stand;
-            }
-        }
-        return null;
-    }
-
-    private void removeEntity(UUID uuid) {
-        MinecraftServer server = Platform.getCurrentServer();
-        if (server == null) return;
-        for (ServerLevel level : server.getAllLevels()) {
-            Entity entity = level.getEntity(uuid);
-            if (entity != null) {
-                entity.remove(Entity.RemovalReason.DISCARDED);
-                return;
-            }
-        }
-    }
-
-    private void configureHologramStand(ArmorStand stand, CrateLocation location, String line) {
-        stand.setCustomName(Component.literal(line));
-        stand.setCustomNameVisible(true);
-        stand.setInvisible(true);
-        stand.setNoGravity(true);
-        stand.setInvulnerable(true);
-        stand.setSilent(true);
-        stand.setNoBasePlate(true);
-        byte flags = stand.getEntityData().get(ArmorStand.DATA_CLIENT_FLAGS);
-        flags |= 0x01; // small
-        flags |= 0x08; // no base plate
-        flags |= 0x10; // marker
-        stand.getEntityData().set(ArmorStand.DATA_CLIENT_FLAGS, flags);
-        stand.addTag("crate_hologram");
-        stand.addTag("crate_hologram_" + location.getId().toString());
-    }
-
-    static class HologramData {
-        final UUID locationId;
-        final String crateKey;
-        List<UUID> armorStandIds;
-        final int updateIntervalTicks;
-        int ticksSinceUpdate;
-
-        HologramData(UUID locationId, String crateKey, List<UUID> armorStandIds, int updateIntervalTicks) {
-            this.locationId = locationId;
-            this.crateKey = crateKey;
-            this.armorStandIds = armorStandIds;
-            this.updateIntervalTicks = updateIntervalTicks;
-            this.ticksSinceUpdate = 0;
-        }
+    private static String translateColorCodes(String text) {
+        return text == null ? "" : text.replace('&', '\u00a7');
     }
 }

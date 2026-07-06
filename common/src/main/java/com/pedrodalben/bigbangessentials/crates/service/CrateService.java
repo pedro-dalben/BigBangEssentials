@@ -7,6 +7,7 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateMilestone;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateRarity;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateReward;
 import com.pedrodalben.bigbangessentials.crates.domain.KeyDefinition;
+import com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager;
 import com.pedrodalben.bigbangessentials.crates.repository.CrateLocationRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.CrateRepository;
 import com.pedrodalben.bigbangessentials.crates.repository.KeyRepository;
@@ -78,10 +79,17 @@ public class CrateService {
     }
 
     public CrateDefinition saveCrate(CrateDefinition crate) {
-        return crateRepo.save(crate);
+        CrateDefinition saved = crateRepo.save(crate);
+        CrateHologramManager.getInstance().synchronizeCrate(saved.getKey());
+        return saved;
     }
 
     public void deleteCrate(String key) {
+        List<CrateLocation> locations = locationRepo.findByCrateId(key);
+        for (CrateLocation location : locations) {
+            CrateHologramManager.getInstance().removeHologram(location.getId());
+            locationRepo.deleteById(location.getId());
+        }
         crateRepo.deleteByKey(key);
         if (keyRepo.existsById(key)) {
             keyRepo.deleteById(key);
@@ -97,7 +105,9 @@ public class CrateService {
 
     public CrateLocation addLocation(String crateId, ResourceKey<Level> dimension, BlockPos position) {
         CrateLocation loc = new CrateLocation(UUID.randomUUID(), crateId, dimension, position);
-        return locationRepo.save(loc);
+        CrateLocation saved = locationRepo.save(loc);
+        CrateHologramManager.getInstance().synchronizeLocation(saved);
+        return saved;
     }
 
     public List<CrateLocation> getLocationsByCrate(String crateId) {
@@ -117,10 +127,13 @@ public class CrateService {
     }
 
     public CrateLocation saveLocation(CrateLocation location) {
-        return locationRepo.save(location);
+        CrateLocation saved = locationRepo.save(location);
+        CrateHologramManager.getInstance().synchronizeLocation(saved);
+        return saved;
     }
 
     public void deleteLocation(UUID locationId) {
+        CrateHologramManager.getInstance().removeHologram(locationId);
         locationRepo.deleteById(locationId);
     }
 
@@ -260,5 +273,6 @@ public class CrateService {
     }
 
     public void reload() {
+        CrateHologramManager.getInstance().reconcileAll();
     }
 }

@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.neoforge.listener;
 
 import com.pedrodalben.bigbangessentials.BigBangEssentials;
+import com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager;
 import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
 import com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,6 +11,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.MobSpawnEvent;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.player.AdvancementEvent;
 import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -100,6 +102,11 @@ public class NeoForgeEvents {
         if (event.getChunk() instanceof LevelChunk chunk) {
             JobsEventListener.onChunkUnload(chunk);
         }
+    }
+
+    @SubscribeEvent
+    public static void onEntityJoinLevel(EntityJoinLevelEvent event) {
+        BigBangHologramsManager.getInstance().getLegacyCleaner().cleanupIfLegacy(event.getEntity());
     }
 
     @SubscribeEvent

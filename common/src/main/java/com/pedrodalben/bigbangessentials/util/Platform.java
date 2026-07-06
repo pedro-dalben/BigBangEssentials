@@ -17,7 +17,7 @@ public class Platform {
     }
 
     public static MinecraftServer getCurrentServer() {
-        return provider.getCurrentServer();
+        return provider == null ? null : provider.getCurrentServer();
     }
 
     public static Path getConfigDir() {

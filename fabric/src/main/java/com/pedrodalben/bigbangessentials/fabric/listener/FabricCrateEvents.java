@@ -7,6 +7,7 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateLocation;
 import com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager;
 import com.pedrodalben.bigbangessentials.crates.particle.CrateParticleManager;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
+import com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
@@ -39,7 +40,7 @@ public class FabricCrateEvents {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayer player = handler.getPlayer();
             try {
-                spawnHologramsForPlayer(player);
+                BigBangHologramsManager.getInstance().syncPlayerNow(player);
             } catch (Exception e) {
                 LOGGER.error("Error spawning holograms for player {}", player.getUUID(), e);
             }
@@ -49,6 +50,7 @@ public class FabricCrateEvents {
             ServerPlayer player = handler.getPlayer();
             try {
                 CrateAnimationHandler.getInstance().removePlayer(player.getUUID());
+                BigBangHologramsManager.getInstance().onPlayerDisconnect(player);
             } catch (Exception e) {
                 LOGGER.error("Error removing player from animation handler", e);
             }
@@ -98,33 +100,10 @@ public class FabricCrateEvents {
         });
     }
 
-    private static void spawnHologramsForPlayer(ServerPlayer player) {
-        CrateService crateService = CrateService.getInstance();
-        if (crateService == null) return;
-
-        CrateHologramManager hologramManager = CrateHologramManager.getInstance();
-        if (hologramManager == null) return;
-
-        hologramManager.removePersistedHologramEntities();
-        List<CrateLocation> locations = crateService.getAllLocations();
-        for (CrateLocation location : locations) {
-            if (!location.isActive() || !location.isHologramEnabled()) continue;
-            if (!location.getDimension().equals(player.serverLevel().dimension())) continue;
-
-            if (player.distanceToSqr(
-                location.getX() + 0.5, location.getY() + 0.5, location.getZ() + 0.5
-            ) <= 64 * 64) {
-                CrateDefinition crate = crateService.getCrateByKey(location.getCrateId());
-                if (crate != null) {
-                    hologramManager.spawnHologram(location, crate);
-                }
-            }
-        }
-    }
-
     private static void initializeVisualSystems() {
         LOGGER.info("Initializing crate visual systems...");
 
+        BigBangHologramsManager.getInstance().initialize();
         CrateService crateService = CrateService.getInstance();
         if (crateService == null) return;
 

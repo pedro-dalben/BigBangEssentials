@@ -149,6 +149,7 @@ public class CrateManager {
                 context = CrateModuleContext.getInstance();
                 context.initialize();
             }
+            CrateHologramManager.getInstance().reconcileAll();
             LOGGER.info("CrateManager reloaded successfully");
         } catch (Exception e) {
             LOGGER.error("Failed to reload CrateManager: {}", e.getMessage(), e);

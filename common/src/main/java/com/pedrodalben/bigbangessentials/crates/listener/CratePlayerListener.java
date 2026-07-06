@@ -5,6 +5,7 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateDefinition;
 import com.pedrodalben.bigbangessentials.crates.domain.CrateLocation;
 import com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
+import com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -33,24 +34,7 @@ public class CratePlayerListener {
     @SubscribeEvent
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
-
-        hologramManager.removePersistedHologramEntities();
-        ServerLevel level = player.serverLevel();
-        List<CrateLocation> locations = crateService.getAllLocations();
-
-        for (CrateLocation location : locations) {
-            if (!location.isActive() || !location.isHologramEnabled()) continue;
-            if (!location.getDimension().equals(level.dimension())) continue;
-
-            if (player.distanceToSqr(
-                location.getX() + 0.5, location.getY() + 0.5, location.getZ() + 0.5
-            ) <= 64 * 64) {
-                CrateDefinition crate = crateService.getCrateByKey(location.getCrateId());
-                if (crate != null) {
-                    hologramManager.spawnHologram(location, crate);
-                }
-            }
-        }
+        BigBangHologramsManager.getInstance().syncPlayerNow(player);
     }
 
     @SubscribeEvent
@@ -58,19 +42,8 @@ public class CratePlayerListener {
         if (!(event.getEntity() instanceof ServerPlayer)) return;
 
         ServerPlayer player = (ServerPlayer) event.getEntity();
-        hologramManager.removePersistedHologramEntities();
-        ServerLevel level = player.serverLevel();
-
-        List<CrateLocation> locations = crateService.getAllLocations();
-        for (CrateLocation location : locations) {
-            if (!location.isActive() || !location.isHologramEnabled()) continue;
-            if (!location.getDimension().equals(level.dimension())) continue;
-
-            CrateDefinition crate = crateService.getCrateByKey(location.getCrateId());
-            if (crate != null) {
-                hologramManager.spawnHologram(location, crate);
-            }
-        }
+        BigBangHologramsManager.getInstance().onPlayerStateInvalidated(player);
+        BigBangHologramsManager.getInstance().syncPlayerNow(player);
     }
 
     @SubscribeEvent
@@ -78,6 +51,8 @@ public class CratePlayerListener {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
         animationHandler.removePlayer(player.getUUID());
+        BigBangHologramsManager.getInstance().onPlayerStateInvalidated(player);
+        BigBangHologramsManager.getInstance().syncPlayerNow(player);
     }
 
     @SubscribeEvent
@@ -85,6 +60,7 @@ public class CratePlayerListener {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
         animationHandler.removePlayer(player.getUUID());
+        BigBangHologramsManager.getInstance().onPlayerDisconnect(player);
     }
 
     @SubscribeEvent
@@ -98,6 +74,7 @@ public class CratePlayerListener {
     public void onServerStarted(ServerStartedEvent event) {
         LOGGER.info("Initializing crate visual systems...");
 
+        BigBangHologramsManager.getInstance().initialize();
         List<CrateLocation> locations = crateService.getAllLocations();
         for (CrateLocation location : locations) {
             if (!location.isActive()) continue;

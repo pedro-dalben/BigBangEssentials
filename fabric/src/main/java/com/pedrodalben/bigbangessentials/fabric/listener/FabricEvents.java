@@ -2,6 +2,8 @@ package com.pedrodalben.bigbangessentials.fabric.listener;
 
 import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
 import com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener;
+import com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -53,6 +55,10 @@ public class FabricEvents {
         // Chunk Load Event
         ServerChunkEvents.CHUNK_LOAD.register((level, chunk) -> {
             JobsEventListener.onChunkLoad(chunk);
+        });
+
+        ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> {
+            BigBangHologramsManager.getInstance().getLegacyCleaner().cleanupIfLegacy(entity);
         });
 
         // Chunk Unload Event
