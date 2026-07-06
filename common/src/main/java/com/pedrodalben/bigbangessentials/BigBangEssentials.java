@@ -68,7 +68,7 @@ public class BigBangEssentials {
             LOGGER.info("✓ Registered {} managers across {} categories", 
                 ManagerRegistry.getInstance().getManagerCount(),
                 ManagerRegistry.getInstance().getManagersByCategory().size());
-        } catch (Exception e) {
+        } catch (Throwable e) {
             LOGGER.error("✗ Manager registration failed: {}", e.getMessage(), e);
         }
         
@@ -342,7 +342,7 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().reload();
                 ManagerRegistry.getInstance().markInitialized("RankupManager");
                 LOGGER.info("✓ RankUp system initialized successfully");
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 LOGGER.error("✗ RankUp system failed to initialize: {}", e.getMessage(), e);
                 ManagerRegistry.getInstance().markFailed("RankupManager", e.getMessage());
             }

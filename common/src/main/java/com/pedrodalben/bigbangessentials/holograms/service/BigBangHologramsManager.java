@@ -7,7 +7,9 @@ import com.pedrodalben.bigbangessentials.holograms.migration.LegacyCrateHologram
 import com.pedrodalben.bigbangessentials.holograms.placeholder.PlaceholderEngine;
 import com.pedrodalben.bigbangessentials.holograms.render.ClientOnlyTextDisplayRenderer;
 import com.pedrodalben.bigbangessentials.holograms.render.HologramRenderer;
+import com.pedrodalben.bigbangessentials.holograms.render.NoopHologramRenderer;
 import com.pedrodalben.bigbangessentials.holograms.render.RenderSnapshot;
+import com.pedrodalben.bigbangessentials.holograms.render.RendererHealth;
 import com.pedrodalben.bigbangessentials.holograms.storage.HologramRepository;
 import com.pedrodalben.bigbangessentials.holograms.storage.JsonHologramRepository;
 import com.pedrodalben.bigbangessentials.holograms.visibility.ChunkSpatialIndex;
@@ -39,7 +41,9 @@ public final class BigBangHologramsManager implements HologramService {
     private final HologramRepository repository = new JsonHologramRepository();
     private final PlaceholderEngine placeholderEngine = new PlaceholderEngine();
     private final LegacyCrateHologramCleaner legacyCleaner = new LegacyCrateHologramCleaner();
-    private final HologramRenderer renderer = new ClientOnlyTextDisplayRenderer();
+    private volatile HologramRenderer renderer;
+    private volatile RendererHealth rendererHealth = RendererHealth.HEALTHY;
+    private volatile boolean rendererLoggedError;
     private final List<HologramLifecycleListener> lifecycleListeners = new CopyOnWriteArrayList<>();
     private final PriorityQueue<ScheduledContentUpdate> scheduledUpdates = new PriorityQueue<>(Comparator.comparingLong(ScheduledContentUpdate::tick));
     private final AtomicInteger nextEntityId = new AtomicInteger(1_500_000_000);
@@ -99,7 +103,7 @@ public final class BigBangHologramsManager implements HologramService {
         for (String hologramId : session.visibleIds) {
             ManagedHologram hologram = holograms.get(hologramId);
             if (hologram != null) {
-                renderer.hide(player, hologram.entityId);
+                renderer().hide(player, hologram.entityId);
                 destroyPackets++;
                 lifecycleListeners.forEach(listener -> listener.onHidden(hologram.definition, player));
             }
@@ -111,7 +115,7 @@ public final class BigBangHologramsManager implements HologramService {
         for (String hologramId : new ArrayList<>(session.visibleIds)) {
             ManagedHologram hologram = holograms.get(hologramId);
             if (hologram != null) {
-                renderer.hide(player, hologram.entityId);
+                renderer().hide(player, hologram.entityId);
                 destroyPackets++;
                 lifecycleListeners.forEach(listener -> listener.onHidden(hologram.definition, player));
             }
@@ -122,6 +126,31 @@ public final class BigBangHologramsManager implements HologramService {
     public synchronized void syncPlayerNow(ServerPlayer player) {
         ensureInitialized();
         syncViewer(player);
+    }
+
+    private HologramRenderer renderer() {
+        HologramRenderer r = renderer;
+        if (r != null) {
+            return r;
+        }
+        synchronized (this) {
+            if (renderer != null) {
+                return renderer;
+            }
+            try {
+                renderer = new ClientOnlyTextDisplayRenderer();
+                rendererHealth = RendererHealth.HEALTHY;
+                LOGGER.info("Hologram renderer initialized: ClientOnlyTextDisplayRenderer");
+            } catch (Exception e) {
+                if (!rendererLoggedError) {
+                    rendererLoggedError = true;
+                    LOGGER.error("Failed to create hologram renderer, hologram visualization disabled", e);
+                }
+                renderer = NoopHologramRenderer.getInstance();
+                rendererHealth = RendererHealth.DEGRADED;
+            }
+            return renderer;
+        }
     }
 
     public LegacyCrateHologramCleaner getLegacyCleaner() {
@@ -188,7 +217,7 @@ public final class BigBangHologramsManager implements HologramService {
         for (ServerPlayer player : onlinePlayers()) {
             ViewerSession session = viewerSessions.computeIfAbsent(player.getUUID(), ignored -> new ViewerSession());
             if (session.visibleIds.remove(normalized)) {
-                renderer.hide(player, removed.entityId);
+                renderer().hide(player, removed.entityId);
                 destroyPackets++;
                 lifecycleListeners.forEach(listener -> listener.onHidden(removed.definition, player));
             }
@@ -239,7 +268,7 @@ public final class BigBangHologramsManager implements HologramService {
         session.forcedHidden.add(normalized);
         ManagedHologram hologram = holograms.get(normalized);
         if (hologram != null && session.visibleIds.remove(normalized)) {
-            renderer.hide(player, hologram.entityId);
+            renderer().hide(player, hologram.entityId);
             destroyPackets++;
             lifecycleListeners.forEach(listener -> listener.onHidden(hologram.definition, player));
         }
@@ -325,7 +354,8 @@ public final class BigBangHologramsManager implements HologramService {
             destroyPackets,
             totalUpdates == 0L ? 0.0D : (double) totalUpdateNanos / (double) totalUpdates,
             legacyCleaner.getRemovedThisSession(),
-            lastCleanup
+            lastCleanup,
+            rendererHealth
         );
     }
 
@@ -445,7 +475,7 @@ public final class BigBangHologramsManager implements HologramService {
             if (!shouldSee.contains(id)) {
                 ManagedHologram hologram = holograms.get(id);
                 if (hologram != null) {
-                    renderer.hide(player, hologram.entityId);
+                    renderer().hide(player, hologram.entityId);
                     destroyPackets++;
                     lifecycleListeners.forEach(listener -> listener.onHidden(hologram.definition, player));
                 }
@@ -459,7 +489,7 @@ public final class BigBangHologramsManager implements HologramService {
                 continue;
             }
             RenderSnapshot snapshot = buildSnapshot(hologram, player);
-            renderer.show(player, snapshot);
+            renderer().show(player, snapshot);
             spawnPackets++;
             session.visibleIds.add(id);
             lifecycleListeners.forEach(listener -> listener.onShown(hologram.definition, player));
@@ -515,7 +545,7 @@ public final class BigBangHologramsManager implements HologramService {
                 if (session == null || !session.visibleIds.contains(hologram.definition.id())) {
                     continue;
                 }
-                renderer.update(player, buildSnapshot(hologram, player));
+                renderer().update(player, buildSnapshot(hologram, player));
                 updatePackets++;
             }
 

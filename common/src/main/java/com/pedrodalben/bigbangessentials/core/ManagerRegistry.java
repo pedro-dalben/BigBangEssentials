@@ -82,8 +82,11 @@ public class ManagerRegistry {
             
             LOGGER.debug("Registered manager: {} ({}) [{}ms]", name, category, duration);
             
-        } catch (Exception e) {
-            LOGGER.error("Failed to register manager '{}': {}", name, e.getMessage(), e);
+        } catch (Throwable e) {
+            String message = e instanceof ClassNotFoundException || e instanceof NoClassDefFoundError
+                ? "Missing dependency: " + e.getMessage()
+                : e.getMessage();
+            LOGGER.error("Failed to register manager '{}': {}", name, message, e);
             
             // Register as failed
             ManagerInfo info = new ManagerInfo(
@@ -93,7 +96,7 @@ public class ManagerRegistry {
                 false,
                 System.currentTimeMillis()
             );
-            info.markAsFailed(e.getMessage());
+            info.markAsFailed(message);
             managers.put(name, info);
         }
     }

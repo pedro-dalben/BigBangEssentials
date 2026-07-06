@@ -1,5 +1,7 @@
 package com.pedrodalben.bigbangessentials.holograms.api;
 
+import com.pedrodalben.bigbangessentials.holograms.render.RendererHealth;
+
 import java.time.Instant;
 
 public record HologramStats(
@@ -15,6 +17,7 @@ public record HologramStats(
     long destroyPackets,
     double averageUpdateNanos,
     int legacyEntitiesRemoved,
-    Instant lastLegacyCleanup
+    Instant lastLegacyCleanup,
+    RendererHealth rendererHealth
 ) {
 }

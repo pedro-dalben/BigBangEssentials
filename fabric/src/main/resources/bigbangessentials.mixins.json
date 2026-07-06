@@ -3,13 +3,15 @@
   "package": "com.pedrodalben.bigbangessentials.fabric.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "EntityPersistentDataMixin",
     "BlockItemMixin",
-    "MobMixin",
-    "FishingHookMixin",
     "CrateInteractionMixin",
+    "DisplayAccessor",
+    "EntityPersistentDataMixin",
+    "FishingHookMixin",
+    "FurnaceResultSlotMixin",
+    "MobMixin",
     "ResultSlotMixin",
-    "FurnaceResultSlotMixin"
+    "TextDisplayAccessor"
   ],
   "client": [],
   "injectors": {

@@ -408,6 +408,7 @@ public final class HologramCommand {
         source.sendSuccess(() -> Component.literal("§7Crates: §f" + stats.crateHolograms()), false);
         source.sendSuccess(() -> Component.literal("§7Players ativos: §f" + stats.activePlayers()), false);
         source.sendSuccess(() -> Component.literal("§7Spawn packets: §f" + stats.spawnPackets() + " §7| Update packets: §f" + stats.updatePackets() + " §7| Destroy packets: §f" + stats.destroyPackets()), false);
+        source.sendSuccess(() -> Component.literal("§7Renderer: §" + (stats.rendererHealth() == com.pedrodalben.bigbangessentials.holograms.render.RendererHealth.HEALTHY ? "a" : "c") + stats.rendererHealth().name()), false);
         source.sendSuccess(() -> Component.literal("§7Legacy removidos: §f" + stats.legacyEntitiesRemoved()), false);
         if (stats.lastLegacyCleanup() != null) {
             source.sendSuccess(() -> Component.literal("§7Último cleanup legado: §f" + TIME_FORMAT.format(stats.lastLegacyCleanup())), false);

@@ -2,6 +2,8 @@ package com.pedrodalben.bigbangessentials.fabric;
 
 import com.pedrodalben.bigbangessentials.BigBangEssentials;
 import com.pedrodalben.bigbangessentials.fabric.impl.FabricPlatformProvider;
+import com.pedrodalben.bigbangessentials.fabric.impl.FabricTextDisplayMetadataFactory;
+import com.pedrodalben.bigbangessentials.holograms.render.TextDisplayMetadata;
 import com.pedrodalben.bigbangessentials.util.Platform;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -14,6 +16,9 @@ public class FabricModEntrypoint implements ModInitializer {
     public void onInitialize() {
         // Initialize Platform bridge
         Platform.init(new FabricPlatformProvider());
+
+        // Install Fabric hologram metadata factory (relies on @Accessor mixin)
+        TextDisplayMetadata.install(new FabricTextDisplayMetadataFactory());
 
         // Initialize common systems
         BigBangEssentials.init();

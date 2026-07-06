@@ -18,7 +18,7 @@ public final class NeoForgeTextDisplayMetadataFactory implements VirtualTextDisp
         List<SynchedEntityData.DataValue<?>> values = new ArrayList<>();
         values.add(dataValue(accessor("DATA_TEXT_ID"), snapshot.text() != null ? snapshot.text() : Component.empty()));
         values.add(dataValue(accessor("DATA_LINE_WIDTH_ID"), snapshot.lineWidth()));
-        values.add(dataValue(accessor("DATA_TEXT_OPACITY_ID"), (int) snapshot.textOpacity()));
+        values.add(dataValue(accessor("DATA_TEXT_OPACITY_ID"), snapshot.textOpacity()));
         values.add(dataValue(accessor("DATA_BACKGROUND_COLOR_ID"), snapshot.backgroundColor()));
         values.add(dataValue(accessor("DATA_STYLE_FLAGS_ID"), snapshot.textFlags()));
         values.add(dataValue(accessor("DATA_BILLBOARD_RENDER_CONSTRAINTS_ID"), billboardId(snapshot.billboard())));

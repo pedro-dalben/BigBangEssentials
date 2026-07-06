@@ -20,7 +20,7 @@ public final class FabricTextDisplayMetadataFactory implements VirtualTextDispla
         List<SynchedEntityData.DataValue<?>> values = new ArrayList<>();
         values.add(dataValue(TextDisplayAccessor.getDataTextId(), snapshot.text() != null ? snapshot.text() : Component.empty()));
         values.add(dataValue(TextDisplayAccessor.getDataLineWidthId(), snapshot.lineWidth()));
-        values.add(dataValue(TextDisplayAccessor.getDataTextOpacityId(), (int) snapshot.textOpacity()));
+        values.add(dataValue(TextDisplayAccessor.getDataTextOpacityId(), snapshot.textOpacity()));
         values.add(dataValue(TextDisplayAccessor.getDataBackgroundColorId(), snapshot.backgroundColor()));
         values.add(dataValue(TextDisplayAccessor.getDataStyleFlagsId(), snapshot.textFlags()));
         values.add(dataValue(DisplayAccessor.getDataBillboardConstraintsId(), billboardId(snapshot.billboard())));
