@@ -28,6 +28,12 @@ import com.mojang.authlib.GameProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.pedrodalben.bigbangessentials.jobs.editor.menu.JobsEditorMainMenu;
+import com.pedrodalben.bigbangessentials.jobs.editor.menu.JobEditorCrateTiersMenu;
+import com.pedrodalben.bigbangessentials.jobs.editor.menu.JobEditorIntegrationsMenu;
+import com.pedrodalben.bigbangessentials.jobs.editor.menu.JobEditorRevisionsMenu;
+import com.pedrodalben.bigbangessentials.jobs.editor.menu.JobEditorSimulationMenu;
+
 import java.util.UUID;
 import java.util.List;
 import java.util.Map;
@@ -268,6 +274,26 @@ public class JobsAdminCommand {
                         .then(Commands.argument("slot", StringArgumentType.word())
                             .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(List.of("COMMON_PRIMARY", "COMMON_SECONDARY", "POKEMON_SPECIALIZATION"), builder))
                             .executes(ctx -> executeAdminSlotResetCooldown(ctx, StringArgumentType.getString(ctx, "jogador"), StringArgumentType.getString(ctx, "slot")))))))
+
+            // editor [open|tiers|integrations|revisions|simulate]
+            .then(Commands.literal("editor")
+                .requires(src -> hasAdminPermission(src, "jobs.admin.editor") || hasAdminPermission(src, "jobs.admin.editor.open"))
+                .executes(ctx -> executeEditorOpen(ctx))
+                .then(Commands.literal("tiers")
+                    .requires(src -> hasAdminPermission(src, "jobs.admin.editor.crates"))
+                    .executes(ctx -> executeEditorTiers(ctx)))
+                .then(Commands.literal("integrations")
+                    .requires(src -> hasAdminPermission(src, "jobs.admin.editor.integrations"))
+                    .executes(ctx -> executeEditorIntegrations(ctx)))
+                .then(Commands.literal("revisions")
+                    .requires(src -> hasAdminPermission(src, "jobs.admin.editor.integrations"))
+                    .executes(ctx -> executeEditorRevisions(ctx)))
+                .then(Commands.literal("simulate")
+                    .requires(src -> hasAdminPermission(src, "jobs.admin.editor.simulate"))
+                    .then(Commands.argument("profissao", StringArgumentType.word())
+                        .suggests(SUGGEST_PROFESSIONS)
+                        .executes(ctx -> executeEditorSimulate(ctx, StringArgumentType.getString(ctx, "profissao"), null))))
+            )
         );
     }
 
@@ -1025,6 +1051,60 @@ public class JobsAdminCommand {
                     source.sendFailure(Component.literal("§cErro ao sincronizar Rank."));
                     return null;
                 });
+        return 1;
+    }
+
+    // ====================================================================
+    // Jobs Editor commands
+    // ====================================================================
+
+    private static int executeEditorOpen(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendFailure(Component.literal("§cEste comando só pode ser usado por um jogador."));
+            return 0;
+        }
+        JobsEditorMainMenu.open(player);
+        return 1;
+    }
+
+    private static int executeEditorTiers(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendFailure(Component.literal("§cEste comando só pode ser usado por um jogador."));
+            return 0;
+        }
+        JobEditorCrateTiersMenu.open(player, "global");
+        return 1;
+    }
+
+    private static int executeEditorIntegrations(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendFailure(Component.literal("§cEste comando só pode ser usado por um jogador."));
+            return 0;
+        }
+        JobEditorIntegrationsMenu.open(player);
+        return 1;
+    }
+
+    private static int executeEditorRevisions(CommandContext<CommandSourceStack> ctx) {
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendFailure(Component.literal("§cEste comando só pode ser usado por um jogador."));
+            return 0;
+        }
+        JobEditorRevisionsMenu.open(player, null);
+        return 1;
+    }
+
+    private static int executeEditorSimulate(CommandContext<CommandSourceStack> ctx, String jobName, String target) {
+        ServerPlayer player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendFailure(Component.literal("§cEste comando só pode ser usado por um jogador."));
+            return 0;
+        }
+        JobEditorSimulationMenu.open(player, jobName, target);
         return 1;
     }
 }
