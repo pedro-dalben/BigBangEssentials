@@ -163,7 +163,8 @@ public class BigBangEssentialsManager {
                     ? CompletableFuture.completedFuture(null)
                     : CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
         }).exceptionally(err -> {
-            LOGGER.error("Failed to save database player data for {}", playerId, err);
+            LOGGER.warn("Failed to save database player data for {} (JSON fallback already saved): {}",
+                    playerId, err.getMessage());
             return null;
         });
     }

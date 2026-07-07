@@ -61,12 +61,13 @@ All teleport destinations are checked for safety:
 | `/delwarp` | `/delwarp <name>` | `bigbangessentials.teleport.warp.delete` | Delete a warp |
 | `/warps` | `/warps [page]` | `bigbangessentials.teleport.warp.list` | List warps (20 per page) |
 | `/warpinfo` | `/warpinfo <name>` | `bigbangessentials.warpinfo` | Show warp coordinates and world |
-| `/pwarp` | `/pwarp [name]` | `bigbangessentials.teleport.pwarp` | Teleport to your player warp |
-| `/setpwarp` | `/setpwarp <name>` | `bigbangessentials.teleport.pwarp.create` | Create a player warp |
-| `/delpwarp` | `/delpwarp <name>` | `bigbangessentials.teleport.pwarp.delete` | Delete a player warp |
-| `/pwarps` | `/pwarps` | `bigbangessentials.teleport.pwarp.list` | List your player warps |
+| `/pwarp` | `/pwarp [name]` | `bigbangessentials.pwarp` | Teleport to your player warp |
+| `/setpwarp` | `/setpwarp <name>` | `bigbangessentials.pwarp.set` *(1)* | Create up to 1 player warp |
+| | | `bigbangessentials.pwarp.set.5` *(5)* | Create up to N player warps (ex: 5) |
+| `/delpwarp` | `/delpwarp <name>` | `bigbangessentials.pwarp.delete` | Delete a player warp |
+| `/pwarps` | `/pwarps` | `bigbangessentials.pwarp` | List your player warps |
 
-Set `perWarpPermission: true` in config to require `bigbangessentials.warps.<name>` per warp.
+> **Legacy nodes** (still work): `bigbangessentials.teleport.pwarp.*`, `bigbangessentials.warp.limit.<N>`
 
 ---
 

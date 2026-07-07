@@ -587,10 +587,17 @@ public class PermissionRegistry {
         register("bigbangessentials.teleport.tp", "Teleport self (alias)", PermissionCategory.TELEPORT, false);
         register("bigbangessentials.teleport.tphere", "Teleport others to self (alias)", PermissionCategory.TELEPORT, false);
         register("bigbangessentials.teleport.tppos", "Teleport to coordinates (alias)", PermissionCategory.TELEPORT, false);
-        register("bigbangessentials.teleport.pwarp", "Use player warps", PermissionCategory.TELEPORT, true);
-        register("bigbangessentials.teleport.pwarp.create", "Create player warps", PermissionCategory.TELEPORT, true);
-        register("bigbangessentials.teleport.pwarp.delete", "Delete player warps", PermissionCategory.TELEPORT, true);
-        register("bigbangessentials.teleport.pwarp.list", "List player warps", PermissionCategory.TELEPORT, true);
+        register("bigbangessentials.teleport.pwarp", "Use player warps", PermissionCategory.TELEPORT, false);
+        register("bigbangessentials.teleport.pwarp.create", "Create player warps", PermissionCategory.TELEPORT, false);
+        register("bigbangessentials.teleport.pwarp.delete", "Delete player warps", PermissionCategory.TELEPORT, false);
+        register("bigbangessentials.teleport.pwarp.list", "List player warps", PermissionCategory.TELEPORT, false);
+
+        // ── Simplified player warp permissions ───────────────────────────────
+        register("bigbangessentials.pwarp", "Use player warps (teleport + list)", PermissionCategory.TELEPORT, false);
+        register("bigbangessentials.pwarp.set", "Set up to 1 player warp", PermissionCategory.TELEPORT, false);
+        register("bigbangessentials.pwarp.delete", "Delete player warps", PermissionCategory.TELEPORT, false);
+        // Dynamic: bigbangessentials.pwarp.set.<N> for N > 1 (e.g. bigbangessentials.pwarp.set.5)
+        // These are checked at runtime by WarpManager
 
         // ── Kits additions ────────────────────────────────────────────────────
         register("bigbangessentials.kits.create", "Create kits via /createkit", PermissionCategory.KITS, false);

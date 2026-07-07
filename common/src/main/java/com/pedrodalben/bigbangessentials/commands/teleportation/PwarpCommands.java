@@ -21,24 +21,27 @@ import java.util.UUID;
  */
 public class PwarpCommands {
     private static final String PERMISSION_PWARP = "bigbangessentials.teleport.pwarp";
+    private static final String PERMISSION_PWARP_SIMPLE = "bigbangessentials.pwarp";
     private static final String PERMISSION_SETPWARP = "bigbangessentials.teleport.pwarp.create";
+    private static final String PERMISSION_SETPWARP_SIMPLE = "bigbangessentials.pwarp.set";
     private static final String PERMISSION_DELPWARP = "bigbangessentials.teleport.pwarp.delete";
+    private static final String PERMISSION_DELPWARP_SIMPLE = "bigbangessentials.pwarp.delete";
     private static final String PERMISSION_PWARPS = "bigbangessentials.teleport.pwarp.list";
     private static final String[] PERMISSION_PWARP_COMPAT = {
-        PERMISSION_PWARP,
-        "bigbangessentials.pwarp"
+        PERMISSION_PWARP_SIMPLE,
+        PERMISSION_PWARP
     };
     private static final String[] PERMISSION_SETPWARP_COMPAT = {
-        PERMISSION_SETPWARP,
-        "bigbangessentials.pwarp.set"
+        PERMISSION_SETPWARP_SIMPLE,
+        PERMISSION_SETPWARP
     };
     private static final String[] PERMISSION_DELPWARP_COMPAT = {
-        PERMISSION_DELPWARP,
-        "bigbangessentials.pwarp.delete"
+        PERMISSION_DELPWARP_SIMPLE,
+        PERMISSION_DELPWARP
     };
     private static final String[] PERMISSION_PWARPS_COMPAT = {
-        PERMISSION_PWARPS,
-        "bigbangessentials.pwarp.list"
+        PERMISSION_PWARP_SIMPLE,
+        PERMISSION_PWARPS
     };
 
     private static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> PWARP_SUGGESTIONS = (context, builder) -> {
@@ -63,14 +66,14 @@ public class PwarpCommands {
         );
         // /setpwarp <name>
         dispatcher.register(Commands.literal("setpwarp")
-            .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETPWARP_COMPAT))
+            .requires(source -> source.getEntity() instanceof ServerPlayer player && hasSetPwarpPermission(player.getUUID()))
             .then(Commands.argument("name", StringArgumentType.word())
                 .executes(PwarpCommands::executeSetPwarp)
             )
         );
         // /delpwarp <name>
         dispatcher.register(Commands.literal("delpwarp")
-            .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_DELPWARP_COMPAT))
+            .requires(source -> source.getEntity() instanceof ServerPlayer player && hasDelPwarpPermission(player.getUUID()))
             .then(Commands.argument("name", StringArgumentType.word())
                 .executes(PwarpCommands::executeDelPwarp)
             )
@@ -80,6 +83,31 @@ public class PwarpCommands {
             .requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_PWARPS_COMPAT))
             .executes(PwarpCommands::executePwarps)
         );
+    }
+
+    private static boolean hasSetPwarpPermission(UUID uuid) {
+        if (PermissionAPI.hasExactPermission(uuid, PERMISSION_SETPWARP_SIMPLE)) {
+            return true;
+        }
+        if (PermissionAPI.hasExactPermission(uuid, PERMISSION_SETPWARP)) {
+            return true;
+        }
+        for (int i = 100; i >= 1; i--) {
+            if (PermissionAPI.hasExactPermission(uuid, PERMISSION_SETPWARP_SIMPLE + "." + i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasDelPwarpPermission(UUID uuid) {
+        if (PermissionAPI.hasExactPermission(uuid, PERMISSION_DELPWARP_SIMPLE)) {
+            return true;
+        }
+        if (PermissionAPI.hasExactPermission(uuid, PERMISSION_DELPWARP)) {
+            return true;
+        }
+        return false;
     }
 
     private static boolean shouldOpenMenu(ServerPlayer player, String commandType) {

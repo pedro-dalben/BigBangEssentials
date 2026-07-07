@@ -201,13 +201,19 @@ public class WarpManager {
 
     /**
      * Returns the maximum number of player warps allowed for a player, considering permissions.
-     * If the player has the permission node bigbangessentials.warp.limit.<amount>, that value is used if higher than config.
+     * Priority order:
+     *   1. bigbangessentials.pwarp.set.<N> (e.g. .5 = 5 warps) — explicit limit from permission
+     *   2. bigbangessentials.pwarp.set (base, no number) — 1 warp
+     *   3. bigbangessentials.warp.limit.unlimited — unlimited (legacy compat)
+     *   4. bigbangessentials.warp.limit.<N> — explicit limit (legacy compat)
+     *   5. Config maxPlayerWarps (fallback)
      *
      * <p>Permission examples:</p>
      * <ul>
-     *   <li>bigbangessentials.warp.limit.5 - Allows 5 player warps</li>
-     *   <li>bigbangessentials.warp.limit.10 - Allows 10 player warps</li>
-     *   <li>bigbangessentials.warp.limit.unlimited - Unlimited player warps</li>
+     *   <li>bigbangessentials.pwarp.set.5 - Allows up to 5 player warps</li>
+     *   <li>bigbangessentials.pwarp.set - Allows 1 player warp</li>
+     *   <li>bigbangessentials.warp.limit.10 - Allows 10 player warps (legacy)</li>
+     *   <li>bigbangessentials.warp.limit.unlimited - Unlimited player warps (legacy)</li>
      * </ul>
      *
      * @param player The player to check
@@ -229,17 +235,25 @@ public class WarpManager {
 
         int configMax = this.maxPlayerWarps;
         int permMax = resolvePermissionWarpLimit(playerId);
+
+        // Unlimited from permission
         if (permMax == -1) {
             playerWarpLimitCache.put(playerId, new CachedWarpLimit(-1, now));
             return -1;
         }
+
+        // No permission limit found — use config default
         if (permMax == -2) {
+            // Config unlimited without permission = 0 (must have pwarp.set permission)
+            if (configMax <= 0) {
+                playerWarpLimitCache.put(playerId, new CachedWarpLimit(0, now));
+                return 0;
+            }
             playerWarpLimitCache.put(playerId, new CachedWarpLimit(configMax, now));
             return configMax;
         }
 
-        // Return the higher value between config and permission
-        // Return the higher value between permission-based and config-based limits
+        // Permission limit found — permission limit overrides config
         int maxWarps = Math.max(permMax, configMax);
         playerWarpLimitCache.put(playerId, new CachedWarpLimit(maxWarps, now));
         return maxWarps;
@@ -995,23 +1009,37 @@ public class WarpManager {
     }
 
     private int resolvePermissionWarpLimit(UUID playerId) {
-        // Check for unlimited permission first
+        // 1. Check for unlimited (legacy compat)
         if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasExactPermission(
                 playerId, "bigbangessentials.warp.limit.unlimited")) {
-            return -1; // Unlimited
+            return -1;
         }
 
-        int permMax = -2; // -2 means no permission limit found
+        // 2. Check new bigbangessentials.pwarp.set.<N> from high to low
+        // Use hasPermission to support wildcards like bigbangessentials.pwarp.set.*
+        for (int i = 100; i >= 1; i--) {
+            String perm = "bigbangessentials.pwarp.set." + i;
+            if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(playerId, perm)) {
+                return i;
+            }
+        }
 
-        // Check for permissions bigbangessentials.warp.limit.<amount> from high to low (e.g., 100 down to 1)
+        // 3. Check base bigbangessentials.pwarp.set (no number = 1)
+        // Use hasExactPermission to avoid matching bigbangessentials.pwarp as prefix
+        if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasExactPermission(
+                playerId, "bigbangessentials.pwarp.set")) {
+            return 1;
+        }
+
+        // 4. Check legacy bigbangessentials.warp.limit.<N>
         for (int i = 100; i >= 1; i--) {
             String perm = "bigbangessentials.warp.limit." + i;
             if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasExactPermission(playerId, perm)) {
-                permMax = i;
-                break;
+                return i;
             }
         }
-        return permMax;
+
+        return -2; // No permission limit found
     }
 
     private static final class CachedWarpLimit {

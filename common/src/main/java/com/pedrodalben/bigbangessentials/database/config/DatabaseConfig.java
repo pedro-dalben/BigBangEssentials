@@ -60,10 +60,10 @@ public class DatabaseConfig {
         public long getKeepaliveTimeMs() { return keepaliveTimeMs; }
     }
     public static class ExecutorConfig {
-        public int poolSize = 4;
+        public int poolSize = 8;
         public void setThreads(int threads) { this.poolSize = threads; }
         public int getThreads() { return poolSize; }
-        public int queueCapacity = 1000;
+        public int queueCapacity = 2000;
         public int getQueueCapacity() { return queueCapacity; }
         public void setQueueCapacity(int cap) { this.queueCapacity = cap; }
         public long shutdownTimeoutSeconds = 10;

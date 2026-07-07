@@ -108,10 +108,11 @@
 ### Player Warps
 | Command | Syntax | Permission | Default | Description |
 |---|---|---|---|---|
-| `/pwarp` | `/pwarp <name>` | `bigbangessentials.teleport.pwarp` | ✅ | Teleport to a player warp |
-| `/setpwarp` | `/setpwarp <name>` | `bigbangessentials.teleport.pwarp.create` | ✅ | Create your own player warp |
-| `/delpwarp` | `/delpwarp <name>` | `bigbangessentials.teleport.pwarp.delete` | ✅ | Delete one of your player warps |
-| `/pwarps` | `/pwarps` | `bigbangessentials.teleport.pwarp.list` | ✅ | List your player warps |
+| `/pwarp` | `/pwarp <name>` | `bigbangessentials.pwarp` | 🔒 | Teleport to a player warp |
+| `/setpwarp` | `/setpwarp <name>` | `bigbangessentials.pwarp.set` *(1)* | 🔒 | Create up to 1 player warp |
+| | | `bigbangessentials.pwarp.set.5` *(5)* | | Create up to N player warps (ex: 5) |
+| `/delpwarp` | `/delpwarp <name>` | `bigbangessentials.pwarp.delete` | 🔒 | Delete one of your player warps |
+| `/pwarps` | `/pwarps` | `bigbangessentials.pwarp` | 🔒 | List your player warps |
 
 ---
 

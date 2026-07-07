@@ -137,10 +137,13 @@ Sign-based chest shops for automated buy/sell trading.
 ### Player Warps
 | Command | Syntax | Permission | Default | Description |
 |---|---|---|---|---|
-| `/pwarp` | `/pwarp <name>` | `bigbangessentials.teleport.pwarp` | ✅ | Teleport to a player warp |
-| `/setpwarp` | `/setpwarp <name>` | `bigbangessentials.teleport.pwarp.create` | ✅ | Create your own player warp |
-| `/delpwarp` | `/delpwarp <name>` | `bigbangessentials.teleport.pwarp.delete` | ✅ | Delete one of your player warps |
-| `/pwarps` | `/pwarps` | `bigbangessentials.teleport.pwarp.list` | ✅ | List your player warps |
+| `/pwarp` | `/pwarp <name>` | `bigbangessentials.pwarp` | 🔒 | Teleport to a player warp |
+| `/setpwarp` | `/setpwarp <name>` | `bigbangessentials.pwarp.set` *(limit 1)* | 🔒 | Create your own player warp (up to 1) |
+| | | `bigbangessentials.pwarp.set.5` *(limit 5)* | | Create up to N player warps (replace 5) |
+| `/delpwarp` | `/delpwarp <name>` | `bigbangessentials.pwarp.delete` | 🔒 | Delete one of your player warps |
+| `/pwarps` | `/pwarps` | `bigbangessentials.pwarp` | 🔒 | List your player warps |
+
+> **Legacy nodes** (still work): `bigbangessentials.teleport.pwarp.*`, `bigbangessentials.warp.limit.<N>`
 
 ---
 
