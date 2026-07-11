@@ -108,6 +108,9 @@ public class RankupManager {
             LOGGER.info("[RankUp] Loaded {} ranks ({} tasks total).", rankCount, taskCount);
             LOGGER.info("[RankUp] LuckPerms integration available: {}.", lpAvailable);
             LOGGER.info("[RankUp] Cobblemon integration available: {}.", cobblemonAvailable);
+            
+            promotionService.recoverTransactions();
+            
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to load RankUp configuration. Previous configuration kept.", e);

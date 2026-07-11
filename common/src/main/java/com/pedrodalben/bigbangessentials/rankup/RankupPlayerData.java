@@ -18,6 +18,7 @@ public class RankupPlayerData {
     private final UUID uuid;
     private final Map<String, RankupTaskProgress> taskProgress = new ConcurrentHashMap<>();
     private volatile boolean loading = false;
+    private final Queue<com.pedrodalben.bigbangessentials.objectives.ObjectiveEventContext> pendingEvents = new java.util.concurrent.ConcurrentLinkedQueue<>();
 
     public RankupPlayerData(UUID uuid) {
         this.uuid = uuid;
@@ -33,6 +34,14 @@ public class RankupPlayerData {
 
     public void setLoading(boolean loading) {
         this.loading = loading;
+    }
+
+    public void enqueueEvent(com.pedrodalben.bigbangessentials.objectives.ObjectiveEventContext ctx) {
+        pendingEvents.offer(ctx);
+    }
+
+    public Queue<com.pedrodalben.bigbangessentials.objectives.ObjectiveEventContext> getPendingEvents() {
+        return pendingEvents;
     }
 
     public RankupRank getCurrentRank(RankupConfig config) {

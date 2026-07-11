@@ -260,6 +260,7 @@ public class RankupAdminEditorService {
 
     public boolean discardDraft(UUID uuid) {
         RankupManager.getInstance().discardDraft();
+        clearSession(uuid);
         return true;
     }
 

@@ -38,6 +38,15 @@ public class RankupTaskProgressService {
         if (config == null || !config.isEnabled()) return;
 
         RankupPlayerData data = manager.getOrCreatePlayerData(ctx.getPlayerUuid());
+        
+        if (data.isLoading()) {
+            data.enqueueEvent(ctx);
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("RankUp activity queued for {} action {} due to loading", ctx.getPlayerUuid(), ctx.getActionType());
+            }
+            return;
+        }
+
         RankupRank currentRank = data.getCurrentRank(config);
         if (currentRank == null && !config.getRanks().isEmpty()) {
             // Check if user has resolution status uninitialized
@@ -93,6 +102,13 @@ public class RankupTaskProgressService {
         return manager.getRepository().loadTaskProgress(uuid, ladderId).thenAccept(list -> {
             data.setAllTaskProgress(list);
             data.setLoading(false);
+            
+            // Process queued events
+            com.pedrodalben.bigbangessentials.objectives.ObjectiveEventContext ctx;
+            while ((ctx = data.getPendingEvents().poll()) != null) {
+                processActivity(ctx);
+            }
+            
             if (manager.getPlaceholderService() != null) {
                 manager.getPlaceholderService().refresh(uuid);
             }

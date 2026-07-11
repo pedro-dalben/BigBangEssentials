@@ -113,13 +113,6 @@ public class RankupLuckPermsService {
             }
 
             try {
-                // Remove ladder groups
-                user.data().clear(node -> {
-                    if (!(node instanceof InheritanceNode inheritance)) return false;
-                    String groupName = inheritance.getGroupName();
-                    return ladderGroups.contains(groupName.toLowerCase());
-                });
-
                 // Add destination group
                 Group targetGroup = api.getGroupManager().getGroup(toRank.luckPerms().group());
                 if (targetGroup == null) {
@@ -136,6 +129,14 @@ public class RankupLuckPermsService {
                 if (toRank.luckPerms().setAsPrimaryGroup() || mode == RankupPromotionMode.SET_PRIMARY_GROUP) {
                     user.setPrimaryGroup(toRank.luckPerms().group());
                 }
+
+                // Remove ladder groups (except the one we just added)
+                user.data().clear(node -> {
+                    if (!(node instanceof InheritanceNode inheritance)) return false;
+                    String groupName = inheritance.getGroupName();
+                    if (groupName.equalsIgnoreCase(toRank.luckPerms().group())) return false; // Don't remove the new rank!
+                    return ladderGroups.contains(groupName.toLowerCase());
+                });
 
                 return api.getUserManager().saveUser(user)
                         .thenApply(v -> RankupGroupMutationResult.ok())

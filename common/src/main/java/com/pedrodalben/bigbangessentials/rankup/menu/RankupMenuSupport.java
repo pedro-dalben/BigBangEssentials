@@ -99,8 +99,8 @@ public class RankupMenuSupport {
         map.put("gems_balance", String.valueOf(gemsBalanceLong));
         map.put("money_missing", String.valueOf(snapshot.moneyMissing()));
         map.put("gems_missing", String.valueOf(snapshot.gemsMissing()));
-        map.put("money_status", (moneyBalance >= moneyRequired && moneyRequired > 0) ? "§a✔" : (moneyRequired > 0 ? "§c✘" : ""));
-        map.put("gems_status", (gemsBalanceLong >= gemsRequired && gemsRequired > 0) ? "§a✔" : (gemsRequired > 0 ? "§c✘" : ""));
+        map.put("money_status", (snapshot.moneySufficient() && moneyRequired > 0) ? "§a✔" : (moneyRequired > 0 ? "§c✘" : ""));
+        map.put("gems_status", (snapshot.gemsSufficient() && gemsRequired > 0) ? "§a✔" : (gemsRequired > 0 ? "§c✘" : ""));
 
         map.put("tasks_completed", String.valueOf(snapshot.completedTasksCount()));
         map.put("tasks_total", String.valueOf(snapshot.totalTasksCount()));

@@ -27,58 +27,29 @@ public class RankupPlaceholderService {
 
     private Map<String, String> compute(UUID uuid) {
         RankupManager manager = RankupManager.getInstance();
-        RankupConfig config = manager.getConfig();
         Map<String, String> map = new ConcurrentHashMap<>();
-        if (config == null) {
-            map.put("current_id", "");
-            map.put("current_name", "");
-            map.put("next_id", "");
-            map.put("next_name", "");
-            map.put("progress_percent", "0");
-            map.put("money_required", "0");
-            map.put("gems_required", "0");
-            map.put("money_balance", "0");
-            map.put("gems_balance", "0");
-            map.put("money_status", "");
-            map.put("gems_status", "");
-            map.put("tasks_completed", "0");
-            map.put("tasks_total", "0");
-            return map;
-        }
-
-        RankupPlayerData data = manager.getOrCreatePlayerData(uuid);
-        RankupRank current = data.getCurrentRank(config);
-        RankupRank next = config.getNextEnabledRank(current);
+        
+        com.pedrodalben.bigbangessentials.rankup.domain.RankupEligibilitySnapshot snapshot = manager.getEligibilitySnapshot(uuid);
+        RankupRank current = snapshot.currentRank();
+        RankupRank next = snapshot.nextRank();
 
         map.put("current_id", current != null ? current.id() : "");
         map.put("current_name", current != null ? stripColor(current.displayName()) : "None");
         map.put("next_id", next != null ? next.id() : "");
         map.put("next_name", next != null ? stripColor(next.displayName()) : "Max Rank");
 
-        double moneyRequired = next != null ? next.requirements().money() : 0;
-        int gemsRequired = next != null ? next.requirements().gems() : 0;
-        double moneyBalance = com.pedrodalben.bigbangessentials.api.EconomyAPI.getBalance(uuid).doubleValue();
-        long gemsBalanceLong = com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager.getInstance().getBalanceView(uuid).availableBalance();
+        map.put("money_required", String.valueOf(snapshot.moneyRequired()));
+        map.put("gems_required", String.valueOf(snapshot.gemsRequired()));
+        map.put("money_balance", String.valueOf(snapshot.moneyBalance()));
+        map.put("gems_balance", String.valueOf(snapshot.gemsBalance()));
+        
+        map.put("money_status", (snapshot.moneySufficient() && snapshot.moneyRequired() > 0) ? "\u00a7a\u2714" : (snapshot.moneyRequired() > 0 ? "\u00a7c\u2718" : ""));
+        map.put("gems_status", (snapshot.gemsSufficient() && snapshot.gemsRequired() > 0) ? "\u00a7a\u2714" : (snapshot.gemsRequired() > 0 ? "\u00a7c\u2718" : ""));
 
-        map.put("money_required", String.valueOf(moneyRequired));
-        map.put("gems_required", String.valueOf(gemsRequired));
-        map.put("money_balance", String.valueOf(moneyBalance));
-        map.put("gems_balance", String.valueOf(gemsBalanceLong));
-        map.put("money_status", (moneyBalance >= moneyRequired && moneyRequired > 0) ? "\u00a7a\u2714" : (moneyRequired > 0 ? "\u00a7c\u2718" : ""));
-        map.put("gems_status", (gemsBalanceLong >= gemsRequired && gemsRequired > 0) ? "\u00a7a\u2714" : (gemsRequired > 0 ? "\u00a7c\u2718" : ""));
+        map.put("tasks_completed", String.valueOf(snapshot.completedTasksCount()));
+        map.put("tasks_total", String.valueOf(snapshot.totalTasksCount()));
 
-        int completed = next != null ? data.countCompletedTasks(next) : 0;
-        int total = next != null ? (int) next.requirements().tasks().stream().filter(t -> t.enabled()).count() : 0;
-        map.put("tasks_completed", String.valueOf(completed));
-        map.put("tasks_total", String.valueOf(total));
-
-        int percent = 0;
-        if (next != null && total > 0) {
-            percent = (completed * 100) / total;
-        } else if (next != null && total == 0) {
-            percent = 100;
-        }
-        map.put("progress_percent", String.valueOf(percent));
+        map.put("progress_percent", String.valueOf((int) Math.round(snapshot.progressPercentage())));
 
         return map;
     }

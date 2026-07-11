@@ -28,9 +28,11 @@ public class RankupMenuIntegration {
         MenuSystem menuSystem = MenuSystem.getInstance();
 
         menuSystem.getDataProviderRegistry().registerProvider("rankup.ranks", new RankupRankDataProvider());
+        menuSystem.getDataProviderRegistry().registerProvider("rankup.tasks", new RankupTaskDataProvider());
 
         menuSystem.getActionRegistry().registerActionHandler("rankup_promote", new RankupPromoteAction());
         menuSystem.getActionRegistry().registerActionHandler("rankup_admin", new RankupAdminAction());
+        menuSystem.getActionRegistry().registerActionHandler("rankup_rank_click", new RankupRankClickAction());
 
         menuSystem.getPlaceholderRegistry().registerPlaceholder("rankup", new RankupPlaceholderResolver());
 
@@ -40,16 +42,20 @@ public class RankupMenuIntegration {
     private void setupDefaultMenus(Path configDir) {
         try {
             Files.createDirectories(configDir);
-            String[] menus = new String[]{"rankup_menu.yml", "rankup_admin_home_menu.yml", "rankup_admin_rank_edit_menu.yml"};
+            String[] menus = new String[]{"rankup_menu.yml", "rankup_rank_details_menu.yml", "rankup_admin_home_menu.yml", "rankup_admin_rank_edit_menu.yml"};
             for (String menu : menus) {
                 Path dest = configDir.resolve(menu);
+                String hardcodedContent = getHardcodedDefault(menu);
                 if (!Files.exists(dest)) {
-                    try (java.io.InputStream in = getClass().getResourceAsStream("/default-config/bigbangessentials/menus/" + menu)) {
-                        if (in != null) {
-                            Files.copy(in, dest);
-                        } else {
-                            Files.writeString(dest, getHardcodedDefault(menu), StandardCharsets.UTF_8);
-                        }
+                    Files.writeString(dest, hardcodedContent, StandardCharsets.UTF_8);
+                    LOGGER.info("Created default RankUp menu: {}", menu);
+                } else {
+                    String currentContent = Files.readString(dest, StandardCharsets.UTF_8);
+                    if (!currentContent.contains("schema_version: 2")) {
+                        Path backupDest = configDir.resolve(menu + ".old");
+                        Files.writeString(backupDest, currentContent, StandardCharsets.UTF_8);
+                        Files.writeString(dest, hardcodedContent, StandardCharsets.UTF_8);
+                        LOGGER.warn("RankUp menu '{}' was obsolete. It has been renamed to '{}' and updated to schema_version: 2.", menu, backupDest.getFileName());
                     }
                 }
             }
@@ -61,6 +67,8 @@ public class RankupMenuIntegration {
     private String getHardcodedDefault(String filename) {
         if ("rankup_menu.yml".equals(filename)) {
             return getRankupMenuYaml();
+        } else if ("rankup_rank_details_menu.yml".equals(filename)) {
+            return getRankupRankDetailsMenuYaml();
         } else if ("rankup_admin_home_menu.yml".equals(filename)) {
             return getAdminHomeMenuYaml();
         } else if ("rankup_admin_rank_edit_menu.yml".equals(filename)) {
@@ -73,6 +81,7 @@ public class RankupMenuIntegration {
         return """
             id: "rankup_menu"
             size: 54
+            schema_version: 2
             title: "<gold>RankUp Progression"
 
             pagination:
@@ -157,6 +166,81 @@ public class RankupMenuIntegration {
                       display-name: "<yellow>Next Page"
                     actions:
                       - type: "next_page"
+              dynamic-actions:
+                - type: "rankup_rank_click"
+                  params:
+                    rank_id: "{rank_id}"
+                  clicks: ["LEFT"]
+            """;
+    }
+
+    private String getRankupRankDetailsMenuYaml() {
+        return """
+            id: "rankup_rank_details_menu"
+            size: 54
+            schema_version: 2
+            title: "<gold>Rank Tasks: {context:rank_display_name}"
+
+            pagination:
+              enabled: true
+              source: "rankup.tasks"
+              content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
+
+            dynamic-item-template:
+              item:
+                material-id: "minecraft:paper"
+                display-name: "{task_symbol} <yellow>{task_display_name}"
+                lore:
+                  - "<gray>{task_description}"
+                  - ""
+                  - "<gray>Type: <white>{task_type}"
+                  - "<gray>Progress: <white>{task_progress} / {task_target}"
+                  - "<gray>Completion: <white>{task_percentage}%"
+                  - "<gray>Status: {task_symbol}"
+
+            pages:
+              main:
+                default-page: true
+                items:
+                  rank_info:
+                    slot: 4
+                    item:
+                      material-id: "{context:rank_icon}"
+                      display-name: "{context:rank_status_color}{context:rank_display_name}"
+                      lore:
+                        - "<gray>{context:rank_description}"
+                        - ""
+                        - "<gray>Tasks Required: <white>{context:rank_task_count}"
+                  back_btn:
+                    slot: 45
+                    item:
+                      material-id: "minecraft:arrow"
+                      display-name: "<red>Back to Progression"
+                    actions:
+                      - type: "open_menu"
+                        params:
+                          menu-id: "rankup_menu"
+                  close_btn:
+                    slot: 49
+                    item:
+                      material-id: "minecraft:barrier"
+                      display-name: "<red>Close"
+                    actions:
+                      - type: "close_menu"
+                  prev_btn:
+                    slot: 48
+                    item:
+                      material-id: "minecraft:paper"
+                      display-name: "<yellow>Previous Page"
+                    actions:
+                      - type: "previous_page"
+                  next_btn:
+                    slot: 50
+                    item:
+                      material-id: "minecraft:paper"
+                      display-name: "<yellow>Next Page"
+                    actions:
+                      - type: "next_page"
             """;
     }
 
@@ -164,6 +248,7 @@ public class RankupMenuIntegration {
         return """
             id: "rankup_admin_home_menu"
             size: 54
+            schema_version: 2
             title: "<gold>RankUp Admin"
 
             pagination:
@@ -256,6 +341,7 @@ public class RankupMenuIntegration {
         return """
             id: "rankup_admin_rank_edit_menu"
             size: 54
+            schema_version: 2
             title: "<gold>Edit: {context:rank_id}"
 
             pages:

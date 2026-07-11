@@ -202,6 +202,30 @@ public class RankupRepository extends JdbcRepository {
         ).thenApply(list -> list.isEmpty() ? Optional.empty() : Optional.of(list.get(0)));
     }
 
+    public CompletableFuture<List<RankupTransaction>> findPendingTransactions() {
+        if (!isDatabaseAvailable()) {
+            return CompletableFuture.completedFuture(new ArrayList<>());
+        }
+        String sql = "SELECT * FROM rankup_transactions WHERE status IN ('PREPARED', 'MONEY_DEBITED', 'GEMS_DEBITED', 'LUCKPERMS_UPDATED', 'RECOVERY_REQUIRED')";
+        return getDatabase().queryList("findPendingTransactions", sql,
+                stmt -> {},
+                rs -> new RankupTransaction(
+                        rs.getString("transaction_id"),
+                        UUID.fromString(rs.getString("uuid")),
+                        rs.getString("ladder_id"),
+                        rs.getString("from_rank_id"),
+                        rs.getString("to_rank_id"),
+                        rs.getDouble("money_amount"),
+                        rs.getInt("gems_amount"),
+                        RankupTransactionStatus.valueOf(rs.getString("status")),
+                        rs.getString("idempotency_key"),
+                        rs.getString("error_message"),
+                        rs.getLong("created_at"),
+                        rs.getLong("completed_at")
+                )
+        );
+    }
+
     public CompletableFuture<Void> addRankHistory(RankupRankHistoryEntry entry) {
         if (!isDatabaseAvailable()) {
             return CompletableFuture.completedFuture(null);

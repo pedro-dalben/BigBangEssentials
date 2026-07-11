@@ -28,6 +28,39 @@ public class RankupPromotionService {
     private final RankupManager manager = RankupManager.getInstance();
     private final Map<UUID, CompletableFuture<RankupPromotionResult>> promotionQueue = new ConcurrentHashMap<>();
 
+    public void recoverTransactions() {
+        manager.getRepository().findPendingTransactions().thenAccept(transactions -> {
+            for (RankupTransaction tx : transactions) {
+                try {
+                    UUID uuid = tx.playerUuid();
+                    LOGGER.info("Recovering pending RankUp transaction {} for player {}", tx.transactionId(), uuid);
+                    
+                    if (tx.status() == RankupTransactionStatus.LUCKPERMS_UPDATED) {
+                        // LuckPerms updated, but tasks not cleared and event not fired.
+                        // We must complete it
+                        manager.getTaskProgressService().resetAllTaskProgress(uuid);
+                        
+                        RankupTransaction completed = tx.withStatus(RankupTransactionStatus.COMPLETED);
+                        manager.getRepository().saveTransaction(completed);
+                        LOGGER.info("Recovered transaction {} by completing it (LuckPerms was already updated).", tx.transactionId());
+                    } else if (tx.status() == RankupTransactionStatus.PREPARED ||
+                               tx.status() == RankupTransactionStatus.MONEY_DEBITED ||
+                               tx.status() == RankupTransactionStatus.GEMS_DEBITED ||
+                               tx.status() == RankupTransactionStatus.RECOVERY_REQUIRED) {
+                        // LuckPerms was not updated, or we don't know. We must compensate and fail it.
+                        boolean moneyCharged = (tx.status() == RankupTransactionStatus.MONEY_DEBITED || tx.status() == RankupTransactionStatus.GEMS_DEBITED || tx.status() == RankupTransactionStatus.RECOVERY_REQUIRED);
+                        boolean gemsCharged = (tx.status() == RankupTransactionStatus.GEMS_DEBITED || tx.status() == RankupTransactionStatus.RECOVERY_REQUIRED);
+                        
+                        compensate(uuid, tx, moneyCharged, gemsCharged);
+                        LOGGER.info("Recovered transaction {} by compensating.", tx.transactionId());
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Error recovering transaction {}", tx.transactionId(), e);
+                }
+            }
+        });
+    }
+
     public CompletableFuture<RankupPromotionResult> promote(ServerPlayer player, RankupRank targetRank) {
         return promote(player, targetRank, true);
     }
@@ -41,10 +74,21 @@ public class RankupPromotionService {
             return CompletableFuture.completedFuture(RankupPromotionResult.failure("Invalid player", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.INTERNAL_ERROR));
         }
         UUID uuid = player.getUUID();
-        Supplier<CompletableFuture<RankupPromotionResult>> chain = () -> doPromote(player, targetRank, executeActions)
-                .whenComplete((r, t) -> promotionQueue.remove(uuid));
-        return promotionQueue.compute(uuid, (k, prev) ->
-                prev == null ? chain.get() : prev.thenCompose(r -> chain.get()));
+
+        CompletableFuture<RankupPromotionResult> promise = new CompletableFuture<>();
+        CompletableFuture<RankupPromotionResult> existing = promotionQueue.putIfAbsent(uuid, promise);
+        if (existing != null) {
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("A promotion is already in progress.", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.INTERNAL_ERROR));
+        }
+
+        doPromote(player, targetRank, executeActions)
+                .whenComplete((res, err) -> {
+                    promotionQueue.remove(uuid);
+                    if (err != null) promise.completeExceptionally(err);
+                    else promise.complete(res);
+                });
+
+        return promise;
     }
 
     private CompletableFuture<RankupPromotionResult> doPromote(ServerPlayer player, RankupRank targetRank, boolean executeActions) {
@@ -266,7 +310,16 @@ public class RankupPromotionService {
         }
         if (playerId == null) return;
 
-        String playerName = player != null && player.getName() != null ? player.getName().getString() : playerId.toString();
+        String playerName = playerId.toString();
+        if (player != null && player.getName() != null) {
+            playerName = player.getName().getString();
+        } else if (server != null) {
+            java.util.Optional<com.mojang.authlib.GameProfile> profile = server.getProfileCache().get(playerId);
+            if (profile.isPresent()) {
+                playerName = profile.get().getName();
+            }
+        }
+        
         Map<String, String> placeholders = new HashMap<>();
         placeholders.put("%player%", playerName);
         placeholders.put("%uuid%", playerId.toString());
