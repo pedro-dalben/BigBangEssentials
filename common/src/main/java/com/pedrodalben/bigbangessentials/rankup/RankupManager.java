@@ -212,6 +212,10 @@ public class RankupManager {
     }
 
     public RankupEligibilitySnapshot getEligibilitySnapshot(UUID uuid) {
+        return getEligibilitySnapshot(uuid, PromotionEvaluationContext.external());
+    }
+
+    public RankupEligibilitySnapshot getEligibilitySnapshot(UUID uuid, PromotionEvaluationContext evaluationContext) {
         if (uuid == null || config == null || !config.isEnabled()) {
             return RankupEligibilitySnapshot.noConfiguration(uuid);
         }
@@ -243,7 +247,7 @@ public class RankupManager {
 
         RankupRank currentRank = resolution != null ? resolution.rank() : null;
         RankupRank nextRank = config.getNextEnabledRank(currentRank);
-        boolean promotionInProgress = promotionService.isPromotionInProgress(uuid);
+        boolean promotionInProgress = promotionService.isPromotionInProgress(uuid, evaluationContext);
 
         if (nextRank == null || !nextRank.enabled()) {
             return RankupEligibilitySnapshot.evaluate(uuid, currentRank, null, resolution, List.of(), RankupTaskMode.ALL, BigDecimal.ZERO, 0L, promotionInProgress);

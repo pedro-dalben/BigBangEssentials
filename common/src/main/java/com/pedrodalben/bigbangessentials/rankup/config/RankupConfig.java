@@ -21,10 +21,12 @@ public class RankupConfig {
     private boolean enabled = true;
     private RankupLadder ladder = new RankupLadder("main", "&6Main Progression", "member",
             RankupPromotionMode.REPLACE_LADDER_INHERITANCE_AND_PRIMARY, true);
+    private PromotionTimeouts promotionTimeouts = new PromotionTimeouts();
     private final Map<String, RankupRank> ranks = new LinkedHashMap<>();
 
     public boolean isEnabled() { return enabled; }
     public RankupLadder getLadder() { return ladder; }
+    public PromotionTimeouts getPromotionTimeouts() { return promotionTimeouts; }
 
     public Map<String, RankupRank> getRanks() {
         return ranks;
@@ -103,6 +105,13 @@ public class RankupConfig {
         ladderObj.addProperty("require-confirmation", ladder.requireConfirmation());
         root.add("ladder", ladderObj);
 
+        JsonObject timeoutObj = new JsonObject();
+        timeoutObj.addProperty("promotion-timeout-seconds", promotionTimeouts.promotionTimeoutSeconds());
+        timeoutObj.addProperty("database-step-timeout-seconds", promotionTimeouts.databaseStepTimeoutSeconds());
+        timeoutObj.addProperty("luckperms-step-timeout-seconds", promotionTimeouts.luckpermsStepTimeoutSeconds());
+        timeoutObj.addProperty("server-thread-step-timeout-seconds", promotionTimeouts.serverThreadStepTimeoutSeconds());
+        root.add("promotion-timeouts", timeoutObj);
+
         JsonArray ranksArr = new JsonArray();
         List<RankupRank> ordered = getOrderedRanks();
         for (RankupRank rank : ordered) {
@@ -129,6 +138,10 @@ public class RankupConfig {
 
         if (obj.has("ladder")) {
             config.ladder = parseLadder(obj.getAsJsonObject("ladder"));
+        }
+
+        if (obj.has("promotion-timeouts")) {
+            config.promotionTimeouts = parsePromotionTimeouts(obj.getAsJsonObject("promotion-timeouts"));
         }
 
         if (obj.has("ranks")) {
@@ -228,6 +241,17 @@ public class RankupConfig {
         return new RankupLadder(id, displayName, initialRankId, mode, requireConfirmation);
     }
 
+    private static PromotionTimeouts parsePromotionTimeouts(JsonObject obj) {
+        if (obj == null) {
+            return new PromotionTimeouts();
+        }
+        long promotion = obj.has("promotion-timeout-seconds") ? obj.get("promotion-timeout-seconds").getAsLong() : 20L;
+        long database = obj.has("database-step-timeout-seconds") ? obj.get("database-step-timeout-seconds").getAsLong() : 5L;
+        long luckperms = obj.has("luckperms-step-timeout-seconds") ? obj.get("luckperms-step-timeout-seconds").getAsLong() : 8L;
+        long server = obj.has("server-thread-step-timeout-seconds") ? obj.get("server-thread-step-timeout-seconds").getAsLong() : 5L;
+        return new PromotionTimeouts(promotion, database, luckperms, server);
+    }
+
     private static RankupRank parseRank(JsonObject obj) {
         String id = obj.get("id").getAsString();
         int order = obj.has("order") ? obj.get("order").getAsInt() : 0;
@@ -307,6 +331,24 @@ public class RankupConfig {
         String broadcast = obj.has("broadcast") ? obj.get("broadcast").getAsString() : null;
         List<String> commands = parseStringList(obj, "commands");
         return new RankupActions(broadcast, commands);
+    }
+
+    public record PromotionTimeouts(
+            long promotionTimeoutSeconds,
+            long databaseStepTimeoutSeconds,
+            long luckpermsStepTimeoutSeconds,
+            long serverThreadStepTimeoutSeconds
+    ) {
+        public PromotionTimeouts() {
+            this(20L, 5L, 8L, 5L);
+        }
+
+        public PromotionTimeouts {
+            promotionTimeoutSeconds = Math.max(1L, promotionTimeoutSeconds);
+            databaseStepTimeoutSeconds = Math.max(1L, databaseStepTimeoutSeconds);
+            luckpermsStepTimeoutSeconds = Math.max(1L, luckpermsStepTimeoutSeconds);
+            serverThreadStepTimeoutSeconds = Math.max(1L, serverThreadStepTimeoutSeconds);
+        }
     }
 
     private static List<String> parseStringList(JsonObject obj, String key) {

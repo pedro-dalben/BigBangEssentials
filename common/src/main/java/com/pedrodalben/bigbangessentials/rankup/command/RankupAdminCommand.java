@@ -38,6 +38,17 @@ public class RankupAdminCommand {
                         .requires(src -> hasPermission(src, "bigbangessentials.rankup.admin.inspect"))
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .executes(ctx -> executeInspect(ctx, StringArgumentType.getString(ctx, "player")))))
+                .then(Commands.literal("promotion")
+                        .requires(src -> hasPermission(src, "bigbangessentials.rankup.admin.recovery"))
+                        .then(Commands.literal("inspect")
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(ctx -> executePromotionInspect(ctx, StringArgumentType.getString(ctx, "player")))))
+                        .then(Commands.literal("unlock")
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(ctx -> executePromotionUnlock(ctx, StringArgumentType.getString(ctx, "player")))))
+                        .then(Commands.literal("cancel")
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(ctx -> executePromotionCancel(ctx, StringArgumentType.getString(ctx, "player"))))))
                 .then(Commands.literal("set")
                         .requires(src -> hasPermission(src, "bigbangessentials.rankup.admin.set"))
                         .then(Commands.argument("player", StringArgumentType.word())
@@ -113,6 +124,44 @@ public class RankupAdminCommand {
         ctx.getSource().sendSuccess(() -> Component.literal("§7Current: §f" + (current != null ? current.id() : "None")), false);
         ctx.getSource().sendSuccess(() -> Component.literal("§7Next: §f" + (next != null ? next.id() : "Max")), false);
         return 1;
+    }
+
+    private static int executePromotionInspect(CommandContext<CommandSourceStack> ctx, String playerName) {
+        ServerPlayer target = resolvePlayer(ctx, playerName);
+        if (target == null) return 0;
+        var inspection = RankupManager.getInstance().getPromotionService().inspectPromotion(target.getUUID());
+        ctx.getSource().sendSuccess(() -> Component.literal("§6Promotion lock for §f" + playerName), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Active: §f" + inspection.active()), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Transaction: §f" + (inspection.transactionId() != null ? inspection.transactionId() : "None")), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Stage: §f" + (inspection.stage() != null ? inspection.stage() : "None")), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Future done: §f" + inspection.futureDone()), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Elapsed ms: §f" + inspection.elapsedMs()), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Error: §f" + (inspection.errorMessage() != null ? inspection.errorMessage() : "None")), false);
+        return 1;
+    }
+
+    private static int executePromotionUnlock(CommandContext<CommandSourceStack> ctx, String playerName) {
+        ServerPlayer target = resolvePlayer(ctx, playerName);
+        if (target == null) return 0;
+        boolean unlocked = RankupManager.getInstance().getPromotionService().unlockPromotion(target.getUUID());
+        if (unlocked) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§aPromotion lock handled for " + playerName), false);
+            return 1;
+        }
+        ctx.getSource().sendFailure(Component.literal("§cPromotion is still active; use cancel instead."));
+        return 0;
+    }
+
+    private static int executePromotionCancel(CommandContext<CommandSourceStack> ctx, String playerName) {
+        ServerPlayer target = resolvePlayer(ctx, playerName);
+        if (target == null) return 0;
+        boolean cancelled = RankupManager.getInstance().getPromotionService().cancelPromotion(target.getUUID());
+        if (cancelled) {
+            ctx.getSource().sendSuccess(() -> Component.literal("§ePromotion cancelled for " + playerName), false);
+            return 1;
+        }
+        ctx.getSource().sendFailure(Component.literal("§cPromotion lock not found."));
+        return 0;
     }
 
     private static int executeSet(CommandContext<CommandSourceStack> ctx, String playerName, String rankId) {
