@@ -100,46 +100,62 @@ public class TeleportUtil {
             return future;
         }
 
-        // Find safe location if requested
-        TeleportLocation finalLocation = location;
-        if (findSafe && !location.isSafe()) {
-            finalLocation = location.findSafeLocation();
-            if (finalLocation == null) {
-                future.complete(TeleportResult.failure("No safe teleport location found"));
-                return future;
-            }
+        net.minecraft.server.MinecraftServer server = player.getServer();
+        if (server == null) {
+            future.complete(TeleportResult.failure("Server unavailable"));
+            return future;
         }
 
-        // Load chunks if needed
-        ChunkPos chunkPos = new ChunkPos(new BlockPos((int) finalLocation.getX(), 
-                                                     (int) finalLocation.getY(), 
-                                                     (int) finalLocation.getZ()));
+        ChunkPos chunkPos = new ChunkPos(new BlockPos((int) location.getX(),
+                                                     (int) location.getY(),
+                                                     (int) location.getZ()));
 
         if (!targetLevel.isLoaded(chunkPos.getWorldPosition())) {
-            // Force load the chunk
-            targetLevel.getChunkSource().addRegionTicket(
-                net.minecraft.server.level.TicketType.PORTAL,
-                chunkPos,
-                3,
-                chunkPos.getWorldPosition()
-            );
-        }
-
-        // Execute teleport (with delay if specified)
-        TeleportLocation teleportTo = finalLocation;
-        if (delayTicks > 0) {
-            // Schedule delayed teleport
-            player.getServer().execute(() -> {
-                scheduleDelayedTeleport(player, teleportTo, delayTicks, future);
+            server.execute(() -> {
+                // Start async chunk load via region ticket — no main thread freeze
+                targetLevel.getChunkSource().addRegionTicket(
+                    net.minecraft.server.level.TicketType.PORTAL,
+                    chunkPos,
+                    3,
+                    chunkPos.getWorldPosition()
+                );
+                // Defer 1 tick so the chunk finishes loading before safety + teleport
+                server.tell(new net.minecraft.server.TickTask(1, () ->
+                    teleportToLoadedChunk(player, location, findSafe, delayTicks, future)));
             });
         } else {
-            // Immediate teleport
-            executeTeleport(player, teleportTo, future);
+            // Chunk already loaded — proceed same-tick (no extra delay)
+            server.execute(() ->
+                teleportToLoadedChunk(player, location, findSafe, delayTicks, future));
         }
 
         return future;
     }
     
+    /**
+     * Finish teleport after the chunk is confirmed loaded — runs on server thread.
+     * Resolves safety (if requested), then executes or schedules execution.
+     */
+    private static void teleportToLoadedChunk(ServerPlayer player, TeleportLocation location,
+                                              boolean findSafe, int delayTicks,
+                                              CompletableFuture<TeleportResult> future) {
+        TeleportLocation teleportTo = location;
+        if (findSafe && !location.isSafe()) {
+            TeleportLocation safeLocation = location.findSafeLocation();
+            if (safeLocation == null) {
+                future.complete(TeleportResult.failure("No safe teleport location found"));
+                return;
+            }
+            teleportTo = safeLocation;
+        }
+
+        if (delayTicks > 0) {
+            scheduleDelayedTeleport(player, teleportTo, delayTicks, future);
+        } else {
+            executeTeleport(player, teleportTo, future);
+        }
+    }
+
     /**
      * Schedule a delayed teleport
      */
