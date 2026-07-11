@@ -209,7 +209,12 @@ public class JobsAdminCommand {
             // integrations
             .then(Commands.literal("integrations")
                 .requires(src -> hasAdminPermission(src, "jobs.admin.info"))
-                .executes(JobsAdminCommand::executeIntegrations))
+                .executes(JobsAdminCommand::executeIntegrations)
+                .then(Commands.literal("probe")
+                    .executes(JobsAdminCommand::executeIntegrationsProbe))
+                .then(Commands.literal("probe")
+                    .then(Commands.argument("integration_id", StringArgumentType.word())
+                        .executes(ctx -> executeSingleProbe(ctx, StringArgumentType.getString(ctx, "integration_id"))))))
 
             // audit <player>
             .then(Commands.literal("audit")
@@ -935,11 +940,84 @@ public class JobsAdminCommand {
     private static int executeIntegrations(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         source.sendSuccess(() -> Component.literal("§6§l=== PAINEL DE INTEGRAÇÕES COBBLEVERSE ==="), false);
+        java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger(0);
         for (com.pedrodalben.bigbangessentials.jobs.compat.IntegrationStatus st : com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().getAllStatuses()) {
-            String color = st.isOperational() ? "§a" : "§c";
-            source.sendSuccess(() -> Component.literal(String.format("%s[%s] §eEstado: %s%s §f| §7Mod: %s (v%s)", color, st.integrationId(), color, st.state(), st.detectedModId(), st.detectedVersion())), false);
-            source.sendSuccess(() -> Component.literal("  §7Detalhes: §f" + st.details()), false);
+            String stateColor;
+            com.pedrodalben.bigbangessentials.jobs.compat.IntegrationState state = st.state();
+            if (state == com.pedrodalben.bigbangessentials.jobs.compat.IntegrationState.ACTIVE) {
+                stateColor = "§a";
+            } else if (state == com.pedrodalben.bigbangessentials.jobs.compat.IntegrationState.SUBSCRIPTION_SUCCEEDED) {
+                stateColor = "§2";
+            } else if (state == com.pedrodalben.bigbangessentials.jobs.compat.IntegrationState.API_FOUND) {
+                stateColor = "§e";
+            } else if (state == com.pedrodalben.bigbangessentials.jobs.compat.IntegrationState.DEGRADED) {
+                stateColor = "§6";
+            } else if (state == com.pedrodalben.bigbangessentials.jobs.compat.IntegrationState.ERROR) {
+                stateColor = "§c";
+            } else if (state == com.pedrodalben.bigbangessentials.jobs.compat.IntegrationState.MOD_NOT_INSTALLED) {
+                stateColor = "§7";
+            } else {
+                stateColor = "§f";
+            }
+
+            int idx = count.incrementAndGet();
+            source.sendSuccess(() -> Component.literal(String.format(
+                    "%s[%d] §e%s §f| §7Mod: %s §8(v%s) §f| §7Adapter: %s §f| §7Sub: %s",
+                    stateColor, idx, st.integrationId(), st.detectedModId(), st.detectedVersion(),
+                    st.adapterStrategy(), st.subscriptionStatus())), false);
+
+            if (!st.eventClassName().equals("N/A")) {
+                source.sendSuccess(() -> Component.literal(String.format(
+                        "  §7Event: §f%s §f| §7Bus: §f%s",
+                        st.eventClassName(), st.eventBusName())), false);
+            }
+
+            source.sendSuccess(() -> Component.literal(String.format(
+                    "  §7Active: §f%s §f| §7Supported: §f%s §f| §7Unavailable: §f%s",
+                    String.join(", ", st.supportedActions()), String.join(", ", st.supportedActions()),
+                    String.join(", ", st.unavailableActions() != null ? st.unavailableActions() : java.util.List.of()))), false);
+
+            source.sendSuccess(() -> Component.literal(String.format(
+                    "  §7Events: rec=%d acc=%d rej=%d §f| §7Last: §f%s §f| §7LastOK: §f%s",
+                    st.eventsReceived(), st.eventsAccepted(), st.eventsRejected(),
+                    st.lastEventTimestamp() > 0 ? new java.util.Date(st.lastEventTimestamp()).toString().substring(11, 19) : "N/A",
+                    st.lastSuccessTimestamp() > 0 ? new java.util.Date(st.lastSuccessTimestamp()).toString().substring(11, 19) : "N/A")), false);
+
+            source.sendSuccess(() -> Component.literal("  §7Details: §f" + st.details()), false);
+
+            if (st.lastError() != null && !st.lastError().isEmpty()) {
+                source.sendSuccess(() -> Component.literal("  §cLast Error: §f" + st.lastError()), false);
+            }
         }
+        int total = count.get();
+        source.sendSuccess(() -> Component.literal(String.format("§6Total: %d integrations", total)), false);
+        return 1;
+    }
+
+    private static int executeIntegrationsProbe(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        source.sendSuccess(() -> Component.literal("§6Re-probing all integrations (safe, no duplicate listeners)..."), false);
+        com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry registry =
+                com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance();
+
+        for (String id : new String[]{"cobblemon_base", "cobblemon_breeding", "cobblemon_trainers",
+                "cobblemon_pasture", "cobblemon_fossils", "cobblemon_raids"}) {
+            com.pedrodalben.bigbangessentials.jobs.compat.IntegrationStatus st = registry.probe(id);
+            source.sendSuccess(() -> Component.literal(String.format(
+                    "§e%s §f-> §7%s §f(%s)", id, st.state(), st.details())), false);
+        }
+        source.sendSuccess(() -> Component.literal("§aProbe complete."), false);
+        return 1;
+    }
+
+    private static int executeSingleProbe(CommandContext<CommandSourceStack> ctx, String integrationId) {
+        CommandSourceStack source = ctx.getSource();
+        com.pedrodalben.bigbangessentials.jobs.compat.IntegrationStatus st =
+                com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().probe(integrationId);
+        source.sendSuccess(() -> Component.literal(String.format(
+                "§eProbe [%s]: §7State=%s, Mod=%s, Event=%s, Adapter=%s, Details=%s",
+                integrationId, st.state(), st.detectedModId(), st.eventClassName(),
+                st.adapterStrategy(), st.details())), false);
         return 1;
     }
 

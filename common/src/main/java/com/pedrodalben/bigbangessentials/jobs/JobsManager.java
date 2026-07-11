@@ -59,7 +59,6 @@ public class JobsManager {
     private JobsManager() {
         reload();
         com.pedrodalben.bigbangessentials.jobs.license.JobLicenseProgressService.getInstance().init();
-        com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().initializeAll();
     }
 
     public CompletableFuture<List<RankingEntry>> getRanking(String jobId) {
@@ -97,7 +96,7 @@ public class JobsManager {
         try {
             JobsConfig newConfig = JobConfigurationLoader.loadAndValidate();
             this.config = newConfig;
-            com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().reload();
+            com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().initializeAll();
             LOGGER.info("Jobs configuration loaded/reloaded successfully.");
             return true;
         } catch (Exception e) {
