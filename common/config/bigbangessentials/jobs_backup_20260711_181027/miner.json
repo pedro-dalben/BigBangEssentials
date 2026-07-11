@@ -1,0 +1,74 @@
+{
+  "id": "miner",
+  "enabled": true,
+  "display-name": "Minerador",
+  "description": "Ganhe experiência e dinheiro ao minerar minérios, pedras e recursos subterrâneos.",
+  "permission": "jobs.profissao.miner",
+  "unlocked-by-default": true,
+  "max-level": 100,
+  "max-daily-earnings": 15000.0,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "xp-curve": {
+    "initial-xp": 100,
+    "multiplier": 1.2
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "break-block": {
+      "minecraft:coal_ore": { "money": 1.0, "xp": 1.0 },
+      "minecraft:deepslate_coal_ore": { "money": 1.0, "xp": 1.0 },
+      "minecraft:iron_ore": { "money": 2.0, "xp": 2.0 },
+      "minecraft:deepslate_iron_ore": { "money": 2.0, "xp": 2.0 },
+      "minecraft:gold_ore": { "money": 3.0, "xp": 3.0 },
+      "minecraft:deepslate_gold_ore": { "money": 3.0, "xp": 3.0 },
+      "minecraft:diamond_ore": { "money": 10.0, "xp": 8.0 },
+      "minecraft:deepslate_diamond_ore": { "money": 10.0, "xp": 8.0 },
+      "minecraft:stone": { "money": 0.1, "xp": 0.1 },
+      "minecraft:deepslate": { "money": 0.15, "xp": 0.15 }
+    }
+  },
+  "skills": {
+    "conhecimento_mineral": {
+      "name": "Conhecimento Mineral",
+      "description": "+1% de XP por rank ao minerar.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.01
+      }
+    },
+    "negociador_de_minerios": {
+      "name": "Negociador de Minérios",
+      "description": "+1% de dinheiro por rank ao vender minérios.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 10,
+      "prerequisites": [],
+      "effects": {
+        "money-multiplier": 0.01
+      }
+    },
+    "fortuna_natural": {
+      "name": "Fortuna Natural",
+      "description": "+1% de chance por rank de receber um drop adicional.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 20,
+      "prerequisites": ["conhecimento_mineral:3"],
+      "effects": {
+        "double-drop-chance": 0.01
+      }
+    }
+  },
+  "level-up-rewards": {
+    "10": { "commands": ["give %player% minecraft:iron_ingot 5"] }
+  },
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% de %job%! Pontos de habilidade: +%points%"
+  }
+}

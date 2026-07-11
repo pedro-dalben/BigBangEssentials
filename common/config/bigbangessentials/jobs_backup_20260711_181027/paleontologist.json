@@ -1,0 +1,62 @@
+{
+  "id": "paleontologist",
+  "enabled": true,
+  "display-name": "Paleontólogo",
+  "description": "Ganhe experiência e moedas revivendo fósseis e pesquisando Pokémon pré-históricos.",
+  "permission": "jobs.profissao.paleontologist",
+  "unlocked-by-default": false,
+  "category": "POKEMON_SPECIALIZATION",
+  "license-required": true,
+  "max-level": 100,
+  "max-daily-earnings": 15000.0,
+  "money-bonus-per-level": 1.0,
+  "max-level-money-bonus": 100.0,
+  "xp-curve": {
+    "initial-xp": 150,
+    "multiplier": 1.25
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "FOSSIL_REVIVED": {
+      "*": { "money": 60.0, "xp": 80.0 }
+    }
+  },
+  "license-objectives": [
+    {
+      "id": "lic_pal_revive",
+      "action": "FOSSIL_REVIVED",
+      "amount": 2,
+      "message": "Reviva 2 fósseis Pokémon para obter sua licença de Paleontólogo."
+    }
+  ],
+  "skills": {
+    "escavacao_cuidadosa": {
+      "name": "Escavação Cuidadosa",
+      "description": "+3% de XP por rank ao reviver fósseis.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.03
+      }
+    },
+    "restauracao_perfeita": {
+      "name": "Restauração Perfeita",
+      "description": "+2% de moedas por rank na revivescência de fósseis.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 10,
+      "prerequisites": [],
+      "effects": {
+        "money-multiplier": 0.02
+      }
+    }
+  },
+  "level-up-rewards": {},
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% como Paleontólogo! Pontos de habilidade: +%points%"
+  }
+}

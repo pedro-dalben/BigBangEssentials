@@ -1,0 +1,15 @@
+{
+  "id":"miner","enabled":true,"display-name":"Minerador",
+  "short-description":"Extraia minérios e pedras preciosas",
+  "description":"Profissão dedicada à mineração e extração de recursos minerais.",
+  "icon":"minecraft:diamond_pickaxe","category":"COMMON","sort-order":1,
+  "permission":"bigbangessentials.jobs.profession.miner",
+  "visible-without-permission":true,"unlocked-by-default":true,"license-required":false,
+  "max-level":100,"xp-curve":{"type":"polynomial","base":100,"multiplier":1.0,"exponent":1.5},
+  "max-daily-earnings":-1,"money-bonus-per-level":0.5,"max-level-money-bonus":50.0,"skill-points-every":2,
+  "reset-progress-on-leave":false,
+  "actions":{"BREAK-BLOCK":{"minecraft:coal_ore":{"money":5,"xp":10},"minecraft:copper_ore":{"money":7,"xp":12},"minecraft:iron_ore":{"money":10,"xp":15},"minecraft:gold_ore":{"money":15,"xp":20},"minecraft:redstone_ore":{"money":12,"xp":18},"minecraft:lapis_ore":{"money":12,"xp":18},"minecraft:diamond_ore":{"money":30,"xp":40},"minecraft:emerald_ore":{"money":35,"xp":45},"minecraft:nether_quartz_ore":{"money":10,"xp":15},"minecraft:nether_gold_ore":{"money":12,"xp":18},"minecraft:ancient_debris":{"money":100,"xp":150},"minecraft:stone":{"money":1,"xp":2},"minecraft:deepslate":{"money":1.5,"xp":2.5},"*":{"money":0.5,"xp":1}}},
+  "how-to-earn":{"money-header":"Como ganhar dinheiro","xp-header":"Como ganhar XP","money-lines":["Quebre minérios naturais para receber dinheiro.","Minérios raros como Diamante, Esmeralda e Netherita pagam mais."],"xp-lines":["Todo bloco quebrado que paga dinheiro também concede XP."],"example-targets":["minecraft:diamond_ore","minecraft:coal_ore","minecraft:iron_ore"]},
+  "skills":{},"level-up-rewards":{},
+  "messages":{"join":"&aVocê agora é um Minerador!","leave":"&cVocê deixou a profissão de Minerador.","level-up":"&aParabéns! Nível %level% de Minerador! +%points% pontos"}
+}

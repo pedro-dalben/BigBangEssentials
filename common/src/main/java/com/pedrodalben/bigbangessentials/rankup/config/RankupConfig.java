@@ -233,7 +233,7 @@ public class RankupConfig {
 
     private static RankupLadder parseLadder(JsonObject obj) {
         String id = obj.has("id") ? obj.get("id").getAsString() : "main";
-        String displayName = obj.has("display-name") ? obj.get("display-name").getAsString() : "&6Main Progression";
+        String displayName = obj.has("display-name") ? translateColors(obj.get("display-name").getAsString()) : "&6Main Progression";
         String initialRankId = obj.has("initial-rank-id") ? obj.get("initial-rank-id").getAsString() : "";
         RankupPromotionMode mode = RankupPromotionMode.fromString(
                 obj.has("luckperms-mode") ? obj.get("luckperms-mode").getAsString() : null);
@@ -255,8 +255,8 @@ public class RankupConfig {
     private static RankupRank parseRank(JsonObject obj) {
         String id = obj.get("id").getAsString();
         int order = obj.has("order") ? obj.get("order").getAsInt() : 0;
-        String displayName = obj.has("display-name") ? obj.get("display-name").getAsString() : id;
-        List<String> description = parseStringList(obj, "description");
+        String displayName = obj.has("display-name") ? translateColors(obj.get("display-name").getAsString()) : id;
+        List<String> description = parseStringList(obj, "description").stream().map(RankupConfig::translateColors).toList();
         RankupIcon icon = parseIcon(obj.has("icon") ? obj.getAsJsonObject("icon") : null);
         RankupLuckPermsSettings luckPerms = parseLuckPerms(obj.has("luckperms") ? obj.getAsJsonObject("luckperms") : null);
         RankupRequirements requirements = parseRequirements(obj.has("requirements") ? obj.getAsJsonObject("requirements") : null);
@@ -299,8 +299,8 @@ public class RankupConfig {
 
     private static RankupTask parseTask(JsonObject obj) {
         String id = obj.get("id").getAsString();
-        String displayName = obj.has("display-name") ? obj.get("display-name").getAsString() : id;
-        List<String> description = parseStringList(obj, "description");
+        String displayName = obj.has("display-name") ? translateColors(obj.get("display-name").getAsString()) : id;
+        List<String> description = parseStringList(obj, "description").stream().map(RankupConfig::translateColors).toList();
         ObjectiveActionType type = ObjectiveActionType.fromString(
                 obj.has("type") ? obj.get("type").getAsString() : "");
         int target = obj.has("target") ? obj.get("target").getAsInt() : 0;
@@ -328,7 +328,7 @@ public class RankupConfig {
 
     private static RankupActions parseActions(JsonObject obj) {
         if (obj == null) return new RankupActions(null, new ArrayList<>());
-        String broadcast = obj.has("broadcast") ? obj.get("broadcast").getAsString() : null;
+        String broadcast = obj.has("broadcast") ? translateColors(obj.get("broadcast").getAsString()) : null;
         List<String> commands = parseStringList(obj, "commands");
         return new RankupActions(broadcast, commands);
     }
@@ -460,5 +460,9 @@ public class RankupConfig {
             try { return new BigDecimal(s); } catch (Exception e) { return def; }
         }
         return def;
+    }
+
+    public static String translateColors(String input) {
+        return input != null ? input.replace('&', '\u00a7') : null;
     }
 }

@@ -1,0 +1,65 @@
+{
+  "id": "researcher",
+  "enabled": true,
+  "display-name": "Pesquisador Pokémon",
+  "description": "Ganhe experiência e moedas capturando Pokémon selvagens e registrando novas espécies na sua Pokédex.",
+  "permission": "jobs.profissao.researcher",
+  "unlocked-by-default": false,
+  "category": "POKEMON_SPECIALIZATION",
+  "license-required": true,
+  "max-level": 100,
+  "max-daily-earnings": 15000.0,
+  "money-bonus-per-level": 1.0,
+  "max-level-money-bonus": 100.0,
+  "xp-curve": {
+    "initial-xp": 150,
+    "multiplier": 1.25
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "POKEMON_CAPTURED": {
+      "*": { "money": 15.0, "xp": 20.0 }
+    },
+    "DEX_ENTRY_ADDED": {
+      "*": { "money": 50.0, "xp": 75.0 }
+    }
+  },
+  "license-objectives": [
+    {
+      "id": "lic_res_capture",
+      "action": "POKEMON_CAPTURED",
+      "amount": 5,
+      "message": "Capture 5 Pokémon para demonstrar suas habilidades de campo ao Laboratório de Pesquisa."
+    }
+  ],
+  "skills": {
+    "pesquisa_avancada": {
+      "name": "Pesquisa de Campo Avançada",
+      "description": "+3% de XP por rank ao capturar ou registrar Pokémon.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.03
+      }
+    },
+    "financiamento_cientifico": {
+      "name": "Financiamento Científico",
+      "description": "+2% de moedas por rank em descobertas de Pokédex.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 10,
+      "prerequisites": [],
+      "effects": {
+        "money-multiplier": 0.02
+      }
+    }
+  },
+  "level-up-rewards": {},
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% como Pesquisador Pokémon! Pontos de habilidade: +%points%"
+  }
+}

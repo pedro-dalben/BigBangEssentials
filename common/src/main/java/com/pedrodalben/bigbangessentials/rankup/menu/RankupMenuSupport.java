@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import com.pedrodalben.bigbangessentials.rankup.RankupManager;
 import com.pedrodalben.bigbangessentials.rankup.domain.*;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.StringUtil;
 
 import java.util.*;
 
@@ -115,6 +114,6 @@ public class RankupMenuSupport {
     }
 
     private static String strip(String input) {
-        return StringUtil.stripColor(input != null ? input : "");
+        return input != null ? input : "";
     }
 }

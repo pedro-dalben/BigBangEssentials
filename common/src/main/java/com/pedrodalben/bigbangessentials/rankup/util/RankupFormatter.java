@@ -20,7 +20,7 @@ public class RankupFormatter {
         for (RankupTaskEligibility te : snapshot.taskEligibilities()) {
             if (!te.completed() && te.task().enabled()) {
                 int left = te.target() - te.progress();
-                missing.add(String.format("%d %s", left, net.minecraft.util.StringUtil.stripColor(te.task().displayName())));
+                missing.add(String.format("%d %s", left, te.task().displayName()));
             }
         }
         if (missing.isEmpty()) {

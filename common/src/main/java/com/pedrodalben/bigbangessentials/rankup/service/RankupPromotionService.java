@@ -802,9 +802,9 @@ public class RankupPromotionService {
         placeholders.put("%player%", playerName);
         placeholders.put("%uuid%", playerId.toString());
         placeholders.put("%old_rank_id%", fromRank != null ? fromRank.id() : "");
-        placeholders.put("%old_rank_display_name%", fromRank != null ? stripColor(fromRank.displayName()) : "");
+        placeholders.put("%old_rank_display_name%", fromRank != null ? fromRank.displayName() : "");
         placeholders.put("%rank_id%", toRank.id());
-        placeholders.put("%rank_display_name%", stripColor(toRank.displayName()));
+        placeholders.put("%rank_display_name%", toRank.displayName());
         placeholders.put("%luckperms_group%", toRank.luckPerms().group());
 
         if (actions.broadcast() != null && !actions.broadcast().isBlank()) {
@@ -842,9 +842,5 @@ public class RankupPromotionService {
             result = result.replace(entry.getKey(), entry.getValue() != null ? entry.getValue() : "");
         }
         return result;
-    }
-
-    private String stripColor(String input) {
-        return input == null ? "" : net.minecraft.util.StringUtil.stripColor(input);
     }
 }
