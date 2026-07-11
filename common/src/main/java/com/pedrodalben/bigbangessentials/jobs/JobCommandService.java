@@ -50,6 +50,11 @@ public class JobCommandService {
         if (!PermissionAPI.hasPermission(player.getUUID(), job.permission))
             return JoinResult.MISSING_PERMISSION;
 
+        if (job.unlockRequirements.hasPermissionRequirement()
+                && !PermissionAPI.hasPermission(player.getUUID(), job.unlockRequirements.permission())) {
+            return JoinResult.MISSING_PERMISSION;
+        }
+
         if (job.requiredIntegration != null && !job.requiredIntegration.isBlank()) {
             var st = com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance()
                     .getStatus(job.requiredIntegration);

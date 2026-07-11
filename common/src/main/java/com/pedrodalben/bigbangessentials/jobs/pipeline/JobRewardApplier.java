@@ -82,8 +82,9 @@ public class JobRewardApplier {
         // 3.5. Process Phase 4 Reward Cycle (Fragments, Key Rolls & Contracts)
         try {
             int jobLevel = data.getProgress(jobId) != null ? data.getProgress(jobId).getLevel() : 1;
+            String actionType = action.type() != null ? action.type().name() : action.actionId().toString();
             com.pedrodalben.bigbangessentials.jobs.rewards.JobRewardRollService.getInstance()
-                    .processActionRewards(action.actionId().toString(), playerId, jobId, jobLevel, outcome.experience() > 0 ? 1.0 : 0.5);
+                    .processActionRewards(playerId, jobDef, jobLevel, actionType, outcome.experience() > 0 ? 1.0 : 0.5);
             com.pedrodalben.bigbangessentials.jobs.contracts.JobContractService.getInstance()
                     .processActionProgress(player, action, jobId);
         } catch (Exception e) {

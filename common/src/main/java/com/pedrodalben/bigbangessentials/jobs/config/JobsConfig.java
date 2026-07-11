@@ -1,5 +1,6 @@
 package com.pedrodalben.bigbangessentials.jobs.config;
 
+import com.pedrodalben.bigbangessentials.jobs.rewards.CrateRewardDefinition;
 import com.pedrodalben.bigbangessentials.jobs.slot.JobSlotDefinition;
 import com.pedrodalben.bigbangessentials.jobs.progression.RankMilestoneDefinition;
 import com.pedrodalben.bigbangessentials.jobs.license.JobLicenseObjective;
@@ -179,6 +180,8 @@ public class JobsConfig {
         public final Map<String, String> messages;
         public final Map<Integer, List<String>> levelUpRewards;
         public final HowToEarn howToEarn;
+        public final List<CrateRewardDefinition> crateRewards;
+        public final UnlockRequirements unlockRequirements;
 
         private JobDefinition(Builder b) {
             this.id = requireNonEmpty(b.id, "id");
@@ -211,6 +214,9 @@ public class JobsConfig {
             this.levelUpRewards = Collections.unmodifiableMap(
                     b.levelUpRewards != null ? new LinkedHashMap<>(b.levelUpRewards) : new LinkedHashMap<>());
             this.howToEarn = b.howToEarn != null ? b.howToEarn : HowToEarn.empty();
+            this.crateRewards = Collections.unmodifiableList(
+                    b.crateRewards != null ? new ArrayList<>(b.crateRewards) : new ArrayList<>());
+            this.unlockRequirements = b.unlockRequirements != null ? b.unlockRequirements : UnlockRequirements.DEFAULT;
         }
 
         public static Builder builder(String id) { return new Builder(id); }
@@ -275,6 +281,8 @@ public class JobsConfig {
             private Map<String, String> messages;
             private Map<Integer, List<String>> levelUpRewards;
             private HowToEarn howToEarn;
+            private List<CrateRewardDefinition> crateRewards;
+            private UnlockRequirements unlockRequirements;
 
             private Builder(String id) { this.id = id; }
 
@@ -303,6 +311,8 @@ public class JobsConfig {
             public Builder messages(Map<String, String> v) { messages = v; return this; }
             public Builder levelUpRewards(Map<Integer, List<String>> v) { levelUpRewards = v; return this; }
             public Builder howToEarn(HowToEarn v) { howToEarn = v; return this; }
+            public Builder crateRewards(List<CrateRewardDefinition> v) { crateRewards = v; return this; }
+            public Builder unlockRequirements(UnlockRequirements v) { unlockRequirements = v; return this; }
             public JobDefinition build() { return new JobDefinition(this); }
         }
     }

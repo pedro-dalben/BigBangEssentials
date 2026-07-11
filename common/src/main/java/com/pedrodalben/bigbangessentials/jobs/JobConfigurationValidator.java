@@ -3,6 +3,7 @@ package com.pedrodalben.bigbangessentials.jobs;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.JobDefinition;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.ActionReward;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.SkillDefinition;
+import com.pedrodalben.bigbangessentials.jobs.rewards.CrateRewardDefinition;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
@@ -102,6 +103,37 @@ public class JobConfigurationValidator {
         for (String skillId : job.skills.keySet()) {
             if (hasCircularDependency(skillId, visited, stack, job.skills)) {
                 throw new IllegalArgumentException("Circular dependency detected in skills of job '" + job.id + "' involving skill '" + skillId + "' in file: " + filename);
+            }
+        }
+
+        validateCrateRewards(job, filename);
+    }
+
+    private static void validateCrateRewards(JobDefinition job, String filename) {
+        for (CrateRewardDefinition reward : job.crateRewards) {
+            if (reward.chance() < 0.0 || reward.chance() > 1.0) {
+                throw new IllegalArgumentException("crate-rewards: chance must be between 0.0 and 1.0 in file: " + filename + ", job: " + job.id + " (key: " + reward.keyId() + ")");
+            }
+            if (reward.amount() < 1) {
+                throw new IllegalArgumentException("crate-rewards: amount must be >= 1 in file: " + filename + ", job: " + job.id + " (key: " + reward.keyId() + ")");
+            }
+            if (reward.minimumJobLevel() < 1 || reward.minimumJobLevel() > job.maxLevel) {
+                throw new IllegalArgumentException("crate-rewards: minimum-job-level must be between 1 and " + job.maxLevel + " in file: " + filename + ", job: " + job.id + " (key: " + reward.keyId() + ")");
+            }
+            if (reward.dailyLimit() < 0) {
+                throw new IllegalArgumentException("crate-rewards: daily-limit must be >= 0 in file: " + filename + ", job: " + job.id + " (key: " + reward.keyId() + ")");
+            }
+            if (reward.cooldownSeconds() < 0) {
+                throw new IllegalArgumentException("crate-rewards: cooldown-seconds must be >= 0 in file: " + filename + ", job: " + job.id + " (key: " + reward.keyId() + ")");
+            }
+            if (reward.keyId() == null || reward.keyId().isBlank()) {
+                throw new IllegalArgumentException("crate-rewards: key-id is required in file: " + filename + ", job: " + job.id);
+            }
+
+            for (String action : reward.actions()) {
+                if (!JobActionRegistry.isValidActionType(action)) {
+                    LOGGER.warn("crate-rewards: unknown action type '{}' in file: {}, job: {}, key: {}. Reward will never trigger.", action, filename, job.id, reward.keyId());
+                }
             }
         }
     }

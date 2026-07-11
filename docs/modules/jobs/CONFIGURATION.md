@@ -90,6 +90,8 @@ Each file in `professions/` must be named `<id>.json` matching its `id` field.
 | `actions` | object | `{}` | Action → target → reward mappings |
 | `license-objectives` | array | `[]` | License quest objectives |
 | `skills` | object | `{}` | Skill tree definitions |
+| `crate-rewards` | array | `[]` | Per-action crate key drop config (see below) |
+| `unlock-requirements` | object | `{unlockedByDefault: true}` | Rank/permission requirements to access profession |
 | `level-up-rewards` | object | `{}` | Level → command array rewards |
 | `messages` | object | `{}` | Custom messages (join, leave, level-up) |
 | `how-to-earn` | object | optional | Money/XP help text |
@@ -143,6 +145,73 @@ Evaluation order: exact match → tag match → wildcard.
   "effects": {"xp-multiplier": 0.03}
 }
 ```
+
+### crate-rewards Structure
+
+```json
+"crate-rewards": [
+  {
+    "actions": ["POKEMON-CAPTURED"],
+    "key-id": "researcher_key",
+    "chance": 0.02,
+    "amount": 1,
+    "minimum-job-level": 5,
+    "required-rank-id": "adept",
+    "daily-limit": 5,
+    "cooldown-seconds": 3600
+  },
+  {
+    "actions": [],
+    "key-id": "craft_key",
+    "chance": 0.005,
+    "amount": 1,
+    "minimum-job-level": 1,
+    "daily-limit": 3,
+    "cooldown-seconds": 1800
+  }
+]
+```
+
+| Campo | Tipo | Default | Descrição |
+|-------|------|---------|-----------|
+| `actions` | string[] | `[]` (qualquer ação) | Action types que ativam esta recompensa (case-insensitive, vazio = todas) |
+| `key-id` | string | `"craft_key"` | ID da chave de crate a ser concedida |
+| `chance` | double | `0.005` | Probabilidade por ação (0.0–1.0, 0.005 = 0.5%) |
+| `amount` | int | `1` | Quantidade de chaves por concessão |
+| `minimum-job-level` | int | `1` | Nível mínimo da profissão para ativar |
+| `required-rank-id` | string\|null | `null` | Rank mínimo do RankUp (opcional) |
+| `daily-limit` | int | `3` | Limite diário por jogador (0 = bloqueado) |
+| `cooldown-seconds` | long | `1800` | Cooldown entre concessões (em segundos) |
+
+**Notas**:
+- Se a lista `crate-rewards` estiver vazia, o sistema usa o fallback legado `JobKeyDropRule` (0.5% base + 0.02%/level, sem limites diários/cooldown).
+- A validação rejeita: `chance` fora de 0–1, `amount` < 1, `key-id` vazio, `minimum-job-level` < 1, `daily-limit` < 0.
+- Action types desconhecidos geram warning, não erro.
+
+### unlock-requirements Structure
+
+```json
+"unlock-requirements": {
+  "unlocked-by-default": false,
+  "required-rank-id": "adept",
+  "required-rank-order": 3,
+  "permission": "jobs.profession.raider"
+}
+```
+
+| Campo | Tipo | Default | Descrição |
+|-------|------|---------|-----------|
+| `unlocked-by-default` | bool | `true` | Se true, ignora todas as outras verificações |
+| `required-rank-id` | string\|null | `null` | ID do rank específico necessário |
+| `required-rank-order` | int | `0` | Ordem mínima do rank (0 = sem verificação) |
+| `permission` | string\|null | `null` | Permissão LuckPerms necessária |
+
+**Lógica de avaliação** (AND):
+1. Se `unlockedByDefault == true` → liberado
+2. Verifica milestones de carreira (slots)
+3. Se `requiredRankId` presente → jogador deve ter rank ≥ aquele ID
+4. Se `requiredRankOrder > 0` → ordem do rank atual deve ser ≥ requiredRankOrder
+5. Se `permission` presente → jogador deve ter a permissão no LuckPerms
 
 ### level-up-rewards Structure
 
@@ -210,6 +279,12 @@ Example (base=100, multiplier=50):
 19. **No circular dependencies in skill trees**
 20. Milestone `eligible-jobs` must reference existing professions
 21. Milestone `unlocked-slots` must reference existing slots
+22. **Crate reward `chance` must be 0.0–1.0**
+23. **Crate reward `amount` must be ≥ 1**
+24. **Crate reward `key-id` cannot be empty**
+25. **Crate reward `minimum-job-level` must be ≥ 1**
+26. **Crate reward `daily-limit` must be ≥ 0**
+27. **Crate reward action types: unknown values generate warning only**
 
 ## Reload Behavior
 

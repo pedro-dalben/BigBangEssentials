@@ -75,3 +75,9 @@ neoforge/bigbangessentials/
 *.db
 common/config/*.db
 config/*.db
+
+# Session files from AI coding assistants
+session-*.md
+
+# Job config backups (auto-generated)
+common/config/bigbangessentials/jobs_backup_*/

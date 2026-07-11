@@ -230,6 +230,31 @@ Cada profissão possui um arquivo de configuração próprio em formato JSON. O 
       "message": "Capture 5 Pokémon para demonstrar suas habilidades de campo."
     }
   ],
+  "crate-rewards": [
+    {
+      "actions": ["POKEMON-CAPTURED"],
+      "key-id": "researcher_key",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 5,
+      "daily-limit": 5,
+      "cooldown-seconds": 3600
+    },
+    {
+      "actions": ["DEX-ENTRY-ADDED"],
+      "key-id": "researcher_key",
+      "chance": 0.05,
+      "amount": 2,
+      "minimum-job-level": 1,
+      "daily-limit": 10
+    }
+  ],
+  "unlock-requirements": {
+    "unlocked-by-default": false,
+    "required-rank-id": "adept",
+    "required-rank-order": 3,
+    "permission": "jobs.profissao.researcher"
+  },
   "skills": {
     "pesquisa_avancada": {
       "name": "Pesquisa de Campo Avançada",
@@ -242,6 +267,23 @@ Cada profissão possui um arquivo de configuração próprio em formato JSON. O 
         "xp-multiplier": 0.03
       }
     }
+  },
+  "crate-rewards": [
+    {
+      "actions": ["POKEMON-CAPTURED"],
+      "key-id": "researcher_key",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 5,
+      "daily-limit": 5,
+      "cooldown-seconds": 3600
+    }
+  ],
+  "unlock-requirements": {
+    "unlocked-by-default": false,
+    "required-rank-id": "adept",
+    "required-rank-order": 3,
+    "permission": "jobs.profissao.researcher"
   },
   "level-up-rewards": {
     "10": { "commands": ["give %player% cobblemon:poke_ball 16"] },

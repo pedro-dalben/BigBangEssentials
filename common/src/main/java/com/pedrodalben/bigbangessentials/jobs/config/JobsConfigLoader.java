@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.jobs.config;
 
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.*;
+import com.pedrodalben.bigbangessentials.jobs.rewards.CrateRewardDefinition;
 import com.pedrodalben.bigbangessentials.jobs.slot.JobSlotDefinition;
 import com.pedrodalben.bigbangessentials.jobs.progression.RankMilestoneDefinition;
 import com.pedrodalben.bigbangessentials.jobs.license.JobLicenseObjective;
@@ -254,6 +255,8 @@ public class JobsConfigLoader {
         b.levelUpRewards(parseLevelUpRewards(root));
         b.howToEarn(parseHowToEarn(root));
         b.licenseObjectives(parseLicenseObjectives(root));
+        b.crateRewards(parseCrateRewards(root));
+        b.unlockRequirements(parseUnlockRequirements(root));
 
         return b.build();
     }
@@ -359,6 +362,35 @@ public class JobsConfigLoader {
             ));
         }
         return result;
+    }
+
+    private static List<CrateRewardDefinition> parseCrateRewards(JsonObject root) {
+        List<CrateRewardDefinition> result = new ArrayList<>();
+        if (!root.has("crate-rewards")) return result;
+        JsonArray arr = root.getAsJsonArray("crate-rewards");
+        for (JsonElement el : arr) {
+            JsonObject obj = el.getAsJsonObject();
+            List<String> actions = jsonArrayToList(obj.getAsJsonArray("actions"));
+            String keyId = getString(obj, "key-id", "craft_key");
+            double chance = getDouble(obj, "chance", 0.005);
+            int amount = getInt(obj, "amount", 1);
+            int minimumJobLevel = getInt(obj, "minimum-job-level", 1);
+            String requiredRankId = getStringOrNull(obj, "required-rank-id");
+            int dailyLimit = getInt(obj, "daily-limit", 3);
+            long cooldownSeconds = getLong(obj, "cooldown-seconds", 1800L);
+            result.add(new CrateRewardDefinition(actions, keyId, chance, amount, minimumJobLevel, requiredRankId, dailyLimit, cooldownSeconds));
+        }
+        return result;
+    }
+
+    private static UnlockRequirements parseUnlockRequirements(JsonObject root) {
+        if (!root.has("unlock-requirements")) return UnlockRequirements.DEFAULT;
+        JsonObject obj = root.getAsJsonObject("unlock-requirements");
+        boolean unlockedByDefault = getBool(obj, "unlocked-by-default", true);
+        String requiredRankId = getStringOrNull(obj, "required-rank-id");
+        int requiredRankOrder = getInt(obj, "required-rank-order", 0);
+        String permission = getStringOrNull(obj, "permission");
+        return new UnlockRequirements(unlockedByDefault, requiredRankId, requiredRankOrder, permission);
     }
 
     private static void validateAll(GlobalConfig global, Map<String, JobDefinition> professions,
@@ -845,6 +877,10 @@ public class JobsConfigLoader {
 
     private static int getInt(JsonObject obj, String key, int defaultValue) {
         return obj.has(key) ? obj.get(key).getAsInt() : defaultValue;
+    }
+
+    private static long getLong(JsonObject obj, String key, long defaultValue) {
+        return obj.has(key) ? obj.get(key).getAsLong() : defaultValue;
     }
 
     private static double getDouble(JsonObject obj, String key, double defaultValue) {

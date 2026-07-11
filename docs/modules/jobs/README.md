@@ -10,7 +10,7 @@ Config → Domain → Services → Pipeline → Commands/Menus
 
 | Layer | Package | Key Classes |
 |-------|---------|-------------|
-| Config | `jobs.config` | `JobsConfig`, `JobsConfigLoader`, `JobDefinition`, `XpCurve`, `HowToEarn`, `ActionReward`, `SkillDefinition` |
+| Config | `jobs.config` | `JobsConfig`, `JobsConfigLoader`, `JobDefinition`, `XpCurve`, `HowToEarn`, `ActionReward`, `SkillDefinition`, `UnlockRequirements` |
 | Domain | `jobs` | `JobAction`, `JobActionType`, `JobActionContext`, `PlayerJobsData`, `JobRewardOutcome` |
 | Pipeline | `jobs.pipeline` | `JobActionProcessor`, `JobActionValidator`, `JobRuleEvaluator`, `JobRewardCalculator`, `JobRewardApplier`, `JobActionPublisher`, `JobEligibilityResolver` |
 | License | `jobs.license` | `JobLicenseService`, `JobLicenseObjective`, `JobLicenseRepository`, `JobLicenseProgressService`, `InProgressLicense`, `PermanentLicense` |
@@ -22,7 +22,7 @@ Config → Domain → Services → Pipeline → Commands/Menus
 | Pokemon | `jobs.pokemon` | `PokemonJobActionValidator`, `PokemonJobAuditService`, `SpecialistKeyService` |
 | Researcher | `jobs.researcher` | `DexDiscoveryService`, `CaptureCorrelationService` |
 | Raids | `jobs.raids` | `RaidDeduplicationService` |
-| Rewards | `jobs.rewards` | `JourneyFragmentService`, `JourneyFragmentRepository`, `JobRewardLimitService`, `JobRewardRollRepository`, `JobRewardAuditService`, `JobRewardNotificationService`, `JobKeyDropRule` |
+| Rewards | `jobs.rewards` | `JourneyFragmentService`, `JourneyFragmentRepository`, `JobRewardLimitService`, `JobRewardRollRepository`, `JobRewardAuditService`, `JobRewardNotificationService`, `JobKeyDropRule`, `CrateRewardDefinition` |
 | Admin | `jobs.admin` | `JobAuditService`, `JobAuditEvent` |
 | Database | `jobs.database` | `JobsRepository`, `JobActionReceiptRepository` |
 | Events | `jobs.events` | `JobsEvents` (JobJoinEvent, JobLeaveEvent, JobLevelUpEvent, JobExperienceGainEvent, JobRewardPaidEvent, etc.) |

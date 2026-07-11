@@ -22,25 +22,37 @@ public class JobRewardLimitService {
             return new LimitCheckResult(false, "Invalid arguments");
         }
 
+        return checkLimitInternal(playerUuid, jobId, rule.getCooldownSeconds(), rule.getMaxKeysPerJobPerDay(), rule.getMaxKeysTotalPerDay());
+    }
+
+    public LimitCheckResult checkLimit(UUID playerUuid, String jobId, CrateRewardDefinition reward) {
+        if (playerUuid == null || jobId == null || reward == null) {
+            return new LimitCheckResult(false, "Invalid arguments");
+        }
+
+        return checkLimitInternal(playerUuid, jobId, reward.cooldownSeconds(), reward.dailyLimit(), reward.dailyLimit());
+    }
+
+    private LimitCheckResult checkLimitInternal(UUID playerUuid, String jobId, long cooldownSeconds, int maxPerJob, int maxTotal) {
         long now = System.currentTimeMillis();
         long latestDrop = JobRewardRollRepository.getInstance().getLatestSuccessfulRollTimestamp(playerUuid, jobId);
         if (latestDrop > 0) {
             long elapsedSeconds = (now - latestDrop) / 1000L;
-            if (elapsedSeconds < rule.getCooldownSeconds()) {
-                long remaining = rule.getCooldownSeconds() - elapsedSeconds;
+            if (elapsedSeconds < cooldownSeconds) {
+                long remaining = cooldownSeconds - elapsedSeconds;
                 return new LimitCheckResult(false, "Cooldown ativo: aguarde " + remaining + "s para outro drop de chave em " + jobId);
             }
         }
 
         long startOfDay = getStartOfDayMillis("America/Sao_Paulo");
         int jobDropsToday = JobRewardRollRepository.getInstance().countSuccessfulRollsForJobSince(playerUuid, jobId, startOfDay);
-        if (jobDropsToday >= rule.getMaxKeysPerJobPerDay()) {
-            return new LimitCheckResult(false, "Limite diário de chaves para a profissão (" + rule.getMaxKeysPerJobPerDay() + ") atingido");
+        if (maxPerJob > 0 && jobDropsToday >= maxPerJob) {
+            return new LimitCheckResult(false, "Limite diário de chaves para a profissão (" + maxPerJob + ") atingido");
         }
 
         int totalDropsToday = JobRewardRollRepository.getInstance().countTotalSuccessfulRollsSince(playerUuid, startOfDay);
-        if (totalDropsToday >= rule.getMaxKeysTotalPerDay()) {
-            return new LimitCheckResult(false, "Limite diário total de chaves (" + rule.getMaxKeysTotalPerDay() + ") atingido");
+        if (maxTotal > 0 && totalDropsToday >= maxTotal) {
+            return new LimitCheckResult(false, "Limite diário total de chaves (" + maxTotal + ") atingido");
         }
 
         return new LimitCheckResult(true, "OK");

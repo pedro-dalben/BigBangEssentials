@@ -138,4 +138,27 @@ public class JobRankMilestoneService implements JobRankProgressionProvider {
         if (config == null) return Optional.empty();
         return Optional.ofNullable(config.getRankMilestones().get(milestoneId.toLowerCase()));
     }
+
+    public boolean isAtOrAboveRank(UUID playerId, String requiredRankId) {
+        if (requiredRankId == null || requiredRankId.isBlank()) return true;
+        Optional<RankDefinition> rankOpt;
+        try {
+            rankOpt = RankupAPI.get().getCurrentRank(playerId);
+        } catch (IllegalStateException e) {
+            return false;
+        }
+        if (rankOpt.isEmpty()) return false;
+        int currentOrder = rankOpt.get().order();
+        String currentRankId = rankOpt.get().id();
+
+        JobsConfig config = JobsManager.getInstance().getConfig();
+        if (config != null) {
+            Optional<RankMilestoneDefinition> defOpt = getMilestoneDefinition(requiredRankId);
+            if (defOpt.isPresent()) {
+                RankMilestoneDefinition def = defOpt.get();
+                return currentOrder >= def.requiredRankOrder() || currentRankId.equalsIgnoreCase(def.requiredRankId());
+            }
+        }
+        return currentRankId.equalsIgnoreCase(requiredRankId);
+    }
 }

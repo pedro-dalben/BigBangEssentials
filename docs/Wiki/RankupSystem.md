@@ -94,7 +94,7 @@ The RankUp config is stored in `config/bigbangessentials/rankup.json`.
 ### Task Types
 
 | Type | Description | Filters |
-|---|---|---|
+|---|---|---|---|
 | `BREAK_BLOCK` | Break specific blocks | `blocks` (IDs or tags like `#minecraft:logs`) |
 | `PLACE_BLOCK` | Place specific blocks | `blocks` |
 | `KILL_ENTITY` | Kill specific entities | `entities` (IDs or tags) |
@@ -104,6 +104,8 @@ The RankUp config is stored in `config/bigbangessentials/rankup.json`.
 | `ADVANCEMENT` | Earn specific advancements | `advancements` |
 | `VISIT_BIOME` | Visit specific biomes | `biomes` |
 | `PLAYTIME_MINUTES` | Accumulate playtime | None |
+
+> **Playtime tracking note**: `PLAYTIME_MINUTES` only counts playtime accumulated **after** the mod is installed (tracked via `RankupPlaytimeTracker`). Pre-existing playtime is not counted. The tracker relies on tick registration (`FabricEvents` / `NeoForgeEvents`) and may show 0 if tick events are not properly registered on the platform.
 
 ### Task Mode
 
@@ -117,6 +119,18 @@ The RankUp config is stored in `config/bigbangessentials/rankup.json`.
 - **Exact ID**: `"minecraft:oak_log"` — matches exactly that block/item/entity.
 - **Tag**: `"#minecraft:logs"` — matches any entry in the tag group.
 - **Modded**: `"create:zinc_ore"` — matches modded items by registry ID.
+
+### Color Codes (`&` → `§` Translation)
+
+All text fields in the RankUp config support `&` color codes (e.g., `&a`, `&6`, `&l`). The system automatically translates `&` to the Minecraft section sign `§` at config load time via `RankupConfig.translateColors()`.
+
+**Affected fields**:
+- `ladder.display-name`
+- `rank.display-name` and `rank.description[]`
+- `task.display-name` and `task.description[]`
+- `actions.broadcast`
+
+**Preserved in UI**: The menu system (`RankupMenuSupport`), promotion messages (`RankupPromotionService`), and task formatters (`RankupFormatter`) no longer strip color codes after translation.
 
 ---
 
@@ -299,3 +313,4 @@ The RankUp task engine applies the same anti-exploit rules as the Jobs module:
 4. **Cobblemon** — Requires NeoForge; Fabric does not support Cobblemon integration.
 5. **Task editor** — Full visual task editor with held-item selection is pending.
 6. **Transaction recovery** — `/rankupadmin retryrecovery` is not yet implemented.
+7. **Playtime tracking** — `PLAYTIME_MINUTES` counts only post-install playtime. Verify tick registration if counter stays at 0.

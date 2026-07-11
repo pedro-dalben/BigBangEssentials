@@ -108,11 +108,10 @@ public class JobLicenseService {
             return JobLicenseStatus.IN_PROGRESS;
         }
 
-        if (jobDef.unlockedByDefault) {
+        if (jobDef.unlockRequirements.unlockedByDefault()) {
             return JobLicenseStatus.ELIGIBLE;
         }
 
-        // Check if unlocked by any reached milestone
         if (config != null) {
             for (RankMilestoneDefinition m : config.getRankMilestones().values()) {
                 if (m.eligibleJobs().contains(cleanId)) {
@@ -121,6 +120,11 @@ public class JobLicenseService {
                     }
                 }
             }
+        }
+
+        if (jobDef.unlockRequirements.hasRankRequirement()
+                && JobRankMilestoneService.getInstance().isAtOrAboveRank(playerId, jobDef.unlockRequirements.requiredRankId())) {
+            return JobLicenseStatus.ELIGIBLE;
         }
 
         return JobLicenseStatus.LOCKED_BY_RANK;
