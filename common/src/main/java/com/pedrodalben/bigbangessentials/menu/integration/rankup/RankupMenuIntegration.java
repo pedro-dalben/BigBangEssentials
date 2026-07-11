@@ -42,21 +42,14 @@ public class RankupMenuIntegration {
     private void setupDefaultMenus(Path configDir) {
         try {
             Files.createDirectories(configDir);
+            LOGGER.info("RankUp menu config directory: {}", configDir.toAbsolutePath().normalize());
             String[] menus = new String[]{"rankup_menu.yml", "rankup_rank_details_menu.yml", "rankup_admin_home_menu.yml", "rankup_admin_rank_edit_menu.yml"};
             for (String menu : menus) {
                 Path dest = configDir.resolve(menu);
                 String hardcodedContent = getHardcodedDefault(menu);
                 if (!Files.exists(dest)) {
                     Files.writeString(dest, hardcodedContent, StandardCharsets.UTF_8);
-                    LOGGER.info("Created default RankUp menu: {}", menu);
-                } else {
-                    String currentContent = Files.readString(dest, StandardCharsets.UTF_8);
-                    if (!currentContent.contains("schema-version: 2")) {
-                        Path backupDest = configDir.resolve(menu + "." + System.currentTimeMillis() + ".old");
-                        Files.writeString(backupDest, currentContent, StandardCharsets.UTF_8);
-                        Files.writeString(dest, hardcodedContent, StandardCharsets.UTF_8);
-                        LOGGER.warn("RankUp menu '{}' was obsolete. It has been renamed to '{}' and updated to schema-version: 2.", menu, backupDest.getFileName());
-                    }
+                    LOGGER.info("Created default RankUp menu: {} -> {}", menu, dest.toAbsolutePath().normalize());
                 }
             }
         } catch (Exception e) {
