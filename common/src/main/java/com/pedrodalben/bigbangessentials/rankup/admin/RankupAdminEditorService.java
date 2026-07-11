@@ -47,7 +47,7 @@ public class RankupAdminEditorService {
         int order = draft.getOrderedRanks().size();
         RankupRank rank = new RankupRank(id, order, "&7New Rank", new ArrayList<>(),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings(id, true),
-                new RankupRequirements(0.0, 0, RankupTaskMode.ALL, new ArrayList<>()),
+                new RankupRequirements(java.math.BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>()),
                 new RankupActions(null, new ArrayList<>()), true);
         draft.addRank(rank);
         reindexRanks(draft);
@@ -128,7 +128,7 @@ public class RankupAdminEditorService {
         RankupRank rank = draft.getRank(rankId);
         if (rank == null) return false;
         draft.removeRank(rankId);
-        draft.addRank(rank.withRequirements(rank.requirements().withMoney(Math.max(0.0, amount))));
+        draft.addRank(rank.withRequirements(rank.requirements().withMoney(java.math.BigDecimal.valueOf(Math.max(0.0, amount)))));
         return true;
     }
 

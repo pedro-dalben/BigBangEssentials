@@ -136,7 +136,7 @@ class RankupAdminEditorServiceTest {
         assertTrue(editor.setRankMoney(adminUuid, rank.id(), 5000.0));
 
         RankupConfig draft = RankupManager.getInstance().getDraftConfig();
-        assertEquals(5000.0, draft.getRank(rank.id()).requirements().money());
+        assertEquals(java.math.BigDecimal.valueOf(5000.0), draft.getRank(rank.id()).requirements().money());
     }
 
     @Test
@@ -145,7 +145,7 @@ class RankupAdminEditorServiceTest {
         assertTrue(editor.setRankMoney(adminUuid, rank.id(), -100.0));
 
         RankupConfig draft = RankupManager.getInstance().getDraftConfig();
-        assertEquals(0.0, draft.getRank(rank.id()).requirements().money());
+        assertEquals(java.math.BigDecimal.valueOf(0.0), draft.getRank(rank.id()).requirements().money());
     }
 
     @Test

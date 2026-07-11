@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -101,7 +102,7 @@ class RankupTaskProgressServiceTest {
 
         RankupRank rank = new RankupRank("rank1", 0, "Rank1", List.of(),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings("group1", true),
-                new RankupRequirements(0, 0, RankupTaskMode.ANY, tasks),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ANY, tasks),
                 new RankupActions(null, new ArrayList<>()), true);
 
         assertTrue(data.areTasksCompleted(rank)); // ANY mode, one completed is enough
@@ -122,7 +123,7 @@ class RankupTaskProgressServiceTest {
 
         RankupRank rank = new RankupRank("rank1", 0, "Rank1", List.of(),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings("group1", true),
-                new RankupRequirements(0, 0, RankupTaskMode.ALL, tasks),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, tasks),
                 new RankupActions(null, new ArrayList<>()), true);
 
         assertFalse(data.areTasksCompleted(rank)); // ALL mode, task2 not completed
@@ -146,7 +147,7 @@ class RankupTaskProgressServiceTest {
 
         RankupRank rank = new RankupRank("rank1", 0, "Rank1", List.of(),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings("group1", true),
-                new RankupRequirements(0, 0, RankupTaskMode.ALL, tasks),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, tasks),
                 new RankupActions(null, new ArrayList<>()), true);
 
         assertEquals(1, data.countCompletedTasks(rank));
@@ -192,7 +193,7 @@ class RankupTaskProgressServiceTest {
         RankupConfig cfg = new RankupConfig();
         cfg.addRank(new RankupRank("member", 0, "Member", List.of(),
                 new RankupIcon("minecraft:wooden_sword"), new RankupLuckPermsSettings("member", true),
-                new RankupRequirements(0, 0, RankupTaskMode.ALL, new ArrayList<>()),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>()),
                 new RankupActions(null, new ArrayList<>()), true));
 
         RankupTask task = new RankupTask("tag_task", "Tag Task", List.of(),
@@ -202,7 +203,7 @@ class RankupTaskProgressServiceTest {
 
         RankupRank rank = new RankupRank("miner", 1, "Miner", List.of(),
                 new RankupIcon("minecraft:iron_pickaxe"), new RankupLuckPermsSettings("miner", true),
-                new RankupRequirements(0, 0, RankupTaskMode.ALL, List.of(task)),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, List.of(task)),
                 new RankupActions(null, new ArrayList<>()), true);
 
         cfg.addRank(rank);
@@ -216,7 +217,7 @@ class RankupTaskProgressServiceTest {
         RankupConfig cfg = new RankupConfig();
         cfg.addRank(new RankupRank("member", 0, "Member", List.of(),
                 new RankupIcon("minecraft:wooden_sword"), new RankupLuckPermsSettings("member", true),
-                new RankupRequirements(0, 0, RankupTaskMode.ALL, new ArrayList<>()),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>()),
                 new RankupActions(null, new ArrayList<>()), true));
 
         RankupTask task = new RankupTask("stone_task", "Stone Task", List.of(),
@@ -226,7 +227,7 @@ class RankupTaskProgressServiceTest {
 
         RankupRank rank = new RankupRank("miner", 1, "Miner", List.of(),
                 new RankupIcon("minecraft:iron_pickaxe"), new RankupLuckPermsSettings("miner", true),
-                new RankupRequirements(0, 0, RankupTaskMode.ALL, List.of(task)),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, List.of(task)),
                 new RankupActions(null, new ArrayList<>()), true);
 
         cfg.addRank(rank);

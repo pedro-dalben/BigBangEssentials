@@ -47,7 +47,7 @@ public class RankupConfigurationValidator {
                     result.addError("Duplicate LuckPerms group in ladder: " + rank.luckPerms().group());
                 }
             }
-            if (rank.requirements().money() < 0) {
+            if (rank.requirements().money().compareTo(java.math.BigDecimal.ZERO) < 0) {
                 result.addError("Rank '" + rank.id() + "' has negative money requirement");
             }
             if (rank.requirements().gems() < 0) {

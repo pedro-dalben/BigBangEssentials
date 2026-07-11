@@ -228,7 +228,7 @@ public class RankupManager {
         boolean promotionInProgress = promotionService.isPromotionInProgress(uuid);
 
         if (nextRank == null || !nextRank.enabled()) {
-            return RankupEligibilitySnapshot.evaluate(uuid, currentRank, null, resolution, List.of(), RankupTaskMode.ALL, 0.0, 0L, promotionInProgress);
+            return RankupEligibilitySnapshot.evaluate(uuid, currentRank, null, resolution, List.of(), RankupTaskMode.ALL, java.math.BigDecimal.ZERO, 0L, promotionInProgress);
         }
 
         List<RankupTaskEligibility> taskEligibilities = new ArrayList<>();
@@ -237,10 +237,10 @@ public class RankupManager {
             taskEligibilities.add(RankupTaskEligibility.evaluate(task, progress));
         }
 
-        double moneyBalance = 0.0;
+        BigDecimal moneyBalance = BigDecimal.ZERO;
         long gemsBalance = 0L;
         try {
-            moneyBalance = EconomyAPI.getBalance(uuid).doubleValue();
+            moneyBalance = EconomyAPI.getBalance(uuid);
         } catch (Exception ignored) {}
         try {
             gemsBalance = GemsManager.getInstance().getBalanceView(uuid).availableBalance();
@@ -263,8 +263,8 @@ public class RankupManager {
         return snapshot.isReadyForPromotion() && snapshot.nextRank() != null && snapshot.nextRank().id().equalsIgnoreCase(targetRank.id());
     }
 
-    public double getMoneyRequired(RankupRank targetRank) {
-        return targetRank != null ? targetRank.requirements().money() : 0.0;
+    public BigDecimal getMoneyRequired(RankupRank targetRank) {
+        return targetRank != null ? targetRank.requirements().money() : java.math.BigDecimal.ZERO;
     }
 
     public int getGemsRequired(RankupRank targetRank) {

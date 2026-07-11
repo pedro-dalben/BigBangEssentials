@@ -43,7 +43,7 @@ public class RankupPlaceholderService {
         map.put("money_balance", String.valueOf(snapshot.moneyBalance()));
         map.put("gems_balance", String.valueOf(snapshot.gemsBalance()));
         
-        map.put("money_status", (snapshot.moneySufficient() && snapshot.moneyRequired() > 0) ? "\u00a7a\u2714" : (snapshot.moneyRequired() > 0 ? "\u00a7c\u2718" : ""));
+        map.put("money_status", (snapshot.moneySufficient() && snapshot.moneyRequired().compareTo(java.math.BigDecimal.ZERO) > 0) ? "\u00a7a\u2714" : (snapshot.moneyRequired().compareTo(java.math.BigDecimal.ZERO) > 0 ? "\u00a7c\u2718" : ""));
         map.put("gems_status", (snapshot.gemsSufficient() && snapshot.gemsRequired() > 0) ? "\u00a7a\u2714" : (snapshot.gemsRequired() > 0 ? "\u00a7c\u2718" : ""));
 
         map.put("tasks_completed", String.valueOf(snapshot.completedTasksCount()));

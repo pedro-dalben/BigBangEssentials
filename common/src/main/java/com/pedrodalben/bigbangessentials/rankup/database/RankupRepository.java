@@ -143,7 +143,7 @@ public class RankupRepository extends JdbcRepository {
                     stmt.setString(3, transaction.ladderId());
                     stmt.setString(4, transaction.fromRankId());
                     stmt.setString(5, transaction.toRankId());
-                    stmt.setDouble(6, transaction.moneyAmount());
+                    stmt.setBigDecimal(6, transaction.moneyAmount());
                     stmt.setInt(7, transaction.gemsAmount());
                     stmt.setString(8, transaction.status().name());
                     stmt.setString(9, transaction.idempotencyKey());
@@ -167,7 +167,7 @@ public class RankupRepository extends JdbcRepository {
                         rs.getString("ladder_id"),
                         rs.getString("from_rank_id"),
                         rs.getString("to_rank_id"),
-                        rs.getDouble("money_amount"),
+                        rs.getBigDecimal("money_amount"),
                         rs.getInt("gems_amount"),
                         RankupTransactionStatus.valueOf(rs.getString("status")),
                         rs.getString("idempotency_key"),
@@ -191,7 +191,7 @@ public class RankupRepository extends JdbcRepository {
                         rs.getString("ladder_id"),
                         rs.getString("from_rank_id"),
                         rs.getString("to_rank_id"),
-                        rs.getDouble("money_amount"),
+                        rs.getBigDecimal("money_amount"),
                         rs.getInt("gems_amount"),
                         RankupTransactionStatus.valueOf(rs.getString("status")),
                         rs.getString("idempotency_key"),
@@ -215,7 +215,7 @@ public class RankupRepository extends JdbcRepository {
                         rs.getString("ladder_id"),
                         rs.getString("from_rank_id"),
                         rs.getString("to_rank_id"),
-                        rs.getDouble("money_amount"),
+                        rs.getBigDecimal("money_amount"),
                         rs.getInt("gems_amount"),
                         RankupTransactionStatus.valueOf(rs.getString("status")),
                         rs.getString("idempotency_key"),

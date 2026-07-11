@@ -1,5 +1,7 @@
 package com.pedrodalben.bigbangessentials.rankup.config;
 
+import java.math.BigDecimal;
+
 import com.google.gson.*;
 import com.pedrodalben.bigbangessentials.objectives.ObjectiveActionType;
 import com.pedrodalben.bigbangessentials.rankup.domain.*;
@@ -190,7 +192,7 @@ public class RankupConfig {
                 "member", 0, "&7Member", List.of("&7Starting rank."),
                 new RankupIcon("minecraft:wooden_sword"),
                 new RankupLuckPermsSettings("member", true),
-                new RankupRequirements(0.0, 0, RankupTaskMode.ALL, new ArrayList<>()),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>()),
                 new RankupActions(null, new ArrayList<>()),
                 true
         );
@@ -206,7 +208,7 @@ public class RankupConfig {
                 "trainer", 1, "&aTrainer", List.of("&7Prove your worth."),
                 new RankupIcon("minecraft:iron_sword"),
                 new RankupLuckPermsSettings("trainer", true),
-                new RankupRequirements(5000.0, 3, RankupTaskMode.ALL, List.of(breakLogs)),
+                new RankupRequirements(BigDecimal.valueOf(5000), 3, RankupTaskMode.ALL, List.of(breakLogs)),
                 new RankupActions("&a%player% became a &fTrainer&a!", List.of("give %player% minecraft:diamond 3")),
                 true
         );
@@ -256,8 +258,8 @@ public class RankupConfig {
     }
 
     private static RankupRequirements parseRequirements(JsonObject obj) {
-        if (obj == null) return new RankupRequirements(0.0, 0, RankupTaskMode.ALL, new ArrayList<>());
-        double money = obj.has("money") ? obj.get("money").getAsDouble() : 0.0;
+        if (obj == null) return new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>());
+        BigDecimal money = obj.has("money") ? new BigDecimal(obj.get("money").getAsString()) : BigDecimal.ZERO;
         int gems = obj.has("gems") ? obj.get("gems").getAsInt() : 0;
         RankupTaskMode taskMode = RankupTaskMode.fromString(
                 obj.has("task-mode") ? obj.get("task-mode").getAsString() : null);
@@ -407,5 +409,14 @@ public class RankupConfig {
         JsonArray arr = new JsonArray();
         for (String s : list) arr.add(s);
         return arr;
+    }
+
+    private static BigDecimal getBigDecimal(Map<String, Object> map, String key, BigDecimal def) {
+        Object val = map.get(key);
+        if (val instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        if (val instanceof String s) {
+            try { return new BigDecimal(s); } catch (Exception e) { return def; }
+        }
+        return def;
     }
 }

@@ -51,11 +51,11 @@ public class RankupMenuIntegration {
                     LOGGER.info("Created default RankUp menu: {}", menu);
                 } else {
                     String currentContent = Files.readString(dest, StandardCharsets.UTF_8);
-                    if (!currentContent.contains("schema_version: 2")) {
-                        Path backupDest = configDir.resolve(menu + ".old");
+                    if (!currentContent.contains("schema-version: 2")) {
+                        Path backupDest = configDir.resolve(menu + "." + System.currentTimeMillis() + ".old");
                         Files.writeString(backupDest, currentContent, StandardCharsets.UTF_8);
                         Files.writeString(dest, hardcodedContent, StandardCharsets.UTF_8);
-                        LOGGER.warn("RankUp menu '{}' was obsolete. It has been renamed to '{}' and updated to schema_version: 2.", menu, backupDest.getFileName());
+                        LOGGER.warn("RankUp menu '{}' was obsolete. It has been renamed to '{}' and updated to schema-version: 2.", menu, backupDest.getFileName());
                     }
                 }
             }
@@ -81,13 +81,13 @@ public class RankupMenuIntegration {
         return """
             id: "rankup_menu"
             size: 54
-            schema_version: 2
+            schema-version: 2
             title: "<gold>RankUp Progression"
 
             pagination:
               enabled: true
               source: "rankup.ranks"
-              content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
+              content-slots: [10,11,12,13,14,15,16,19,20,21,23,24,25,28,29,30,31,32,33,34]
 
             dynamic-item-template:
               item:
@@ -103,6 +103,11 @@ public class RankupMenuIntegration {
                   - "<gray>Status: {rank_status_color}{rank_status}"
                   - ""
                   - "<green>Status do rank para refer\\u00eancia."
+              actions:
+                - type: "rankup_rank_click"
+                  params:
+                    rank_id: "{rank_id}"
+                  clicks: ["LEFT"]
 
             pages:
               main:
@@ -166,11 +171,6 @@ public class RankupMenuIntegration {
                       display-name: "<yellow>Next Page"
                     actions:
                       - type: "next_page"
-              dynamic-actions:
-                - type: "rankup_rank_click"
-                  params:
-                    rank_id: "{rank_id}"
-                  clicks: ["LEFT"]
             """;
     }
 
@@ -178,7 +178,7 @@ public class RankupMenuIntegration {
         return """
             id: "rankup_rank_details_menu"
             size: 54
-            schema_version: 2
+            schema-version: 2
             title: "<gold>Rank Tasks: {context:rank_display_name}"
 
             pagination:
@@ -248,13 +248,13 @@ public class RankupMenuIntegration {
         return """
             id: "rankup_admin_home_menu"
             size: 54
-            schema_version: 2
+            schema-version: 2
             title: "<gold>RankUp Admin"
 
             pagination:
               enabled: true
               source: "rankup.ranks"
-              content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
+              content-slots: [10,11,12,13,14,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
 
             dynamic-item-template:
               item:
@@ -341,7 +341,7 @@ public class RankupMenuIntegration {
         return """
             id: "rankup_admin_rank_edit_menu"
             size: 54
-            schema_version: 2
+            schema-version: 2
             title: "<gold>Edit: {context:rank_id}"
 
             pages:

@@ -1,4 +1,5 @@
 package com.pedrodalben.bigbangessentials.rankup.menu;
+import java.math.BigDecimal;
 
 import com.pedrodalben.bigbangessentials.rankup.RankupManager;
 import com.pedrodalben.bigbangessentials.rankup.domain.*;
@@ -88,9 +89,9 @@ public class RankupMenuSupport {
         map.put("next_id", next != null ? next.id() : "");
         map.put("next_name", next != null ? strip(next.displayName()) : "Max Rank");
 
-        double moneyRequired = snapshot.moneyRequired();
+        java.math.BigDecimal moneyRequired = snapshot.moneyRequired();
         int gemsRequired = snapshot.gemsRequired();
-        double moneyBalance = snapshot.moneyBalance();
+        java.math.BigDecimal moneyBalance = snapshot.moneyBalance();
         long gemsBalanceLong = snapshot.gemsBalance();
 
         map.put("money_required", String.valueOf(moneyRequired));
@@ -99,7 +100,7 @@ public class RankupMenuSupport {
         map.put("gems_balance", String.valueOf(gemsBalanceLong));
         map.put("money_missing", String.valueOf(snapshot.moneyMissing()));
         map.put("gems_missing", String.valueOf(snapshot.gemsMissing()));
-        map.put("money_status", (snapshot.moneySufficient() && moneyRequired > 0) ? "§a✔" : (moneyRequired > 0 ? "§c✘" : ""));
+        map.put("money_status", (snapshot.moneySufficient() && moneyRequired.compareTo(BigDecimal.ZERO) > 0) ? "§a✔" : (moneyRequired.compareTo(BigDecimal.ZERO) > 0 ? "§c✘" : ""));
         map.put("gems_status", (snapshot.gemsSufficient() && gemsRequired > 0) ? "§a✔" : (gemsRequired > 0 ? "§c✘" : ""));
 
         map.put("tasks_completed", String.valueOf(snapshot.completedTasksCount()));

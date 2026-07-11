@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -100,7 +101,7 @@ class RankupConfigurationValidatorTest {
         RankupConfig config = createValidTestConfig();
         RankupRank rank = new RankupRank("test", 5, "&7Test", List.of(),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings("", true),
-                new RankupRequirements(0.0, 0, RankupTaskMode.ALL, new ArrayList<>()),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>()),
                 new RankupActions(null, new ArrayList<>()), true);
         config.addRank(rank);
         RankupValidationResult result = RankupConfigurationValidator.validate(config);
@@ -113,7 +114,7 @@ class RankupConfigurationValidatorTest {
         RankupConfig config = createValidTestConfig();
         config.addRank(new RankupRank("neg_money", 5, "&7Negative", List.of(),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings("neg_money", true),
-                new RankupRequirements(-100.0, 0, RankupTaskMode.ALL, new ArrayList<>()),
+                new RankupRequirements(BigDecimal.valueOf(-100), 0, RankupTaskMode.ALL, new ArrayList<>()),
                 new RankupActions(null, new ArrayList<>()), true));
         RankupValidationResult result = RankupConfigurationValidator.validate(config);
         assertFalse(result.isValid());
@@ -125,7 +126,7 @@ class RankupConfigurationValidatorTest {
         RankupConfig config = createValidTestConfig();
         config.addRank(new RankupRank("neg_gems", 5, "&7Negative", List.of(),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings("neg_gems", true),
-                new RankupRequirements(0.0, -5, RankupTaskMode.ALL, new ArrayList<>()),
+                new RankupRequirements(BigDecimal.ZERO, -5, RankupTaskMode.ALL, new ArrayList<>()),
                 new RankupActions(null, new ArrayList<>()), true));
         RankupValidationResult result = RankupConfigurationValidator.validate(config);
         assertFalse(result.isValid());
@@ -141,7 +142,7 @@ class RankupConfigurationValidatorTest {
         );
         config.addRank(new RankupRank("test", 5, "&7Test", List.of(),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings("test_group", true),
-                new RankupRequirements(0.0, 0, RankupTaskMode.ALL, tasks),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, tasks),
                 new RankupActions(null, new ArrayList<>()), true));
         RankupValidationResult result = RankupConfigurationValidator.validate(config);
         assertFalse(result.isValid());
@@ -157,7 +158,7 @@ class RankupConfigurationValidatorTest {
         );
         config.addRank(new RankupRank("unknown", 5, "&7Unknown", List.of(),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings("unknown", true),
-                new RankupRequirements(0.0, 0, RankupTaskMode.ALL, tasks),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, tasks),
                 new RankupActions(null, new ArrayList<>()), true));
         RankupValidationResult result = RankupConfigurationValidator.validate(config);
         assertFalse(result.isValid());
@@ -175,7 +176,7 @@ class RankupConfigurationValidatorTest {
         );
         config.addRank(new RankupRank("miner", 5, "&7Miner", List.of(),
                 new RankupIcon("minecraft:stone_pickaxe"), new RankupLuckPermsSettings("miner", true),
-                new RankupRequirements(100.0, 5, RankupTaskMode.ALL, tasks),
+                new RankupRequirements(BigDecimal.valueOf(100), 5, RankupTaskMode.ALL, tasks),
                 new RankupActions(null, new ArrayList<>()), true));
         RankupValidationResult result = RankupConfigurationValidator.validate(config);
         assertTrue(result.isValid(), "Config should be valid. Errors: " + result.getErrors());
@@ -191,7 +192,7 @@ class RankupConfigurationValidatorTest {
     private RankupRank createConfigRank(String id, int order, String group) {
         return new RankupRank(id, order, "&7" + id, List.of(id),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings(group, true),
-                new RankupRequirements(0.0, 0, RankupTaskMode.ALL, new ArrayList<>()),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>()),
                 new RankupActions(null, new ArrayList<>()), true);
     }
 

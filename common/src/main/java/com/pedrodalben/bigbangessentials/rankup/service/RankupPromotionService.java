@@ -124,7 +124,7 @@ public class RankupPromotionService {
         }
 
         RankupRank currentRank = snapshot.currentRank();
-        double moneyRequired = snapshot.moneyRequired();
+        java.math.BigDecimal moneyRequired = snapshot.moneyRequired();
         int gemsRequired = snapshot.gemsRequired();
 
         String transactionId = UUID.randomUUID().toString();
@@ -151,8 +151,8 @@ public class RankupPromotionService {
         AtomicBoolean gemsCharged = new AtomicBoolean(false);
 
         // Charge money
-        if (initialTransaction.moneyAmount() > 0.0) {
-            boolean ok = EconomyAPI.withdraw(uuid, BigDecimal.valueOf(initialTransaction.moneyAmount()));
+        if (initialTransaction.moneyAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
+            boolean ok = EconomyAPI.withdraw(uuid, initialTransaction.moneyAmount());
             if (!ok) {
                 return failTransaction(initialTransaction, "Failed to withdraw money balance", RankupPromotionResultCode.INSUFFICIENT_MONEY);
             }
@@ -171,7 +171,7 @@ public class RankupPromotionService {
             GemOperationResult gemResult = GemsManager.getInstance().debit(gemRequest);
             if (!gemResult.success()) {
                 if (moneyCharged.get()) {
-                    EconomyAPI.deposit(uuid, BigDecimal.valueOf(initialTransaction.moneyAmount()));
+                    EconomyAPI.deposit(uuid, initialTransaction.moneyAmount());
                 }
                 return failTransaction(transactionRef.get(), "Failed to debit gems: " + (gemResult.messageKey() != null ? gemResult.messageKey() : "unknown"), RankupPromotionResultCode.INSUFFICIENT_GEMS);
             }
@@ -254,8 +254,8 @@ public class RankupPromotionService {
         boolean moneyCompensated = false;
         boolean gemsCompensated = false;
         try {
-            if (moneyCharged && transaction.moneyAmount() > 0.0) {
-                moneyCompensated = EconomyAPI.deposit(uuid, BigDecimal.valueOf(transaction.moneyAmount()));
+            if (moneyCharged && transaction.moneyAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                moneyCompensated = EconomyAPI.deposit(uuid, transaction.moneyAmount());
             }
         } catch (Exception e) {
             LOGGER.error("Failed to compensate money for transaction {}", transaction.transactionId(), e);

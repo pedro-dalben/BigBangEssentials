@@ -1,9 +1,10 @@
 package com.pedrodalben.bigbangessentials.rankup.domain;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public record RankupTransaction(String transactionId, UUID playerUuid, String ladderId,
-                                String fromRankId, String toRankId, double moneyAmount, int gemsAmount,
+                                String fromRankId, String toRankId, BigDecimal moneyAmount, int gemsAmount,
                                 RankupTransactionStatus status, String idempotencyKey,
                                 String errorMessage, Long createdAt, Long completedAt) {
     public RankupTransaction {

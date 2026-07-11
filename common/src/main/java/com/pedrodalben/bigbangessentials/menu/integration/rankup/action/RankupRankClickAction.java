@@ -33,10 +33,7 @@ public class RankupRankClickAction implements MenuActionHandler {
             return CompletableFuture.completedFuture(ActionExecutionResult.failed("Player unavailable"));
         }
 
-        String rawRankId = context.param("rank-id", String.class);
-        if (rawRankId == null || rawRankId.isBlank()) {
-            rawRankId = context.param("rank", String.class);
-        }
+        String rawRankId = context.param("rank_id", String.class);
 
         String rankId = PlaceholderService.resolve(rawRankId, player, context.context());
         if (rankId == null || rankId.isBlank()) {

@@ -1,5 +1,6 @@
 package com.pedrodalben.bigbangessentials.rankup.domain;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -19,9 +20,9 @@ public record RankupEligibilitySnapshot(
         int completedTasksCount,
         int totalTasksCount,
         boolean tasksCompleted,
-        double moneyBalance,
-        double moneyRequired,
-        double moneyMissing,
+        BigDecimal moneyBalance,
+        BigDecimal moneyRequired,
+        BigDecimal moneyMissing,
         boolean moneySufficient,
         long gemsBalance,
         int gemsRequired,
@@ -34,6 +35,9 @@ public record RankupEligibilitySnapshot(
     public RankupEligibilitySnapshot {
         taskEligibilities = taskEligibilities != null ? Collections.unmodifiableList(taskEligibilities) : List.of();
         blockers = blockers != null ? Collections.unmodifiableList(blockers) : List.of();
+        moneyBalance = moneyBalance != null ? moneyBalance : BigDecimal.ZERO;
+        moneyRequired = moneyRequired != null ? moneyRequired : BigDecimal.ZERO;
+        moneyMissing = moneyMissing != null ? moneyMissing : BigDecimal.ZERO;
     }
 
     public boolean isReadyForPromotion() {
@@ -44,7 +48,7 @@ public record RankupEligibilitySnapshot(
         return new RankupEligibilitySnapshot(
                 playerUuid, null, null, RankupEligibilityState.NO_CONFIGURATION,
                 RankupRankResolutionResult.configurationError("No active configuration"),
-                List.of(), 0.0, 0, 0, false, 0.0, 0.0, 0.0, true, 0L, 0, 0L, true, false, List.of("NO_CONFIGURATION"), System.currentTimeMillis()
+                List.of(), 0.0, 0, 0, false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, true, 0L, 0, 0L, true, false, List.of("NO_CONFIGURATION"), System.currentTimeMillis()
         );
     }
 
@@ -52,7 +56,7 @@ public record RankupEligibilitySnapshot(
         return new RankupEligibilitySnapshot(
                 playerUuid, currentRank, nextRank, RankupEligibilityState.LOADING,
                 resolution != null ? resolution : RankupRankResolutionResult.uninitialized(currentRank, "Loading player data"),
-                List.of(), 0.0, 0, 0, false, 0.0, 0.0, 0.0, true, 0L, 0, 0L, true, false, List.of("LOADING"), System.currentTimeMillis()
+                List.of(), 0.0, 0, 0, false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, true, 0L, 0, 0L, true, false, List.of("LOADING"), System.currentTimeMillis()
         );
     }
 
@@ -63,14 +67,16 @@ public record RankupEligibilitySnapshot(
             RankupRankResolutionResult resolution,
             List<RankupTaskEligibility> tasks,
             RankupTaskMode taskMode,
-            double moneyBalance,
+            BigDecimal moneyBalance,
             long gemsBalance,
             boolean promotionInProgress
     ) {
+        moneyBalance = moneyBalance != null ? moneyBalance : BigDecimal.ZERO;
+
         if (resolution != null && resolution.status() == RankupRankResolutionResult.ResolutionStatus.INTEGRATION_UNAVAILABLE) {
             return new RankupEligibilitySnapshot(
                     playerUuid, currentRank, nextRank, RankupEligibilityState.INTEGRATION_ERROR,
-                    resolution, tasks, 0.0, 0, 0, false, moneyBalance, 0.0, 0.0, true, gemsBalance, 0, 0L, true, promotionInProgress, List.of("INTEGRATION_ERROR"), System.currentTimeMillis()
+                    resolution, tasks, 0.0, 0, 0, false, moneyBalance, BigDecimal.ZERO, BigDecimal.ZERO, true, gemsBalance, 0, 0L, true, promotionInProgress, List.of("INTEGRATION_ERROR"), System.currentTimeMillis()
             );
         }
 
@@ -78,7 +84,7 @@ public record RankupEligibilitySnapshot(
             return new RankupEligibilitySnapshot(
                     playerUuid, null, null, RankupEligibilityState.NO_CURRENT_RANK,
                     resolution != null ? resolution : RankupRankResolutionResult.uninitialized(null, "No rank assigned"),
-                    tasks, 0.0, 0, 0, false, moneyBalance, 0.0, 0.0, true, gemsBalance, 0, 0L, true, promotionInProgress, List.of("NO_CURRENT_RANK"), System.currentTimeMillis()
+                    tasks, 0.0, 0, 0, false, moneyBalance, BigDecimal.ZERO, BigDecimal.ZERO, true, gemsBalance, 0, 0L, true, promotionInProgress, List.of("NO_CURRENT_RANK"), System.currentTimeMillis()
             );
         }
 
@@ -86,7 +92,7 @@ public record RankupEligibilitySnapshot(
             return new RankupEligibilitySnapshot(
                     playerUuid, currentRank, null, RankupEligibilityState.MAX_RANK,
                     resolution, tasks, 100.0, tasks.size(), tasks.size(), true,
-                    moneyBalance, 0.0, 0.0, true, gemsBalance, 0, 0L, true, promotionInProgress, List.of(), System.currentTimeMillis()
+                    moneyBalance, BigDecimal.ZERO, BigDecimal.ZERO, true, gemsBalance, 0, 0L, true, promotionInProgress, List.of(), System.currentTimeMillis()
             );
         }
 
@@ -94,7 +100,7 @@ public record RankupEligibilitySnapshot(
             return new RankupEligibilitySnapshot(
                     playerUuid, currentRank, nextRank, RankupEligibilityState.PROMOTION_IN_PROGRESS,
                     resolution, tasks, 100.0, tasks.size(), tasks.size(), true,
-                    moneyBalance, 0.0, 0.0, true, gemsBalance, 0, 0L, true, true, List.of("PROMOTION_IN_PROGRESS"), System.currentTimeMillis()
+                    moneyBalance, BigDecimal.ZERO, BigDecimal.ZERO, true, gemsBalance, 0, 0L, true, true, List.of("PROMOTION_IN_PROGRESS"), System.currentTimeMillis()
             );
         }
 
@@ -124,7 +130,6 @@ public record RankupEligibilitySnapshot(
             tasksCompleted = completedCount > 0;
             progressPercentage = Math.min(100.0, bestCandidatePercentage);
         } else {
-            // RankupTaskMode.ALL
             tasksCompleted = (completedCount >= totalEnabledTasks);
             if (totalTargetSum > 0) {
                 progressPercentage = Math.min(100.0, (effectiveProgressSum * 100.0) / totalTargetSum);
@@ -133,9 +138,15 @@ public record RankupEligibilitySnapshot(
             }
         }
 
-        double moneyRequired = Math.max(0.0, nextRank.requirements().money());
-        double moneyMissing = Math.max(0.0, moneyRequired - moneyBalance);
-        boolean moneySufficient = moneyBalance >= moneyRequired || moneyRequired <= 0.0;
+        BigDecimal moneyRequired = nextRank.requirements().money();
+        if (moneyRequired.compareTo(BigDecimal.ZERO) < 0) {
+            moneyRequired = BigDecimal.ZERO;
+        }
+        BigDecimal moneyMissing = moneyRequired.subtract(moneyBalance);
+        if (moneyMissing.compareTo(BigDecimal.ZERO) < 0) {
+            moneyMissing = BigDecimal.ZERO;
+        }
+        boolean moneySufficient = moneyBalance.compareTo(moneyRequired) >= 0 || moneyRequired.compareTo(BigDecimal.ZERO) <= 0;
 
         int gemsRequired = Math.max(0, nextRank.requirements().gems());
         long gemsMissing = Math.max(0L, gemsRequired - gemsBalance);
