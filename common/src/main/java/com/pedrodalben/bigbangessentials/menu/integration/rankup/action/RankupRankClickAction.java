@@ -53,13 +53,8 @@ public class RankupRankClickAction implements MenuActionHandler {
         RankupRank current = snapshot.currentRank();
         RankupRank next = snapshot.nextRank();
 
-        if (current != null && clickedRank.order() < current.order()) {
-            player.sendSystemMessage(Component.literal("§eYou have already completed this rank."));
-            return CompletableFuture.completedFuture(ActionExecutionResult.denied("Already completed"));
-        } else if (current != null && clickedRank.id().equals(current.id())) {
+        if (current != null && clickedRank.id().equals(current.id())) {
             player.sendSystemMessage(Component.literal("§aThis is your current rank."));
-            // Maybe we want to allow opening the detail menu to see what tasks we did? 
-            // The prompt says: "clicar no rank atual mostra seu estado;"
         } else if (next != null && !clickedRank.id().equals(next.id()) && clickedRank.order() > next.order()) {
             player.sendSystemMessage(Component.literal("§cThis rank is locked."));
             return CompletableFuture.completedFuture(ActionExecutionResult.denied("Rank locked"));

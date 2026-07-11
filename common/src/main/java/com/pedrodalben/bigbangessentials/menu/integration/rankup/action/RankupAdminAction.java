@@ -125,7 +125,7 @@ public class RankupAdminAction implements MenuActionHandler {
                             RankupAdminChatInputHandler.InputType.DOUBLE,
                             value -> {
                                 try {
-                                    editor.setRankMoney(uuid, rankId, Double.parseDouble(value));
+                                    editor.setRankMoney(uuid, rankId, new java.math.BigDecimal(value));
                                     player.sendSystemMessage(Component.literal("§aUpdated money for " + rankId));
                                     openRankEditor(player, rankId);
                                 } catch (NumberFormatException e) {

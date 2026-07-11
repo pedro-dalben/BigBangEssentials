@@ -15,6 +15,10 @@ public enum RankupEligibilityState {
     BLOCKED_BY_MONEY("§cInsufficient money required"),
     BLOCKED_BY_GEMS("§cInsufficient gems required"),
     BLOCKED_BY_MULTIPLE_REQUIREMENTS("§cMultiple requirements incomplete"),
+    ECONOMY_UNAVAILABLE("§cEconomy system unavailable"),
+    GEMS_UNAVAILABLE("§cGems system unavailable"),
+    DATABASE_UNAVAILABLE("§cDatabase unavailable"),
+    LUCKPERMS_UNAVAILABLE("§cLuckPerms unavailable"),
     READY("§aReady for promotion!");
 
     private final String defaultStatusText;

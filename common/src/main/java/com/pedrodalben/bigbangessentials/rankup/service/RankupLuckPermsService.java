@@ -151,6 +151,54 @@ public class RankupLuckPermsService {
         });
     }
 
+    public CompletableFuture<RankupGroupMutationResult> revertRankChange(UUID uuid, RankupRank fromRank, RankupRank toRank,
+                                                                         RankupConfig config) {
+        ExternalPermissionAdapter extAdapter = getExternalPermissionAdapter();
+        if (!(extAdapter instanceof LuckPermsAdapter lpAdapter)) {
+            return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("LuckPerms adapter not available"));
+        }
+        LuckPerms api = lpAdapter.getApi();
+        if (api == null) {
+            return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("LuckPerms API not available"));
+        }
+
+        return loadUser(api, uuid).thenCompose(user -> {
+            if (user == null) {
+                return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("Could not load LuckPerms user"));
+            }
+
+            try {
+                // Remove destination group
+                Group targetGroup = api.getGroupManager().getGroup(toRank.luckPerms().group());
+                if (targetGroup != null) {
+                    user.data().remove(InheritanceNode.builder(targetGroup).build());
+                }
+
+                // Add source group
+                String fallbackGroup = fromRank != null ? fromRank.luckPerms().group() : config.getInitialRank().luckPerms().group();
+                Group sourceGroup = api.getGroupManager().getGroup(fallbackGroup);
+                if (sourceGroup == null) {
+                    api.getGroupManager().createAndLoadGroup(fallbackGroup).get(USER_LOAD_TIMEOUT, TimeUnit.SECONDS);
+                    sourceGroup = api.getGroupManager().getGroup(fallbackGroup);
+                }
+                if (sourceGroup != null) {
+                    user.data().add(InheritanceNode.builder(sourceGroup).build());
+                    user.setPrimaryGroup(fallbackGroup);
+                }
+
+                return api.getUserManager().saveUser(user)
+                        .thenApply(v -> RankupGroupMutationResult.ok())
+                        .exceptionally(e -> {
+                            LOGGER.error("Failed to save LuckPerms user during revert {}", uuid, e);
+                            return RankupGroupMutationResult.failure("LuckPerms save failed: " + e.getMessage());
+                        });
+            } catch (Exception e) {
+                LOGGER.error("Error reverting LuckPerms groups for {}", uuid, e);
+                return CompletableFuture.completedFuture(RankupGroupMutationResult.failure(e.getMessage()));
+            }
+        });
+    }
+
     private CompletableFuture<User> loadUser(LuckPerms api, UUID uuid) {
         User cached = api.getUserManager().getUser(uuid);
         if (cached != null) return CompletableFuture.completedFuture(cached);

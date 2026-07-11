@@ -29,7 +29,7 @@ public class Platform {
     }
 
     public static boolean isModLoaded(String modId) {
-        return provider.isModLoaded(modId);
+        return provider != null && provider.isModLoaded(modId);
     }
 
     public static String getModName(String modId) {

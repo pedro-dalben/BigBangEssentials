@@ -103,25 +103,6 @@ public class RankupPlayerData {
         return progress != null ? progress.progress() : 0;
     }
 
-    public boolean areTasksCompleted(RankupRank rank) {
-        if (rank == null) return true;
-        List<RankupTask> enabled = rank.requirements().tasks().stream().filter(RankupTask::enabled).toList();
-        if (enabled.isEmpty()) return true;
-        if (rank.requirements().taskMode() == RankupTaskMode.ANY) {
-            return enabled.stream().anyMatch(t -> isTaskCompleted(rank.id(), t.id()));
-        }
-        return enabled.stream().allMatch(t -> isTaskCompleted(rank.id(), t.id()));
-    }
-
-    public int countCompletedTasks(RankupRank rank) {
-        if (rank == null) return 0;
-        int count = 0;
-        for (RankupTask task : rank.requirements().tasks()) {
-            if (isTaskCompleted(rank.id(), task.id())) count++;
-        }
-        return count;
-    }
-
     private String key(String rankId, String taskId) {
         return (rankId != null ? rankId.toLowerCase() : "") + ":" + (taskId != null ? taskId.toLowerCase() : "");
     }

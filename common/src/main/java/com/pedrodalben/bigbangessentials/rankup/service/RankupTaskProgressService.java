@@ -130,19 +130,19 @@ public class RankupTaskProgressService {
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
     }
 
-    public void resetTaskProgress(UUID uuid, String ladderId, String rankId, String taskId) {
+    public CompletableFuture<Void> resetTaskProgress(UUID uuid, String ladderId, String rankId, String taskId) {
         RankupManager manager = RankupManager.getInstance();
         RankupPlayerData data = manager.getPlayerData(uuid);
         if (data != null) {
             data.removeTaskProgress(rankId, taskId);
         }
-        manager.getRepository().deleteTaskProgress(uuid, ladderId, rankId, taskId);
         if (manager.getPlaceholderService() != null) {
             manager.getPlaceholderService().refresh(uuid);
         }
+        return manager.getRepository().deleteTaskProgress(uuid, ladderId, rankId, taskId);
     }
 
-    public void resetRankProgress(UUID uuid, String ladderId, String rankId) {
+    public CompletableFuture<Void> resetRankProgress(UUID uuid, String ladderId, String rankId) {
         RankupManager manager = RankupManager.getInstance();
         RankupPlayerData data = manager.getPlayerData(uuid);
         if (data != null) {
@@ -155,33 +155,33 @@ public class RankupTaskProgressService {
                 }
             }
         }
-        manager.getRepository().deleteRankProgress(uuid, ladderId, rankId);
         if (manager.getPlaceholderService() != null) {
             manager.getPlaceholderService().refresh(uuid);
         }
+        return manager.getRepository().deleteRankProgress(uuid, ladderId, rankId);
     }
 
-    public void resetLadderProgress(UUID uuid, String ladderId) {
+    public CompletableFuture<Void> resetLadderProgress(UUID uuid, String ladderId) {
         RankupManager manager = RankupManager.getInstance();
         RankupPlayerData data = manager.getPlayerData(uuid);
         if (data != null) {
             data.clearTaskProgress();
         }
-        manager.getRepository().deleteLadderProgress(uuid, ladderId);
         if (manager.getPlaceholderService() != null) {
             manager.getPlaceholderService().refresh(uuid);
         }
+        return manager.getRepository().deleteLadderProgress(uuid, ladderId);
     }
 
-    public void resetAllTaskProgress(UUID uuid) {
+    public CompletableFuture<Void> resetAllTaskProgress(UUID uuid) {
         RankupManager manager = RankupManager.getInstance();
         RankupPlayerData data = manager.getPlayerData(uuid);
         if (data != null) {
             data.clearTaskProgress();
         }
-        manager.getRepository().deleteAllProgress(uuid);
         if (manager.getPlaceholderService() != null) {
             manager.getPlaceholderService().refresh(uuid);
         }
+        return manager.getRepository().deleteAllProgress(uuid);
     }
 }

@@ -18,15 +18,14 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
 public class RankupPromotionService {
     private static final Logger LOGGER = LoggerFactory.getLogger(RankupPromotionService.class);
 
     private final RankupManager manager = RankupManager.getInstance();
     private final Map<UUID, CompletableFuture<RankupPromotionResult>> promotionQueue = new ConcurrentHashMap<>();
+    private final Set<String> activeCompensations = ConcurrentHashMap.newKeySet();
 
     public void recoverTransactions() {
         manager.getRepository().findPendingTransactions().thenAccept(transactions -> {
@@ -38,20 +37,15 @@ public class RankupPromotionService {
                     if (tx.status() == RankupTransactionStatus.LUCKPERMS_UPDATED) {
                         // LuckPerms updated, but tasks not cleared and event not fired.
                         // We must complete it
-                        manager.getTaskProgressService().resetAllTaskProgress(uuid);
-                        
-                        RankupTransaction completed = tx.withStatus(RankupTransactionStatus.COMPLETED);
-                        manager.getRepository().saveTransaction(completed);
+                        manager.getTaskProgressService().resetLadderProgress(uuid, tx.ladderId())
+                                .thenCompose(v -> {
+                                    RankupTransaction completed = tx.withStatus(RankupTransactionStatus.COMPLETED);
+                                    return manager.getRepository().saveTransaction(completed);
+                                }).join();
                         LOGGER.info("Recovered transaction {} by completing it (LuckPerms was already updated).", tx.transactionId());
-                    } else if (tx.status() == RankupTransactionStatus.PREPARED ||
-                               tx.status() == RankupTransactionStatus.MONEY_DEBITED ||
-                               tx.status() == RankupTransactionStatus.GEMS_DEBITED ||
-                               tx.status() == RankupTransactionStatus.RECOVERY_REQUIRED) {
+                    } else {
                         // LuckPerms was not updated, or we don't know. We must compensate and fail it.
-                        boolean moneyCharged = (tx.status() == RankupTransactionStatus.MONEY_DEBITED || tx.status() == RankupTransactionStatus.GEMS_DEBITED || tx.status() == RankupTransactionStatus.RECOVERY_REQUIRED);
-                        boolean gemsCharged = (tx.status() == RankupTransactionStatus.GEMS_DEBITED || tx.status() == RankupTransactionStatus.RECOVERY_REQUIRED);
-                        
-                        compensate(uuid, tx, moneyCharged, gemsCharged);
+                        compensate(uuid, tx).join();
                         LOGGER.info("Recovered transaction {} by compensating.", tx.transactionId());
                     }
                 } catch (Exception e) {
@@ -78,7 +72,7 @@ public class RankupPromotionService {
         CompletableFuture<RankupPromotionResult> promise = new CompletableFuture<>();
         CompletableFuture<RankupPromotionResult> existing = promotionQueue.putIfAbsent(uuid, promise);
         if (existing != null) {
-            return CompletableFuture.completedFuture(RankupPromotionResult.failure("A promotion is already in progress.", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.INTERNAL_ERROR));
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("A promotion is already in progress.", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.TRANSACTION_IN_PROGRESS));
         }
 
         doPromote(player, targetRank, executeActions)
@@ -124,124 +118,226 @@ public class RankupPromotionService {
         }
 
         RankupRank currentRank = snapshot.currentRank();
-        java.math.BigDecimal moneyRequired = snapshot.moneyRequired();
+        BigDecimal moneyRequired = snapshot.moneyRequired();
         int gemsRequired = snapshot.gemsRequired();
 
-        String transactionId = UUID.randomUUID().toString();
-        String idempotencyKey = uuid + ":" + targetRank.id() + ":" + System.currentTimeMillis();
-        RankupTransaction transaction = new RankupTransaction(
-                transactionId, uuid, config.getLadder().id(),
-                currentRank != null ? currentRank.id() : "", targetRank.id(),
-                moneyRequired, gemsRequired, RankupTransactionStatus.PREPARED,
-                idempotencyKey, null, System.currentTimeMillis(), null
-        );
+        String idempotencyKey = uuid + ":" + config.getLadder().id() + ":" + targetRank.id();
+        return manager.getRepository().findTransactionByIdempotencyKey(idempotencyKey)
+                .thenCompose(opt -> {
+                    if (opt.isPresent()) {
+                        RankupTransaction existingTx = opt.get();
+                        RankupTransactionStatus status = existingTx.status();
+                        if (status == RankupTransactionStatus.COMPLETED) {
+                            return CompletableFuture.completedFuture(RankupPromotionResult.success("Already promoted to " + targetRank.displayName(), existingTx.transactionId()));
+                        }
+                        if (status == RankupTransactionStatus.FAILED || status == RankupTransactionStatus.COMPENSATED) {
+                            // Retry: reset transaction status to PREPARED and clean flags
+                            RankupTransaction resetTx = new RankupTransaction(
+                                    existingTx.transactionId(), uuid, config.getLadder().id(),
+                                    currentRank != null ? currentRank.id() : "", targetRank.id(),
+                                    moneyRequired, gemsRequired, RankupTransactionStatus.PREPARED,
+                                    idempotencyKey, null, System.currentTimeMillis(), null
+                            );
+                            return manager.getRepository().saveTransaction(resetTx)
+                                    .thenCompose(v -> attemptChargeAndPromote(player, currentRank, targetRank, resetTx, executeActions));
+                        }
+                        if (status == RankupTransactionStatus.RECOVERY_REQUIRED) {
+                            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Transaction requires manual recovery/retry by administrator.", status, existingTx.transactionId()));
+                        }
+                        // PREPARED, MONEY_DEBITED, GEMS_DEBITED, LUCKPERMS_UPDATED: in progress
+                        return attemptChargeAndPromote(player, currentRank, targetRank, existingTx, executeActions);
+                    }
 
-        final RankupRank resolvedCurrent = currentRank;
-        final RankupTransaction preparedTransaction = transaction;
-        return manager.getRepository().saveTransaction(preparedTransaction)
-                .thenCompose(v -> attemptChargeAndPromote(player, resolvedCurrent, targetRank, preparedTransaction, executeActions));
+                    // Create new transaction
+                    String transactionId = UUID.randomUUID().toString();
+                    RankupTransaction transaction = new RankupTransaction(
+                            transactionId, uuid, config.getLadder().id(),
+                            currentRank != null ? currentRank.id() : "", targetRank.id(),
+                            moneyRequired, gemsRequired, RankupTransactionStatus.PREPARED,
+                            idempotencyKey, null, System.currentTimeMillis(), null
+                    );
+                    return manager.getRepository().saveTransaction(transaction)
+                            .thenCompose(v -> attemptChargeAndPromote(player, currentRank, targetRank, transaction, executeActions));
+                });
+    }
+
+    private static class PromotionPipelineException extends RuntimeException {
+        private final RankupPromotionResult result;
+        public PromotionPipelineException(RankupPromotionResult result) {
+            super(result.message());
+            this.result = result;
+        }
+        public RankupPromotionResult getResult() {
+            return result;
+        }
     }
 
     private CompletableFuture<RankupPromotionResult> attemptChargeAndPromote(ServerPlayer player, RankupRank currentRank,
                                                                              RankupRank targetRank, RankupTransaction initialTransaction,
                                                                              boolean executeActions) {
         UUID uuid = player.getUUID();
+        MinecraftServer server = player.getServer();
         AtomicReference<RankupTransaction> transactionRef = new AtomicReference<>(initialTransaction);
-        AtomicBoolean moneyCharged = new AtomicBoolean(false);
-        AtomicBoolean gemsCharged = new AtomicBoolean(false);
 
-        // Charge money
-        if (initialTransaction.moneyAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
+        // STEP 1: Charge money
+        CompletableFuture<RankupTransaction> step1;
+        if (!initialTransaction.moneyDebited() && initialTransaction.moneyAmount().compareTo(BigDecimal.ZERO) > 0) {
             boolean ok = EconomyAPI.withdraw(uuid, initialTransaction.moneyAmount());
             if (!ok) {
-                return failTransaction(initialTransaction, "Failed to withdraw money balance", RankupPromotionResultCode.INSUFFICIENT_MONEY);
+                RankupTransaction failedTx = initialTransaction.withStatus(RankupTransactionStatus.FAILED).withErrorMessage("Failed to withdraw money balance");
+                RankupPromotionResult failRes = RankupPromotionResult.failure("Failed to withdraw money balance", RankupTransactionStatus.FAILED, failedTx.transactionId(), RankupPromotionResultCode.INSUFFICIENT_MONEY);
+                step1 = manager.getRepository().saveTransaction(failedTx)
+                        .thenCompose(v -> CompletableFuture.failedFuture(new PromotionPipelineException(failRes)));
+            } else {
+                RankupTransaction tx = initialTransaction.withMoneyDebited(true).withStatus(RankupTransactionStatus.MONEY_DEBITED);
+                transactionRef.set(tx);
+                step1 = manager.getRepository().saveTransaction(tx).thenApply(v -> tx);
             }
-            moneyCharged.set(true);
-            RankupTransaction updated = initialTransaction.withStatus(RankupTransactionStatus.MONEY_DEBITED);
-            transactionRef.set(updated);
-            manager.getRepository().saveTransaction(updated);
+        } else {
+            step1 = CompletableFuture.completedFuture(initialTransaction);
         }
 
-        // Charge gems
-        if (initialTransaction.gemsAmount() > 0) {
-            GemDebitRequest gemRequest = new GemDebitRequest(
-                    uuid, initialTransaction.gemsAmount(), "rankup", "rank_promotion",
-                    null, initialTransaction.idempotencyKey(), initialTransaction.transactionId(), Map.of("to_rank", targetRank.id())
-            );
-            GemOperationResult gemResult = GemsManager.getInstance().debit(gemRequest);
-            if (!gemResult.success()) {
-                if (moneyCharged.get()) {
-                    EconomyAPI.deposit(uuid, initialTransaction.moneyAmount());
+        // STEP 2: Charge gems
+        CompletableFuture<RankupTransaction> step2 = step1.thenCompose(tx -> {
+            if (!tx.gemsDebited() && tx.gemsAmount() > 0) {
+                GemDebitRequest gemRequest = new GemDebitRequest(
+                        uuid, tx.gemsAmount(), "rankup", "rank_promotion",
+                        null, tx.idempotencyKey(), tx.transactionId(), Map.of("to_rank", targetRank.id())
+                );
+                GemOperationResult gemResult = GemsManager.getInstance().debit(gemRequest);
+                if (!gemResult.success()) {
+                    if (tx.moneyDebited() && tx.moneyAmount().compareTo(BigDecimal.ZERO) > 0) {
+                        try { EconomyAPI.deposit(uuid, tx.moneyAmount()); } catch (Exception ignored) {}
+                    }
+                    RankupTransaction failedTx = tx.withCompensated(true).withStatus(RankupTransactionStatus.FAILED).withErrorMessage("Failed to debit gems");
+                    transactionRef.set(failedTx);
+                    RankupPromotionResult failRes = RankupPromotionResult.failure("Failed to debit gems: " + (gemResult.messageKey() != null ? gemResult.messageKey() : "unknown"), RankupTransactionStatus.FAILED, failedTx.transactionId(), RankupPromotionResultCode.INSUFFICIENT_GEMS);
+                    return manager.getRepository().saveTransaction(failedTx)
+                            .thenCompose(v -> CompletableFuture.failedFuture(new PromotionPipelineException(failRes)));
                 }
-                return failTransaction(transactionRef.get(), "Failed to debit gems: " + (gemResult.messageKey() != null ? gemResult.messageKey() : "unknown"), RankupPromotionResultCode.INSUFFICIENT_GEMS);
+                RankupTransaction updated = tx.withGemsDebited(true).withStatus(RankupTransactionStatus.GEMS_DEBITED);
+                transactionRef.set(updated);
+                return manager.getRepository().saveTransaction(updated).thenApply(v -> updated);
             }
-            gemsCharged.set(true);
-            RankupTransaction updated = transactionRef.get().withStatus(RankupTransactionStatus.GEMS_DEBITED);
-            transactionRef.set(updated);
-            manager.getRepository().saveTransaction(updated);
-        }
+            return CompletableFuture.completedFuture(tx);
+        });
 
-        final RankupTransaction chargedTransaction = transactionRef.get();
-        // Update LuckPerms
-        return manager.getLuckPermsService().applyRankChange(uuid, currentRank, targetRank, manager.getConfig())
-                .thenCompose(mutationResult -> {
-                    if (!mutationResult.success()) {
-                        compensate(uuid, chargedTransaction, moneyCharged.get(), gemsCharged.get());
-                        return failTransaction(chargedTransaction, "LuckPerms update failed: " + mutationResult.errorMessage(), RankupPromotionResultCode.LUCKPERMS_UNAVAILABLE);
-                    }
-                    RankupTransaction lpUpdated = chargedTransaction.withStatus(RankupTransactionStatus.LUCKPERMS_UPDATED);
-                    manager.getRepository().saveTransaction(lpUpdated);
+        // STEP 3: Update LuckPerms
+        CompletableFuture<RankupTransaction> step3 = step2.thenCompose(tx -> {
+            if (!tx.luckpermsUpdated()) {
+                return manager.getLuckPermsService().applyRankChange(uuid, currentRank, targetRank, manager.getConfig())
+                        .thenCompose(mutationResult -> {
+                            if (!mutationResult.success()) {
+                                return compensate(uuid, tx)
+                                        .thenCompose(compensatedTx -> {
+                                            RankupTransactionStatus finalStatus = compensatedTx.compensated() ?
+                                                    RankupTransactionStatus.COMPENSATED : RankupTransactionStatus.RECOVERY_REQUIRED;
+                                            RankupTransaction failedTx = compensatedTx.withStatus(finalStatus).withErrorMessage("LuckPerms update failed: " + mutationResult.errorMessage());
+                                            transactionRef.set(failedTx);
+                                            RankupPromotionResult failRes = RankupPromotionResult.failure("LuckPerms update failed: " + mutationResult.errorMessage(), finalStatus, failedTx.transactionId(), RankupPromotionResultCode.LUCKPERMS_UNAVAILABLE);
+                                            return manager.getRepository().saveTransaction(failedTx)
+                                                    .thenCompose(v -> CompletableFuture.failedFuture(new PromotionPipelineException(failRes)));
+                                        });
+                            }
+                            RankupTransaction updated = tx.withLuckpermsUpdated(true).withStatus(RankupTransactionStatus.LUCKPERMS_UPDATED);
+                            transactionRef.set(updated);
+                            return manager.getRepository().saveTransaction(updated).thenApply(v -> updated);
+                        });
+            }
+            return CompletableFuture.completedFuture(tx);
+        });
 
-                    // Clear task progress for the previous rank / reset tasks
-                    manager.getTaskProgressService().resetAllTaskProgress(uuid);
+        // STEP 4: Clear task progress
+        CompletableFuture<RankupTransaction> step4 = step3.thenCompose(tx -> {
+            if (!tx.progressCleared()) {
+                return manager.getTaskProgressService().resetLadderProgress(uuid, tx.ladderId())
+                        .thenCompose(v -> {
+                            RankupTransaction updated = tx.withProgressCleared(true);
+                            transactionRef.set(updated);
+                            return manager.getRepository().saveTransaction(updated).thenApply(val -> updated);
+                        });
+            }
+            return CompletableFuture.completedFuture(tx);
+        });
 
-                    // Add history
-                    com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause cause = executeActions ? com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause.NORMAL_RANKUP : com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause.ADMIN_PROMOTE;
-                    RankupRankHistoryEntry history = new RankupRankHistoryEntry(
-                            null, uuid, manager.getConfig().getLadder().id(),
-                            currentRank != null ? currentRank.id() : "", targetRank.id(),
-                            uuid.toString(), cause.name(),
-                            System.currentTimeMillis()
-                    );
-                    manager.getRepository().addRankHistory(history);
+        // STEP 5: Write history
+        CompletableFuture<RankupTransaction> step5 = step4.thenCompose(tx -> {
+            if (!tx.historyWritten()) {
+                com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause cause = executeActions ? com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause.NORMAL_RANKUP : com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause.ADMIN_PROMOTE;
+                RankupRankHistoryEntry history = new RankupRankHistoryEntry(
+                        null, uuid, tx.ladderId(),
+                        tx.fromRankId(), tx.toRankId(),
+                        uuid.toString(), cause.name(),
+                        System.currentTimeMillis()
+                );
+                return manager.getRepository().addRankHistory(history)
+                        .thenCompose(v -> {
+                            RankupTransaction updated = tx.withHistoryWritten(true);
+                            transactionRef.set(updated);
+                            return manager.getRepository().saveTransaction(updated).thenApply(val -> updated);
+                        });
+            }
+            return CompletableFuture.completedFuture(tx);
+        });
 
-                    // Fire transition event
-                    com.pedrodalben.bigbangessentials.api.rankup.RankTransitionCompletedEvent event = new com.pedrodalben.bigbangessentials.api.rankup.RankTransitionCompletedEvent(
-                            UUID.nameUUIDFromBytes(chargedTransaction.transactionId().getBytes()),
-                            uuid,
-                            currentRank != null ? currentRank.id() : "",
-                            currentRank != null ? currentRank.order() : 0,
-                            targetRank.id(),
-                            targetRank.order(),
-                            cause,
-                            java.time.Instant.now()
-                    );
-                    manager.getTransitionService().fireTransitionEvent(event);
+        // STEP 6: Execute post actions
+        CompletableFuture<RankupTransaction> step6 = step5.thenCompose(tx -> {
+            if (!tx.actionsExecuted()) {
+                com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause cause = executeActions ? com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause.NORMAL_RANKUP : com.pedrodalben.bigbangessentials.api.rankup.RankChangeCause.ADMIN_PROMOTE;
 
-                    if (executeActions) {
-                        executePostRankActions(player, uuid, currentRank, targetRank);
-                    }
+                if (server != null) {
+                    server.execute(() -> {
+                        com.pedrodalben.bigbangessentials.api.rankup.RankTransitionCompletedEvent event = new com.pedrodalben.bigbangessentials.api.rankup.RankTransitionCompletedEvent(
+                                UUID.nameUUIDFromBytes(tx.transactionId().getBytes()),
+                                uuid,
+                                tx.fromRankId(),
+                                currentRank != null ? currentRank.order() : 0,
+                                tx.toRankId(),
+                                targetRank.order(),
+                                cause,
+                                java.time.Instant.now()
+                        );
+                        manager.getTransitionService().fireTransitionEvent(event);
 
-                    if (manager.getPlaceholderService() != null) {
-                        manager.getPlaceholderService().refresh(uuid);
-                    }
+                        if (executeActions) {
+                            executePostRankActions(player, uuid, currentRank, targetRank);
+                        }
 
-                    RankupTransaction completed = lpUpdated.withStatus(RankupTransactionStatus.COMPLETED);
-                    return manager.getRepository().saveTransaction(completed)
-                            .thenApply(v -> RankupPromotionResult.success("Promoted to " + targetRank.displayName(), chargedTransaction.transactionId()));
-                })
-                .exceptionally(e -> {
-                    LOGGER.error("Unexpected error during RankUp promotion for {}", uuid, e);
-                    compensate(uuid, chargedTransaction, moneyCharged.get(), gemsCharged.get());
-                    try {
-                        RankupTransaction failed = chargedTransaction.withStatus(RankupTransactionStatus.RECOVERY_REQUIRED)
-                                .withErrorMessage(e.getMessage());
-                        manager.getRepository().saveTransaction(failed).join();
-                    } catch (Exception ex) {
-                        LOGGER.error("Failed to record recovery transaction for {}", uuid, ex);
-                    }
-                    return RankupPromotionResult.failure("Unexpected error: " + e.getMessage(), RankupTransactionStatus.RECOVERY_REQUIRED, chargedTransaction.transactionId(), RankupPromotionResultCode.INTERNAL_ERROR);
-                });
+                        if (manager.getPlaceholderService() != null) {
+                            manager.getPlaceholderService().refresh(uuid);
+                        }
+                    });
+                }
+
+                RankupTransaction updated = tx.withActionsExecuted(true);
+                transactionRef.set(updated);
+                return manager.getRepository().saveTransaction(updated).thenApply(val -> updated);
+            }
+            return CompletableFuture.completedFuture(tx);
+        });
+
+        // STEP 7: Complete transaction
+        return step6.thenCompose(tx -> {
+            RankupTransaction completed = tx.withStatus(RankupTransactionStatus.COMPLETED);
+            return manager.getRepository().saveTransaction(completed)
+                    .thenApply(v -> RankupPromotionResult.success("Promoted to " + targetRank.displayName(), completed.transactionId()));
+        }).handle((res, err) -> {
+            if (err != null) {
+                Throwable cause = err.getCause();
+                if (cause instanceof PromotionPipelineException ppe) {
+                    return CompletableFuture.completedFuture(ppe.getResult());
+                }
+                return compensate(uuid, transactionRef.get())
+                        .thenCompose(compensatedTx -> {
+                            RankupTransactionStatus finalStatus = compensatedTx.compensated() ?
+                                    RankupTransactionStatus.COMPENSATED : RankupTransactionStatus.RECOVERY_REQUIRED;
+                            RankupTransaction failedTx = compensatedTx.withStatus(finalStatus).withErrorMessage(err.getMessage());
+                            return manager.getRepository().saveTransaction(failedTx)
+                                    .thenApply(v -> RankupPromotionResult.failure("Unexpected error: " + err.getMessage(), finalStatus, failedTx.transactionId()));
+                        });
+            }
+            return CompletableFuture.completedFuture(res);
+        }).thenCompose(f -> f);
     }
 
     private CompletableFuture<RankupPromotionResult> failTransaction(RankupTransaction transaction, String reason, RankupPromotionResultCode code) {
@@ -250,36 +346,85 @@ public class RankupPromotionService {
                 .thenApply(v -> RankupPromotionResult.failure(reason, RankupTransactionStatus.FAILED, transaction.transactionId(), code));
     }
 
-    private void compensate(UUID uuid, RankupTransaction transaction, boolean moneyCharged, boolean gemsCharged) {
-        boolean moneyCompensated = false;
-        boolean gemsCompensated = false;
-        try {
-            if (moneyCharged && transaction.moneyAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
-                moneyCompensated = EconomyAPI.deposit(uuid, transaction.moneyAmount());
-            }
-        } catch (Exception e) {
-            LOGGER.error("Failed to compensate money for transaction {}", transaction.transactionId(), e);
-        }
-        try {
-            if (gemsCharged && transaction.gemsAmount() > 0) {
-                GemCreditRequest creditRequest = new GemCreditRequest(
-                        uuid, transaction.gemsAmount(), "rankup", "compensation",
-                        null, transaction.idempotencyKey() + ":comp", transaction.transactionId(), Map.of()
-                );
-                GemOperationResult result = GemsManager.getInstance().credit(creditRequest);
-                gemsCompensated = result.success();
-            }
-        } catch (Exception e) {
-            LOGGER.error("Failed to compensate gems for transaction {}", transaction.transactionId(), e);
+    public CompletableFuture<RankupTransaction> compensate(UUID uuid, RankupTransaction transaction) {
+        if (!activeCompensations.add(transaction.transactionId())) {
+            return CompletableFuture.completedFuture(transaction);
         }
 
-        RankupTransactionStatus status = (moneyCharged && !moneyCompensated) || (gemsCharged && !gemsCompensated)
-                ? RankupTransactionStatus.RECOVERY_REQUIRED : RankupTransactionStatus.COMPENSATED;
-        RankupTransaction compensated = transaction.withStatus(status)
-                .withErrorMessage("Compensation attempted. Money=" + moneyCompensated + " Gems=" + gemsCompensated);
-        manager.getRepository().saveTransaction(compensated).exceptionally(e -> {
-            LOGGER.error("Failed to save compensation status for transaction {}", transaction.transactionId(), e);
-            return null;
+        LOGGER.info("Starting compensation for transaction {}", transaction.transactionId());
+        
+        RankupConfig config = manager.getConfig();
+        RankupRank fromRank = config != null ? config.getRank(transaction.fromRankId()) : null;
+        RankupRank toRank = config != null ? config.getRank(transaction.toRankId()) : null;
+
+        // Step 1: Revert LuckPerms
+        CompletableFuture<RankupTransaction> step1;
+        if (transaction.luckpermsUpdated() && !transaction.compensated()) {
+            if (config != null && toRank != null) {
+                step1 = manager.getLuckPermsService().revertRankChange(uuid, fromRank, toRank, config)
+                        .thenCompose(res -> {
+                            if (res.success()) {
+                                RankupTransaction updated = transaction.withLuckpermsUpdated(false);
+                                return manager.getRepository().saveTransaction(updated).thenApply(v -> updated);
+                            }
+                            return CompletableFuture.completedFuture(transaction);
+                        });
+            } else {
+                step1 = CompletableFuture.completedFuture(transaction);
+            }
+        } else {
+            step1 = CompletableFuture.completedFuture(transaction);
+        }
+
+        // Step 2: Refund Money
+        CompletableFuture<RankupTransaction> step2 = step1.thenCompose(tx -> {
+            if (tx.moneyDebited() && !tx.compensated() && tx.moneyAmount().compareTo(BigDecimal.ZERO) > 0) {
+                try {
+                    boolean ok = EconomyAPI.deposit(uuid, tx.moneyAmount());
+                    if (ok) {
+                        RankupTransaction updated = tx.withMoneyDebited(false);
+                        return manager.getRepository().saveTransaction(updated).thenApply(v -> updated);
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Failed to deposit refund for transaction {}", tx.transactionId(), e);
+                }
+            }
+            return CompletableFuture.completedFuture(tx);
+        });
+
+        // Step 3: Refund Gems
+        CompletableFuture<RankupTransaction> step3 = step2.thenCompose(tx -> {
+            if (tx.gemsDebited() && !tx.compensated() && tx.gemsAmount() > 0) {
+                try {
+                    GemCreditRequest creditRequest = new GemCreditRequest(
+                            uuid, tx.gemsAmount(), "rankup", "compensation",
+                            null, tx.idempotencyKey() + ":comp", tx.transactionId(), Map.of()
+                    );
+                    GemOperationResult result = GemsManager.getInstance().credit(creditRequest);
+                    if (result.success()) {
+                        RankupTransaction updated = tx.withGemsDebited(false);
+                        return manager.getRepository().saveTransaction(updated).thenApply(v -> updated);
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Failed to refund gems for transaction {}", tx.transactionId(), e);
+                }
+            }
+            return CompletableFuture.completedFuture(tx);
+        });
+
+        // Step 4: Finalize
+        return step3.thenCompose(tx -> {
+            boolean fullyCompensated = !tx.luckpermsUpdated() && !tx.moneyDebited() && !tx.gemsDebited();
+            RankupTransaction compensatedTx = tx.withCompensated(fullyCompensated);
+            if (fullyCompensated) {
+                compensatedTx = compensatedTx.withStatus(RankupTransactionStatus.COMPENSATED);
+            } else {
+                compensatedTx = compensatedTx.withStatus(RankupTransactionStatus.RECOVERY_REQUIRED);
+            }
+            RankupTransaction finalTx = compensatedTx;
+            return manager.getRepository().saveTransaction(finalTx).thenApply(v -> finalTx);
+        }).whenComplete((res, err) -> {
+            activeCompensations.remove(transaction.transactionId());
         });
     }
 

@@ -204,31 +204,49 @@ public class RankupManager {
     }
 
     public RankupRank getCurrentRank(UUID uuid) {
-        RankupPlayerData data = getOrCreatePlayerData(uuid);
-        return data.getCurrentRank(config);
+        return getEligibilitySnapshot(uuid).currentRank();
     }
 
     public RankupRank getNextRank(UUID uuid) {
-        RankupRank current = getCurrentRank(uuid);
-        return config != null ? config.getNextEnabledRank(current) : null;
+        return getEligibilitySnapshot(uuid).nextRank();
     }
 
     public RankupEligibilitySnapshot getEligibilitySnapshot(UUID uuid) {
         if (uuid == null || config == null || !config.isEnabled()) {
             return RankupEligibilitySnapshot.noConfiguration(uuid);
         }
+
+        // 1. Check Database availability
+        if (!com.pedrodalben.bigbangessentials.database.DatabaseManager.getInstance().isReady()) {
+            return new RankupEligibilitySnapshot(
+                    uuid, null, null, RankupEligibilityState.DATABASE_UNAVAILABLE,
+                    RankupRankResolutionResult.configurationError("Database is not ready"),
+                    List.of(), 0.0, 0, 0, false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, 0L, 0, 0L, false, false, List.of("DATABASE"), System.currentTimeMillis()
+            );
+        }
+
         RankupPlayerData data = getOrCreatePlayerData(uuid);
         RankupRankResolutionResult resolution = luckPermsService.resolveRankResolution(uuid, config);
+        
+        // 2. Check LuckPerms integration availability
+        if (resolution != null && resolution.status() == RankupRankResolutionResult.ResolutionStatus.INTEGRATION_UNAVAILABLE) {
+            return new RankupEligibilitySnapshot(
+                    uuid, null, null, RankupEligibilityState.LUCKPERMS_UNAVAILABLE,
+                    resolution, List.of(), 0.0, 0, 0, false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, 0L, 0, 0L, false, false, List.of("LUCKPERMS"), System.currentTimeMillis()
+            );
+        }
+
         if (data.isLoading()) {
             return RankupEligibilitySnapshot.loading(uuid, resolution != null ? resolution.rank() : null,
                     resolution != null && resolution.rank() != null ? config.getNextEnabledRank(resolution.rank()) : null, resolution);
         }
+
         RankupRank currentRank = resolution != null ? resolution.rank() : null;
         RankupRank nextRank = config.getNextEnabledRank(currentRank);
         boolean promotionInProgress = promotionService.isPromotionInProgress(uuid);
 
         if (nextRank == null || !nextRank.enabled()) {
-            return RankupEligibilitySnapshot.evaluate(uuid, currentRank, null, resolution, List.of(), RankupTaskMode.ALL, java.math.BigDecimal.ZERO, 0L, promotionInProgress);
+            return RankupEligibilitySnapshot.evaluate(uuid, currentRank, null, resolution, List.of(), RankupTaskMode.ALL, BigDecimal.ZERO, 0L, promotionInProgress);
         }
 
         List<RankupTaskEligibility> taskEligibilities = new ArrayList<>();
@@ -237,15 +255,37 @@ public class RankupManager {
             taskEligibilities.add(RankupTaskEligibility.evaluate(task, progress));
         }
 
+        // 3. Check Economy and Gems availability
         BigDecimal moneyBalance = BigDecimal.ZERO;
-        long gemsBalance = 0L;
         try {
             moneyBalance = EconomyAPI.getBalance(uuid);
-        } catch (Exception ignored) {}
-        try {
-            gemsBalance = GemsManager.getInstance().getBalanceView(uuid).availableBalance();
-        } catch (Exception ignored) {}
+            if (moneyBalance == null) {
+                throw new Exception("Economy returned null balance");
+            }
+        } catch (Exception e) {
+            LOGGER.error("Economy unavailable for {}", uuid, e);
+            return new RankupEligibilitySnapshot(
+                    uuid, currentRank, nextRank, RankupEligibilityState.ECONOMY_UNAVAILABLE,
+                    resolution, taskEligibilities, 0.0, 0, taskEligibilities.size(), false,
+                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, 0L, 0, 0L, false, promotionInProgress, List.of("ECONOMY"), System.currentTimeMillis()
+            );
+        }
 
+        long gemsBalance = 0L;
+        try {
+            var view = GemsManager.getInstance().getBalanceView(uuid);
+            if (view == null) {
+                throw new Exception("Gems balance view is null");
+            }
+            gemsBalance = view.availableBalance();
+        } catch (Exception e) {
+            LOGGER.error("Gems system unavailable for {}", uuid, e);
+            return new RankupEligibilitySnapshot(
+                    uuid, currentRank, nextRank, RankupEligibilityState.GEMS_UNAVAILABLE,
+                    resolution, taskEligibilities, 0.0, 0, taskEligibilities.size(), false,
+                    moneyBalance, BigDecimal.ZERO, BigDecimal.ZERO, false, 0L, 0, 0L, false, promotionInProgress, List.of("GEMS"), System.currentTimeMillis()
+            );
+        }
 
         return RankupEligibilitySnapshot.evaluate(
                 uuid, currentRank, nextRank, resolution, taskEligibilities,

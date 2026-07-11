@@ -14,6 +14,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class RankupAdminCommand {
 
@@ -61,6 +62,16 @@ public class RankupAdminCommand {
                         .requires(src -> hasPermission(src, "bigbangessentials.rankup.admin.history"))
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .executes(ctx -> executeHistory(ctx, StringArgumentType.getString(ctx, "player")))))
+                .then(Commands.literal("recovery")
+                        .requires(src -> hasPermission(src, "bigbangessentials.rankup.admin.recovery"))
+                        .then(Commands.literal("list")
+                                .executes(RankupAdminCommand::executeRecoveryList))
+                        .then(Commands.literal("inspect")
+                                .then(Commands.argument("transaction", StringArgumentType.word())
+                                        .executes(ctx -> executeRecoveryInspect(ctx, StringArgumentType.getString(ctx, "transaction")))))
+                        .then(Commands.literal("retry")
+                                .then(Commands.argument("transaction", StringArgumentType.word())
+                                        .executes(ctx -> executeRetryRecovery(ctx, StringArgumentType.getString(ctx, "transaction"))))))
                 .then(Commands.literal("retryrecovery")
                         .requires(src -> hasPermission(src, "bigbangessentials.rankup.admin.recovery"))
                         .then(Commands.argument("transaction", StringArgumentType.word())
@@ -169,8 +180,74 @@ public class RankupAdminCommand {
         return 1;
     }
 
+    private static int executeRecoveryList(CommandContext<CommandSourceStack> ctx) {
+        RankupManager mgr = RankupManager.getInstance();
+        mgr.getRepository().findPendingTransactions().thenAccept(list -> {
+            ctx.getSource().getServer().execute(() -> {
+                if (list.isEmpty()) {
+                    ctx.getSource().sendSuccess(() -> Component.literal("§aNo transactions require recovery."), false);
+                } else {
+                    ctx.getSource().sendSuccess(() -> Component.literal("§6Pending/Recovery Transactions:"), false);
+                    for (var tx : list) {
+                        ctx.getSource().sendSuccess(() -> Component.literal("§eID: §f" + tx.transactionId() + " §7| §ePlayer: §f" + tx.playerUuid() + " §7| §eStatus: §f" + tx.status()), false);
+                    }
+                }
+            });
+        }).exceptionally(e -> {
+            ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cDatabase error: " + e.getMessage())));
+            return null;
+        });
+        return 1;
+    }
+
+    private static int executeRecoveryInspect(CommandContext<CommandSourceStack> ctx, String transactionId) {
+        RankupManager mgr = RankupManager.getInstance();
+        mgr.getRepository().findTransaction(transactionId).thenAccept(opt -> {
+            ctx.getSource().getServer().execute(() -> {
+                if (opt.isEmpty()) {
+                    ctx.getSource().sendFailure(Component.literal("§cTransaction not found."));
+                } else {
+                    var tx = opt.get();
+                    ctx.getSource().sendSuccess(() -> Component.literal("§6Transaction " + tx.transactionId() + " Details:"), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Player UUID: §f" + tx.playerUuid()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Status: §f" + tx.status()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7From Rank: §f" + tx.fromRankId() + " §7-> To Rank: §f" + tx.toRankId()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Money Amount: §f" + tx.moneyAmount() + " §7| Gems: §f" + tx.gemsAmount()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Money Debited: §f" + tx.moneyDebited() + " §7| Gems Debited: §f" + tx.gemsDebited()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7LuckPerms Updated: §f" + tx.luckpermsUpdated()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7History Written: §f" + tx.historyWritten() + " §7| Progress Cleared: §f" + tx.progressCleared()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Compensated: §f" + tx.compensated()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Error: §f" + (tx.errorMessage() != null ? tx.errorMessage() : "None")), false);
+                }
+            });
+        }).exceptionally(e -> {
+            ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cDatabase error: " + e.getMessage())));
+            return null;
+        });
+        return 1;
+    }
+
     private static int executeRetryRecovery(CommandContext<CommandSourceStack> ctx, String transactionId) {
-        ctx.getSource().sendSuccess(() -> Component.literal("§7Retry recovery for transaction " + transactionId + " is not yet implemented."), false);
+        RankupManager mgr = RankupManager.getInstance();
+        mgr.getRepository().findTransaction(transactionId).thenCompose(opt -> {
+            if (opt.isEmpty()) {
+                ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cTransaction not found.")));
+                return CompletableFuture.completedFuture(null);
+            }
+            var tx = opt.get();
+            return mgr.getPromotionService().compensate(tx.playerUuid(), tx).thenAccept(compensatedTx -> {
+                ctx.getSource().getServer().execute(() -> {
+                    if (compensatedTx.compensated()) {
+                        ctx.getSource().sendSuccess(() -> Component.literal("§aTransaction successfully compensated/recovered."), false);
+                    } else {
+                        ctx.getSource().sendFailure(Component.literal("§cCompensation failed. Status is " + compensatedTx.status()));
+                    }
+                });
+            });
+        }).exceptionally(e -> {
+            ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cError performing recovery: " + e.getMessage())));
+            return null;
+        });
         return 1;
     }
 

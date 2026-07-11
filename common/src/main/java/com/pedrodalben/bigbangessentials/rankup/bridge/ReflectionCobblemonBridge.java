@@ -18,19 +18,25 @@ public class ReflectionCobblemonBridge implements CobblemonBridge {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReflectionCobblemonBridge.class);
     private static final String COBBLEMON_MOD_ID = "cobblemon";
 
+    private boolean registered = false;
+
     @Override
     public boolean isAvailable() {
         return Platform.isModLoaded(COBBLEMON_MOD_ID);
     }
 
     @Override
-    public void register() {
+    public synchronized void register() {
         if (!isAvailable()) return;
+        if (registered) {
+            LOGGER.info("Cobblemon bridge already registered. Skipping.");
+            return;
+        }
         try {
             registerCaptureListener();
             registerBattleWinListener();
-            registerDefeatListener();
             registerHatchListener();
+            registered = true;
             LOGGER.info("Registered RankUp Cobblemon bridge via reflection.");
         } catch (Exception e) {
             LOGGER.error("Failed to register Cobblemon bridge", e);
@@ -69,19 +75,6 @@ public class ReflectionCobblemonBridge implements CobblemonBridge {
         subscribeEvent(eventClass, handler);
     }
 
-    private void registerDefeatListener() throws Exception {
-        Class<?> eventClass = Class.forName("com.cobblemon.mod.common.api.events.pokemon.PokemonFaintedEvent");
-        Consumer<Object> handler = event -> {
-            try {
-                Object pokemon = eventClass.getMethod("getPokemon").invoke(event);
-                Object pos = eventClass.getMethod("getPos").invoke(event);
-                // Defeat attribution is best-effort; we cannot always determine the killer.
-            } catch (Exception ex) {
-                LOGGER.debug("Error handling Cobblemon defeat event", ex);
-            }
-        };
-        subscribeEvent(eventClass, handler);
-    }
 
     private void registerHatchListener() throws Exception {
         Class<?> eventClass = Class.forName("com.cobblemon.mod.common.api.events.pokemon.EggHatchEvent");

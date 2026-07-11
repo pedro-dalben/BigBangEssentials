@@ -123,12 +123,15 @@ public class RankupAdminEditorService {
         return false;
     }
 
-    public boolean setRankMoney(UUID uuid, String rankId, double amount) {
+    public boolean setRankMoney(UUID uuid, String rankId, java.math.BigDecimal amount) {
         RankupConfig draft = getDraft(uuid);
         RankupRank rank = draft.getRank(rankId);
         if (rank == null) return false;
         draft.removeRank(rankId);
-        draft.addRank(rank.withRequirements(rank.requirements().withMoney(java.math.BigDecimal.valueOf(Math.max(0.0, amount)))));
+        if (amount == null || amount.compareTo(java.math.BigDecimal.ZERO) < 0) {
+            amount = java.math.BigDecimal.ZERO;
+        }
+        draft.addRank(rank.withRequirements(rank.requirements().withMoney(amount)));
         return true;
     }
 

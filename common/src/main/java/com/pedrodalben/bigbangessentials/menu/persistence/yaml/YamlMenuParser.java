@@ -230,11 +230,11 @@ public class YamlMenuParser {
         if (!hasPlaceholder) {
             try {
                 ResourceLocation loc = ResourceLocation.parse(materialId);
-                if (!BuiltInRegistries.ITEM.keySet().isEmpty()) {
-                    if (!BuiltInRegistries.ITEM.containsKey(loc)) {
-                        errors.add("Menu '" + menuId + "', Item '" + id + "': Unknown material-id '" + materialId + "'");
-                    }
-                }
+        if (BuiltInRegistries.ITEM != null && !BuiltInRegistries.ITEM.keySet().isEmpty()) {
+            if (!BuiltInRegistries.ITEM.containsKey(loc)) {
+                errors.add("Menu '" + menuId + "', Item '" + id + "': Unknown material-id '" + materialId + "'");
+            }
+        }
             } catch (Exception e) {
                 errors.add("Menu '" + menuId + "', Item '" + id + "': Invalid material-id format '" + materialId + "'");
             }
@@ -314,8 +314,10 @@ public class YamlMenuParser {
                 }
 
                 // Verify condition type registration
-                if (!MenuSystem.getInstance().getConditionRegistry().getHandler(type).isPresent()) {
-                    errors.add("Menu '" + menuId + "', Item '" + itemId + "', " + key + " index " + i + ": Unknown condition type '" + type + "'");
+                if (MenuSystem.getInstance() != null && MenuSystem.getInstance().getConditionRegistry() != null) {
+                    if (!MenuSystem.getInstance().getConditionRegistry().getHandler(type).isPresent()) {
+                        errors.add("Menu '" + menuId + "', Item '" + itemId + "', " + key + " index " + i + ": Unknown condition type '" + type + "'");
+                    }
                 }
 
                 Map<String, Object> params = getMap(map, "params", getMap(map, "parameters", Collections.emptyMap()));
@@ -344,8 +346,10 @@ public class YamlMenuParser {
                 }
 
                 // Verify action type registration
-                if (!MenuSystem.getInstance().getActionRegistry().getHandler(type).isPresent()) {
-                    errors.add("Menu '" + menuId + "', Item '" + itemId + "', " + key + " index " + i + ": Unknown action type '" + type + "'");
+                if (MenuSystem.getInstance() != null && MenuSystem.getInstance().getActionRegistry() != null) {
+                    if (!MenuSystem.getInstance().getActionRegistry().getHandler(type).isPresent()) {
+                        errors.add("Menu '" + menuId + "', Item '" + itemId + "', " + key + " index " + i + ": Unknown action type '" + type + "'");
+                    }
                 }
 
                 Map<String, Object> params = getMap(map, "params", getMap(map, "parameters", Collections.emptyMap()));

@@ -105,16 +105,19 @@ class RankupTaskProgressServiceTest {
                 new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ANY, tasks),
                 new RankupActions(null, new ArrayList<>()), true);
 
-        assertTrue(data.areTasksCompleted(rank)); // ANY mode, one completed is enough
+        List<RankupTaskEligibility> taskEligibilities = List.of(
+            RankupTaskEligibility.evaluate(tasks.get(0), 10),
+            RankupTaskEligibility.evaluate(tasks.get(1), 0)
+        );
+        RankupEligibilitySnapshot snapshot = RankupEligibilitySnapshot.evaluate(
+                uuid, null, rank, null, taskEligibilities, RankupTaskMode.ANY, BigDecimal.ZERO, 0, false
+        );
+        assertTrue(snapshot.tasksCompleted());
     }
 
     @Test
     void testPlayerDataAreTasksCompletedWithAllMode() {
         UUID uuid = UUID.randomUUID();
-        RankupPlayerData data = new RankupPlayerData(uuid);
-
-        data.setTaskProgress(RankupTaskProgress.empty(uuid, "main", "rank1", "task1")
-                .withProgress(10).withCompleted(true));
 
         List<RankupTask> tasks = List.of(
             new RankupTask("task1", "Task 1", List.of(), ObjectiveActionType.BREAK_BLOCK, 10, new RankupTaskFilter(), true),
@@ -126,18 +129,19 @@ class RankupTaskProgressServiceTest {
                 new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, tasks),
                 new RankupActions(null, new ArrayList<>()), true);
 
-        assertFalse(data.areTasksCompleted(rank)); // ALL mode, task2 not completed
+        List<RankupTaskEligibility> taskEligibilities = List.of(
+            RankupTaskEligibility.evaluate(tasks.get(0), 10),
+            RankupTaskEligibility.evaluate(tasks.get(1), 0)
+        );
+        RankupEligibilitySnapshot snapshot = RankupEligibilitySnapshot.evaluate(
+                uuid, null, rank, null, taskEligibilities, RankupTaskMode.ALL, BigDecimal.ZERO, 0, false
+        );
+        assertFalse(snapshot.tasksCompleted());
     }
 
     @Test
     void testPlayerDataCountCompletedTasks() {
         UUID uuid = UUID.randomUUID();
-        RankupPlayerData data = new RankupPlayerData(uuid);
-
-        data.setTaskProgress(RankupTaskProgress.empty(uuid, "main", "rank1", "task1")
-                .withProgress(10).withCompleted(true));
-        data.setTaskProgress(RankupTaskProgress.empty(uuid, "main", "rank1", "task2")
-                .withProgress(5));
 
         List<RankupTask> tasks = List.of(
             new RankupTask("task1", "Task 1", List.of(), ObjectiveActionType.BREAK_BLOCK, 10, new RankupTaskFilter(), true),
@@ -150,7 +154,15 @@ class RankupTaskProgressServiceTest {
                 new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, tasks),
                 new RankupActions(null, new ArrayList<>()), true);
 
-        assertEquals(1, data.countCompletedTasks(rank));
+        List<RankupTaskEligibility> taskEligibilities = List.of(
+            RankupTaskEligibility.evaluate(tasks.get(0), 10),
+            RankupTaskEligibility.evaluate(tasks.get(1), 5),
+            RankupTaskEligibility.evaluate(tasks.get(2), 0)
+        );
+        RankupEligibilitySnapshot snapshot = RankupEligibilitySnapshot.evaluate(
+                uuid, null, rank, null, taskEligibilities, RankupTaskMode.ALL, BigDecimal.ZERO, 0, false
+        );
+        assertEquals(1, snapshot.completedTasksCount());
     }
 
     @Test

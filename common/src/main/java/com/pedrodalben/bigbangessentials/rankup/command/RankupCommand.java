@@ -73,7 +73,13 @@ public class RankupCommand {
         ServerPlayer player = ctx.getSource().getPlayer();
         if (player == null) return 0;
         RankupManager mgr = RankupManager.getInstance();
-        RankupRank rank = rankId != null ? mgr.getConfig().getRank(rankId) : mgr.getCurrentRank(player.getUUID());
+        RankupRank rank;
+        if (rankId != null) {
+            rank = mgr.getConfig().getRank(rankId);
+        } else {
+            var snapshot = mgr.getEligibilitySnapshot(player.getUUID());
+            rank = snapshot.currentRank();
+        }
         if (rank == null) {
             player.sendSystemMessage(Component.literal("§cRank not found."));
             return 0;
@@ -92,18 +98,17 @@ public class RankupCommand {
         ServerPlayer player = ctx.getSource().getPlayer();
         if (player == null) return 0;
         RankupManager mgr = RankupManager.getInstance();
-        RankupRank next = mgr.getNextRank(player.getUUID());
+        var snapshot = mgr.getEligibilitySnapshot(player.getUUID());
+        RankupRank next = snapshot.nextRank();
         if (next == null) {
             player.sendSystemMessage(Component.literal("§aYou have reached the highest rank."));
             return 1;
         }
-        RankupPlayerData data = mgr.getOrCreatePlayerData(player.getUUID());
         player.sendSystemMessage(Component.literal("§6Tasks for " + strip(next.displayName()) + ":"));
-        for (RankupTask task : next.requirements().tasks()) {
-            if (!task.enabled()) continue;
-            int progress = data.getTaskProgressValue(next.id(), task.id());
-            String symbol = progress >= task.target() ? "§a✔" : "§c✘";
-            player.sendSystemMessage(Component.literal(symbol + " §7" + strip(task.displayName()) + ": §f" + progress + "/" + task.target()));
+        for (var te : snapshot.taskEligibilities()) {
+            if (!te.task().enabled()) continue;
+            String symbol = te.completed() ? "§a✔" : "§c✘";
+            player.sendSystemMessage(Component.literal(symbol + " §7" + strip(te.task().displayName()) + ": §f" + te.progress() + "/" + te.target()));
         }
         return 1;
     }
@@ -112,16 +117,14 @@ public class RankupCommand {
         ServerPlayer player = ctx.getSource().getPlayer();
         if (player == null) return 0;
         RankupManager mgr = RankupManager.getInstance();
-        RankupRank current = mgr.getCurrentRank(player.getUUID());
-        RankupRank next = mgr.getNextRank(player.getUUID());
+        var snapshot = mgr.getEligibilitySnapshot(player.getUUID());
+        RankupRank current = snapshot.currentRank();
+        RankupRank next = snapshot.nextRank();
         player.sendSystemMessage(Component.literal("§6Current: §r" + (current != null ? strip(current.displayName()) : "None")));
         if (next != null) {
-            RankupPlayerData data = mgr.getOrCreatePlayerData(player.getUUID());
-            int completed = data.countCompletedTasks(next);
-            int total = (int) next.requirements().tasks().stream().filter(RankupTask::enabled).count();
             player.sendSystemMessage(Component.literal("§7Next: §r" + strip(next.displayName())));
-            player.sendSystemMessage(Component.literal("§7Money: §f" + mgr.getMoneyRequired(next) + " §7Gems: §f" + mgr.getGemsRequired(next)));
-            player.sendSystemMessage(Component.literal("§7Tasks: §f" + completed + "/" + total));
+            player.sendSystemMessage(Component.literal("§7Money: §f" + snapshot.moneyRequired() + " §7Gems: §f" + snapshot.gemsRequired()));
+            player.sendSystemMessage(Component.literal("§7Tasks: §f" + snapshot.completedTasksCount() + "/" + snapshot.totalTasksCount()));
         } else {
             player.sendSystemMessage(Component.literal("§aYou have reached the highest rank."));
         }

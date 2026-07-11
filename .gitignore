@@ -70,3 +70,8 @@ world/
 common/bigbangessentials/
 fabric/bigbangessentials/
 neoforge/bigbangessentials/
+
+# SQLite / config db files
+*.db
+common/config/*.db
+config/*.db

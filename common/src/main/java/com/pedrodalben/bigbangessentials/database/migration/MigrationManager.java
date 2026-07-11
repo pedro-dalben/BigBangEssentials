@@ -44,6 +44,7 @@ public class MigrationManager {
         registeredMigrations.add(new V011CreateJobExplorationDiscoveriesTable());
         registeredMigrations.add(new V012CreateJobProgressionTables());
         registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V013CreateJobRewardsAndContractsTables());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V014AlterRankupTransactionsIdempotencyAndMoney());
     }
 
     /**
