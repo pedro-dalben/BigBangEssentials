@@ -1,0 +1,15 @@
+{
+  "id":"fisherman","enabled":true,"display-name":"Pescador",
+  "short-description":"Pesque em rios, lagos e oceanos",
+  "description":"Profissão dedicada à pesca em todos os biomas aquáticos.",
+  "icon":"minecraft:fishing_rod","category":"COMMON","sort-order":11,
+  "permission":"bigbangessentials.jobs.profession.fisherman",
+  "visible-without-permission":true,"unlocked-by-default":true,"license-required":false,
+  "max-level":100,"xp-curve":{"type":"polynomial","base":100,"multiplier":1.0,"exponent":1.5},
+  "max-daily-earnings":-1,"money-bonus-per-level":0.5,"max-level-money-bonus":50.0,"skill-points-every":2,
+  "reset-progress-on-leave":false,
+  "actions":{"FISH":{"minecraft:cod":{"money":3,"xp":6},"minecraft:salmon":{"money":5,"xp":10},"minecraft:tropical_fish":{"money":8,"xp":12},"minecraft:pufferfish":{"money":6,"xp":10},"*":{"money":2,"xp":4}}},
+  "how-to-earn":{"money-header":"Como ganhar dinheiro","xp-header":"Como ganhar XP","money-lines":["Pesque com vara de pesca em qualquer corpo d'água.","Peixes tropicais pagam mais que peixes comuns."],"xp-lines":["Cada peixe pescado concede XP."],"example-targets":["minecraft:cod","minecraft:salmon","minecraft:tropical_fish"]},
+  "skills":{},"level-up-rewards":{},
+  "messages":{"join":"&aVocê agora é um Pescador!","leave":"&cVocê deixou a profissão de Pescador.","level-up":"&aParabéns! Nível %level% de Pescador! +%points% pontos"}
+}

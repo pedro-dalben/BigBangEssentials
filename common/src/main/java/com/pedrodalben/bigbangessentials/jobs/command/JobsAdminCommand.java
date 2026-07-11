@@ -381,39 +381,28 @@ public class JobsAdminCommand {
             return 0;
         }
 
-        getOrLoadPlayerData(uuid).thenAccept(data -> {
-            JobProgress prog = data.getProgress(job.id);
-            if (prog != null && prog.isActive()) {
-                source.sendFailure(Component.literal("§cO jogador já está ativo neste trabalho."));
-                return;
-            }
-
-            int activeCount = data.getActiveJobsCount();
-            int maxJobs = 2;
-            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player != null) {
-                maxJobs = JobsManager.getInstance().getMaxActiveJobsForPlayer(player);
-            }
-            if (activeCount >= maxJobs) {
-                source.sendFailure(Component.literal("§cLimite de trabalhos ativos atingido para o jogador (" + maxJobs + ")."));
-                return;
-            }
-
-            if (prog == null) {
-                prog = new JobProgress(1);
-                data.setProgress(job.id, prog);
-            }
-            prog.setActive(true);
-            savePlayerData(uuid, data);
-
-            source.sendSuccess(() -> Component.literal(String.format("§aJogador %s entrou no trabalho %s.", playerName, job.displayName)), true);
-            if (player != null) {
-                player.sendSystemMessage(Component.literal("§aUm administrador colocou você no trabalho: §l" + job.displayName));
-            }
-        }).exceptionally(e -> {
-            source.sendFailure(Component.literal("§cErro ao carregar/salvar dados do jogador."));
-            return null;
-        });
+        ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+        if (player != null) {
+            // Use the online domain service path, with admin bypass
+            com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance()
+                    .adminGrantLicense(source.getPlayer(), uuid, job.id)
+                    .thenAccept(r -> {
+                        com.pedrodalben.bigbangessentials.jobs.JobCommandService.JoinResult result =
+                                com.pedrodalben.bigbangessentials.jobs.JobCommandService.getInstance().joinJob(player, job.id);
+                        if (result == com.pedrodalben.bigbangessentials.jobs.JobCommandService.JoinResult.SUCCESS) {
+                            source.sendSuccess(() -> Component.literal(String.format("§aJogador %s entrou no trabalho %s.", playerName, job.displayName)), true);
+                        } else if (result == com.pedrodalben.bigbangessentials.jobs.JobCommandService.JoinResult.ALREADY_ACTIVE) {
+                            source.sendFailure(Component.literal("§cO jogador já está ativo neste trabalho."));
+                        } else {
+                            source.sendSuccess(() -> Component.literal(String.format("§eJogador %s: licença concedida mas entrada resultou em %s.", playerName, result.name())), true);
+                        }
+                    });
+        } else {
+            // Offline fallback
+            source.sendSuccess(() -> Component.literal(String.format("§aLicença administrativa concedida para %s no trabalho %s. O jogador precisará alocar o trabalho em um slot ao entrar.", playerName, job.displayName)), true);
+            com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance()
+                    .adminGrantLicense(source.getPlayer(), uuid, job.id);
+        }
 
         return 1;
     }
@@ -442,31 +431,19 @@ public class JobsAdminCommand {
             return 0;
         }
 
-        getOrLoadPlayerData(uuid).thenAccept(data -> {
-            JobProgress prog = data.getProgress(job.id);
-            if (prog == null || !prog.isActive()) {
-                source.sendFailure(Component.literal("§cO jogador não está ativo neste trabalho."));
-                return;
-            }
-
-            prog.setActive(false);
-            if (job.resetProgressOnLeave) {
-                prog.setLevel(1);
-                prog.setXp(0.0);
-                prog.setSkillPoints(0);
-                prog.getSkills().clear();
-            }
-            savePlayerData(uuid, data);
-
-            source.sendSuccess(() -> Component.literal(String.format("§aJogador %s saiu do trabalho %s.", playerName, job.displayName)), true);
-            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player != null) {
+        ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+        if (player != null) {
+            com.pedrodalben.bigbangessentials.jobs.JobCommandService.LeaveResult result =
+                    com.pedrodalben.bigbangessentials.jobs.JobCommandService.getInstance().leaveJob(player, job.id);
+            if (result == com.pedrodalben.bigbangessentials.jobs.JobCommandService.LeaveResult.SUCCESS) {
+                source.sendSuccess(() -> Component.literal(String.format("§aJogador %s saiu do trabalho %s.", playerName, job.displayName)), true);
                 player.sendSystemMessage(Component.literal("§cUm administrador removeu você do trabalho: §l" + job.displayName));
+            } else {
+                source.sendFailure(Component.literal("§cJogador não está ativo neste trabalho."));
             }
-        }).exceptionally(e -> {
-            source.sendFailure(Component.literal("§cErro ao carregar/salvar dados do jogador."));
-            return null;
-        });
+        } else {
+            source.sendFailure(Component.literal("§cJogador '" + playerName + "' precisa estar online para remover do trabalho."));
+        }
 
         return 1;
     }

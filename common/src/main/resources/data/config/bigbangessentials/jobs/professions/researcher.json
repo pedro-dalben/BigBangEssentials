@@ -1,0 +1,64 @@
+{
+  "id": "researcher",
+  "enabled": true,
+  "display-name": "Pesquisador Pokémon",
+  "short-description": "Capture Pokémon e complete a Pokédex",
+  "description": "Profissão especializada em pesquisa Pokémon. Pesquisadores ganham dinheiro e XP capturando Pokémon selvagens e registrando novas entradas na Pokédex, contribuindo para o conhecimento científico do mundo Pokémon.",
+  "icon": "cobblemon:poke_ball",
+  "category": "POKEMON_SPECIALIZATION",
+  "sort-order": 12,
+  "permission": "bigbangessentials.jobs.profession.researcher",
+  "visible-without-permission": true,
+  "unlocked-by-default": false,
+  "license-required": true,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 150,
+    "multiplier": 1.2,
+    "exponent": 1.6
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "POKEMON-CAPTURED": {
+      "cobblemon:common": {"money": 15.0, "xp": 25.0},
+      "cobblemon:uncommon": {"money": 30.0, "xp": 50.0},
+      "cobblemon:rare": {"money": 60.0, "xp": 100.0},
+      "cobblemon:epic": {"money": 120.0, "xp": 200.0},
+      "cobblemon:legendary": {"money": 500.0, "xp": 800.0},
+      "cobblemon:shiny": {"money": 300.0, "xp": 500.0},
+      "*": {"money": 10.0, "xp": 15.0}
+    },
+    "DEX-ENTRY-ADDED": {
+      "cobblemon:new_entry": {"money": 25.0, "xp": 40.0},
+      "cobblemon:complete_dex": {"money": 1000.0, "xp": 1500.0},
+      "*": {"money": 5.0, "xp": 8.0}
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Capture Pokémon selvagens para receber dinheiro.",
+      "Registre novas entradas na Pokédex.",
+      "Pokémon raros, lendários e shiny pagam recompensas muito maiores.",
+      "Completar a Pokédex concede uma recompensa excepcional."
+    ],
+    "xp-lines": [
+      "Toda captura e registro na Pokédex que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": ["cobblemon:rare", "cobblemon:legendary", "cobblemon:shiny"]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Pesquisador Pokémon! Capture Pokémon e complete sua Pokédex!",
+    "leave": "&cVocê deixou a profissão de Pesquisador Pokémon.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Pesquisador Pokémon! Pontos de habilidade: +%points%"
+  }
+}

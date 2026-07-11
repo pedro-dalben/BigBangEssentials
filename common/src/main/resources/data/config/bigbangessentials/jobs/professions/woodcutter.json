@@ -1,0 +1,65 @@
+{
+  "id": "woodcutter",
+  "enabled": true,
+  "display-name": "Lenhador",
+  "short-description": "Corte árvores e colete madeira",
+  "description": "Profissão dedicada ao corte de árvores e coleta de madeira. Lenhadores ganham dinheiro e XP derrubando troncos de árvores e outros blocos de madeira natural.",
+  "icon": "minecraft:diamond_axe",
+  "category": "COMMON",
+  "sort-order": 2,
+  "permission": "bigbangessentials.jobs.profession.woodcutter",
+  "visible-without-permission": true,
+  "unlocked-by-default": true,
+  "license-required": false,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 100,
+    "multiplier": 1.0,
+    "exponent": 1.5
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "BREAK-BLOCK": {
+      "minecraft:oak_log": {"money": 3.0, "xp": 5.0},
+      "minecraft:spruce_log": {"money": 3.0, "xp": 5.0},
+      "minecraft:birch_log": {"money": 3.0, "xp": 5.0},
+      "minecraft:jungle_log": {"money": 4.0, "xp": 6.0},
+      "minecraft:acacia_log": {"money": 3.5, "xp": 5.5},
+      "minecraft:dark_oak_log": {"money": 4.0, "xp": 6.0},
+      "minecraft:mangrove_log": {"money": 4.5, "xp": 7.0},
+      "minecraft:cherry_log": {"money": 5.0, "xp": 8.0},
+      "minecraft:crimson_stem": {"money": 6.0, "xp": 10.0},
+      "minecraft:warped_stem": {"money": 6.0, "xp": 10.0},
+      "minecraft:mushroom_stem": {"money": 4.0, "xp": 6.0},
+      "minecraft:brown_mushroom_block": {"money": 2.0, "xp": 3.0},
+      "minecraft:red_mushroom_block": {"money": 2.0, "xp": 3.0},
+      "*": {"money": 0.5, "xp": 1.0}
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Derrube troncos de árvores para receber dinheiro.",
+      "Madeiras de biomas raros como Mangue, Cerejeira e dos fungos do Nether pagam mais.",
+      "Troncos comuns como Carvalho e Bétula dão recompensas padrão."
+    ],
+    "xp-lines": [
+      "Todo tronco derrubado que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": ["minecraft:oak_log", "minecraft:cherry_log", "minecraft:crimson_stem"]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Lenhador! Pegue seu machado e vá para a floresta!",
+    "leave": "&cVocê deixou a profissão de Lenhador.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Lenhador! Pontos de habilidade: +%points%"
+  }
+}

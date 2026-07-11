@@ -95,12 +95,19 @@ public class JobsManager {
     public boolean reload() {
         try {
             JobsConfig newConfig = JobConfigurationLoader.loadAndValidate();
+            if (newConfig == null) {
+                LOGGER.error("Configuration loader returned null config.");
+                return false;
+            }
             this.config = newConfig;
             com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().initializeAll();
-            LOGGER.info("Jobs configuration loaded/reloaded successfully.");
+            JobRankingService.getInstance().clearCache();
+            LOGGER.info("Jobs configuration loaded/reloaded successfully ({} professions, {} slots, {} milestones).",
+                    newConfig.getProfessions().size(), newConfig.getSlots().size(), newConfig.getRankMilestones().size());
             return true;
         } catch (Exception e) {
-            LOGGER.error("Failed to load/reload jobs configuration. Previous configuration (if any) was kept.", e);
+            LOGGER.error("Failed to load/reload jobs configuration. Previous configuration (if any) was kept. Cause: {}",
+                    e.getMessage(), e);
             return false;
         }
     }

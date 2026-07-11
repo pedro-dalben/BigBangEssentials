@@ -1,0 +1,60 @@
+{
+  "id": "fisherman",
+  "enabled": true,
+  "display-name": "Pescador",
+  "short-description": "Pesque em rios, lagos e oceanos",
+  "description": "Profissão dedicada à pesca. Pescadores ganham dinheiro e XP pescando peixes, itens e tesouros com a vara de pescar em qualquer corpo d'água.",
+  "icon": "minecraft:fishing_rod",
+  "category": "COMMON",
+  "sort-order": 11,
+  "permission": "bigbangessentials.jobs.profession.fisherman",
+  "visible-without-permission": true,
+  "unlocked-by-default": true,
+  "license-required": false,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 100,
+    "multiplier": 1.0,
+    "exponent": 1.5
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "FISH": {
+      "minecraft:cod": {"money": 5.0, "xp": 8.0},
+      "minecraft:salmon": {"money": 7.0, "xp": 12.0},
+      "minecraft:tropical_fish": {"money": 10.0, "xp": 15.0},
+      "minecraft:pufferfish": {"money": 12.0, "xp": 18.0},
+      "minecraft:enchanted_book": {"money": 25.0, "xp": 40.0},
+      "minecraft:name_tag": {"money": 15.0, "xp": 20.0},
+      "minecraft:saddle": {"money": 20.0, "xp": 30.0},
+      "minecraft:nautilus_shell": {"money": 30.0, "xp": 50.0},
+      "*": {"money": 1.0, "xp": 1.5}
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Pesque com a vara de pescar em rios, lagos e oceanos.",
+      "Peixes raros como Baiacu e Peixe Tropical pagam mais.",
+      "Tesouros como Concha de Náutilus e Livros Encantados dão recompensas elevadas."
+    ],
+    "xp-lines": [
+      "Toda pescaria que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": ["minecraft:cod", "minecraft:tropical_fish", "minecraft:nautilus_shell"]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Pescador! Pegue sua vara e vá pescar!",
+    "leave": "&cVocê deixou a profissão de Pescador.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Pescador! Pontos de habilidade: +%points%"
+  }
+}

@@ -361,7 +361,10 @@ public class JobsCommand {
             case NOT_FOUND:
                 ctx.getSource().sendFailure(Component.literal("§cTrabalho '" + jobName + "' não encontrado ou desabilitado."));
                 return 0;
-            case NO_PERMISSION:
+            case JOB_DISABLED:
+                ctx.getSource().sendFailure(Component.literal("§cEste trabalho está temporariamente desabilitado."));
+                return 0;
+            case MISSING_PERMISSION:
                 ctx.getSource().sendFailure(Component.literal("§cVocê não possui permissão para entrar neste trabalho."));
                 return 0;
             case ALREADY_ACTIVE:
@@ -371,9 +374,27 @@ public class JobsCommand {
                 int maxJobs = JobsManager.getInstance().getMaxActiveJobsForPlayer(player);
                 ctx.getSource().sendFailure(Component.literal("§cLimite de trabalhos ativos atingido (" + maxJobs + "). Saia de um para poder entrar em outro."));
                 return 0;
-            case CANCELLED:
+            case NO_COMPATIBLE_SLOT:
+                ctx.getSource().sendFailure(Component.literal("§cNenhum slot compatível disponível para esta profissão."));
+                return 0;
+            case SLOT_COOLDOWN:
+                ctx.getSource().sendFailure(Component.literal("§cO slot para esta profissão está em tempo de recarga."));
+                return 0;
+            case INTEGRATION_UNAVAILABLE:
+                ctx.getSource().sendFailure(Component.literal("§cA integração necessária para esta profissão não está disponível no servidor."));
+                return 0;
+            case LOCKED_BY_RANK:
+                ctx.getSource().sendFailure(Component.literal("§cVocê ainda não alcançou o rank necessário para esta profissão."));
+                return 0;
+            case LICENSE_AVAILABLE:
+            case LICENSE_IN_PROGRESS:
+            case LICENSE_READY_TO_CLAIM:
+                return 1;
+            case PERSISTENCE_FAILED:
+                ctx.getSource().sendFailure(Component.literal("§cErro ao salvar seu progresso. Tente novamente."));
+                return 0;
             default:
-                ctx.getSource().sendFailure(Component.literal("§cA entrada no trabalho foi impedida por outro sistema."));
+                ctx.getSource().sendFailure(Component.literal("§cNão foi possível entrar neste trabalho."));
                 return 0;
         }
     }
@@ -393,7 +414,6 @@ public class JobsCommand {
             case NOT_ACTIVE:
                 ctx.getSource().sendFailure(Component.literal("§cVocê não está ativo neste trabalho."));
                 return 0;
-            case CANCELLED:
             default:
                 ctx.getSource().sendFailure(Component.literal("§cA saída do trabalho foi impedida por outro sistema."));
                 return 0;

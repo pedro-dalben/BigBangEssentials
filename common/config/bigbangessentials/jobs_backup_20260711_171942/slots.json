@@ -1,0 +1,8 @@
+{
+  "schema-version": 2,
+  "slots": {
+    "COMMON_PRIMARY": {"slot-type":"COMMON_PRIMARY","display-name":"Profissão Primária","category":"COMMON","cooldown-minutes":30},
+    "COMMON_SECONDARY": {"slot-type":"COMMON_SECONDARY","display-name":"Profissão Secundária","category":"COMMON","cooldown-minutes":60},
+    "POKEMON_SPECIALIZATION": {"slot-type":"POKEMON_SPECIALIZATION","display-name":"Especialização Pokémon","category":"POKEMON_SPECIALIZATION","cooldown-minutes":120}
+  }
+}

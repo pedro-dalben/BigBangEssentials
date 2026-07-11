@@ -1,0 +1,63 @@
+{
+  "id": "fisherman",
+  "enabled": true,
+  "display-name": "Pescador",
+  "description": "Ganhe experiência e dinheiro ao pescar peixes, tesouros e recompensas aquáticas.",
+  "permission": "jobs.profissao.fisherman",
+  "unlocked-by-default": true,
+  "max-level": 100,
+  "max-daily-earnings": 12000.0,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "xp-curve": {
+    "initial-xp": 100,
+    "multiplier": 1.2
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "fish": {
+      "minecraft:cod": { "money": 1.5, "xp": 1.5 },
+      "minecraft:salmon": { "money": 1.5, "xp": 1.5 },
+      "minecraft:tropical_fish": { "money": 3.0, "xp": 3.0 },
+      "minecraft:pufferfish": { "money": 2.5, "xp": 2.5 },
+      "minecraft:bow": { "money": 5.0, "xp": 5.0 },
+      "minecraft:enchanted_book": { "money": 10.0, "xp": 10.0 },
+      "minecraft:name_tag": { "money": 8.0, "xp": 8.0 },
+      "minecraft:nautilus_shell": { "money": 15.0, "xp": 15.0 },
+      "minecraft:saddle": { "money": 8.0, "xp": 8.0 },
+      "minecraft:lily_pad": { "money": 0.5, "xp": 0.5 }
+    }
+  },
+  "skills": {
+    "pesca_eficiente": {
+      "name": "Pesca Eficiente",
+      "description": "+1% de XP por rank ao pescar.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.01
+      }
+    },
+    "negociador_aquatico": {
+      "name": "Negociador Aquático",
+      "description": "+1% de dinheiro por rank ao vender peixes e tesouros.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 10,
+      "prerequisites": [],
+      "effects": {
+        "money-multiplier": 0.01
+      }
+    }
+  },
+  "level-up-rewards": {
+    "10": { "commands": ["give %player% minecraft:fishing_rod 1"] }
+  },
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% de %job%! Pontos de habilidade: +%points%"
+  }
+}

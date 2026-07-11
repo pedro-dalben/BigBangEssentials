@@ -1,0 +1,56 @@
+{
+  "id": "magician",
+  "enabled": true,
+  "display-name": "Mago",
+  "short-description": "Domine encantamentos e poções mágicas",
+  "description": "Profissão dedicada às artes arcanas. Magos ganham dinheiro e XP realizando encantamentos em itens, preparando poções e manipulando energias mágicas.",
+  "icon": "minecraft:enchanted_book",
+  "category": "COMMON",
+  "sort-order": 10,
+  "permission": "bigbangessentials.jobs.profession.magician",
+  "visible-without-permission": true,
+  "unlocked-by-default": true,
+  "license-required": false,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 100,
+    "multiplier": 1.0,
+    "exponent": 1.5
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "USE-MAGIC": {
+      "minecraft:enchant": {"money": 15.0, "xp": 25.0},
+      "minecraft:brew_potion": {"money": 10.0, "xp": 18.0},
+      "minecraft:use_enchanting_table": {"money": 8.0, "xp": 12.0},
+      "minecraft:use_brewing_stand": {"money": 5.0, "xp": 8.0},
+      "*": {"money": 1.0, "xp": 1.5}
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Realize encantamentos em itens usando a mesa de encantamentos.",
+      "Prepare poções usando o suporte de poções.",
+      "Encantamentos de nível alto e poções complexas pagam mais."
+    ],
+    "xp-lines": [
+      "Toda ação mágica que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": ["minecraft:enchant", "minecraft:brew_potion", "minecraft:use_enchanting_table"]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Mago! Domine as artes arcanas!",
+    "leave": "&cVocê deixou a profissão de Mago.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Mago! Pontos de habilidade: +%points%"
+  }
+}

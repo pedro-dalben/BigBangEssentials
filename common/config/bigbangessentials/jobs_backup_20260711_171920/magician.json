@@ -1,0 +1,42 @@
+{
+  "id": "magician",
+  "enabled": true,
+  "display-name": "Mago",
+  "description": "Ganhe experiência e dinheiro ao utilizar magia, rituais, encantamentos e recursos arcanos configurados.",
+  "permission": "jobs.profissao.magician",
+  "unlocked-by-default": true,
+  "max-level": 100,
+  "max-daily-earnings": 15000.0,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "xp-curve": {
+    "initial-xp": 100,
+    "multiplier": 1.2
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "use-magic": {
+      "minecraft:enchanted_book": { "money": 5.0, "xp": 5.0 },
+      "minecraft:lapis_lazuli": { "money": 1.0, "xp": 1.0 }
+    }
+  },
+  "skills": {
+    "canalizacao": {
+      "name": "Canalização",
+      "description": "+1% de XP por rank ao conjurar.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.01
+      }
+    }
+  },
+  "level-up-rewards": {},
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% de %job%! Pontos de habilidade: +%points%"
+  }
+}

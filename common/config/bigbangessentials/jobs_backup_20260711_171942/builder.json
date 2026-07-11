@@ -1,0 +1,44 @@
+{
+  "id": "builder",
+  "enabled": true,
+  "display-name": "Construtor",
+  "description": "Ganhe experiência e dinheiro ao construir estruturas e colocar blocos permitidos.",
+  "permission": "jobs.profissao.builder",
+  "unlocked-by-default": true,
+  "max-level": 100,
+  "max-daily-earnings": 12000.0,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "xp-curve": {
+    "initial-xp": 100,
+    "multiplier": 1.2
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "place-block": {
+      "minecraft:stone": { "money": 0.2, "xp": 0.2 },
+      "minecraft:cobblestone": { "money": 0.1, "xp": 0.1 },
+      "minecraft:oak_planks": { "money": 0.2, "xp": 0.2 },
+      "minecraft:glass": { "money": 0.3, "xp": 0.3 }
+    }
+  },
+  "skills": {
+    "arquiteto_eficiente": {
+      "name": "Arquiteto Eficiente",
+      "description": "+1% de XP por rank ao colocar blocos.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.01
+      }
+    }
+  },
+  "level-up-rewards": {},
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% de %job%! Pontos de habilidade: +%points%"
+  }
+}

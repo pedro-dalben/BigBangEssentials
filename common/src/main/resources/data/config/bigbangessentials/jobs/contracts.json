@@ -1,0 +1,45 @@
+{
+  "schema-version": 2,
+  "contracts": {
+    "daily_stone_trader": {
+      "id": "daily_stone_trader",
+      "display-name": "Comerciante de Pedra",
+      "description": "Quebre 64 blocos de pedra.",
+      "period-type": "DAILY",
+      "objective": {"objective-id": "break_stone_64", "action-type": "BREAK_BLOCK", "required-amount": 64, "match-target-ids": ["minecraft:stone", "minecraft:deepslate"]},
+      "reward": {"type": "MONEY", "amount": 500.0}
+    },
+    "daily_wood_supplier": {
+      "id": "daily_wood_supplier",
+      "display-name": "Fornecedor de Madeira",
+      "description": "Quebre 64 troncos de madeira.",
+      "period-type": "DAILY",
+      "objective": {"objective-id": "break_wood_64", "action-type": "BREAK_BLOCK", "required-amount": 64, "match-target-ids": ["#minecraft:logs"]},
+      "reward": {"type": "MONEY", "amount": 400.0}
+    },
+    "daily_iron_hauler": {
+      "id": "daily_iron_hauler",
+      "display-name": "Minerador de Ferro",
+      "description": "Quebre 32 blocos de minério de ferro.",
+      "period-type": "DAILY",
+      "objective": {"objective-id": "break_iron_32", "action-type": "BREAK_BLOCK", "required-amount": 32, "match-target-ids": ["minecraft:iron_ore", "minecraft:deepslate_iron_ore"]},
+      "reward": {"type": "MONEY", "amount": 600.0}
+    },
+    "weekly_explorer": {
+      "id": "weekly_explorer",
+      "display-name": "Explorador Semanal",
+      "description": "Explore 10 biomas ou estruturas diferentes.",
+      "period-type": "WEEKLY",
+      "objective": {"objective-id": "explore_10", "action-type": "EXPLORE", "required-amount": 10},
+      "reward": {"type": "MONEY", "amount": 2000.0}
+    },
+    "weekly_hunter": {
+      "id": "weekly_hunter",
+      "display-name": "Caçador Semanal",
+      "description": "Derrote 100 criaturas hostis.",
+      "period-type": "WEEKLY",
+      "objective": {"objective-id": "kill_100", "action-type": "KILL_ENTITY", "required-amount": 100, "match-target-ids": ["#minecraft:hostile_mobs"]},
+      "reward": {"type": "MONEY", "amount": 3000.0}
+    }
+  }
+}

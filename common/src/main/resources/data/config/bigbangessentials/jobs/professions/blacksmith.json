@@ -1,0 +1,56 @@
+{
+  "id": "blacksmith",
+  "enabled": true,
+  "display-name": "Ferreiro",
+  "short-description": "Fundição de metais e criação de ligas",
+  "description": "Profissão dedicada à forja e fundição. Ferreiros ganham dinheiro e XP fundindo minérios em lingotes e criando ligas metálicas na fornalha e alto-forno.",
+  "icon": "minecraft:anvil",
+  "category": "COMMON",
+  "sort-order": 5,
+  "permission": "bigbangessentials.jobs.profession.blacksmith",
+  "visible-without-permission": true,
+  "unlocked-by-default": true,
+  "license-required": false,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 100,
+    "multiplier": 1.0,
+    "exponent": 1.5
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "SMELT-ITEM": {
+      "minecraft:iron_ingot": {"money": 8.0, "xp": 12.0},
+      "minecraft:gold_ingot": {"money": 12.0, "xp": 18.0},
+      "minecraft:copper_ingot": {"money": 5.0, "xp": 8.0},
+      "minecraft:netherite_ingot": {"money": 80.0, "xp": 120.0},
+      "*": {"money": 1.0, "xp": 2.0}
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Fundição de minérios em lingotes na fornalha ou alto-forno.",
+      "Lingotes de Netherita pagam recompensas excepcionais.",
+      "Ferro, Ouro e Cobre dão recompensas proporcionais ao seu valor."
+    ],
+    "xp-lines": [
+      "Todo lingote fundido que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": ["minecraft:iron_ingot", "minecraft:gold_ingot", "minecraft:netherite_ingot"]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Ferreiro! Acenda a fornalha e comece a fundir!",
+    "leave": "&cVocê deixou a profissão de Ferreiro.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Ferreiro! Pontos de habilidade: +%points%"
+  }
+}

@@ -22,24 +22,25 @@ public class JobsMenuIntegration {
     }
 
     public void register(Path configDir) {
-        // Write default menus to config directory if they don't exist
         setupDefaultMenus(configDir);
 
         MenuSystem menuSystem = MenuSystem.getInstance();
 
-        // 1. Register Data Providers
-        menuSystem.getDataProviderRegistry().registerProvider("jobs.all", new JobsMenuDataProvider());
+        menuSystem.getDataProviderRegistry().registerProvider("jobs.all", JobsMenuDataProvider.all());
+        menuSystem.getDataProviderRegistry().registerProvider("jobs.common", JobsMenuDataProvider.common());
+        menuSystem.getDataProviderRegistry().registerProvider("jobs.pokemon", JobsMenuDataProvider.pokemon());
+        menuSystem.getDataProviderRegistry().registerProvider("jobs.active", JobsMenuDataProvider.active());
+        menuSystem.getDataProviderRegistry().registerProvider("jobs.available", JobsMenuDataProvider.available());
+        menuSystem.getDataProviderRegistry().registerProvider("jobs.locked", JobsMenuDataProvider.locked());
 
-        // 2. Register Actions
         menuSystem.getActionRegistry().registerActionHandler("join_job", new JoinJobMenuAction());
         menuSystem.getActionRegistry().registerActionHandler("leave_job", new LeaveJobMenuAction());
         menuSystem.getActionRegistry().registerActionHandler("toggle_job", new ToggleJobMenuAction());
         menuSystem.getActionRegistry().registerActionHandler("open_job_details", new OpenJobDetailsMenuAction());
 
-        // 3. Register Placeholders
         menuSystem.getPlaceholderRegistry().registerPlaceholder("jobs", new JobsPlaceholderResolver());
 
-        LOGGER.info("Jobs menu integration registered successfully.");
+        LOGGER.info("Jobs menu integration registered successfully (6 data providers, 4 actions, 1 placeholder resolver).");
     }
 
     private void setupDefaultMenus(Path dir) {

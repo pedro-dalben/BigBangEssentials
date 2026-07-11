@@ -51,26 +51,38 @@ public class JoinJobMenuAction implements MenuActionHandler {
                 String displayName = job != null ? job.displayName : jobName;
                 player.sendSystemMessage(Component.literal("§aVocê entrou com sucesso no trabalho: §l" + displayName));
                 
-                // Refresh open sessions
                 MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("jobs.all");
+                MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("jobs.common");
+                MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("jobs.pokemon");
+                MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("jobs.active");
                 MenuSystem.getInstance().getMenuService().refreshCurrentPage(player);
                 return CompletableFuture.completedFuture(ActionExecutionResult.success());
-            case NOT_FOUND:
-                player.sendSystemMessage(Component.literal("§cTrabalho '" + jobName + "' não encontrado ou desabilitado."));
-                return CompletableFuture.completedFuture(ActionExecutionResult.denied());
-            case NO_PERMISSION:
+            case MISSING_PERMISSION:
                 player.sendSystemMessage(Component.literal("§cVocê não possui permissão para entrar neste trabalho."));
                 return CompletableFuture.completedFuture(ActionExecutionResult.denied());
             case ALREADY_ACTIVE:
                 player.sendSystemMessage(Component.literal("§cVocê já está ativo neste trabalho."));
                 return CompletableFuture.completedFuture(ActionExecutionResult.denied());
-            case LIMIT_REACHED:
-                int maxJobs = JobsManager.getInstance().getMaxActiveJobsForPlayer(player);
-                player.sendSystemMessage(Component.literal("§cLimite de trabalhos ativos atingido (" + maxJobs + "). Saia de um para poder entrar em outro."));
+            case NO_COMPATIBLE_SLOT:
+                player.sendSystemMessage(Component.literal("§cNenhum slot compatível disponível."));
                 return CompletableFuture.completedFuture(ActionExecutionResult.denied());
-            case CANCELLED:
+            case SLOT_COOLDOWN:
+                player.sendSystemMessage(Component.literal("§cSlot em cooldown. Aguarde antes de trocar."));
+                return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+            case INTEGRATION_UNAVAILABLE:
+                player.sendSystemMessage(Component.literal("§cIntegração necessária indisponível."));
+                return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+            case LOCKED_BY_RANK:
+                player.sendSystemMessage(Component.literal("§cRank insuficiente para esta profissão."));
+                return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+            case LICENSE_AVAILABLE:
+            case LICENSE_IN_PROGRESS:
+            case LICENSE_READY_TO_CLAIM:
+                MenuSystem.getInstance().getMenuService().refreshSessionsUsingSource("jobs.all");
+                MenuSystem.getInstance().getMenuService().refreshCurrentPage(player);
+                return CompletableFuture.completedFuture(ActionExecutionResult.success());
             default:
-                player.sendSystemMessage(Component.literal("§cA entrada no trabalho foi impedida por outro sistema."));
+                player.sendSystemMessage(Component.literal("§cNão foi possível entrar neste trabalho."));
                 return CompletableFuture.completedFuture(ActionExecutionResult.denied());
         }
     }

@@ -1,0 +1,61 @@
+{
+  "id": "builder",
+  "enabled": true,
+  "display-name": "Construtor",
+  "short-description": "Construa estruturas e coloque blocos",
+  "description": "Profissão dedicada à construção. Construtores ganham dinheiro e XP colocando blocos de construção como tijolos, pedras trabalhadas, madeira processada e outros materiais de construção.",
+  "icon": "minecraft:bricks",
+  "category": "COMMON",
+  "sort-order": 4,
+  "permission": "bigbangessentials.jobs.profession.builder",
+  "visible-without-permission": true,
+  "unlocked-by-default": true,
+  "license-required": false,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 100,
+    "multiplier": 1.0,
+    "exponent": 1.5
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "PLACE-BLOCK": {
+      "minecraft:stone_bricks": {"money": 2.0, "xp": 3.0},
+      "minecraft:bricks": {"money": 2.0, "xp": 3.0},
+      "minecraft:oak_planks": {"money": 1.5, "xp": 2.0},
+      "minecraft:polished_andesite": {"money": 2.5, "xp": 4.0},
+      "minecraft:polished_granite": {"money": 2.5, "xp": 4.0},
+      "minecraft:polished_diorite": {"money": 2.5, "xp": 4.0},
+      "minecraft:glass": {"money": 3.0, "xp": 5.0},
+      "minecraft:terracotta": {"money": 3.0, "xp": 5.0},
+      "minecraft:concrete": {"money": 3.5, "xp": 5.5},
+      "*": {"money": 0.5, "xp": 1.0}
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Coloque blocos de construção para receber dinheiro.",
+      "Materiais processados como Concreto e Vidro pagam mais.",
+      "Blocos básicos como Tábuas de Carvalho dão recompensas menores."
+    ],
+    "xp-lines": [
+      "Todo bloco colocado que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": ["minecraft:stone_bricks", "minecraft:concrete", "minecraft:glass"]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Construtor! Hora de erguer grandes obras!",
+    "leave": "&cVocê deixou a profissão de Construtor.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Construtor! Pontos de habilidade: +%points%"
+  }
+}

@@ -9,11 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
@@ -33,28 +29,35 @@ class PokemonJobsTest {
 
     @Test
     void testWildcardRewardEvaluationForPokemonActions() {
-        Map<String, ActionReward> captureRewards = new HashMap<>();
+        Map<String, ActionReward> captureRewards = new LinkedHashMap<>();
         captureRewards.put("mewtwo", new ActionReward(500.0, 1000.0));
         captureRewards.put("*", new ActionReward(15.0, 20.0));
 
-        Map<String, Map<String, ActionReward>> actionsMap = new HashMap<>();
+        Map<String, Map<String, ActionReward>> actionsMap = new LinkedHashMap<>();
         actionsMap.put("POKEMON-CAPTURED", captureRewards);
 
-        JobDefinition researcherJob = new JobDefinition(
-                "researcher", true, "Pesquisador Pokémon", "Desc", "perm", false,
-                "POKEMON_SPECIALIZATION", true, Collections.emptyList(), false, 100, 15000.0,
-                1.0, 100.0, 150, 1.25, null, 2, actionsMap, Collections.emptyMap(),
-                Collections.emptyMap(), Collections.emptyMap()
-        );
+        JobDefinition researcherJob = JobDefinition.builder("researcher")
+                .enabled(true)
+                .displayName("Pesquisador Pokémon")
+                .category("POKEMON_SPECIALIZATION")
+                .description("Desc")
+                .permission("bigbangessentials.jobs.profession.researcher")
+                .maxLevel(100)
+                .maxDailyEarnings(15000.0)
+                .moneyBonusPerLevel(1.0)
+                .maxLevelMoneyBonus(100.0)
+                .skillPointsEvery(3)
+                .licenseRequired(true)
+                .unlockedByDefault(false)
+                .actions(actionsMap)
+                .build();
 
-        // Test specific target match
         JobAction mewtwoAction = JobAction.create(playerId, JobActionType.POKEMON_CAPTURED, "cobblemon", "mewtwo", JobActionContext.empty());
         Optional<JobRuleEvaluator.EvaluatedRule> mewtwoRule = JobRuleEvaluator.getInstance().evaluate(researcherJob, mewtwoAction);
         assertTrue(mewtwoRule.isPresent());
         assertEquals(500.0, mewtwoRule.get().reward().money);
         assertEquals(1000.0, mewtwoRule.get().reward().xp);
 
-        // Test wildcard fallback match
         JobAction pikachuAction = JobAction.create(playerId, JobActionType.POKEMON_CAPTURED, "cobblemon", "pikachu", JobActionContext.empty());
         Optional<JobRuleEvaluator.EvaluatedRule> pikachuRule = JobRuleEvaluator.getInstance().evaluate(researcherJob, pikachuAction);
         assertTrue(pikachuRule.isPresent());
@@ -65,7 +68,6 @@ class PokemonJobsTest {
 
     @Test
     void testPokemonValidatorAntiExploit() {
-        // Test admin spawned / artificial capture exploit prevention
         JobActionContext artificialContext = JobActionContext.builder()
                 .customAttribute("admin_spawned", true)
                 .build();

@@ -139,7 +139,8 @@ public final class JobsMenuSupport {
         values.put("job_id", job.id);
         values.put("job_name", job.id);
         values.put("job_display_name", job.displayName);
-        values.put("job_description", job.description);
+        values.put("job_description", job.description != null ? job.description : "");
+        values.put("job_short_description", job.shortDescription != null ? job.shortDescription : "");
         values.put("job_level", String.valueOf(level));
         values.put("job_xp", String.format(Locale.ROOT, "%.1f", xp));
         values.put("job_xp_required", String.format(Locale.ROOT, "%.1f", reqXp));
@@ -152,9 +153,39 @@ public final class JobsMenuSupport {
         values.put("job_license_label", licLabel);
         values.put("job_slot_assigned", assignedSlot);
         values.put("job_category_label", categoryLabel);
-        values.put("job_icon", getJobIcon(job.id));
+        values.put("job_icon", job.icon != null ? job.icon : getJobIcon(job.id));
         values.put("job_active", String.valueOf(isActive));
         values.put("job_has_permission", String.valueOf(hasPerm));
+        values.put("job_max_level", String.valueOf(job.maxLevel));
+        values.put("job_category", job.category != null ? job.category : "COMMON");
+
+        // How to earn
+        if (job.howToEarn != null) {
+            values.put("job_earn_money_header", job.howToEarn.moneyHeader);
+            values.put("job_earn_xp_header", job.howToEarn.xpHeader);
+            if (!job.howToEarn.moneyLines.isEmpty()) {
+                values.put("job_earn_money_lines", String.join("\n", job.howToEarn.moneyLines));
+                for (int i = 0; i < job.howToEarn.moneyLines.size(); i++) {
+                    values.put("job_earn_money_line_" + (i + 1), job.howToEarn.moneyLines.get(i));
+                }
+            }
+            if (!job.howToEarn.xpLines.isEmpty()) {
+                values.put("job_earn_xp_lines", String.join("\n", job.howToEarn.xpLines));
+                for (int i = 0; i < job.howToEarn.xpLines.size(); i++) {
+                    values.put("job_earn_xp_line_" + (i + 1), job.howToEarn.xpLines.get(i));
+                }
+            }
+        }
+
+        // License objectives summary
+        if (job.licenseRequired && !job.licenseObjectives.isEmpty()) {
+            values.put("job_license_objectives_count", String.valueOf(job.licenseObjectives.size()));
+        }
+        
+        // Required integration
+        if (job.requiredIntegration != null && !job.requiredIntegration.isBlank()) {
+            values.put("job_required_integration", job.requiredIntegration);
+        }
         
         return values;
     }

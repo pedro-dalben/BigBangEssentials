@@ -1,0 +1,17 @@
+{
+  "id":"trainer","enabled":true,"display-name":"Treinador Pokémon",
+  "short-description":"Derrote treinadores NPC em batalhas",
+  "description":"Especialização Pokémon focada em batalhas contra treinadores NPC.",
+  "icon":"cobblemon:exp_share","category":"POKEMON_SPECIALIZATION","sort-order":14,
+  "permission":"bigbangessentials.jobs.profession.trainer",
+  "visible-without-permission":true,"unlocked-by-default":false,"license-required":true,
+  "required-integration":"cobblemon",
+  "max-level":100,"xp-curve":{"type":"polynomial","base":150,"multiplier":1.2,"exponent":1.6},
+  "max-daily-earnings":15000,"money-bonus-per-level":1.0,"max-level-money-bonus":100.0,"skill-points-every":3,
+  "reset-progress-on-leave":false,
+  "actions":{"TRAINER-BATTLE-WON":{"*":{"money":20,"xp":40}}},
+  "how-to-earn":{"money-header":"Como ganhar dinheiro","xp-header":"Como ganhar XP","money-lines":["Derrote treinadores NPC em batalhas Pokémon."],"xp-lines":["Cada batalha vencida concede XP."],"example-targets":["cobblemon:trainer"]},
+  "license-objectives":[{"objective-id":"win_25","action-type":"TRAINER_BATTLE_WON","required-amount":25,"progress-message":"Vença 25 batalhas contra treinadores NPC"}],
+  "skills":{},"level-up-rewards":{},
+  "messages":{"join":"&aVocê agora é um Treinador Pokémon!","leave":"&cVocê deixou a especialização de Treinador.","level-up":"&aParabéns! Nível %level% de Treinador! +%points% pontos"}
+}

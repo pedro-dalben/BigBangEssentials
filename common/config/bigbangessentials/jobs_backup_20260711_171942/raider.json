@@ -1,0 +1,62 @@
+{
+  "id": "raider",
+  "enabled": true,
+  "display-name": "Especialista em Raids",
+  "description": "Ganhe experiência e moedas enfrentando e derrotando Pokémon poderosos em Raid Dens.",
+  "permission": "jobs.profissao.raider",
+  "unlocked-by-default": false,
+  "category": "POKEMON_SPECIALIZATION",
+  "license-required": true,
+  "max-level": 100,
+  "max-daily-earnings": 15000.0,
+  "money-bonus-per-level": 1.0,
+  "max-level-money-bonus": 100.0,
+  "xp-curve": {
+    "initial-xp": 150,
+    "multiplier": 1.25
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "RAID_CLEARED": {
+      "*": { "money": 80.0, "xp": 120.0 }
+    }
+  },
+  "license-objectives": [
+    {
+      "id": "lic_raid_clear",
+      "action": "RAID_CLEARED",
+      "amount": 2,
+      "message": "Vença 2 batalhas em Raid Dens para provar sua força como Raideiro."
+    }
+  ],
+  "skills": {
+    "dominio_de_recolha": {
+      "name": "Domínio de Recolha",
+      "description": "+4% de XP por rank ao concluir Raids.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.04
+      }
+    },
+    "pilhagem_de_raid": {
+      "name": "Pilhagem de Raid",
+      "description": "+3% de moedas por rank ao derrotar chefes de Raid.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 10,
+      "prerequisites": [],
+      "effects": {
+        "money-multiplier": 0.03
+      }
+    }
+  },
+  "level-up-rewards": {},
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% como Especialista em Raids! Pontos de habilidade: +%points%"
+  }
+}

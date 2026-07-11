@@ -1,0 +1,62 @@
+{
+  "id": "woodcutter",
+  "enabled": true,
+  "display-name": "Lenhador",
+  "description": "Ganhe experiência e dinheiro ao cortar árvores, madeira e recursos vegetais.",
+  "permission": "jobs.profissao.woodcutter",
+  "unlocked-by-default": true,
+  "max-level": 100,
+  "max-daily-earnings": 10000.0,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "xp-curve": {
+    "initial-xp": 100,
+    "multiplier": 1.2
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "break-block": {
+      "minecraft:oak_log": { "money": 1.0, "xp": 1.0 },
+      "minecraft:birch_log": { "money": 1.0, "xp": 1.0 },
+      "minecraft:spruce_log": { "money": 1.0, "xp": 1.0 },
+      "minecraft:jungle_log": { "money": 1.2, "xp": 1.2 },
+      "minecraft:acacia_log": { "money": 1.2, "xp": 1.2 },
+      "minecraft:dark_oak_log": { "money": 1.2, "xp": 1.2 },
+      "minecraft:cherry_log": { "money": 1.5, "xp": 1.5 },
+      "minecraft:mangrove_log": { "money": 1.5, "xp": 1.5 },
+      "minecraft:bamboo_block": { "money": 0.5, "xp": 0.5 }
+    }
+  },
+  "skills": {
+    "conhecimento_florestal": {
+      "name": "Conhecimento Florestal",
+      "description": "+1% de XP por rank ao cortar madeira.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.01
+      }
+    },
+    "negociador_de_madeira": {
+      "name": "Negociador de Madeira",
+      "description": "+1% de dinheiro por rank ao vender recursos vegetais.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 10,
+      "prerequisites": [],
+      "effects": {
+        "money-multiplier": 0.01
+      }
+    }
+  },
+  "level-up-rewards": {
+    "10": { "commands": ["give %player% minecraft:oak_sapling 5"] }
+  },
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% de %job%! Pontos de habilidade: +%points%"
+  }
+}
