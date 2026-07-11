@@ -2,6 +2,7 @@ package com.pedrodalben.bigbangessentials.rankup.service;
 
 import com.pedrodalben.bigbangessentials.objectives.ObjectiveActionType;
 import com.pedrodalben.bigbangessentials.objectives.ObjectiveEventContext;
+import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.biome.Biome;
 
@@ -14,7 +15,7 @@ public class RankupPlaytimeTracker {
     private final RankupAntiExploitService antiExploit = RankupAntiExploitService.getInstance();
     private final RankupTaskProgressService progressService = RankupTaskProgressService.getInstance();
     private final Map<UUID, Integer> onlineTicks = new ConcurrentHashMap<>();
-    private final Map<UUID, Biome> lastBiome = new ConcurrentHashMap<>();
+    private final Map<UUID, Holder<Biome>> lastBiome = new ConcurrentHashMap<>();
 
     public void onTick(ServerPlayer player) {
         if (player == null || antiExploit.isFakePlayer(player)) return;
@@ -30,15 +31,17 @@ public class RankupPlaytimeTracker {
             progressService.processActivity(ctx);
         }
 
-        Biome current = player.level().getBiome(player.blockPosition()).value();
-        Biome previous = lastBiome.put(uuid, current);
-        if (previous != current) {
-            ObjectiveEventContext ctx = ObjectiveEventContext.builder(player, ObjectiveActionType.VISIT_BIOME)
-                    .target(current)
-                    .dimension(player.level().dimension().location().toString())
-                    .fakePlayer(false)
-                    .build();
-            progressService.processActivity(ctx);
+        if (ticks % 20 == 0) {
+            Holder<Biome> currentHolder = player.level().getBiome(player.blockPosition());
+            Holder<Biome> previous = lastBiome.put(uuid, currentHolder);
+            if (previous != currentHolder) {
+                ObjectiveEventContext ctx = ObjectiveEventContext.builder(player, ObjectiveActionType.VISIT_BIOME)
+                        .target(currentHolder)
+                        .dimension(player.level().dimension().location().toString())
+                        .fakePlayer(false)
+                        .build();
+                progressService.processActivity(ctx);
+            }
         }
     }
 

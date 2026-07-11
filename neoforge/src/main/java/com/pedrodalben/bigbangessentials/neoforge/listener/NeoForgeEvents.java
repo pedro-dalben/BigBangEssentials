@@ -152,6 +152,7 @@ public class NeoForgeEvents {
     public static void onItemCrafted(PlayerEvent.ItemCraftedEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             JobsEventListener.onItemCrafted(player, event.getCrafting(), event.getCrafting().getCount());
+            RankupEventListener.onItemCrafted(player, event.getCrafting(), false);
         }
     }
 
@@ -159,8 +160,10 @@ public class NeoForgeEvents {
     public static void onItemSmelted(PlayerEvent.ItemSmeltedEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             JobsEventListener.onItemSmelted(player, event.getSmelting(), event.getSmelting().getCount(), "furnace", null);
+            RankupEventListener.onItemSmelted(player, event.getSmelting(), false);
         }
     }
+
 
     @SubscribeEvent
     public static void onAdvancement(AdvancementEvent.AdvancementEarnEvent event) {

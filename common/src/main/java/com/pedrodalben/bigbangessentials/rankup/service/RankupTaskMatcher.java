@@ -78,15 +78,21 @@ public class RankupTaskMatcher {
     }
 
     private static boolean matchesBiome(@Nullable Object target, RankupTaskFilter f) {
-        if (!(target instanceof Holder<?> holder) || !(holder.value() instanceof Biome)) return false;
-        @SuppressWarnings("unchecked")
-        Holder<Biome> biomeHolder = (Holder<Biome>) holder;
+        if (target == null) return false;
         if (f.biomes().isEmpty()) return true;
-        for (String pattern : f.biomes()) {
-            if (ObjectiveTargetMatcher.matchesBiome(biomeHolder, pattern)) return true;
+        if (target instanceof Holder<?> holder && holder.value() instanceof Biome) {
+            @SuppressWarnings("unchecked")
+            Holder<Biome> biomeHolder = (Holder<Biome>) holder;
+            for (String pattern : f.biomes()) {
+                if (ObjectiveTargetMatcher.matchesBiome(biomeHolder, pattern)) return true;
+            }
+            return false;
+        } else if (target instanceof Biome) {
+            return true; // Or match by registry if available, but holder is preferred
         }
         return false;
     }
+
 
     private static boolean matchesAdvancement(@Nullable String advancementId, RankupTaskFilter f) {
         if (advancementId == null) return false;

@@ -46,6 +46,15 @@ public interface ExternalPermissionAdapter {
     }
 
     /**
+     * Get all group names inherited directly or indirectly by the user.
+     * @param uuid The UUID of the user.
+     * @return Set of group names, or empty set if not supported.
+     */
+    default java.util.Set<String> getInheritedGroups(UUID uuid) {
+        return java.util.Set.of();
+    }
+
+    /**
      * Reload the external permission data (if supported).
      */
     void reload();

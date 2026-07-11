@@ -20,6 +20,8 @@ public class FurnaceResultSlotMixin {
     private void onCheckTakeAchievements(ItemStack stack, CallbackInfo ci) {
         if (this.removeCount > 0 && this.player instanceof ServerPlayer serverPlayer) {
             JobsEventListener.onItemSmelted(serverPlayer, stack, this.removeCount, "furnace", null);
+            com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener.onItemSmelted(serverPlayer, stack, false);
         }
     }
+
 }

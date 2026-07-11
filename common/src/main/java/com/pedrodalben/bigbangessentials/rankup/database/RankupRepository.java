@@ -85,6 +85,44 @@ public class RankupRepository extends JdbcRepository {
         ).thenApply(rows -> null);
     }
 
+    public CompletableFuture<Void> deleteRankProgress(UUID uuid, String ladderId, String rankId) {
+        if (!isDatabaseAvailable()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String sql = "DELETE FROM rankup_task_progress WHERE uuid = ? AND ladder_id = ? AND rank_id = ?";
+        return getDatabase().executeUpdate("deleteRankupRankProgress", sql,
+                stmt -> {
+                    stmt.setString(1, uuid.toString());
+                    stmt.setString(2, ladderId != null ? ladderId.toLowerCase() : "");
+                    stmt.setString(3, rankId != null ? rankId.toLowerCase() : "");
+                }
+        ).thenApply(rows -> null);
+    }
+
+    public CompletableFuture<Void> deleteLadderProgress(UUID uuid, String ladderId) {
+        if (!isDatabaseAvailable()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String sql = "DELETE FROM rankup_task_progress WHERE uuid = ? AND ladder_id = ?";
+        return getDatabase().executeUpdate("deleteRankupLadderProgress", sql,
+                stmt -> {
+                    stmt.setString(1, uuid.toString());
+                    stmt.setString(2, ladderId != null ? ladderId.toLowerCase() : "");
+                }
+        ).thenApply(rows -> null);
+    }
+
+    public CompletableFuture<Void> deleteAllProgress(UUID uuid) {
+        if (!isDatabaseAvailable()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        String sql = "DELETE FROM rankup_task_progress WHERE uuid = ?";
+        return getDatabase().executeUpdate("deleteRankupAllProgress", sql,
+                stmt -> stmt.setString(1, uuid.toString())
+        ).thenApply(rows -> null);
+    }
+
+
     public CompletableFuture<Void> saveTransaction(RankupTransaction transaction) {
         if (!isDatabaseAvailable()) {
             return CompletableFuture.completedFuture(null);

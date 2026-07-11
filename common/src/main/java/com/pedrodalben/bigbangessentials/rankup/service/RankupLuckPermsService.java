@@ -1,5 +1,7 @@
 package com.pedrodalben.bigbangessentials.rankup.service;
 
+import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
+import com.pedrodalben.bigbangessentials.permissions.ExternalPermissionAdapter;
 import com.pedrodalben.bigbangessentials.permissions.LuckPermsAdapter;
 import com.pedrodalben.bigbangessentials.rankup.config.RankupConfig;
 import com.pedrodalben.bigbangessentials.rankup.domain.*;
@@ -7,9 +9,7 @@ import com.pedrodalben.bigbangessentials.util.Platform;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.user.User;
-import net.luckperms.api.node.NodeType;
 import net.luckperms.api.node.types.InheritanceNode;
-import net.luckperms.api.query.QueryOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,32 +23,80 @@ public class RankupLuckPermsService {
 
     public RankupRank resolveCurrentRank(UUID uuid, RankupConfig config) {
         if (config == null) return null;
-        String currentGroup = resolveCurrentGroup(uuid);
-        if (currentGroup == null || currentGroup.isBlank()) {
-            return config.getInitialRank();
+        RankupRankResolutionResult result = resolveRankResolution(uuid, config);
+        return result.rank();
+    }
+
+    public RankupRankResolutionResult resolveRankResolution(UUID uuid, RankupConfig config) {
+        if (config == null) {
+            return RankupRankResolutionResult.configurationError("No active RankUp configuration");
         }
-        String groupLower = currentGroup.toLowerCase();
+
+        ExternalPermissionAdapter adapter = getExternalPermissionAdapter();
+        if (adapter == null || !adapter.isAvailable()) {
+            return RankupRankResolutionResult.integrationUnavailable(
+                    config.getInitialRank(),
+                    "LuckPerms is not loaded or available; defaulting to initial rank"
+            );
+        }
+
+        String primaryGroup = adapter.getPrimaryGroup(uuid);
+        Set<String> allGroups = new HashSet<>(adapter.getInheritedGroups(uuid));
+        if (primaryGroup != null && !primaryGroup.isBlank()) {
+            allGroups.add(primaryGroup.toLowerCase());
+        }
+
+        if (allGroups.isEmpty()) {
+            return RankupRankResolutionResult.uninitialized(
+                    config.getInitialRank(),
+                    "Player has no groups assigned in LuckPerms; defaulting to initial rank"
+            );
+        }
+
+        // Find the highest rank order on the ladder among all groups the player has
+        RankupRank highestRank = null;
         for (RankupRank rank : config.getOrderedRanks()) {
-            if (rank.luckPerms().group().equalsIgnoreCase(groupLower)) {
-                return rank;
+            String rankGroup = rank.luckPerms().group().toLowerCase();
+            if (allGroups.contains(rankGroup)) {
+                if (highestRank == null || rank.order() > highestRank.order()) {
+                    highestRank = rank;
+                }
             }
         }
-        return config.getInitialRank();
+
+        if (highestRank != null) {
+            return RankupRankResolutionResult.resolved(highestRank, highestRank.luckPerms().group());
+        }
+
+        // Player's groups do not match any rank on our ladder
+        // Check if player only has "default"
+        if (allGroups.size() == 1 && allGroups.contains("default")) {
+            return RankupRankResolutionResult.uninitialized(
+                    config.getInitialRank(),
+                    "Player only has default group; assigning initial rank"
+            );
+        }
+
+        return RankupRankResolutionResult.externalGroup(
+                config.getInitialRank(),
+                primaryGroup != null ? primaryGroup : allGroups.iterator().next(),
+                "Player group does not belong to RankUp ladder; fallback to initial rank"
+        );
     }
 
     public String resolveCurrentGroup(UUID uuid) {
-        LuckPermsAdapter adapter = getLuckPermsAdapter();
+        ExternalPermissionAdapter adapter = getExternalPermissionAdapter();
         if (adapter == null) return null;
         return adapter.getPrimaryGroup(uuid);
     }
 
     public CompletableFuture<RankupGroupMutationResult> applyRankChange(UUID uuid, RankupRank fromRank, RankupRank toRank,
                                                                         RankupConfig config) {
-        LuckPermsAdapter adapter = getLuckPermsAdapter();
-        if (adapter == null) {
+        ExternalPermissionAdapter extAdapter = getExternalPermissionAdapter();
+        if (!(extAdapter instanceof LuckPermsAdapter lpAdapter)) {
             return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("LuckPerms adapter not available"));
         }
-        LuckPerms api = adapter.getApi();
+        LuckPerms api = lpAdapter.getApi();
         if (api == null) {
             return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("LuckPerms API not available"));
         }
@@ -65,7 +113,7 @@ public class RankupLuckPermsService {
             }
 
             try {
-                // Remove ladder groups (and current from rank group if not in config)
+                // Remove ladder groups
                 user.data().clear(node -> {
                     if (!(node instanceof InheritanceNode inheritance)) return false;
                     String groupName = inheritance.getGroupName();
@@ -113,17 +161,10 @@ public class RankupLuckPermsService {
                 });
     }
 
-    private LuckPermsAdapter getLuckPermsAdapter() {
-        try {
-            // Try to locate the existing adapter instance
-            var adapterField = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.class.getDeclaredField("externalAdapter");
-            adapterField.setAccessible(true);
-            Object adapter = adapterField.get(null);
-            if (adapter instanceof LuckPermsAdapter lpAdapter) {
-                return lpAdapter;
-            }
-        } catch (Exception e) {
-            LOGGER.debug("Could not reflect LuckPerms adapter: {}", e.getMessage());
+    private ExternalPermissionAdapter getExternalPermissionAdapter() {
+        ExternalPermissionAdapter adapter = PermissionAPI.getExternalAdapter();
+        if (adapter != null) {
+            return adapter;
         }
         if (Platform.isModLoaded("luckperms")) {
             return new LuckPermsAdapter();

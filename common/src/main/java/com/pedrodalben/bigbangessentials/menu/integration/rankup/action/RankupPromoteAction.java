@@ -5,6 +5,7 @@ import com.pedrodalben.bigbangessentials.menu.action.ActionContext;
 import com.pedrodalben.bigbangessentials.menu.action.ActionExecutionResult;
 import com.pedrodalben.bigbangessentials.menu.action.MenuActionHandler;
 import com.pedrodalben.bigbangessentials.rankup.RankupManager;
+import com.pedrodalben.bigbangessentials.rankup.domain.RankupEligibilitySnapshot;
 import com.pedrodalben.bigbangessentials.rankup.domain.RankupRank;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -26,23 +27,29 @@ public class RankupPromoteAction implements MenuActionHandler {
         }
 
         RankupManager mgr = RankupManager.getInstance();
-        RankupRank next = mgr.getNextRank(player.getUUID());
+        RankupEligibilitySnapshot snapshot = mgr.getEligibilitySnapshot(player.getUUID());
+        RankupRank next = snapshot.nextRank();
         if (next == null) {
             player.sendSystemMessage(Component.literal("§cYou have already reached the highest rank."));
-            return CompletableFuture.completedFuture(ActionExecutionResult.denied());
+            return CompletableFuture.completedFuture(ActionExecutionResult.denied("Already at max rank"));
         }
 
-        mgr.getPromotionService().promote(player, next)
-                .thenAccept(result -> {
+        if (!snapshot.isReadyForPromotion()) {
+            player.sendSystemMessage(Component.literal("§c" + snapshot.state().defaultStatusText()));
+            return CompletableFuture.completedFuture(ActionExecutionResult.denied(snapshot.state().defaultStatusText()));
+        }
+
+        return mgr.getPromotionService().promote(player, next)
+                .thenApply(result -> {
                     if (result.success()) {
                         player.sendSystemMessage(Component.literal("§a§lPromotion complete!"));
                         player.sendSystemMessage(Component.literal("§7" + result.message()));
                         MenuSystem.getInstance().getMenuService().refreshCurrentPage(player);
+                        return ActionExecutionResult.success();
                     } else {
                         player.sendSystemMessage(Component.literal("§c" + result.message()));
+                        return ActionExecutionResult.denied(result.message());
                     }
                 });
-
-        return CompletableFuture.completedFuture(ActionExecutionResult.success());
     }
 }

@@ -20,6 +20,8 @@ public class ResultSlotMixin {
     private void onCheckTakeAchievements(ItemStack stack, CallbackInfo ci) {
         if (this.removeCount > 0 && this.player instanceof ServerPlayer serverPlayer) {
             JobsEventListener.onItemCrafted(serverPlayer, stack, this.removeCount);
+            com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener.onItemCrafted(serverPlayer, stack, false);
         }
     }
+
 }

@@ -6,9 +6,9 @@ import com.pedrodalben.bigbangessentials.economy.gems.api.GemDebitRequest;
 import com.pedrodalben.bigbangessentials.economy.gems.api.GemOperationResult;
 import com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager;
 import com.pedrodalben.bigbangessentials.rankup.RankupManager;
-import com.pedrodalben.bigbangessentials.rankup.RankupPlayerData;
 import com.pedrodalben.bigbangessentials.rankup.config.RankupConfig;
 import com.pedrodalben.bigbangessentials.rankup.domain.*;
+import com.pedrodalben.bigbangessentials.util.Platform;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
@@ -32,52 +32,56 @@ public class RankupPromotionService {
         return promote(player, targetRank, true);
     }
 
+    public boolean isPromotionInProgress(UUID uuid) {
+        return promotionQueue.containsKey(uuid);
+    }
+
     public CompletableFuture<RankupPromotionResult> promote(ServerPlayer player, RankupRank targetRank, boolean executeActions) {
+        if (player == null || player.getUUID() == null) {
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Invalid player", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.INTERNAL_ERROR));
+        }
         UUID uuid = player.getUUID();
         Supplier<CompletableFuture<RankupPromotionResult>> chain = () -> doPromote(player, targetRank, executeActions)
                 .whenComplete((r, t) -> promotionQueue.remove(uuid));
-        CompletableFuture<RankupPromotionResult> result = promotionQueue.compute(uuid, (k, prev) ->
+        return promotionQueue.compute(uuid, (k, prev) ->
                 prev == null ? chain.get() : prev.thenCompose(r -> chain.get()));
-        return result;
     }
 
     private CompletableFuture<RankupPromotionResult> doPromote(ServerPlayer player, RankupRank targetRank, boolean executeActions) {
         UUID uuid = player.getUUID();
         RankupConfig config = manager.getConfig();
-        if (config == null) {
-            return CompletableFuture.completedFuture(RankupPromotionResult.failure("RankUp not configured", RankupTransactionStatus.FAILED, null));
-        }
-
-        RankupRank currentRank = manager.getCurrentRank(uuid);
-        if (currentRank == null) {
-            currentRank = config.getInitialRank();
+        if (config == null || !config.isEnabled()) {
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("RankUp module is disabled or unconfigured", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.CONFIGURATION_INVALID));
         }
 
         if (targetRank == null || !targetRank.enabled()) {
-            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Target rank is invalid or disabled", RankupTransactionStatus.FAILED, null));
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Target rank is invalid or disabled", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.CONFIGURATION_INVALID));
         }
 
-        RankupRank expectedNext = config.getNextEnabledRank(currentRank);
-        if (expectedNext == null || !expectedNext.id().equalsIgnoreCase(targetRank.id())) {
-            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Target rank is not the next available rank", RankupTransactionStatus.FAILED, null));
+        RankupEligibilitySnapshot snapshot = manager.getEligibilitySnapshot(uuid);
+        if (snapshot.nextRank() == null) {
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Already at maximum rank", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.ALREADY_MAX_RANK));
         }
 
-        RankupPlayerData data = manager.getOrCreatePlayerData(uuid);
-        if (!data.areTasksCompleted(targetRank)) {
-            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Tasks not completed", RankupTransactionStatus.FAILED, null));
+        if (!snapshot.nextRank().id().equalsIgnoreCase(targetRank.id())) {
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Target rank is not the next rank in the ladder (" + snapshot.nextRank().displayName() + ")", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.NOT_NEXT_RANK));
         }
 
-        double moneyRequired = targetRank.requirements().money();
-        int gemsRequired = targetRank.requirements().gems();
+        if (!snapshot.tasksCompleted()) {
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("You have not completed all required tasks for this rank", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.TASKS_INCOMPLETE));
+        }
 
-        if (EconomyAPI.getBalance(uuid).compareTo(BigDecimal.valueOf(moneyRequired)) < 0) {
-            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Insufficient money", RankupTransactionStatus.FAILED, null));
+        if (!snapshot.moneySufficient()) {
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Insufficient money balance", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.INSUFFICIENT_MONEY));
         }
-        if (gemsRequired > 0) {
-            if (!GemsManager.getInstance().hasAvailable(uuid, gemsRequired)) {
-                return CompletableFuture.completedFuture(RankupPromotionResult.failure("Insufficient gems", RankupTransactionStatus.FAILED, null));
-            }
+
+        if (!snapshot.gemsSufficient()) {
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Insufficient gems balance", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.INSUFFICIENT_GEMS));
         }
+
+        RankupRank currentRank = snapshot.currentRank();
+        double moneyRequired = snapshot.moneyRequired();
+        int gemsRequired = snapshot.gemsRequired();
 
         String transactionId = UUID.randomUUID().toString();
         String idempotencyKey = uuid + ":" + targetRank.id() + ":" + System.currentTimeMillis();
@@ -95,8 +99,8 @@ public class RankupPromotionService {
     }
 
     private CompletableFuture<RankupPromotionResult> attemptChargeAndPromote(ServerPlayer player, RankupRank currentRank,
-                                                                              RankupRank targetRank, RankupTransaction initialTransaction,
-                                                                              boolean executeActions) {
+                                                                             RankupRank targetRank, RankupTransaction initialTransaction,
+                                                                             boolean executeActions) {
         UUID uuid = player.getUUID();
         AtomicReference<RankupTransaction> transactionRef = new AtomicReference<>(initialTransaction);
         AtomicBoolean moneyCharged = new AtomicBoolean(false);
@@ -106,7 +110,7 @@ public class RankupPromotionService {
         if (initialTransaction.moneyAmount() > 0.0) {
             boolean ok = EconomyAPI.withdraw(uuid, BigDecimal.valueOf(initialTransaction.moneyAmount()));
             if (!ok) {
-                return failTransaction(initialTransaction, "Failed to withdraw money");
+                return failTransaction(initialTransaction, "Failed to withdraw money balance", RankupPromotionResultCode.INSUFFICIENT_MONEY);
             }
             moneyCharged.set(true);
             RankupTransaction updated = initialTransaction.withStatus(RankupTransactionStatus.MONEY_DEBITED);
@@ -125,7 +129,7 @@ public class RankupPromotionService {
                 if (moneyCharged.get()) {
                     EconomyAPI.deposit(uuid, BigDecimal.valueOf(initialTransaction.moneyAmount()));
                 }
-                return failTransaction(transactionRef.get(), "Failed to debit gems: " + (gemResult.messageKey() != null ? gemResult.messageKey() : "unknown"));
+                return failTransaction(transactionRef.get(), "Failed to debit gems: " + (gemResult.messageKey() != null ? gemResult.messageKey() : "unknown"), RankupPromotionResultCode.INSUFFICIENT_GEMS);
             }
             gemsCharged.set(true);
             RankupTransaction updated = transactionRef.get().withStatus(RankupTransactionStatus.GEMS_DEBITED);
@@ -139,11 +143,12 @@ public class RankupPromotionService {
                 .thenCompose(mutationResult -> {
                     if (!mutationResult.success()) {
                         compensate(uuid, chargedTransaction, moneyCharged.get(), gemsCharged.get());
-                        return failTransaction(chargedTransaction, "LuckPerms update failed: " + mutationResult.errorMessage());
+                        return failTransaction(chargedTransaction, "LuckPerms update failed: " + mutationResult.errorMessage(), RankupPromotionResultCode.LUCKPERMS_UNAVAILABLE);
                     }
                     RankupTransaction lpUpdated = chargedTransaction.withStatus(RankupTransactionStatus.LUCKPERMS_UPDATED);
                     manager.getRepository().saveTransaction(lpUpdated);
 
+                    // Clear task progress for the previous rank / reset tasks
                     manager.getTaskProgressService().resetAllTaskProgress(uuid);
 
                     // Add history
@@ -155,8 +160,8 @@ public class RankupPromotionService {
                             System.currentTimeMillis()
                     );
                     manager.getRepository().addRankHistory(history);
-                    
-                    // Fire integration event
+
+                    // Fire transition event
                     com.pedrodalben.bigbangessentials.api.rankup.RankTransitionCompletedEvent event = new com.pedrodalben.bigbangessentials.api.rankup.RankTransitionCompletedEvent(
                             UUID.nameUUIDFromBytes(chargedTransaction.transactionId().getBytes()),
                             uuid,
@@ -170,7 +175,11 @@ public class RankupPromotionService {
                     manager.getTransitionService().fireTransitionEvent(event);
 
                     if (executeActions) {
-                        executePostRankActions(uuid, currentRank, targetRank);
+                        executePostRankActions(player, uuid, currentRank, targetRank);
+                    }
+
+                    if (manager.getPlaceholderService() != null) {
+                        manager.getPlaceholderService().refresh(uuid);
                     }
 
                     RankupTransaction completed = lpUpdated.withStatus(RankupTransactionStatus.COMPLETED);
@@ -187,14 +196,14 @@ public class RankupPromotionService {
                     } catch (Exception ex) {
                         LOGGER.error("Failed to record recovery transaction for {}", uuid, ex);
                     }
-                    return RankupPromotionResult.failure("Unexpected error: " + e.getMessage(), RankupTransactionStatus.RECOVERY_REQUIRED, chargedTransaction.transactionId());
+                    return RankupPromotionResult.failure("Unexpected error: " + e.getMessage(), RankupTransactionStatus.RECOVERY_REQUIRED, chargedTransaction.transactionId(), RankupPromotionResultCode.INTERNAL_ERROR);
                 });
     }
 
-    private CompletableFuture<RankupPromotionResult> failTransaction(RankupTransaction transaction, String reason) {
+    private CompletableFuture<RankupPromotionResult> failTransaction(RankupTransaction transaction, String reason, RankupPromotionResultCode code) {
         RankupTransaction failed = transaction.withStatus(RankupTransactionStatus.FAILED).withErrorMessage(reason);
         return manager.getRepository().saveTransaction(failed)
-                .thenApply(v -> RankupPromotionResult.failure(reason, RankupTransactionStatus.FAILED, transaction.transactionId()));
+                .thenApply(v -> RankupPromotionResult.failure(reason, RankupTransactionStatus.FAILED, transaction.transactionId(), code));
     }
 
     private void compensate(UUID uuid, RankupTransaction transaction, boolean moneyCharged, boolean gemsCharged) {
@@ -209,7 +218,6 @@ public class RankupPromotionService {
         }
         try {
             if (gemsCharged && transaction.gemsAmount() > 0) {
-                // There is no direct credit API exposed? GemCreditRequest exists.
                 GemCreditRequest creditRequest = new GemCreditRequest(
                         uuid, transaction.gemsAmount(), "rankup", "compensation",
                         null, transaction.idempotencyKey() + ":comp", transaction.transactionId(), Map.of()
@@ -232,16 +240,36 @@ public class RankupPromotionService {
     }
 
     public void executePostRankActions(UUID playerId, RankupRank fromRank, RankupRank toRank) {
+        ServerPlayer player = null;
+        try {
+            MinecraftServer server = Platform.getCurrentServer();
+            if (server != null && playerId != null) {
+                player = server.getPlayerList().getPlayer(playerId);
+            }
+        } catch (Exception ignored) {}
+        executePostRankActions(player, playerId, fromRank, toRank);
+    }
+
+    public void executePostRankActions(ServerPlayer player, UUID playerId, RankupRank fromRank, RankupRank toRank) {
         RankupActions actions = toRank.actions();
         if (actions == null) return;
-        
-        // This is a stub for the integration; in reality, we need to fetch the ServerPlayer.
-        // Assuming we can get it or we just use the UUID string as name.
-        String playerName = playerId.toString(); // Fallback
-        ServerPlayer player = null;
+
+        MinecraftServer server = null;
+        if (player != null) {
+            server = player.getServer();
+        }
+        if (server == null) {
+            server = Platform.getCurrentServer();
+        }
+        if (playerId == null && player != null) {
+            playerId = player.getUUID();
+        }
+        if (playerId == null) return;
+
+        String playerName = player != null && player.getName() != null ? player.getName().getString() : playerId.toString();
         Map<String, String> placeholders = new HashMap<>();
         placeholders.put("%player%", playerName);
-        placeholders.put("%uuid%", player.getUUID().toString());
+        placeholders.put("%uuid%", playerId.toString());
         placeholders.put("%old_rank_id%", fromRank != null ? fromRank.id() : "");
         placeholders.put("%old_rank_display_name%", fromRank != null ? stripColor(fromRank.displayName()) : "");
         placeholders.put("%rank_id%", toRank.id());
@@ -250,22 +278,21 @@ public class RankupPromotionService {
 
         if (actions.broadcast() != null && !actions.broadcast().isBlank()) {
             String message = replacePlaceholders(actions.broadcast(), placeholders);
-            // Since we don't have Server reference here easily without player, we skip or use a stub
-            // broadcastToServer(player.getServer(), message);
+            broadcastToServer(server, message);
         }
 
         for (String cmd : actions.commands()) {
             String normalized = cmd.trim();
             if (normalized.startsWith("/")) normalized = normalized.substring(1);
             normalized = replacePlaceholders(normalized, placeholders);
-            // runConsoleCommand(player.getServer(), normalized);
+            runConsoleCommand(server, normalized);
         }
     }
 
     private void broadcastToServer(MinecraftServer server, String message) {
         if (server == null) return;
         server.getPlayerList().broadcastSystemMessage(
-                net.minecraft.network.chat.Component.literal(net.minecraft.util.StringUtil.stripColor(message)), false);
+                net.minecraft.network.chat.Component.literal(stripColor(message)), false);
     }
 
     private void runConsoleCommand(MinecraftServer server, String command) {

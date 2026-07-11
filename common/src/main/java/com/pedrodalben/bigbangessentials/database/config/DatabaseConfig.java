@@ -7,13 +7,19 @@ public class DatabaseConfig {
     public boolean required = false;
     public boolean isEnabled() { return enabled; }
     public boolean isRequired() { return required; }
+    public String path;
     public DatabaseType type = DatabaseType.SQLITE;
     public DatabaseType getType() { return type; }
     public void setType(DatabaseType type) { this.type = type; }
     
     public static class SqliteConfig {
         public String file = "database.db";
-        public String getFile() { return file; }
+        public String path;
+        public String getFile() {
+            if (file != null && !file.equals("database.db")) return file;
+            if (path != null && !path.isEmpty()) return path;
+            return file != null ? file : "database.db";
+        }
         public boolean foreignKeys = true;
         public boolean isForeignKeys() { return foreignKeys; }
         public boolean wal = true;
@@ -21,6 +27,7 @@ public class DatabaseConfig {
         public long busyTimeoutMs = 3000;
         public long getBusyTimeoutMs() { return busyTimeoutMs; }
     }
+
     public static class MySqlConfig {
         public String host = "localhost";
         public void setHost(String host) { this.host = host; }
@@ -87,7 +94,13 @@ public class DatabaseConfig {
     }
     
     public SqliteConfig sqlite = new SqliteConfig();
-    public SqliteConfig getSqlite() { return sqlite; }
+    public SqliteConfig getSqlite() {
+        if ((sqlite.file == null || sqlite.file.equals("database.db")) && (sqlite.path == null || sqlite.path.isEmpty()) && path != null && !path.isEmpty()) {
+            sqlite.file = path;
+        }
+        return sqlite;
+    }
+
     public MySqlConfig mysql = new MySqlConfig();
     public MySqlConfig getMysql() { return mysql; }
     public PoolConfig pool = new PoolConfig();
