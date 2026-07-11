@@ -1,0 +1,17 @@
+{
+  "id":"raider","enabled":true,"display-name":"Incursionista",
+  "short-description":"Enfrente raids e desafios em grupo",
+  "description":"Especialização Pokémon focada em raids e batalhas em grupo.",
+  "icon":"minecraft:totem_of_undying","category":"POKEMON_SPECIALIZATION","sort-order":17,
+  "permission":"bigbangessentials.jobs.profession.raider",
+  "visible-without-permission":true,"unlocked-by-default":false,"license-required":true,
+  "required-integration":"cobblemon",
+  "max-level":100,"xp-curve":{"type":"polynomial","base":150,"multiplier":1.2,"exponent":1.6},
+  "max-daily-earnings":15000,"money-bonus-per-level":1.0,"max-level-money-bonus":100.0,"skill-points-every":3,
+  "reset-progress-on-leave":false,
+  "actions":{"RAID-CLEARED":{"*":{"money":40,"xp":80}}},
+  "how-to-earn":{"money-header":"Como ganhar dinheiro","xp-header":"Como ganhar XP","money-lines":["Conclua raids Pokémon com sucesso."],"xp-lines":["Cada raid concluída concede XP."],"example-targets":["cobblemon:raid_den"]},
+  "license-objectives":[{"objective-id":"raids_5","action-type":"RAID_CLEARED","required-amount":5,"progress-message":"Conclua 5 raids"}],
+  "skills":{},"level-up-rewards":{},
+  "messages":{"join":"&aVocê agora é um Incursionista!","leave":"&cVocê deixou a especialização de Incursionista.","level-up":"&aParabéns! Nível %level% de Incursionista! +%points% pontos"}
+}

@@ -1,0 +1,15 @@
+{
+  "id":"explorer","enabled":true,"display-name":"Explorador",
+  "short-description":"Explore biomas, estruturas e dimensões",
+  "description":"Profissão dedicada à exploração do mundo e descoberta de novos locais.",
+  "icon":"minecraft:compass","category":"COMMON","sort-order":7,
+  "permission":"bigbangessentials.jobs.profession.explorer",
+  "visible-without-permission":true,"unlocked-by-default":true,"license-required":false,
+  "max-level":100,"xp-curve":{"type":"polynomial","base":100,"multiplier":1.0,"exponent":1.5},
+  "max-daily-earnings":-1,"money-bonus-per-level":0.5,"max-level-money-bonus":50.0,"skill-points-every":2,
+  "reset-progress-on-leave":false,
+  "actions":{"EXPLORE":{"minecraft:plains":{"money":10,"xp":20},"minecraft:desert":{"money":10,"xp":20},"minecraft:jungle":{"money":15,"xp":25},"minecraft:mushroom_fields":{"money":25,"xp":50},"minecraft:badlands":{"money":15,"xp":25},"minecraft:deep_dark":{"money":50,"xp":100},"*":{"money":5,"xp":10}}},
+  "how-to-earn":{"money-header":"Como ganhar dinheiro","xp-header":"Como ganhar XP","money-lines":["Descubra novos biomas e estruturas.","Biomas raros como Deep Dark pagam muito mais."],"xp-lines":["Cada descoberta concede XP."],"example-targets":["minecraft:jungle","minecraft:mushroom_fields","minecraft:deep_dark"]},
+  "skills":{},"level-up-rewards":{},
+  "messages":{"join":"&aVocê agora é um Explorador!","leave":"&cVocê deixou a profissão de Explorador.","level-up":"&aParabéns! Nível %level% de Explorador! +%points% pontos"}
+}

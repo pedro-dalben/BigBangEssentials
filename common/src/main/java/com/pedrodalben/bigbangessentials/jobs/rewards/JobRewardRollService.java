@@ -59,12 +59,12 @@ public class JobRewardRollService {
         JobRewardRollRepository.getInstance().saveRoll(roll);
 
         if (success) {
-            LOGGER.info("Player {} won craft_key drop in job {} (level {}) on action {}!", playerUuid, jobId, jobLevel, actionId);
             CrateRewardGateway gateway = DefaultCrateRewardGateway.getInstance();
             CrateKeyGrantResult grantResult = gateway.grantVirtualKey(
                 playerUuid, "craft_key", 1, CrateKeyGrantSource.JOB_LUCK, actionId, null
             );
             if (grantResult.success()) {
+                LOGGER.info("Player {} won craft_key drop in job {} (level {}) on action {}!", playerUuid, jobId, jobLevel, actionId);
                 JobRewardNotificationService.getInstance().notifyKeyFound(playerUuid, "craft_key");
             }
         }

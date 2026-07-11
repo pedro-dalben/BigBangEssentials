@@ -99,9 +99,17 @@ public class JobsManager {
                 LOGGER.error("Configuration loader returned null config.");
                 return false;
             }
+            try {
+                com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().initializeAll();
+            } catch (Exception e) {
+                LOGGER.error("Failed to initialize integrations after config load", e);
+            }
+            try {
+                JobRankingService.getInstance().clearCache();
+            } catch (Exception e) {
+                LOGGER.error("Failed to clear ranking cache after config load", e);
+            }
             this.config = newConfig;
-            com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().initializeAll();
-            JobRankingService.getInstance().clearCache();
             LOGGER.info("Jobs configuration loaded/reloaded successfully ({} professions, {} slots, {} milestones).",
                     newConfig.getProfessions().size(), newConfig.getSlots().size(), newConfig.getRankMilestones().size());
             return true;

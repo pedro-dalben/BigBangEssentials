@@ -1,0 +1,15 @@
+{
+  "id":"magician","enabled":true,"display-name":"Mago",
+  "short-description":"Encante itens e prepare poções mágicas",
+  "description":"Profissão dedicada ao encantamento de itens e preparação de poções.",
+  "icon":"minecraft:enchanted_book","category":"COMMON","sort-order":10,
+  "permission":"bigbangessentials.jobs.profession.magician",
+  "visible-without-permission":true,"unlocked-by-default":true,"license-required":false,
+  "max-level":100,"xp-curve":{"type":"polynomial","base":100,"multiplier":1.0,"exponent":1.5},
+  "max-daily-earnings":-1,"money-bonus-per-level":0.5,"max-level-money-bonus":50.0,"skill-points-every":2,
+  "reset-progress-on-leave":false,
+  "actions":{"USE-MAGIC":{"minecraft:enchanting_table":{"money":10,"xp":20},"minecraft:brewing_stand":{"money":8,"xp":15},"*":{"money":2,"xp":5}}},
+  "how-to-earn":{"money-header":"Como ganhar dinheiro","xp-header":"Como ganhar XP","money-lines":["Encante itens na mesa de encantamentos.","Prepare poções no suporte de poções."],"xp-lines":["Cada encantamento ou poção concede XP."],"example-targets":["minecraft:enchanting_table","minecraft:brewing_stand"]},
+  "skills":{},"level-up-rewards":{},
+  "messages":{"join":"&aVocê agora é um Mago!","leave":"&cVocê deixou a profissão de Mago.","level-up":"&aParabéns! Nível %level% de Mago! +%points% pontos"}
+}

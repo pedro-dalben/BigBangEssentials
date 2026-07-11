@@ -452,7 +452,22 @@ public class JobsConfigLoader {
             "  \"permissions\": {\n" +
             "    \"prefix\": \"bigbangessentials.jobs\",\n" +
             "    \"legacy-aliases\": {\n" +
-            "      \"jobs.command.jobs\": \"bigbangessentials.jobs.command.menu\"\n" +
+            "      \"jobs.command.jobs\": \"bigbangessentials.jobs.command.menu\",\n" +
+            "      \"jobs.command.list\": \"bigbangessentials.jobs.command.list\",\n" +
+            "      \"jobs.command.entrar\": \"bigbangessentials.jobs.command.join\",\n" +
+            "      \"jobs.command.sair\": \"bigbangessentials.jobs.command.leave\",\n" +
+            "      \"jobs.command.info\": \"bigbangessentials.jobs.command.info\",\n" +
+            "      \"jobs.command.ganhos\": \"bigbangessentials.jobs.command.earnings\",\n" +
+            "      \"jobs.command.habilidades\": \"bigbangessentials.jobs.command.skills\",\n" +
+            "      \"jobs.command.top\": \"bigbangessentials.jobs.command.top\",\n" +
+            "      \"jobs.command.license\": \"bigbangessentials.jobs.command.license\",\n" +
+            "      \"jobs.command.slot\": \"bigbangessentials.jobs.command.slot\",\n" +
+            "      \"jobs.ganhos.*\": \"bigbangessentials.jobs.bonus.earnings\",\n" +
+            "      \"jobs.xp.*\": \"bigbangessentials.jobs.bonus.xp\",\n" +
+            "      \"jobs.limitediario.*\": \"bigbangessentials.jobs.bonus.dailylimit\",\n" +
+            "      \"jobs.limite.*\": \"bigbangessentials.jobs.bonus.slots\",\n" +
+            "      \"jobs.admin.*\": \"bigbangessentials.jobs.admin\",\n" +
+            "      \"jobs.profissao.*\": \"bigbangessentials.jobs.profession\"\n" +
             "    }\n" +
             "  }\n" +
             "}";
