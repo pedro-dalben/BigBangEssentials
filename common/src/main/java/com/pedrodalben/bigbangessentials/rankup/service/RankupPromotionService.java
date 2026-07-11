@@ -26,9 +26,13 @@ import java.util.concurrent.atomic.AtomicReference;
 public class RankupPromotionService {
     private static final Logger LOGGER = LoggerFactory.getLogger(RankupPromotionService.class);
 
-    private final RankupManager manager = RankupManager.getInstance();
+    private final RankupManager manager;
     private final Map<UUID, PromotionExecution> promotionQueue = new ConcurrentHashMap<>();
     private final Set<String> activeCompensations = ConcurrentHashMap.newKeySet();
+
+    public RankupPromotionService(RankupManager manager) {
+        this.manager = Objects.requireNonNull(manager, "RankupManager cannot be null");
+    }
 
     public record PromotionInspection(
             boolean active,
@@ -41,6 +45,10 @@ public class RankupPromotionService {
     ) {}
 
     private enum PromotionStage {
+        PROMOTE_ENTERED,
+        PREFLIGHT_SYNC_STARTED,
+        PREFLIGHT_SYNC_COMPLETED,
+        PREFLIGHT_SYNC_FAILED,
         QUEUE_RESERVED,
         PREFLIGHT_STARTED,
         PREFLIGHT_COMPLETED,
@@ -157,7 +165,20 @@ public class RankupPromotionService {
         }
 
         UUID uuid = player.getUUID();
-        RankupEligibilitySnapshot preflight = preflightSnapshot(uuid);
+        LOGGER.info("[RANKUP-PROMOTION] player_uuid={} target_rank={} stage=PROMOTE_ENTERED thread={}",
+                uuid, targetRank != null ? targetRank.id() : "null", Thread.currentThread().getName());
+
+        LOGGER.info("[RANKUP-PROMOTION] player_uuid={} stage=PREFLIGHT_SYNC_STARTED", uuid);
+        RankupEligibilitySnapshot preflight;
+        try {
+            preflight = preflightSnapshot(uuid);
+        } catch (Throwable preflightError) {
+            LOGGER.error("[RANKUP-PROMOTION] player_uuid={} stage=PREFLIGHT_SYNC_FAILED", uuid, preflightError);
+            return CompletableFuture.completedFuture(
+                    RankupPromotionResult.failure("Erro interno ao iniciar a promoção: " + preflightError.getMessage(),
+                            RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.INTERNAL_ERROR));
+        }
+        LOGGER.info("[RANKUP-PROMOTION] player_uuid={} stage=PREFLIGHT_SYNC_COMPLETED state={}", uuid, preflight.state().name());
         if (preflight.nextRank() == null) {
             return CompletableFuture.completedFuture(RankupPromotionResult.failure("Already at maximum rank", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.ALREADY_MAX_RANK));
         }

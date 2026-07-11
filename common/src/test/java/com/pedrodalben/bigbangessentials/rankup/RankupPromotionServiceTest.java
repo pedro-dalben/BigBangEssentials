@@ -368,6 +368,43 @@ class RankupPromotionServiceTest {
         assertEquals(RankupPromotionResultCode.CONFIGURATION_INVALID, result.code());
     }
 
+    @Test
+    void rankupManagerMustInjectItselfIntoPromotionService() throws Exception {
+        Field managerField = RankupPromotionService.class.getDeclaredField("manager");
+        managerField.setAccessible(true);
+
+        RankupManager realManager = RankupManager.getInstance();
+        RankupPromotionService realService = realManager.getPromotionService();
+
+        Object injectedManager = managerField.get(realService);
+        assertNotNull(injectedManager, "manager field inside RankupPromotionService is null — circular init bug");
+        assertSame(realManager, injectedManager,
+                "manager field inside RankupPromotionService should be the same instance as RankupManager.getInstance()");
+    }
+
+    @Test
+    void synchronousPreflightFailureReturnsFailureFuture() {
+        ControlledPromotionService service = new ControlledPromotionService(null);
+        service.preflightFailSync = true;
+        UUID uuid = UUID.randomUUID();
+        ServerPlayer player = player(uuid);
+
+        RankupPromotionResult result = service.promote(player, NEXT).join();
+
+        assertFalse(result.success(), "sync preflight failure must return a failure result");
+        assertEquals(RankupPromotionResultCode.INTERNAL_ERROR, result.code(),
+                "sync preflight failure code must be INTERNAL_ERROR");
+        assertFalse(service.isPromotionInProgress(uuid),
+                "after sync failure, UUID must not remain in promotionQueue");
+        assertEquals(0, service.doPromoteCalls.get(),
+                "doPromote must not be called on sync preflight failure");
+
+        service.preflightFailSync = false;
+        RankupPromotionResult secondAttempt = service.promote(player, NEXT).join();
+        assertTrue(secondAttempt.success(),
+                "after sync failure cleanup, a second attempt must succeed");
+    }
+
     // ========== Helpers ==========
 
     private static ServerPlayer player(UUID uuid) {
@@ -425,19 +462,26 @@ class RankupPromotionServiceTest {
     private record PromotionExecutionHandle(Object execution, String transactionId) {}
 
     private static final class ControlledPromotionService extends RankupPromotionService {
+        private static final RankupManager MOCK_MANAGER = Mockito.mock(RankupManager.class);
+
         private final CompletableFuture<RankupPromotionResult> pipeline;
         private final AtomicInteger doPromoteCalls = new AtomicInteger();
         private volatile boolean throwSync;
+        private boolean preflightFailSync;
         private long promotionTimeoutSeconds = 1;
         private RankupEligibilityState preflightState = RankupEligibilityState.READY;
         private RankupRank preflightNextRank = NEXT;
 
         private ControlledPromotionService(CompletableFuture<RankupPromotionResult> pipeline) {
+            super(MOCK_MANAGER);
             this.pipeline = pipeline;
         }
 
         @Override
         protected RankupEligibilitySnapshot preflightSnapshot(UUID uuid) {
+            if (preflightFailSync) {
+                throw new IllegalStateException("sync preflight failure");
+            }
             if (preflightNextRank == null) {
                 return RankupEligibilitySnapshot.evaluate(
                         uuid, CURRENT, null,

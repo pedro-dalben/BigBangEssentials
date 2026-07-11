@@ -27,7 +27,7 @@ public class RankupManager {
     private final RankupRepository repository = new RankupRepository();
     private final Map<UUID, RankupPlayerData> playerDataCache = new ConcurrentHashMap<>();
     private final RankupLuckPermsService luckPermsService = new RankupLuckPermsService();
-    private final RankupPromotionService promotionService = new RankupPromotionService();
+    private final RankupPromotionService promotionService;
     private final RankupTaskProgressService taskProgressService = RankupTaskProgressService.getInstance();
     private final RankupPlaceholderService placeholderService = new RankupPlaceholderService();
     private final RankTransitionService transitionService;
@@ -35,6 +35,7 @@ public class RankupManager {
     private CobblemonBridge cobblemonBridge = CobblemonBridgeFactory.create();
 
     private RankupManager() {
+        this.promotionService = new RankupPromotionService(this);
         this.transitionService = new RankTransitionService(this);
         this.progressionApi = new RankProgressionApiImpl(this, this.transitionService);
         com.pedrodalben.bigbangessentials.api.rankup.RankupAPI.setProvider(this.progressionApi);

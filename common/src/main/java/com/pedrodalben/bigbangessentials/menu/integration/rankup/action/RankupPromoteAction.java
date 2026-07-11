@@ -76,10 +76,21 @@ public class RankupPromoteAction implements MenuActionHandler {
 
         LOGGER.info("[RANKUP-ACTION] player_uuid={} target_rank={} stage=CALLING_PROMOTE", uuid, next.id());
 
-        // Capture the server reference while we're on the server thread
         MinecraftServer server = player.getServer();
 
-        return mgr.getPromotionService().promote(player, next)
+        CompletableFuture<RankupPromotionResult> future;
+        try {
+            future = mgr.getPromotionService().promote(player, next);
+        } catch (Throwable error) {
+            ACTION_LOCKS.remove(uuid);
+            LOGGER.error("[RANKUP-ACTION] player_uuid={} target_rank={} stage=PROMOTE_SYNC_ERROR",
+                    uuid, next.id(), error);
+            player.sendSystemMessage(Component.literal("§cErro interno ao iniciar a promoção."));
+            return CompletableFuture.completedFuture(ActionExecutionResult.failed(
+                    error.getMessage() != null ? error.getMessage() : error.getClass().getSimpleName()));
+        }
+
+        return future
                 .handle((result, error) -> {
                     ACTION_LOCKS.remove(uuid);
                     ActionExecutionResult actionResult;
