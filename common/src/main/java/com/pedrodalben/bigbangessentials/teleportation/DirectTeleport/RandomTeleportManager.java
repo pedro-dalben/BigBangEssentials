@@ -7,8 +7,6 @@ import com.pedrodalben.bigbangessentials.teleportation.TeleportLocation;
 import com.pedrodalben.bigbangessentials.teleportation.TeleportUtil;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
@@ -555,4 +553,3 @@ public class RandomTeleportManager {
                 .thenApply(opt -> opt.isPresent());
     }
 }
-

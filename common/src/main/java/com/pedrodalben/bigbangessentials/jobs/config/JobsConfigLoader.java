@@ -58,18 +58,35 @@ public class JobsConfigLoader {
         Path legacy = Path.of(LEGACY_DIR);
         if (!Files.exists(legacy)) return;
 
+        Path migratedMarker = legacy.resolve(".migrated");
+        if (Files.exists(migratedMarker)) return;
+
         try {
+            if (canonicalConfigsAlreadyExist()) {
+                LOGGER.info("Canonical config directory already populated, skipping migration from legacy.");
+                Files.writeString(migratedMarker, "migrated_to=" + canonicalDir.toAbsolutePath());
+                return;
+            }
+
             Path backupDir = Path.of(CANONICAL_DIR + "_backup_" + BACKUP_FMT.format(LocalDateTime.now()));
             if (Files.exists(canonicalDir)) {
                 copyDir(canonicalDir, backupDir);
                 LOGGER.info("Backup created at {} before migration from legacy path", backupDir);
             }
             copyDir(legacy, canonicalDir);
-            String doneFile = legacy.resolve(".migrated").toString();
-            Files.writeString(Path.of(doneFile), "migrated_to=" + canonicalDir.toAbsolutePath());
+            Files.writeString(migratedMarker, "migrated_to=" + canonicalDir.toAbsolutePath());
             LOGGER.info("Migrated configs from {} to {}", legacy, canonicalDir);
         } catch (Exception e) {
             LOGGER.warn("Migration from legacy path {} failed: {}", legacy, e.getMessage());
+        }
+    }
+
+    private static boolean canonicalConfigsAlreadyExist() {
+        if (!Files.exists(professionsDir)) return false;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(professionsDir, "*.json")) {
+            return stream.iterator().hasNext();
+        } catch (IOException e) {
+            return false;
         }
     }
 
@@ -193,25 +210,25 @@ public class JobsConfigLoader {
 
         Set<String> seenIds = new HashSet<>();
         for (Path file : files) {
+            String fileName = file.getFileName().toString();
             try {
                 JsonObject root = readJson(file);
-                JobDefinition job = parseProfession(root, file.getFileName().toString());
-                String fileId = file.getFileName().toString().replace(".json", "");
+                JobDefinition job = parseProfession(root, fileName);
+                String fileId = fileName.replace(".json", "");
                 if (!job.id.equalsIgnoreCase(fileId)) {
-                    throw new IllegalArgumentException(
-                            "Job id '" + job.id + "' does not match filename '" + file.getFileName()
-                            + "' at " + file.toAbsolutePath());
+                    LOGGER.warn("Skipping {}: job id '{}' does not match filename (expected '{}')",
+                            file.toAbsolutePath(), job.id, fileId);
+                    continue;
                 }
                 if (seenIds.contains(job.id.toLowerCase())) {
-                    throw new IllegalArgumentException(
-                            "Duplicate job id '" + job.id + "' in file " + file.getFileName());
+                    LOGGER.warn("Skipping {}: duplicate job id '{}'", file.toAbsolutePath(), job.id);
+                    continue;
                 }
                 seenIds.add(job.id.toLowerCase());
-                JobConfigurationValidator.validateJob(job, file.getFileName().toString());
+                JobConfigurationValidator.validateJob(job, fileName);
                 result.put(job.id.toLowerCase(), job);
             } catch (Exception e) {
-                LOGGER.error("Failed to load profession config {}: {}", file, e.getMessage());
-                throw new RuntimeException("Config error in " + file.getFileName() + ": " + e.getMessage(), e);
+                LOGGER.warn("Skipping {}: {}", file.toAbsolutePath(), e.getMessage());
             }
         }
         return result;

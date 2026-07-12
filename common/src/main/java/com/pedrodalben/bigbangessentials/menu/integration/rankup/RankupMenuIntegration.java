@@ -75,7 +75,7 @@ public class RankupMenuIntegration {
             id: "rankup_menu"
             size: 54
             schema-version: 2
-            title: "<gold>RankUp Progression"
+            title: "<gold>Progress\\u00e3o de RankUp"
 
             pagination:
               enabled: true
@@ -89,10 +89,10 @@ public class RankupMenuIntegration {
                 lore:
                   - "<gray>{rank_description}"
                   - ""
-                  - "<gray>LuckPerms Group: <white>{rank_luckperms_group}"
-                  - "<gray>Money: <white>{rank_money}"
-                  - "<gray>Gems: <white>{rank_gems}"
-                  - "<gray>Tasks: <white>{rank_task_count}"
+                  - "<gray>Grupo LuckPerms: <white>{rank_luckperms_group}"
+                  - "<gray>Dinheiro: <white>{rank_money}"
+                  - "<gray>Gemas: <white>{rank_gems}"
+                  - "<gray>Tarefas: <white>{rank_task_count}"
                   - "<gray>Status: {rank_status_color}{rank_status}"
                   - ""
                   - "<green>Status do rank para refer\\u00eancia."
@@ -110,58 +110,58 @@ public class RankupMenuIntegration {
                     slot: 4
                     item:
                       material-id: "minecraft:nether_star"
-                      display-name: "<gold>Your Progress"
+                      display-name: "<gold>Seu Progresso"
                       lore:
-                        - "<gray>Current Rank: <white>{rankup:current_name}"
-                        - "<gray>Next Rank: <white>{rankup:next_name}"
+                        - "<gray>Rank Atual: <white>{rankup:current_name}"
+                        - "<gray>Pr\\u00f3ximo Rank: <white>{rankup:next_name}"
                         - ""
-                        - "<gray>Progress: <white>{rankup:progress_percent}%"
-                        - "<gray>Tasks: <white>{rankup:tasks_completed} / {rankup:tasks_total}"
-                        - "<gray>Money: {rankup:money_status} <white>{rankup:money_balance} / {rankup:money_required}"
-                        - "<gray>Gems: {rankup:gems_status} <white>{rankup:gems_balance} / {rankup:gems_required}"
+                        - "<gray>Progresso: <white>{rankup:progress_percent}%"
+                        - "<gray>Tarefas: <white>{rankup:tasks_completed} / {rankup:tasks_total}"
+                        - "<gray>Dinheiro: {rankup:money_status} <white>{rankup:money_balance} / {rankup:money_required}"
+                        - "<gray>Gemas: {rankup:gems_status} <white>{rankup:gems_balance} / {rankup:gems_required}"
                   refresh_btn:
                     slot: 8
                     item:
                       material-id: "minecraft:clock"
-                      display-name: "<yellow>Refresh"
+                      display-name: "<yellow>Atualizar"
                       lore:
-                        - "<gray>Click to refresh balances"
-                        - "<gray>and task progress."
+                        - "<gray>Clique para atualizar saldos"
+                        - "<gray>e progresso de tarefas."
                     actions:
                       - type: "refresh_page"
                   promote_btn:
                     slot: 22
                     item:
                       material-id: "minecraft:diamond"
-                      display-name: "<green><b>Promote!"
+                      display-name: "<green><b>Promover!"
                       lore:
-                        - "<gray>Click to attempt promotion"
-                        - "<gray>to the next rank."
+                        - "<gray>Clique para tentar promo\\u00e7\\u00e3o"
+                        - "<gray>ao pr\\u00f3ximo rank."
                         - ""
-                        - "<red>Requires:"
-                        - "<gray>  - All tasks completed"
-                        - "<gray>  - Enough money & gems"
+                        - "<red>Requer:"
+                        - "<gray>  - Todas as tarefas conclu\\u00eddas"
+                        - "<gray>  - Dinheiro e gemas suficientes"
                     actions:
                       - type: "rankup_promote"
                   close_btn:
                     slot: 49
                     item:
                       material-id: "minecraft:barrier"
-                      display-name: "<red>Close"
+                      display-name: "<red>Fechar"
                     actions:
                       - type: "close_menu"
                   prev_btn:
                     slot: 48
                     item:
                       material-id: "minecraft:paper"
-                      display-name: "<yellow>Previous Page"
+                      display-name: "<yellow>P\\u00e1gina Anterior"
                     actions:
                       - type: "previous_page"
                   next_btn:
                     slot: 50
                     item:
                       material-id: "minecraft:paper"
-                      display-name: "<yellow>Next Page"
+                      display-name: "<yellow>Pr\\u00f3xima P\\u00e1gina"
                     actions:
                       - type: "next_page"
             """;
@@ -172,7 +172,7 @@ public class RankupMenuIntegration {
             id: "rankup_rank_details_menu"
             size: 54
             schema-version: 2
-            title: "<gold>Rank Tasks: {context:rank_display_name}"
+            title: "<gold>Tarefas do Rank: {context:rank_display_name}"
 
             pagination:
               enabled: true
@@ -186,9 +186,9 @@ public class RankupMenuIntegration {
                 lore:
                   - "<gray>{task_description}"
                   - ""
-                  - "<gray>Type: <white>{task_type}"
-                  - "<gray>Progress: <white>{task_progress} / {task_target}"
-                  - "<gray>Completion: <white>{task_percentage}%"
+                  - "<gray>Tipo: <white>{task_type}"
+                  - "<gray>Progresso: <white>{task_progress} / {task_target}"
+                  - "<gray>Conclus\\u00e3o: <white>{task_percentage}%"
                   - "<gray>Status: {task_symbol}"
 
             pages:
@@ -203,12 +203,12 @@ public class RankupMenuIntegration {
                       lore:
                         - "<gray>{context:rank_description}"
                         - ""
-                        - "<gray>Tasks Required: <white>{context:rank_task_count}"
+                        - "<gray>Tarefas Requeridas: <white>{context:rank_task_count}"
                   back_btn:
                     slot: 45
                     item:
                       material-id: "minecraft:arrow"
-                      display-name: "<red>Back to Progression"
+                      display-name: "<red>Voltar \\u00e0 Progress\\u00e3o"
                     actions:
                       - type: "open_menu"
                         params:
@@ -217,21 +217,21 @@ public class RankupMenuIntegration {
                     slot: 49
                     item:
                       material-id: "minecraft:barrier"
-                      display-name: "<red>Close"
+                      display-name: "<red>Fechar"
                     actions:
                       - type: "close_menu"
                   prev_btn:
                     slot: 48
                     item:
                       material-id: "minecraft:paper"
-                      display-name: "<yellow>Previous Page"
+                      display-name: "<yellow>P\\u00e1gina Anterior"
                     actions:
                       - type: "previous_page"
                   next_btn:
                     slot: 50
                     item:
                       material-id: "minecraft:paper"
-                      display-name: "<yellow>Next Page"
+                      display-name: "<yellow>Pr\\u00f3xima P\\u00e1gina"
                     actions:
                       - type: "next_page"
             """;
@@ -242,7 +242,7 @@ public class RankupMenuIntegration {
             id: "rankup_admin_home_menu"
             size: 54
             schema-version: 2
-            title: "<gold>RankUp Admin"
+            title: "<gold>Admin RankUp"
 
             pagination:
               enabled: true
@@ -254,14 +254,14 @@ public class RankupMenuIntegration {
                 material-id: "{rank_icon}"
                 display-name: "{rank_status_color}{rank_display_name}"
                 lore:
-                  - "<gray>Order: <white>{rank_order}"
-                  - "<gray>LuckPerms Group: <white>{rank_luckperms_group}"
-                  - "<gray>Money: <white>{rank_money}"
-                  - "<gray>Gems: <white>{rank_gems}"
-                  - "<gray>Tasks: <white>{rank_task_count}"
-                  - "<gray>Enabled: <white>{rank_enabled}"
+                  - "<gray>Ordem: <white>{rank_order}"
+                  - "<gray>Grupo LuckPerms: <white>{rank_luckperms_group}"
+                  - "<gray>Dinheiro: <white>{rank_money}"
+                  - "<gray>Gemas: <white>{rank_gems}"
+                  - "<gray>Tarefas: <white>{rank_task_count}"
+                  - "<gray>Ativado: <white>{rank_enabled}"
                   - ""
-                  - "<green>Click to edit this rank."
+                  - "<green>Clique para editar este rank."
               actions:
                 - type: "rankup_admin"
                   params:
@@ -277,9 +277,9 @@ public class RankupMenuIntegration {
                     slot: 0
                     item:
                       material-id: "minecraft:green_wool"
-                      display-name: "<green><b>Create New Rank"
+                      display-name: "<green><b>Criar Novo Rank"
                       lore:
-                        - "<gray>Add a new rank to the ladder."
+                        - "<gray>Adicionar um novo rank \\u00e0 escada."
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -288,9 +288,9 @@ public class RankupMenuIntegration {
                     slot: 15
                     item:
                       material-id: "minecraft:slime_ball"
-                      display-name: "<green><b>Save Draft"
+                      display-name: "<green><b>Salvar Rascunho"
                       lore:
-                        - "<gray>Validate and save changes."
+                        - "<gray>Validar e salvar altera\\u00e7\\u00f5es."
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -299,9 +299,9 @@ public class RankupMenuIntegration {
                     slot: 16
                     item:
                       material-id: "minecraft:gunpowder"
-                      display-name: "<red><b>Discard Draft"
+                      display-name: "<red><b>Descartar Rascunho"
                       lore:
-                        - "<gray>Discard all unsaved changes."
+                        - "<gray>Descartar todas as altera\\u00e7\\u00f5es n\\u00e3o salvas."
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -310,21 +310,21 @@ public class RankupMenuIntegration {
                     slot: 49
                     item:
                       material-id: "minecraft:barrier"
-                      display-name: "<red>Close"
+                      display-name: "<red>Fechar"
                     actions:
                       - type: "close_menu"
                   prev_btn:
                     slot: 48
                     item:
                       material-id: "minecraft:paper"
-                      display-name: "<yellow>Previous Page"
+                      display-name: "<yellow>P\\u00e1gina Anterior"
                     actions:
                       - type: "previous_page"
                   next_btn:
                     slot: 50
                     item:
                       material-id: "minecraft:paper"
-                      display-name: "<yellow>Next Page"
+                      display-name: "<yellow>Pr\\u00f3xima P\\u00e1gina"
                     actions:
                       - type: "next_page"
             """;
@@ -335,7 +335,7 @@ public class RankupMenuIntegration {
             id: "rankup_admin_rank_edit_menu"
             size: 54
             schema-version: 2
-            title: "<gold>Edit: {context:rank_id}"
+            title: "<gold>Editar: {context:rank_id}"
 
             pages:
               main:
@@ -352,9 +352,9 @@ public class RankupMenuIntegration {
                     slot: 10
                     item:
                       material-id: "minecraft:name_tag"
-                      display-name: "<yellow>Set Display Name"
+                      display-name: "<yellow>Definir Nome"
                       lore:
-                        - "<gray>Change the display name."
+                        - "<gray>Alterar o nome de exibi\\u00e7\\u00e3o."
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -364,9 +364,9 @@ public class RankupMenuIntegration {
                     slot: 11
                     item:
                       material-id: "minecraft:painting"
-                      display-name: "<yellow>Set Icon"
+                      display-name: "<yellow>Definir \\u00cdcone"
                       lore:
-                        - "<gray>Change the icon item ID."
+                        - "<gray>Alterar o ID do item do \\u00edcone."
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -376,9 +376,9 @@ public class RankupMenuIntegration {
                     slot: 12
                     item:
                       material-id: "minecraft:command_block"
-                      display-name: "<yellow>Set LP Group"
+                      display-name: "<yellow>Definir Grupo LP"
                       lore:
-                        - "<gray>Change the LuckPerms group."
+                        - "<gray>Alterar o grupo LuckPerms."
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -388,9 +388,9 @@ public class RankupMenuIntegration {
                     slot: 14
                     item:
                       material-id: "minecraft:gold_ingot"
-                      display-name: "<yellow>Set Money Requirement"
+                      display-name: "<yellow>Definir Requisito de Dinheiro"
                       lore:
-                        - "<gray>Change money needed."
+                        - "<gray>Alterar dinheiro necess\\u00e1rio."
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -399,9 +399,9 @@ public class RankupMenuIntegration {
                     slot: 15
                     item:
                       material-id: "minecraft:emerald"
-                      display-name: "<yellow>Set Gems Requirement"
+                      display-name: "<yellow>Definir Requisito de Gemas"
                       lore:
-                        - "<gray>Change gems needed."
+                        - "<gray>Alterar gemas necess\\u00e1rias."
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -410,9 +410,9 @@ public class RankupMenuIntegration {
                     slot: 16
                     item:
                       material-id: "minecraft:lever"
-                      display-name: "<yellow>Toggle Rank"
+                      display-name: "<yellow>Alternar Rank"
                       lore:
-                        - "<gray>Enable/Disable this rank."
+                        - "<gray>Ativar/Desativar este rank."
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -421,7 +421,7 @@ public class RankupMenuIntegration {
                     slot: 21
                     item:
                       material-id: "minecraft:paper"
-                      display-name: "<yellow>Duplicate Rank"
+                      display-name: "<yellow>Duplicar Rank"
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -430,7 +430,7 @@ public class RankupMenuIntegration {
                     slot: 22
                     item:
                       material-id: "minecraft:arrow"
-                      display-name: "<yellow>Move Up"
+                      display-name: "<yellow>Mover para Cima"
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -439,7 +439,7 @@ public class RankupMenuIntegration {
                     slot: 23
                     item:
                       material-id: "minecraft:arrow"
-                      display-name: "<yellow>Move Down"
+                      display-name: "<yellow>Mover para Baixo"
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -448,9 +448,9 @@ public class RankupMenuIntegration {
                     slot: 40
                     item:
                       material-id: "minecraft:barrier"
-                      display-name: "<red><b>Delete Rank"
+                      display-name: "<red><b>Deletar Rank"
                       lore:
-                        - "<red>This cannot be undone."
+                        - "<red>Isso n\\u00e3o pode ser desfeito."
                     actions:
                       - type: "rankup_admin"
                         params:
@@ -459,7 +459,7 @@ public class RankupMenuIntegration {
                     slot: 45
                     item:
                       material-id: "minecraft:arrow"
-                      display-name: "<red>Back to Admin Home"
+                      display-name: "<red>Voltar ao Admin"
                     actions:
                       - type: "open_menu"
                         params:
@@ -468,7 +468,7 @@ public class RankupMenuIntegration {
                     slot: 49
                     item:
                       material-id: "minecraft:barrier"
-                      display-name: "<red>Close"
+                      display-name: "<red>Fechar"
                     actions:
                       - type: "close_menu"
             """;

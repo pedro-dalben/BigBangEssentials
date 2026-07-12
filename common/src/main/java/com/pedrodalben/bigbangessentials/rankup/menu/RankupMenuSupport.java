@@ -27,16 +27,16 @@ public class RankupMenuSupport {
         String status;
         if (current != null && current.id().equals(rank.id())) {
             statusColor = "§6";
-            status = "Current";
+            status = "Atual";
         } else if (next != null && next.id().equals(rank.id())) {
             statusColor = "§e";
-            status = "Next";
+            status = "Próximo";
         } else if (current != null && rank.order() < current.order()) {
             statusColor = "§a";
-            status = "Completed";
+            status = "Completo";
         } else {
             statusColor = "§7";
-            status = "Locked";
+            status = "Bloqueado";
         }
         map.put("rank_status_color", statusColor);
         map.put("rank_status", status);
@@ -84,9 +84,9 @@ public class RankupMenuSupport {
         RankupRank next = snapshot.nextRank();
 
         map.put("current_id", current != null ? current.id() : "");
-        map.put("current_name", current != null ? strip(current.displayName()) : "None");
+        map.put("current_name", current != null ? strip(current.displayName()) : "Nenhum");
         map.put("next_id", next != null ? next.id() : "");
-        map.put("next_name", next != null ? strip(next.displayName()) : "Max Rank");
+        map.put("next_name", next != null ? strip(next.displayName()) : "Rank Máximo");
 
         java.math.BigDecimal moneyRequired = snapshot.moneyRequired();
         int gemsRequired = snapshot.gemsRequired();

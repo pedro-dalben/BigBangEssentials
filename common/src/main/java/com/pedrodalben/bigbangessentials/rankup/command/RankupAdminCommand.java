@@ -92,7 +92,7 @@ public class RankupAdminCommand {
     private static int openAdminMenu(CommandContext<CommandSourceStack> ctx) {
         ServerPlayer player = ctx.getSource().getPlayer();
         if (player == null) {
-            ctx.getSource().sendFailure(Component.literal("This command requires an in-game player."));
+            ctx.getSource().sendFailure(Component.literal("Este comando requer um jogador in-game."));
             return 0;
         }
         try {
@@ -103,14 +103,14 @@ public class RankupAdminCommand {
             );
             menuService.openMenu(player, "rankup_admin_home_menu", context);
         } catch (Exception e) {
-            player.sendSystemMessage(Component.literal("§cCould not open RankUp admin menu."));
+            player.sendSystemMessage(Component.literal("§cNão foi possível abrir o menu admin RankUp."));
         }
         return 1;
     }
 
     private static int executeReload(CommandContext<CommandSourceStack> ctx) {
         boolean success = RankupManager.getInstance().reload();
-        ctx.getSource().sendSuccess(() -> Component.literal(success ? "§aRankUp config reloaded." : "§cRankUp config reload failed."), false);
+        ctx.getSource().sendSuccess(() -> Component.literal(success ? "§aConfig RankUp recarregada." : "§cFalha ao recarregar config RankUp."), false);
         return success ? 1 : 0;
     }
 
@@ -120,9 +120,9 @@ public class RankupAdminCommand {
         RankupManager mgr = RankupManager.getInstance();
         RankupRank current = mgr.getCurrentRank(target.getUUID());
         RankupRank next = mgr.getNextRank(target.getUUID());
-        ctx.getSource().sendSuccess(() -> Component.literal("§6Player: §f" + playerName), false);
-        ctx.getSource().sendSuccess(() -> Component.literal("§7Current: §f" + (current != null ? current.id() : "None")), false);
-        ctx.getSource().sendSuccess(() -> Component.literal("§7Next: §f" + (next != null ? next.id() : "Max")), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§6Jogador: §f" + playerName), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Atual: §f" + (current != null ? current.id() : "Nenhum")), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Próximo: §f" + (next != null ? next.id() : "Máximo")), false);
         return 1;
     }
 
@@ -130,13 +130,13 @@ public class RankupAdminCommand {
         ServerPlayer target = resolvePlayer(ctx, playerName);
         if (target == null) return 0;
         var inspection = RankupManager.getInstance().getPromotionService().inspectPromotion(target.getUUID());
-        ctx.getSource().sendSuccess(() -> Component.literal("§6Promotion lock for §f" + playerName), false);
-        ctx.getSource().sendSuccess(() -> Component.literal("§7Active: §f" + inspection.active()), false);
-        ctx.getSource().sendSuccess(() -> Component.literal("§7Transaction: §f" + (inspection.transactionId() != null ? inspection.transactionId() : "None")), false);
-        ctx.getSource().sendSuccess(() -> Component.literal("§7Stage: §f" + (inspection.stage() != null ? inspection.stage() : "None")), false);
-        ctx.getSource().sendSuccess(() -> Component.literal("§7Future done: §f" + inspection.futureDone()), false);
-        ctx.getSource().sendSuccess(() -> Component.literal("§7Elapsed ms: §f" + inspection.elapsedMs()), false);
-        ctx.getSource().sendSuccess(() -> Component.literal("§7Error: §f" + (inspection.errorMessage() != null ? inspection.errorMessage() : "None")), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§6Travamento de promoção para §f" + playerName), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Ativo: §f" + inspection.active()), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Transação: §f" + (inspection.transactionId() != null ? inspection.transactionId() : "Nenhuma")), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Estágio: §f" + (inspection.stage() != null ? inspection.stage() : "Nenhum")), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Future concluído: §f" + inspection.futureDone()), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Tempo decorrido (ms): §f" + inspection.elapsedMs()), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§7Erro: §f" + (inspection.errorMessage() != null ? inspection.errorMessage() : "Nenhum")), false);
         return 1;
     }
 
@@ -145,10 +145,10 @@ public class RankupAdminCommand {
         if (target == null) return 0;
         boolean unlocked = RankupManager.getInstance().getPromotionService().unlockPromotion(target.getUUID());
         if (unlocked) {
-            ctx.getSource().sendSuccess(() -> Component.literal("§aPromotion lock handled for " + playerName), false);
+            ctx.getSource().sendSuccess(() -> Component.literal("§aTravamento de promoção resolvido para " + playerName), false);
             return 1;
         }
-        ctx.getSource().sendFailure(Component.literal("§cPromotion is still active; use cancel instead."));
+        ctx.getSource().sendFailure(Component.literal("§cPromoção ainda ativa; use cancel."));
         return 0;
     }
 
@@ -157,10 +157,10 @@ public class RankupAdminCommand {
         if (target == null) return 0;
         boolean cancelled = RankupManager.getInstance().getPromotionService().cancelPromotion(target.getUUID());
         if (cancelled) {
-            ctx.getSource().sendSuccess(() -> Component.literal("§ePromotion cancelled for " + playerName), false);
+            ctx.getSource().sendSuccess(() -> Component.literal("§ePromoção cancelada para " + playerName), false);
             return 1;
         }
-        ctx.getSource().sendFailure(Component.literal("§cPromotion lock not found."));
+        ctx.getSource().sendFailure(Component.literal("§cTravamento de promoção não encontrado."));
         return 0;
     }
 
@@ -170,15 +170,15 @@ public class RankupAdminCommand {
         RankupManager mgr = RankupManager.getInstance();
         RankupRank rank = mgr.getConfig().getRank(rankId);
         if (rank == null) {
-            ctx.getSource().sendFailure(Component.literal("§cRank not found."));
+            ctx.getSource().sendFailure(Component.literal("§cRank não encontrado."));
             return 0;
         }
         mgr.getLuckPermsService().applyRankChange(target.getUUID(), mgr.getCurrentRank(target.getUUID()), rank, mgr.getConfig())
                 .thenAccept(result -> {
                     if (result.success()) {
-                        ctx.getSource().sendSuccess(() -> Component.literal("§aSet rank of " + playerName + " to " + rank.id()), false);
+                        ctx.getSource().sendSuccess(() -> Component.literal("§aRank de " + playerName + " definido para " + rank.id()), false);
                     } else {
-                        ctx.getSource().sendFailure(Component.literal("§cFailed: " + result.errorMessage()));
+                        ctx.getSource().sendFailure(Component.literal("§cFalhou: " + result.errorMessage()));
                     }
                 });
         return 1;
@@ -190,12 +190,12 @@ public class RankupAdminCommand {
         RankupManager mgr = RankupManager.getInstance();
         RankupRank next = mgr.getNextRank(target.getUUID());
         if (next == null) {
-            ctx.getSource().sendFailure(Component.literal("§cNo next rank."));
+            ctx.getSource().sendFailure(Component.literal("§cNenhum próximo rank."));
             return 0;
         }
         mgr.getPromotionService().promote(target, next, false)
                 .thenAccept(result -> ctx.getSource().sendSuccess(() -> Component.literal(
-                        result.success() ? "§aAdvanced " + playerName + " to " + next.id() : "§c" + result.message()), false));
+                        result.success() ? "§aAvançou " + playerName + " para " + next.id() : "§c" + result.message()), false));
         return 1;
     }
 
@@ -203,7 +203,7 @@ public class RankupAdminCommand {
         ServerPlayer target = resolvePlayer(ctx, playerName);
         if (target == null) return 0;
         RankupManager.getInstance().getTaskProgressService().resetAllTaskProgress(target.getUUID());
-        ctx.getSource().sendSuccess(() -> Component.literal("§aReset RankUp progress for " + playerName), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§aProgresso RankUp resetado para " + playerName), false);
         return 1;
     }
 
@@ -211,7 +211,7 @@ public class RankupAdminCommand {
         ServerPlayer target = resolvePlayer(ctx, playerName);
         if (target == null) return 0;
         RankupManager.getInstance().getTaskProgressService().resetAllTaskProgress(target.getUUID());
-        ctx.getSource().sendSuccess(() -> Component.literal("§aReset RankUp tasks for " + playerName), false);
+        ctx.getSource().sendSuccess(() -> Component.literal("§aTarefas RankUp resetadas para " + playerName), false);
         return 1;
     }
 
@@ -221,7 +221,7 @@ public class RankupAdminCommand {
         RankupManager mgr = RankupManager.getInstance();
         mgr.getRepository().loadRankHistory(target.getUUID(), mgr.getConfig().getLadder().id())
                 .thenAccept(list -> {
-                    ctx.getSource().sendSuccess(() -> Component.literal("§6Rank history for " + playerName + ":"), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§6Histórico de rank para " + playerName + ":"), false);
                     for (var entry : list) {
                         ctx.getSource().sendSuccess(() -> Component.literal("§7" + entry.fromRankId() + " -> " + entry.toRankId()), false);
                     }
@@ -234,16 +234,16 @@ public class RankupAdminCommand {
         mgr.getRepository().findPendingTransactions().thenAccept(list -> {
             ctx.getSource().getServer().execute(() -> {
                 if (list.isEmpty()) {
-                    ctx.getSource().sendSuccess(() -> Component.literal("§aNo transactions require recovery."), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§aNenhuma transação requer recuperação."), false);
                 } else {
-                    ctx.getSource().sendSuccess(() -> Component.literal("§6Pending/Recovery Transactions:"), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§6Transações Pendentes/Recuperação:"), false);
                     for (var tx : list) {
-                        ctx.getSource().sendSuccess(() -> Component.literal("§eID: §f" + tx.transactionId() + " §7| §ePlayer: §f" + tx.playerUuid() + " §7| §eStatus: §f" + tx.status()), false);
+                        ctx.getSource().sendSuccess(() -> Component.literal("§eID: §f" + tx.transactionId() + " §7| §eJogador: §f" + tx.playerUuid() + " §7| §eStatus: §f" + tx.status()), false);
                     }
                 }
             });
         }).exceptionally(e -> {
-            ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cDatabase error: " + e.getMessage())));
+            ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cErro no banco de dados: " + e.getMessage())));
             return null;
         });
         return 1;
@@ -254,23 +254,23 @@ public class RankupAdminCommand {
         mgr.getRepository().findTransaction(transactionId).thenAccept(opt -> {
             ctx.getSource().getServer().execute(() -> {
                 if (opt.isEmpty()) {
-                    ctx.getSource().sendFailure(Component.literal("§cTransaction not found."));
+                    ctx.getSource().sendFailure(Component.literal("§cTransação não encontrada."));
                 } else {
                     var tx = opt.get();
-                    ctx.getSource().sendSuccess(() -> Component.literal("§6Transaction " + tx.transactionId() + " Details:"), false);
-                    ctx.getSource().sendSuccess(() -> Component.literal("§7Player UUID: §f" + tx.playerUuid()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§6Detalhes da Transação " + tx.transactionId() + ":"), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7UUID do Jogador: §f" + tx.playerUuid()), false);
                     ctx.getSource().sendSuccess(() -> Component.literal("§7Status: §f" + tx.status()), false);
-                    ctx.getSource().sendSuccess(() -> Component.literal("§7From Rank: §f" + tx.fromRankId() + " §7-> To Rank: §f" + tx.toRankId()), false);
-                    ctx.getSource().sendSuccess(() -> Component.literal("§7Money Amount: §f" + tx.moneyAmount() + " §7| Gems: §f" + tx.gemsAmount()), false);
-                    ctx.getSource().sendSuccess(() -> Component.literal("§7Money Debited: §f" + tx.moneyDebited() + " §7| Gems Debited: §f" + tx.gemsDebited()), false);
-                    ctx.getSource().sendSuccess(() -> Component.literal("§7LuckPerms Updated: §f" + tx.luckpermsUpdated()), false);
-                    ctx.getSource().sendSuccess(() -> Component.literal("§7History Written: §f" + tx.historyWritten() + " §7| Progress Cleared: §f" + tx.progressCleared()), false);
-                    ctx.getSource().sendSuccess(() -> Component.literal("§7Compensated: §f" + tx.compensated()), false);
-                    ctx.getSource().sendSuccess(() -> Component.literal("§7Error: §f" + (tx.errorMessage() != null ? tx.errorMessage() : "None")), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Do Rank: §f" + tx.fromRankId() + " §7-> Para Rank: §f" + tx.toRankId()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Quantia Dinheiro: §f" + tx.moneyAmount() + " §7| Gemas: §f" + tx.gemsAmount()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Dinheiro Debitado: §f" + tx.moneyDebited() + " §7| Gemas Debitadas: §f" + tx.gemsDebited()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7LuckPerms Atualizado: §f" + tx.luckpermsUpdated()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Histórico Escrito: §f" + tx.historyWritten() + " §7| Progresso Limpo: §f" + tx.progressCleared()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Compensado: §f" + tx.compensated()), false);
+                    ctx.getSource().sendSuccess(() -> Component.literal("§7Erro: §f" + (tx.errorMessage() != null ? tx.errorMessage() : "Nenhum")), false);
                 }
             });
         }).exceptionally(e -> {
-            ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cDatabase error: " + e.getMessage())));
+            ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cErro no banco de dados: " + e.getMessage())));
             return null;
         });
         return 1;
@@ -280,21 +280,21 @@ public class RankupAdminCommand {
         RankupManager mgr = RankupManager.getInstance();
         mgr.getRepository().findTransaction(transactionId).thenCompose(opt -> {
             if (opt.isEmpty()) {
-                ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cTransaction not found.")));
+                ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cTransação não encontrada.")));
                 return CompletableFuture.completedFuture(null);
             }
             var tx = opt.get();
             return mgr.getPromotionService().compensate(tx.playerUuid(), tx).thenAccept(compensatedTx -> {
                 ctx.getSource().getServer().execute(() -> {
                     if (compensatedTx.compensated()) {
-                        ctx.getSource().sendSuccess(() -> Component.literal("§aTransaction successfully compensated/recovered."), false);
+                        ctx.getSource().sendSuccess(() -> Component.literal("§aTransação compensada/recuperada com sucesso."), false);
                     } else {
-                        ctx.getSource().sendFailure(Component.literal("§cCompensation failed. Status is " + compensatedTx.status()));
+                        ctx.getSource().sendFailure(Component.literal("§cCompensação falhou. Status é " + compensatedTx.status()));
                     }
                 });
             });
         }).exceptionally(e -> {
-            ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cError performing recovery: " + e.getMessage())));
+            ctx.getSource().getServer().execute(() -> ctx.getSource().sendFailure(Component.literal("§cErro ao realizar recuperação: " + e.getMessage())));
             return null;
         });
         return 1;
@@ -303,7 +303,7 @@ public class RankupAdminCommand {
     private static ServerPlayer resolvePlayer(CommandContext<CommandSourceStack> ctx, String name) {
         ServerPlayer target = ctx.getSource().getServer().getPlayerList().getPlayerByName(name);
         if (target == null) {
-            ctx.getSource().sendFailure(Component.literal("§cPlayer not found."));
+            ctx.getSource().sendFailure(Component.literal("§cJogador não encontrado."));
         }
         return target;
     }
