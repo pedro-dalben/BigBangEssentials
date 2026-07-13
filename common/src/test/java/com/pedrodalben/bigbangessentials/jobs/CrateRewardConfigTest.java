@@ -14,7 +14,7 @@ class CrateRewardConfigTest {
     void parseValidCrateReward() {
         CrateRewardDefinition reward = new CrateRewardDefinition(
                 List.of("BREAK-BLOCK", "COBBLEMON-CAPTURE"),
-                "craft_key", 0.02, 2, 10, "iniciante", 5, 3600L
+                "craft_key", "craft_key", 0.02, 2, 10, "iniciante", 5, 3600L, 0, false, false
         );
         assertEquals("craft_key", reward.keyId());
         assertEquals(0.02, reward.chance(), 0.001);
@@ -28,18 +28,18 @@ class CrateRewardConfigTest {
     @Test
     void matchesAction() {
         CrateRewardDefinition reward = new CrateRewardDefinition(
-                List.of("BREAK-BLOCK", "KILL-ENTITY"), "craft_key", 0.01, 1, 1, null, 3, 1800L
+                List.of("BREAK-BLOCK", "KILL-ENTITY"), "craft_key", "craft_key", 0.01, 1, 1, null, 3, 1800L, 0, false, false
         );
         assertTrue(reward.matchesAction("BREAK-BLOCK"));
         assertTrue(reward.matchesAction("KILL-ENTITY"));
         assertFalse(reward.matchesAction("FISH"));
-        assertTrue(reward.matchesAction("break-block")); // case insensitive
+        assertTrue(reward.matchesAction("break-block"));
     }
 
     @Test
     void emptyActionsMatchAll() {
         CrateRewardDefinition reward = new CrateRewardDefinition(
-                List.of(), "craft_key", 0.01, 1, 1, null, 3, 1800L
+                List.of(), "craft_key", "craft_key", 0.01, 1, 1, null, 3, 1800L, 0, false, false
         );
         assertTrue(reward.matchesAction("ANYTHING"));
         assertTrue(reward.matchesAction("BREAK-BLOCK"));
@@ -48,30 +48,30 @@ class CrateRewardConfigTest {
     @Test
     void invalidChanceThrows() {
         assertThrows(IllegalArgumentException.class, () ->
-                new CrateRewardDefinition(List.of(), "k", -0.1, 1, 1, null, 3, 1800L)
+                new CrateRewardDefinition(List.of(), "k", "k", -0.1, 1, 1, null, 3, 1800L, 0, false, false)
         );
         assertThrows(IllegalArgumentException.class, () ->
-                new CrateRewardDefinition(List.of(), "k", 1.5, 1, 1, null, 3, 1800L)
+                new CrateRewardDefinition(List.of(), "k", "k", 1.5, 1, 1, null, 3, 1800L, 0, false, false)
         );
     }
 
     @Test
     void invalidAmountThrows() {
         assertThrows(IllegalArgumentException.class, () ->
-                new CrateRewardDefinition(List.of(), "k", 0.1, 0, 1, null, 3, 1800L)
+                new CrateRewardDefinition(List.of(), "k", "k", 0.1, 0, 1, null, 3, 1800L, 0, false, false)
         );
         assertThrows(IllegalArgumentException.class, () ->
-                new CrateRewardDefinition(List.of(), "k", 0.1, -1, 1, null, 3, 1800L)
+                new CrateRewardDefinition(List.of(), "k", "k", 0.1, -1, 1, null, 3, 1800L, 0, false, false)
         );
     }
 
     @Test
     void blankKeyIdThrows() {
         assertThrows(IllegalArgumentException.class, () ->
-                new CrateRewardDefinition(List.of(), "", 0.1, 1, 1, null, 3, 1800L)
+                new CrateRewardDefinition(List.of(), "", "", 0.1, 1, 1, null, 3, 1800L, 0, false, false)
         );
         assertThrows(IllegalArgumentException.class, () ->
-                new CrateRewardDefinition(List.of(), "  ", 0.1, 1, 1, null, 3, 1800L)
+                new CrateRewardDefinition(List.of(), "  ", "  ", 0.1, 1, 1, null, 3, 1800L, 0, false, false)
         );
     }
 
