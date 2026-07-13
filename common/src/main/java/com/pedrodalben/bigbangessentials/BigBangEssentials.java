@@ -441,6 +441,13 @@ public class BigBangEssentials {
             } catch (Exception e) {
                 LOGGER.error("Failed to initialize Jobs RankUp integration listener: {}", e.getMessage());
             }
+
+            // Ensure utility crates and job progression keys exist
+            try {
+                com.pedrodalben.bigbangessentials.jobs.crates.DefaultCrateRewardGateway.getInstance().ensureUtilityCratesExist();
+            } catch (Exception e) {
+                LOGGER.error("Failed to ensure utility crates exist: {}", e.getMessage());
+            }
         }
         
         public static void onPlayerLoggedIn(net.minecraft.server.level.ServerPlayer player) {
