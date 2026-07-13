@@ -4,8 +4,12 @@ import com.pedrodalben.bigbangessentials.BigBangEssentials;
 import com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager;
 import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
 import com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -15,6 +19,7 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.player.AdvancementEvent;
 import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.ServerChatEvent;
@@ -111,17 +116,17 @@ public class NeoForgeEvents {
 
     @SubscribeEvent
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
-        if (event.getPlayer() instanceof ServerPlayer player) {
+        if (event.getPlayer() instanceof ServerPlayer player && !event.isCanceled()) {
             JobsEventListener.onBlockBreak(player, event.getPos(), event.getState());
-            RankupEventListener.onBlockBreak(player, event.getPos(), event.getState(), event.isCanceled());
+            RankupEventListener.onBlockBreak(player, event.getPos(), event.getState(), false);
         }
     }
 
     @SubscribeEvent
     public static void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) {
+        if (event.getEntity() instanceof ServerPlayer player && !event.isCanceled()) {
             JobsEventListener.onBlockPlace(player, event.getPos(), event.getPlacedBlock());
-            RankupEventListener.onBlockPlace(player, event.getPos(), event.getPlacedBlock(), event.isCanceled());
+            RankupEventListener.onBlockPlace(player, event.getPos(), event.getPlacedBlock(), false);
         }
     }
 
@@ -134,17 +139,17 @@ public class NeoForgeEvents {
 
     @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
-        if (event.getSource().getEntity() instanceof ServerPlayer player) {
+        if (event.getSource().getEntity() instanceof ServerPlayer player && !event.isCanceled()) {
             JobsEventListener.onLivingDeath(event.getEntity(), player);
-            RankupEventListener.onLivingDeath(event.getEntity(), player, event.isCanceled());
+            RankupEventListener.onLivingDeath(event.getEntity(), player, false);
         }
     }
 
     @SubscribeEvent
     public static void onItemFished(ItemFishedEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) {
+        if (event.getEntity() instanceof ServerPlayer player && !event.isCanceled()) {
             JobsEventListener.onItemFished(player, event.getDrops());
-            RankupEventListener.onItemFished(player, event.getDrops(), event.isCanceled());
+            RankupEventListener.onItemFished(player, event.getDrops(), false);
         }
     }
 
@@ -164,6 +169,16 @@ public class NeoForgeEvents {
         }
     }
 
+
+    @SubscribeEvent
+    public static void onUseMagic(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getEntity() instanceof ServerPlayer player && !event.isCanceled()) {
+            BlockState state = event.getLevel().getBlockState(event.getPos());
+            if (state.is(Blocks.ENCHANTING_TABLE) || state.is(Blocks.BREWING_STAND)) {
+                JobsEventListener.onUseMagic(player, event.getPos(), state);
+            }
+        }
+    }
 
     @SubscribeEvent
     public static void onAdvancement(AdvancementEvent.AdvancementEarnEvent event) {
