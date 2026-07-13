@@ -147,7 +147,7 @@ Execute safe re-probe of all integrations without duplicating listeners. Each br
 ## Reload Operation Detail
 
 ### What Happens
-1. `createBackup()` — copies current config dir to `config/bigbangessentials/jobs_backup_<timestamp>/`
+1. `createBackup()` — copies current config dir to `world/serverconfig/bigbangessentials/jobs_backup_<timestamp>/`
 2. `loadAndValidate()` — reads all JSON files, builds config objects, runs validation
 3. Integration shutdown — all bridge `shutdown()` methods called
 4. Atomic swap — `this.config = newConfig`
@@ -195,24 +195,24 @@ All output goes to server console and admin chat.
 
 **On migration**: When `migrateIfNeeded()` detects legacy configs AND canonical configs exist, they are copied to:
 ```
-config/bigbangessentials/jobs_backup_<yyyyMMdd_HHmmss>/
+world/serverconfig/bigbangessentials/jobs_backup_<yyyyMMdd_HHmmss>/
 ```
 
 **On reload**: `createBackup()` is called before the config swap:
 ```
-config/bigbangessentials/jobs_backup_<yyyyMMdd_HHmmss>/
+world/serverconfig/bigbangessentials/jobs_backup_<yyyyMMdd_HHmmss>/
 ```
 
 **On first write**: If defaults are generated, no backup is created (no existing configs to protect).
 
 ### Manual Backup
 ```bash
-cp -r config/bigbangessentials/jobs/ config/bigbangessentials/jobs_backup_manual/
+cp -r world/serverconfig/bigbangessentials/jobs/ world/serverconfig/bigbangessentials/jobs_backup_manual/
 ```
 
 ### Restore from Backup
 1. Stop the server
-2. Replace `config/bigbangessentials/jobs/` with backup contents
+2. Replace `world/serverconfig/bigbangessentials/jobs/` with backup contents
 3. Start the server
 
 ---
@@ -278,10 +278,10 @@ cp -r config/bigbangessentials/jobs/ config/bigbangessentials/jobs_backup_manual
 
 ### All Jobs Show as "Test"
 
-**Cause**: Config files missing from `config/bigbangessentials/jobs/professions/`.
+**Cause**: Config files missing from `world/serverconfig/bigbangessentials/jobs/professions/`.
 
 **Fix**: Delete the professions directory (or individual files) and reload. Defaults will regenerate:
 ```bash
-rm config/bigbangessentials/jobs/professions/*.json
+rm world/serverconfig/bigbangessentials/jobs/professions/*.json
 ```
 Then `/jobsadmin reload` — all 17 defaults are created.

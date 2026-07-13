@@ -169,7 +169,7 @@ A interface do usuário é gerenciada através de menus interativos altamente cu
 
 ## 8. Guia de Configuração (YAML / JSON)
 
-### 8.1 Configuração Global (`config/bigbangessentials/jobs.json`)
+### 8.1 Configuração Global (`world/serverconfig/bigbangessentials/jobs/global.json`)
 O arquivo global controla os limites de slots e a economia diária do servidor:
 ```json
 {
@@ -186,7 +186,7 @@ O arquivo global controla os limites de slots e a economia diária do servidor:
 }
 ```
 
-### 8.2 Configuração de Trabalho Individual (`config/bigbangessentials/jobs/<id>.json`)
+### 8.2 Configuração de Trabalho Individual (`world/serverconfig/bigbangessentials/jobs/professions/<id>.json`)
 Cada profissão possui um arquivo de configuração próprio em formato JSON. O motor de regras suporta **alvos exatos**, **grupos por tag** (`#pokemon`, `#ores`) e **curingas universais** (`*` ou `any`).
 
 *Exemplo completo de configuração avançada (`researcher.json`):*

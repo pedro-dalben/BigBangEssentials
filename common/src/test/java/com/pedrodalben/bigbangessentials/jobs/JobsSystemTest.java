@@ -213,7 +213,7 @@ class JobsSystemTest {
 
     @Test
     void testDefaultProfessionsCreated() throws Exception {
-        java.io.File professionsDir = new java.io.File("config/bigbangessentials/jobs/professions");
+        java.io.File professionsDir = new java.io.File("world/serverconfig/bigbangessentials/jobs/professions");
         if (!professionsDir.exists()) {
             JobsConfigLoader.init();
             String[] expectedIds = {
@@ -233,7 +233,7 @@ class JobsSystemTest {
     @Test
     void testNoTestDataInConfig() throws Exception {
         // Test that the old "Test" hardcoded data is gone
-        java.io.File professionsDir = new java.io.File("config/bigbangessentials/jobs/professions");
+        java.io.File professionsDir = new java.io.File("world/serverconfig/bigbangessentials/jobs/professions");
         if (professionsDir.exists()) {
             for (java.io.File f : professionsDir.listFiles((d, n) -> n.endsWith(".json"))) {
                 String content = java.nio.file.Files.readString(f.toPath(), java.nio.charset.StandardCharsets.UTF_8);

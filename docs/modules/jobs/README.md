@@ -88,7 +88,7 @@ profissão
 ```
 JobsManager (singleton init)
   → JobsConfigLoader.loadAndValidate()
-    → migrateIfNeeded() (world/serverconfig/ → config/bigbangessentials/jobs/)
+    → migrateIfNeeded() (config/ → world/serverconfig/bigbangessentials/jobs/)
     → load global.json, slots.json, milestones.json
     → load professions/*.json
     → validate all

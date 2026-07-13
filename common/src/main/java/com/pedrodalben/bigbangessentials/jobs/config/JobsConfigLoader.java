@@ -6,6 +6,8 @@ import com.pedrodalben.bigbangessentials.jobs.slot.JobSlotDefinition;
 import com.pedrodalben.bigbangessentials.jobs.progression.RankMilestoneDefinition;
 import com.pedrodalben.bigbangessentials.jobs.license.JobLicenseObjective;
 import com.pedrodalben.bigbangessentials.jobs.JobConfigurationValidator;
+import com.pedrodalben.bigbangessentials.jobs.JobActionType;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import com.google.gson.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,9 +24,15 @@ public class JobsConfigLoader {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobsConfigLoader.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final DateTimeFormatter BACKUP_FMT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+    private static final Set<String> PROFESSION_IDS = Set.of(
+            "miner", "woodcutter", "farmer", "builder", "blacksmith", "crafter",
+            "explorer", "ranger", "culinarian", "magician", "fisherman",
+            "researcher", "breeder", "trainer", "pasture_keeper", "paleontologist", "raider");
 
-    private static final String CANONICAL_DIR = "config/bigbangessentials/jobs";
-    private static final String LEGACY_DIR = "world/serverconfig/bigbangessentials/jobs";
+    // Minecraft's server config lives with the world. The old config/ path is
+    // kept only as an input for the one-time migration below.
+    private static final String CANONICAL_DIR = ResourceUtil.CONFIG_DIR + "jobs";
+    private static final String LEGACY_DIR = ResourceUtil.LEGACY_CONFIG_DIR + "jobs";
 
     private static Path canonicalDir;
     private static Path professionsDir;
@@ -56,29 +64,91 @@ public class JobsConfigLoader {
 
     private static void migrateIfNeeded() {
         Path legacy = Path.of(LEGACY_DIR);
-        if (!Files.exists(legacy)) return;
-
-        Path migratedMarker = legacy.resolve(".migrated");
-        if (Files.exists(migratedMarker)) return;
-
         try {
-            if (canonicalConfigsAlreadyExist()) {
-                LOGGER.info("Canonical config directory already populated, skipping migration from legacy.");
-                Files.writeString(migratedMarker, "migrated_to=" + canonicalDir.toAbsolutePath());
-                return;
-            }
+            ensureDirectories();
+            migrateNewerFlatOverrides(Path.of(CANONICAL_DIR));
+            if (canonicalConfigsAlreadyExist()) return;
+
+            Path source = findMigrationSource(legacy);
+            if (source == null) return;
 
             Path backupDir = Path.of(CANONICAL_DIR + "_backup_" + BACKUP_FMT.format(LocalDateTime.now()));
-            if (Files.exists(canonicalDir)) {
+            if (Files.exists(canonicalDir) && hasJsonFiles(canonicalDir)) {
                 copyDir(canonicalDir, backupDir);
-                LOGGER.info("Backup created at {} before migration from legacy path", backupDir);
+                LOGGER.info("Jobs config backup created at {}", backupDir);
             }
-            copyDir(legacy, canonicalDir);
-            Files.writeString(migratedMarker, "migrated_to=" + canonicalDir.toAbsolutePath());
-            LOGGER.info("Migrated configs from {} to {}", legacy, canonicalDir);
+            copyProfessionFiles(source);
+            copySharedConfigFiles(source.getParent());
+            if (Files.exists(legacy)) {
+                Files.writeString(legacy.resolve(".migrated"),
+                        "migrated_to=" + canonicalDir.toAbsolutePath(), StandardCharsets.UTF_8);
+            }
+            LOGGER.info("Migrated jobs configuration from {} to {}", source, canonicalDir);
         } catch (Exception e) {
-            LOGGER.warn("Migration from legacy path {} failed: {}", legacy, e.getMessage());
+            LOGGER.warn("Jobs configuration migration from {} failed: {}", legacy, e.getMessage());
         }
+    }
+
+    private static Path findMigrationSource(Path legacy) throws IOException {
+        if (hasJsonFiles(professionsDir)) return professionsDir;
+        Path canonicalFlat = canonicalDir;
+        if (hasProfessionFiles(canonicalFlat)) return canonicalFlat;
+        if (hasJsonFiles(legacy.resolve("professions"))) return legacy.resolve("professions");
+        if (hasProfessionFiles(legacy)) return legacy;
+        return null;
+    }
+
+    private static void migrateNewerFlatOverrides(Path dir) throws IOException {
+        if (!Files.isDirectory(dir)) return;
+        for (String professionId : PROFESSION_IDS) {
+            Path flat = dir.resolve(professionId + ".json");
+            Path nested = professionsDir.resolve(professionId + ".json");
+            if (Files.isRegularFile(flat) && Files.isRegularFile(nested)
+                    && Files.getLastModifiedTime(flat).compareTo(Files.getLastModifiedTime(nested)) > 0) {
+                Files.copy(flat, nested, StandardCopyOption.REPLACE_EXISTING);
+                LOGGER.info("Migrated newer flat profession config {} to {}", flat, nested);
+            }
+        }
+    }
+
+    private static void copyProfessionFiles(Path source) throws IOException {
+        Files.createDirectories(professionsDir);
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(source, "*.json")) {
+            for (Path file : stream) {
+                String id = file.getFileName().toString();
+                String professionId = id.substring(0, id.length() - ".json".length()).toLowerCase(Locale.ROOT);
+                if (!PROFESSION_IDS.contains(professionId)) continue;
+                Files.copy(file, professionsDir.resolve(id), StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+    }
+
+    private static void copySharedConfigFiles(Path sourceDir) throws IOException {
+        for (String name : List.of("global.json", "slots.json", "milestones.json")) {
+            Path source = sourceDir.resolve(name);
+            Path target = canonicalDir.resolve(name);
+            if (Files.exists(source) && !Files.exists(target)) {
+                Files.copy(source, target);
+            }
+        }
+    }
+
+    private static boolean hasJsonFiles(Path dir) throws IOException {
+        if (!Files.isDirectory(dir)) return false;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.json")) {
+            return stream.iterator().hasNext();
+        }
+    }
+
+    private static boolean hasProfessionFiles(Path dir) throws IOException {
+        if (!Files.isDirectory(dir)) return false;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.json")) {
+            for (Path file : stream) {
+                String name = file.getFileName().toString();
+                if (!Set.of("global.json", "slots.json", "milestones.json").contains(name)) return true;
+            }
+        }
+        return false;
     }
 
     private static boolean canonicalConfigsAlreadyExist() {
@@ -184,11 +254,7 @@ public class JobsConfigLoader {
             // Directory may not exist yet; default files will be created on first write
         }
 
-        String[] defaultIds = {
-            "miner","woodcutter","farmer","builder","blacksmith","crafter",
-            "explorer","ranger","culinarian","magician","fisherman",
-            "researcher","breeder","trainer","pasture_keeper","paleontologist","raider"
-        };
+        String[] defaultIds = PROFESSION_IDS.toArray(String[]::new);
 
         if (files.isEmpty()) {
             for (String id : defaultIds) {
@@ -227,6 +293,8 @@ public class JobsConfigLoader {
                 seenIds.add(job.id.toLowerCase());
                 JobConfigurationValidator.validateJob(job, fileName);
                 result.put(job.id.toLowerCase(), job);
+                LOGGER.info("Loaded profession '{}' from {} ({} action groups)",
+                        job.id, file.toAbsolutePath(), job.actions.size());
             } catch (Exception e) {
                 LOGGER.warn("Skipping {}: {}", file.toAbsolutePath(), e.getMessage());
             }
@@ -292,7 +360,11 @@ public class JobsConfigLoader {
                 double chance = rewardObj.has("chance") ? rewardObj.get("chance").getAsDouble() : 1.0;
                 targets.put(tEntry.getKey(), new ActionReward(money, xp, chance));
             }
-            result.put(actEntry.getKey(), targets);
+            JobActionType actionType = JobActionType.fromString(actEntry.getKey());
+            String actionKey = actionType != null
+                    ? actionType.getConfigKeys().get(0)
+                    : actEntry.getKey().toUpperCase(Locale.ROOT).replace('_', '-');
+            result.put(actionKey, targets);
         }
         return result;
     }

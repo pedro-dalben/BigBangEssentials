@@ -162,7 +162,7 @@ common/src/main/java/com/pedrodalben/bigbangessentials/jobs/
 
 **Check**: Verify `JobsConfigLoader.loadAndValidate()` reads from filesystem, not hardcoded defaults only.
 
-**Result**: Loads from `config/bigbangessentials/jobs/` canonical path. Falls back to auto-generated defaults only when files are missing. All configs parsed via Gson with proper error handling.
+**Result**: Loads from `world/serverconfig/bigbangessentials/jobs/` canonical path. Falls back to auto-generated defaults only when files are missing. All configs parsed via Gson with proper error handling.
 
 **Evidence**: `JobsConfigLoader.java` lines 36–54, 160–217.
 
@@ -214,7 +214,7 @@ Each has: id, display-name, icon, category, max-level, xp-curve, actions, how-to
 - `migrateIfNeeded()` creates timestamped backup of canonical dir before copying from legacy
 - `createBackup()` creates timestamped backup before reload
 - Migration marker file prevents duplicate migration
-- Legacy path: `world/serverconfig/bigbangessentials/jobs/`
+- Legacy path: `config/bigbangessentials/jobs/`
 
 **Evidence**: `JobsConfigLoader.java` lines 56–73 (migration), lines 410–420 (backup).
 

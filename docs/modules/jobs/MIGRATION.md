@@ -33,8 +33,8 @@ This document covers migration from the pre-refactor Jobs codebase to the curren
 
 `JobsConfigLoader.migrateIfNeeded()` runs on every server start:
 
-1. **Check**: Does `world/serverconfig/bigbangessentials/jobs/` exist?
-2. **Backup canonical**: If `config/bigbangessentials/jobs/` already exists, copy to `config/bigbangessentials/jobs_backup_<timestamp>/`
+1. **Check**: Does `config/bigbangessentials/jobs/` exist?
+2. **Backup canonical**: If `world/serverconfig/bigbangessentials/jobs/` already exists, copy to `world/serverconfig/bigbangessentials/jobs_backup_<timestamp>/`
 3. **Copy**: Move all files from legacy to canonical path
 4. **Mark**: Write `.migrated` file in legacy dir with content `migrated_to=<canonical_path>`
 5. **Continue**: Load from canonical path
@@ -42,8 +42,8 @@ This document covers migration from the pre-refactor Jobs codebase to the curren
 ### Manual Migration
 ```bash
 # If automatic migration failed or was skipped:
-cp -r world/serverconfig/bigbangessentials/jobs/ config/bigbangessentials/jobs/
-echo "migrated_to=$(pwd)/config/bigbangessentials/jobs" > world/serverconfig/bigbangessentials/jobs/.migrated
+cp -r config/bigbangessentials/jobs/ world/serverconfig/bigbangessentials/jobs/
+echo "migrated_to=$(pwd)/world/serverconfig/bigbangessentials/jobs" > config/bigbangessentials/jobs/.migrated
 ```
 
 ## Permission Node Migration
@@ -150,7 +150,7 @@ On first server start, `JobsConfigLoader` detects empty `professions/` directory
 
 | Old | New |
 |-----|-----|
-| `world/serverconfig/bigbangessentials/jobs/` | `config/bigbangessentials/jobs/` |
+| `config/bigbangessentials/jobs/` | `world/serverconfig/bigbangessentials/jobs/` |
 | Single `jobs.json` (hypothetical) | Directory structure with multiple files |
 | No subdirectories | `professions/` subdirectory |
 
@@ -168,14 +168,14 @@ Old XP curve was `level * 100`. Current default is polynomial `base × level^exp
 
 1. **Restore config backup**:
    ```bash
-   cp -r config/bigbangessentials/jobs_backup_<timestamp>/* config/bigbangessentials/jobs/
+   cp -r world/serverconfig/bigbangessentials/jobs_backup_<timestamp>/* world/serverconfig/bigbangessentials/jobs/
    ```
 
 2. **Restore database**: If database migration ran, restore `bbe.db` from pre-migration backup
 
 3. **Remove migration marker**:
    ```bash
-   rm -f world/serverconfig/bigbangessentials/jobs/.migrated
+   rm -f config/bigbangessentials/jobs/.migrated
    ```
 
 4. **Start server** — will load from canonical path, no migration triggered
@@ -192,7 +192,7 @@ Old XP curve was `level * 100`. Current default is polynomial `base × level^exp
 
 After migration, verify:
 
-- [ ] 17 profession JSONs exist in `config/bigbangessentials/jobs/professions/`
+- [ ] 17 profession JSONs exist in `world/serverconfig/bigbangessentials/jobs/professions/`
 - [ ] `global.json` has `schema-version: 2`
 - [ ] `slots.json` has 3 slot definitions
 - [ ] `milestones.json` has 3 milestones

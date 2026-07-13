@@ -41,7 +41,7 @@ O ecossistema BigBangEssentials conecta três módulos centrais em um fluxo de p
 
 O sistema `JobRankMilestoneService` monitora o rank atual do jogador no `RankupManager`. Quando um jogador atinge um rank que corresponde a um milestone configurado, os slots de profissão correspondentes são liberados.
 
-**Arquivo**: `config/bigbangessentials/jobs/milestones.json`
+**Arquivo**: `world/serverconfig/bigbangessentials/jobs/milestones.json`
 
 ```json
 {
@@ -88,7 +88,7 @@ O sistema `JobRankMilestoneService` monitora o rank atual do jogador no `RankupM
 
 ### 1.2 Slots de Profissão
 
-**Arquivo**: `config/bigbangessentials/jobs/slots.json`
+**Arquivo**: `world/serverconfig/bigbangessentials/jobs/slots.json`
 
 ```json
 {
@@ -435,10 +435,10 @@ Regras adicionais de validação para os campos de integração:
 | Arquivo | Módulo | Propósito |
 |---------|--------|-----------|
 | `config/bigbangessentials/rankup.json` | RankUp | Definição de ranks e ladder |
-| `config/bigbangessentials/jobs/global.json` | Jobs | Configuração global (limites, AFK) |
-| `config/bigbangessentials/jobs/slots.json` | Jobs | Definição de slots de profissão |
-| `config/bigbangessentials/jobs/milestones.json` | Jobs | Milestones / rank → slot unlocks |
-| `config/bigbangessentials/jobs/professions/*.json` | Jobs | Configuração individual de cada profissão |
+| `world/serverconfig/bigbangessentials/jobs/global.json` | Jobs | Configuração global (limites, AFK) |
+| `world/serverconfig/bigbangessentials/jobs/slots.json` | Jobs | Definição de slots de profissão |
+| `world/serverconfig/bigbangessentials/jobs/milestones.json` | Jobs | Milestones / rank → slot unlocks |
+| `world/serverconfig/bigbangessentials/jobs/professions/*.json` | Jobs | Configuração individual de cada profissão |
 | `config/crates.json` | Crates | Definições de crates |
 | `config/keys.json` | Crates | Definições de chaves |
 | `config/crate_locations.json` | Crates | Localizações de crates no mundo |

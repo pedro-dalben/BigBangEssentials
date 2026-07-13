@@ -3,13 +3,13 @@
 ## Canonical Path
 
 ```
-config/bigbangessentials/jobs/
+world/serverconfig/bigbangessentials/jobs/
 ```
 
 ## File Tree
 
 ```
-config/bigbangessentials/jobs/
+world/serverconfig/bigbangessentials/jobs/
 ├── global.json              # Global settings, daily limits, permissions
 ├── slots.json               # Slot definitions (COMMON_PRIMARY, etc.)
 ├── milestones.json          # RankUp milestones → slot unlocks
@@ -303,18 +303,18 @@ Triggered by `/jobsadmin reload` or `/jobs admin reload`.
 
 When configs exist at the canonical path and legacy configs are detected during migration:
 
-1. Existing canonical configs are copied to `config/bigbangessentials/jobs_backup_<yyyyMMdd_HHmmss>/`
-2. Legacy configs (`world/serverconfig/bigbangessentials/jobs/`) are copied to canonical path
+1. Existing canonical configs are copied to `world/serverconfig/bigbangessentials/jobs_backup_<yyyyMMdd_HHmmss>/`
+2. Legacy configs (`config/bigbangessentials/jobs/`) are copied to canonical path
 3. A `.migrated` marker file is written in the legacy directory
 
-Manual backup: copy the entire `config/bigbangessentials/jobs/` directory.
+Manual backup: copy the entire `world/serverconfig/bigbangessentials/jobs/` directory.
 
 ## Migration from `world/serverconfig/`
 
 Automatic on server start (in `JobsConfigLoader.migrateIfNeeded()`):
 
-1. **Detection**: If `world/serverconfig/bigbangessentials/jobs/` exists
-2. **Backup canonical**: Create timestamped backup of `config/bigbangessentials/jobs/`
+1. **Detection**: If `config/bigbangessentials/jobs/` exists
+2. **Backup canonical**: Create timestamped backup of `world/serverconfig/bigbangessentials/jobs/`
 3. **Copy**: Move files from legacy to canonical
 4. **Mark**: Write `.migrated` file in legacy dir
 5. **Proceed**: Load from canonical path

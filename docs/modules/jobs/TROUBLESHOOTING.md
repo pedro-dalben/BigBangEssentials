@@ -6,13 +6,13 @@
 
 **Symptom**: Profession names show as "Test" in menus and chat.
 
-**Cause**: Config files are missing from `config/bigbangessentials/jobs/professions/`. The system falls back to placeholder display names when no config is loaded.
+**Cause**: Config files are missing from `world/serverconfig/bigbangessentials/jobs/professions/`. The system falls back to placeholder display names when no config is loaded.
 
 **Fix**:
-1. Check if files exist: `ls config/bigbangessentials/jobs/professions/`
+1. Check if files exist: `ls world/serverconfig/bigbangessentials/jobs/professions/`
 2. If empty or missing files, delete what's there and reload:
    ```bash
-   rm config/bigbangessentials/jobs/professions/*.json
+   rm world/serverconfig/bigbangessentials/jobs/professions/*.json
    ```
 3. Run `/jobsadmin reload` — all 17 defaults regenerate automatically
 4. Verify: `/jobsadmin diag` should show 17 professions
@@ -252,7 +252,7 @@ if (!isDatabaseAvailable()) {
 
 | Symptom | First Check | Fast Fix |
 |---------|------------|----------|
-| "Test" names | `ls config/bigbangessentials/jobs/professions/` | Delete files, `/jobsadmin reload` |
+| "Test" names | `ls world/serverconfig/bigbangessentials/jobs/professions/` | Delete files, `/jobsadmin reload` |
 | No Pokemon jobs | `/jobsadmin integrations` | Check Cobblemon installed + player rank |
 | No title in menu | `ls config/bigbangessentials/menus/` | Restore menu YAML |
 | No progress | `/jobsadmin info <player>` | Check active/slot/daily limit/AFK |
