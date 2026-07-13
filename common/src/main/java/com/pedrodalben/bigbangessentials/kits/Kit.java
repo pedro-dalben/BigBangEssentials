@@ -177,11 +177,17 @@ public class Kit {
         
         // Deserialize items
         List<ItemStack> items = new ArrayList<>();
-        if (json.has("items")) {
+        if (json.has("items") && json.get("items").isJsonArray()) {
             JsonArray itemsArray = json.getAsJsonArray("items");
             for (JsonElement element : itemsArray) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
                 JsonObject itemJson = element.getAsJsonObject();
                 try {
+                    if (!itemJson.has("item") || !itemJson.get("item").isJsonPrimitive()) {
+                        continue;
+                    }
                     String itemString = itemJson.get("item").getAsString();
 
                     // Use helper to create ResourceLocation safely across versions

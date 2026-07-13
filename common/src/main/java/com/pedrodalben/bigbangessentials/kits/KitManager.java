@@ -3,6 +3,7 @@ package com.pedrodalben.bigbangessentials.kits;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -75,7 +76,17 @@ public class KitManager {
             
             if (kitsFile.exists()) {
                 try (Reader reader = new FileReader(kitsFile)) {
-                    JsonObject config = GSON.fromJson(reader, JsonObject.class);
+                    JsonElement parsed = JsonParser.parseReader(reader);
+                    JsonObject config;
+                    if (parsed != null && parsed.isJsonObject()) {
+                        config = parsed.getAsJsonObject();
+                    } else if (parsed != null && parsed.isJsonArray()) {
+                        // Support legacy files whose root was the kit array.
+                        config = new JsonObject();
+                        config.add("kits", parsed.getAsJsonArray());
+                    } else {
+                        config = null;
+                    }
                     
                     if (config != null && config.has("kits")) {
                         JsonElement kitsElement = config.get("kits");

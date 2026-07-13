@@ -131,59 +131,65 @@ public class KitCommand {
         var source = ctx.getSource();
         var player = source.getPlayer();
 
-        if (player != null && KitMenuConfig.isEnabled()) {
-            try {
-                MenuOpenResult result = MenuSystem.getInstance().getMenuService().openMenu(
-                    player,
-                    KitMenuConfig.getMenuId(),
-                    new MenuContext(player.getUUID(), "pt_BR", null, null, null, null, UUID.randomUUID())
-                ).toCompletableFuture().join();
+        try {
+            if (player != null && KitMenuConfig.isEnabled()) {
+                try {
+                    MenuOpenResult result = MenuSystem.getInstance().getMenuService().openMenu(
+                        player,
+                        KitMenuConfig.getMenuId(),
+                        new MenuContext(player.getUUID(), "pt_BR", null, null, null, null, UUID.randomUUID())
+                    ).toCompletableFuture().join();
 
-                if (result != null && result.success()) {
-                    return 1;
-                }
+                    if (result != null && result.success()) {
+                        return 1;
+                    }
 
-                if (!KitMenuConfig.isFallbackToChatIfMenuFails()) {
-                    source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.no_permission_general"));
-                    return 0;
-                }
-            } catch (Exception e) {
-                LOGGER.debug("Failed to open kit menu, falling back to chat list: {}", e.getMessage());
-                if (!KitMenuConfig.isFallbackToChatIfMenuFails()) {
-                    source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.no_permission_general"));
-                    return 0;
+                    if (!KitMenuConfig.isFallbackToChatIfMenuFails()) {
+                        source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.no_permission_general"));
+                        return 0;
+                    }
+                } catch (Exception e) {
+                    LOGGER.debug("Failed to open kit menu, falling back to chat list: {}", e.getMessage(), e);
+                    if (!KitMenuConfig.isFallbackToChatIfMenuFails()) {
+                        source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.no_permission_general"));
+                        return 0;
+                    }
                 }
             }
-        }
 
-        if (player != null && !hasKitCommandAccess(player)) {
-            source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.no_permission_general"));
+            if (player != null && !hasKitCommandAccess(player)) {
+                source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.no_permission_general"));
+                return 0;
+            }
+
+            var available = player != null
+                ? KitManager.getInstance().getAvailableKits(player)
+                : new java.util.ArrayList<>(KitManager.getInstance().getAllKits());
+
+            if (available.isEmpty()) {
+                source.sendSuccess(() -> MessageUtil.info("commands.bigbangessentials.kits.list_empty"), false);
+                return 1;
+            }
+
+            source.sendSuccess(() -> MessageUtil.info("commands.bigbangessentials.kits.list_header",
+                available.size()), false);
+
+            for (Kit kit : available) {
+                long remaining = player != null
+                    ? KitManager.getInstance().getRemainingCooldownPublic(player.getUUID(), kit.getName())
+                    : 0L;
+                String cooldownStr = remaining > 0
+                    ? MessageUtil.localize("commands.bigbangessentials.kits.list_cooldown", formatTime(remaining))
+                    : MessageUtil.localize("commands.bigbangessentials.kits.list_ready");
+                source.sendSuccess(() -> MessageUtil.info("commands.bigbangessentials.kits.list_entry",
+                    kit.getName(), kit.getItems().size(), cooldownStr), false);
+            }
+            return 1;
+        } catch (Exception e) {
+            LOGGER.error("Unexpected error while executing /kits", e);
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.kits.error"));
             return 0;
         }
-
-        var available = player != null
-            ? KitManager.getInstance().getAvailableKits(player)
-            : new java.util.ArrayList<>(KitManager.getInstance().getAllKits());
-
-        if (available.isEmpty()) {
-            source.sendSuccess(() -> MessageUtil.info("commands.bigbangessentials.kits.list_empty"), false);
-            return 1;
-        }
-
-        source.sendSuccess(() -> MessageUtil.info("commands.bigbangessentials.kits.list_header",
-            available.size()), false);
-
-        for (Kit kit : available) {
-            long remaining = player != null
-                ? KitManager.getInstance().getRemainingCooldownPublic(player.getUUID(), kit.getName())
-                : 0L;
-            String cooldownStr = remaining > 0
-                ? MessageUtil.localize("commands.bigbangessentials.kits.list_cooldown", formatTime(remaining))
-                : MessageUtil.localize("commands.bigbangessentials.kits.list_ready");
-            source.sendSuccess(() -> MessageUtil.info("commands.bigbangessentials.kits.list_entry",
-                kit.getName(), kit.getItems().size(), cooldownStr), false);
-        }
-        return 1;
     }
 
     // ── /kit <name> [player] ─────────────────────────────────────────────────
@@ -301,15 +307,19 @@ public class KitCommand {
 
     private static boolean hasAnyAccessibleKit(ServerPlayer player) {
         for (Kit kit : KitManager.getInstance().getAllKits()) {
-            if (!kit.isEnabled()) {
-                continue;
-            }
+            try {
+                if (!kit.isEnabled()) {
+                    continue;
+                }
 
-            String permission = kit.getPermission() != null && !kit.getPermission().isEmpty()
-                ? kit.getPermission()
-                : "bigbangessentials.kits." + kit.getName().toLowerCase();
-            if (PermissionAPI.hasPermission(player.getUUID(), permission)) {
-                return true;
+                String permission = kit.getPermission() != null && !kit.getPermission().isEmpty()
+                    ? kit.getPermission()
+                    : "bigbangessentials.kits." + kit.getName().toLowerCase();
+                if (PermissionAPI.hasPermission(player.getUUID(), permission)) {
+                    return true;
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Ignoring kit '{}' while checking kit command access: {}", kit != null ? kit.getName() : "null", e.getMessage());
             }
         }
         return false;
