@@ -24,8 +24,18 @@ class HologramDefinitionTest {
     }
 
     @Test
-    void rejectsIdsWithoutNamespace() {
-        assertThrows(IllegalArgumentException.class, () -> HologramDefinition.builder("spawn-rules")
+    void autoPrefixesSimpleIds() {
+        HologramDefinition definition = HologramDefinition.builder("spawn-rules")
+            .location(new HologramLocation(Level.OVERWORLD, 0.0D, 70.0D, 0.0D))
+            .lines(List.of("Linha 1"))
+            .build();
+
+        assertEquals("bigbangessentials:admin/spawn-rules", definition.id());
+    }
+
+    @Test
+    void rejectsIdsWithInvalidNamespace() {
+        assertThrows(IllegalArgumentException.class, () -> HologramDefinition.builder("invalid:namespace!")
             .location(new HologramLocation(Level.OVERWORLD, 0.0D, 70.0D, 0.0D))
             .lines(List.of("Linha 1"))
             .build());
