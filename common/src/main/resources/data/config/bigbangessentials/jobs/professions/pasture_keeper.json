@@ -25,13 +25,34 @@
   "reset-progress-on-leave": false,
   "actions": {
     "PASTURE-TASK-COMPLETED": {
-      "cobblemon:feed_pokemon": {"money": 8.0, "xp": 12.0},
-      "cobblemon:clean_pasture": {"money": 15.0, "xp": 25.0},
-      "cobblemon:heal_pokemon": {"money": 10.0, "xp": 18.0},
-      "cobblemon:harvest_berry": {"money": 12.0, "xp": 20.0},
-      "cobblemon:plant_berry": {"money": 5.0, "xp": 8.0},
-      "cobblemon:upgrade_pasture": {"money": 50.0, "xp": 80.0},
-      "*": {"money": 3.0, "xp": 5.0}
+      "cobblemon:feed_pokemon": {
+        "money": 8.0,
+        "xp": 12.0
+      },
+      "cobblemon:clean_pasture": {
+        "money": 15.0,
+        "xp": 25.0
+      },
+      "cobblemon:heal_pokemon": {
+        "money": 10.0,
+        "xp": 18.0
+      },
+      "cobblemon:harvest_berry": {
+        "money": 12.0,
+        "xp": 20.0
+      },
+      "cobblemon:plant_berry": {
+        "money": 5.0,
+        "xp": 8.0
+      },
+      "cobblemon:upgrade_pasture": {
+        "money": 50.0,
+        "xp": 80.0
+      },
+      "*": {
+        "money": 3.0,
+        "xp": 5.0
+      }
     }
   },
   "how-to-earn": {
@@ -47,7 +68,11 @@
       "Toda tarefa de pasto concluída que paga dinheiro também concede XP.",
       "Use seu XP para subir de nível e desbloquear bônus."
     ],
-    "example-targets": ["cobblemon:clean_pasture", "cobblemon:heal_pokemon", "cobblemon:harvest_berry"]
+    "example-targets": [
+      "cobblemon:clean_pasture",
+      "cobblemon:heal_pokemon",
+      "cobblemon:harvest_berry"
+    ]
   },
   "skills": {},
   "level-up-rewards": {},
@@ -55,5 +80,59 @@
     "join": "&aVocê agora é um Cuidador de Pasto! Cuide bem dos Pokémon!",
     "leave": "&cVocê deixou a profissão de Cuidador de Pasto.",
     "level-up": "&aParabéns! Você alcançou o nível %level% de Cuidador de Pasto! Pontos de habilidade: +%points%"
-  }
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
 }

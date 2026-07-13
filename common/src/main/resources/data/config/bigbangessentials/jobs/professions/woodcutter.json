@@ -25,20 +25,62 @@
   "reset-progress-on-leave": false,
   "actions": {
     "BREAK-BLOCK": {
-      "minecraft:oak_log": {"money": 3.0, "xp": 5.0},
-      "minecraft:spruce_log": {"money": 3.0, "xp": 5.0},
-      "minecraft:birch_log": {"money": 3.0, "xp": 5.0},
-      "minecraft:jungle_log": {"money": 4.0, "xp": 6.0},
-      "minecraft:acacia_log": {"money": 3.5, "xp": 5.5},
-      "minecraft:dark_oak_log": {"money": 4.0, "xp": 6.0},
-      "minecraft:mangrove_log": {"money": 4.5, "xp": 7.0},
-      "minecraft:cherry_log": {"money": 5.0, "xp": 8.0},
-      "minecraft:crimson_stem": {"money": 6.0, "xp": 10.0},
-      "minecraft:warped_stem": {"money": 6.0, "xp": 10.0},
-      "minecraft:mushroom_stem": {"money": 4.0, "xp": 6.0},
-      "minecraft:brown_mushroom_block": {"money": 2.0, "xp": 3.0},
-      "minecraft:red_mushroom_block": {"money": 2.0, "xp": 3.0},
-      "*": {"money": 0.5, "xp": 1.0}
+      "minecraft:oak_log": {
+        "money": 3.0,
+        "xp": 5.0
+      },
+      "minecraft:spruce_log": {
+        "money": 3.0,
+        "xp": 5.0
+      },
+      "minecraft:birch_log": {
+        "money": 3.0,
+        "xp": 5.0
+      },
+      "minecraft:jungle_log": {
+        "money": 4.0,
+        "xp": 6.0
+      },
+      "minecraft:acacia_log": {
+        "money": 3.5,
+        "xp": 5.5
+      },
+      "minecraft:dark_oak_log": {
+        "money": 4.0,
+        "xp": 6.0
+      },
+      "minecraft:mangrove_log": {
+        "money": 4.5,
+        "xp": 7.0
+      },
+      "minecraft:cherry_log": {
+        "money": 5.0,
+        "xp": 8.0
+      },
+      "minecraft:crimson_stem": {
+        "money": 6.0,
+        "xp": 10.0
+      },
+      "minecraft:warped_stem": {
+        "money": 6.0,
+        "xp": 10.0
+      },
+      "minecraft:mushroom_stem": {
+        "money": 4.0,
+        "xp": 6.0
+      },
+      "minecraft:brown_mushroom_block": {
+        "money": 2.0,
+        "xp": 3.0
+      },
+      "minecraft:red_mushroom_block": {
+        "money": 2.0,
+        "xp": 3.0
+      },
+      "*": {
+        "money": 0.5,
+        "xp": 1.0
+      }
     }
   },
   "how-to-earn": {
@@ -53,7 +95,11 @@
       "Todo tronco derrubado que paga dinheiro também concede XP.",
       "Use seu XP para subir de nível e desbloquear bônus."
     ],
-    "example-targets": ["minecraft:oak_log", "minecraft:cherry_log", "minecraft:crimson_stem"]
+    "example-targets": [
+      "minecraft:oak_log",
+      "minecraft:cherry_log",
+      "minecraft:crimson_stem"
+    ]
   },
   "skills": {},
   "level-up-rewards": {},
@@ -61,5 +107,59 @@
     "join": "&aVocê agora é um Lenhador! Pegue seu machado e vá para a floresta!",
     "leave": "&cVocê deixou a profissão de Lenhador.",
     "level-up": "&aParabéns! Você alcançou o nível %level% de Lenhador! Pontos de habilidade: +%points%"
-  }
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
 }

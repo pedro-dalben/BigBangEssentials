@@ -25,13 +25,34 @@
   "reset-progress-on-leave": false,
   "actions": {
     "TRAINER-BATTLE-WON": {
-      "cobblemon:npc_trainer": {"money": 30.0, "xp": 50.0},
-      "cobblemon:gym_leader": {"money": 100.0, "xp": 150.0},
-      "cobblemon:elite_four": {"money": 250.0, "xp": 400.0},
-      "cobblemon:champion": {"money": 500.0, "xp": 800.0},
-      "cobblemon:rival": {"money": 50.0, "xp": 80.0},
-      "cobblemon:player_trainer": {"money": 75.0, "xp": 120.0},
-      "*": {"money": 15.0, "xp": 25.0}
+      "cobblemon:npc_trainer": {
+        "money": 30.0,
+        "xp": 50.0
+      },
+      "cobblemon:gym_leader": {
+        "money": 100.0,
+        "xp": 150.0
+      },
+      "cobblemon:elite_four": {
+        "money": 250.0,
+        "xp": 400.0
+      },
+      "cobblemon:champion": {
+        "money": 500.0,
+        "xp": 800.0
+      },
+      "cobblemon:rival": {
+        "money": 50.0,
+        "xp": 80.0
+      },
+      "cobblemon:player_trainer": {
+        "money": 75.0,
+        "xp": 120.0
+      },
+      "*": {
+        "money": 15.0,
+        "xp": 25.0
+      }
     }
   },
   "how-to-earn": {
@@ -47,7 +68,11 @@
       "Toda vitória em batalha que paga dinheiro também concede XP.",
       "Use seu XP para subir de nível e desbloquear bônus."
     ],
-    "example-targets": ["cobblemon:gym_leader", "cobblemon:champion", "cobblemon:npc_trainer"]
+    "example-targets": [
+      "cobblemon:gym_leader",
+      "cobblemon:champion",
+      "cobblemon:npc_trainer"
+    ]
   },
   "skills": {},
   "level-up-rewards": {},
@@ -55,5 +80,59 @@
     "join": "&aVocê agora é um Treinador Pokémon! Prove seu valor em batalha!",
     "leave": "&cVocê deixou a profissão de Treinador Pokémon.",
     "level-up": "&aParabéns! Você alcançou o nível %level% de Treinador Pokémon! Pontos de habilidade: +%points%"
-  }
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
 }

@@ -25,15 +25,42 @@
   "reset-progress-on-leave": false,
   "actions": {
     "FISH": {
-      "minecraft:cod": {"money": 5.0, "xp": 8.0},
-      "minecraft:salmon": {"money": 7.0, "xp": 12.0},
-      "minecraft:tropical_fish": {"money": 10.0, "xp": 15.0},
-      "minecraft:pufferfish": {"money": 12.0, "xp": 18.0},
-      "minecraft:enchanted_book": {"money": 25.0, "xp": 40.0},
-      "minecraft:name_tag": {"money": 15.0, "xp": 20.0},
-      "minecraft:saddle": {"money": 20.0, "xp": 30.0},
-      "minecraft:nautilus_shell": {"money": 30.0, "xp": 50.0},
-      "*": {"money": 1.0, "xp": 1.5}
+      "minecraft:cod": {
+        "money": 5.0,
+        "xp": 8.0
+      },
+      "minecraft:salmon": {
+        "money": 7.0,
+        "xp": 12.0
+      },
+      "minecraft:tropical_fish": {
+        "money": 10.0,
+        "xp": 15.0
+      },
+      "minecraft:pufferfish": {
+        "money": 12.0,
+        "xp": 18.0
+      },
+      "minecraft:enchanted_book": {
+        "money": 25.0,
+        "xp": 40.0
+      },
+      "minecraft:name_tag": {
+        "money": 15.0,
+        "xp": 20.0
+      },
+      "minecraft:saddle": {
+        "money": 20.0,
+        "xp": 30.0
+      },
+      "minecraft:nautilus_shell": {
+        "money": 30.0,
+        "xp": 50.0
+      },
+      "*": {
+        "money": 1.0,
+        "xp": 1.5
+      }
     }
   },
   "how-to-earn": {
@@ -48,7 +75,11 @@
       "Toda pescaria que paga dinheiro também concede XP.",
       "Use seu XP para subir de nível e desbloquear bônus."
     ],
-    "example-targets": ["minecraft:cod", "minecraft:tropical_fish", "minecraft:nautilus_shell"]
+    "example-targets": [
+      "minecraft:cod",
+      "minecraft:tropical_fish",
+      "minecraft:nautilus_shell"
+    ]
   },
   "skills": {},
   "level-up-rewards": {},
@@ -56,5 +87,59 @@
     "join": "&aVocê agora é um Pescador! Pegue sua vara e vá pescar!",
     "leave": "&cVocê deixou a profissão de Pescador.",
     "level-up": "&aParabéns! Você alcançou o nível %level% de Pescador! Pontos de habilidade: +%points%"
-  }
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
 }
