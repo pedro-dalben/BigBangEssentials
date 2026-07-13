@@ -172,7 +172,7 @@ public class JobsConfigLoader {
             LOGGER.info("Created default global config: {}", file);
         }
         JsonObject root = readJson(file);
-        int schemaVersion = getInt(root, "schema-version", 2);
+        int schemaVersion = getInt(root, "schema-version", 3);
         JsonObject dl = getObject(root, "daily-limit");
         JsonObject afk = getObject(root, "afk-prevention");
         JsonObject perms = getObject(root, "permissions");
@@ -342,6 +342,7 @@ public class JobsConfigLoader {
         b.licenseObjectives(parseLicenseObjectives(root));
         b.crateRewards(parseCrateRewards(root));
         b.unlockRequirements(parseUnlockRequirements(root));
+        b.visibility(parseVisibility(root));
 
         return b.build();
     }
@@ -354,11 +355,16 @@ public class JobsConfigLoader {
             Map<String, ActionReward> targets = new LinkedHashMap<>();
             JsonObject targetsObj = actEntry.getValue().getAsJsonObject();
             for (Map.Entry<String, JsonElement> tEntry : targetsObj.entrySet()) {
+                String targetId = tEntry.getKey();
+                if (targetId.equals("*")) {
+                    LOGGER.warn("Skipping wildcard '*' in action '{}' — use 'default-reward' instead.", actEntry.getKey());
+                    continue;
+                }
                 JsonObject rewardObj = tEntry.getValue().getAsJsonObject();
                 double money = rewardObj.has("money") ? rewardObj.get("money").getAsDouble() : 0;
                 double xp = rewardObj.has("xp") ? rewardObj.get("xp").getAsDouble() : 0;
                 double chance = rewardObj.has("chance") ? rewardObj.get("chance").getAsDouble() : 1.0;
-                targets.put(tEntry.getKey(), new ActionReward(money, xp, chance));
+                targets.put(targetId, new ActionReward(money, xp, chance));
             }
             JobActionType actionType = JobActionType.fromString(actEntry.getKey());
             String actionKey = actionType != null
@@ -461,13 +467,33 @@ public class JobsConfigLoader {
             JsonObject obj = el.getAsJsonObject();
             List<String> actions = jsonArrayToList(obj.getAsJsonArray("actions"));
             String keyId = getString(obj, "key-id", "craft_key");
+            String keyDisplayName = getString(obj, "key-display-name", keyId);
             double chance = getDouble(obj, "chance", 0.005);
             int amount = getInt(obj, "amount", 1);
             int minimumJobLevel = getInt(obj, "minimum-job-level", 1);
             String requiredRankId = getStringOrNull(obj, "required-rank-id");
             int dailyLimit = getInt(obj, "daily-limit", 3);
             long cooldownSeconds = getLong(obj, "cooldown-seconds", 1800L);
-            result.add(new CrateRewardDefinition(actions, keyId, chance, amount, minimumJobLevel, requiredRankId, dailyLimit, cooldownSeconds));
+            int priority = getInt(obj, "priority", 0);
+            boolean oneRewardPerAction = getBool(obj, "one-reward-per-action", false);
+            boolean physicalKey = getBool(obj, "physical-key", false);
+
+            CrateRewardDefinition.Builder b = CrateRewardDefinition.builder()
+                    .actions(actions)
+                    .keyId(keyId)
+                    .keyDisplayName(keyDisplayName)
+                    .chance(chance)
+                    .amount(amount)
+                    .minimumJobLevel(minimumJobLevel)
+                    .dailyLimit(dailyLimit)
+                    .cooldownSeconds(cooldownSeconds)
+                    .priority(priority)
+                    .oneRewardPerAction(oneRewardPerAction)
+                    .physicalKey(physicalKey);
+            if (requiredRankId != null) {
+                b.requiredRankId(requiredRankId);
+            }
+            result.add(b.build());
         }
         return result;
     }
@@ -482,15 +508,36 @@ public class JobsConfigLoader {
         return new UnlockRequirements(unlockedByDefault, requiredRankId, requiredRankOrder, permission);
     }
 
+    private static VisibilityConfig parseVisibility(JsonObject root) {
+        if (!root.has("visibility")) return VisibilityConfig.ALWAYS_VISIBLE;
+        JsonObject obj = root.getAsJsonObject("visibility");
+        String modeStr = getString(obj, "mode", "ALWAYS_VISIBLE");
+        VisibilityMode mode = VisibilityMode.fromString(modeStr);
+        boolean showReqs = getBool(obj, "show-requirements-when-locked", true);
+        boolean allowPreview = getBool(obj, "allow-preview", true);
+        return new VisibilityConfig(mode, showReqs, allowPreview);
+    }
+
     private static void validateAll(GlobalConfig global, Map<String, JobDefinition> professions,
                                      Map<String, JobSlotDefinition> slots,
                                      Map<String, RankMilestoneDefinition> milestones) {
-        if (global.schemaVersion < 1)
-            throw new IllegalArgumentException("global.json: schema-version must be >= 1");
+        if (global.schemaVersion < 3)
+            LOGGER.warn("global.json: schema-version is {} (< 3). New features will use defaults. Please update to schema-version 3.", global.schemaVersion);
         if (professions.isEmpty())
             throw new IllegalArgumentException("No professions loaded");
         if (slots.isEmpty())
             throw new IllegalArgumentException("No slots configured");
+
+        for (JobDefinition job : professions.values()) {
+            for (Map.Entry<String, Map<String, JobsConfig.ActionReward>> entry : job.actions.entrySet()) {
+                String actionKey = entry.getKey();
+                Map<String, JobsConfig.ActionReward> targets = entry.getValue();
+                if (targets.containsKey("*") && isEconomicActionType(actionKey)) {
+                    LOGGER.warn("professions/{}.json: wildcard '*' in economic action '{}' is ignored. Use 'default-reward' instead.",
+                            job.id, actionKey);
+                }
+            }
+        }
 
         for (JobDefinition job : professions.values()) {
             if (job.displayName == null || job.displayName.isBlank())
@@ -515,17 +562,25 @@ public class JobsConfigLoader {
         for (RankMilestoneDefinition m : milestones.values()) {
             for (String jobId : m.eligibleJobs()) {
                 if (!professions.containsKey(jobId.toLowerCase())) {
-                    throw new IllegalArgumentException(
-                            "milestones.json: milestone '" + m.id() + "' references non-existent job '" + jobId + "'");
+                    LOGGER.warn("milestones.json: milestone '{}' references non-existent job '{}'. Skipping this reference.",
+                            m.id(), jobId);
                 }
             }
             for (String slotType : m.unlockedSlots()) {
                 if (!slots.containsKey(slotType)) {
-                    throw new IllegalArgumentException(
-                            "milestones.json: milestone '" + m.id() + "' references non-existent slot '" + slotType + "'");
+                    LOGGER.warn("milestones.json: milestone '{}' references non-existent slot '{}'. Skipping this reference.",
+                            m.id(), slotType);
                 }
             }
         }
+    }
+
+    private static boolean isEconomicActionType(String actionKey) {
+        if (actionKey == null) return false;
+        String upper = actionKey.toUpperCase(Locale.ROOT).replace('-', '_');
+        return List.of("BREAK_BLOCK", "HARVEST_CROP", "KILL_ENTITY", "FISH", "CRAFT_ITEM",
+                "SMELT_ITEM", "FISH_CATCH", "CRAFT_RECIPE", "SMELT_RECIPE", "PLACE_BLOCK",
+                "PLACE_PROJECT_BLOCK").contains(upper);
     }
 
     public static void createBackup() {
@@ -555,7 +610,7 @@ public class JobsConfigLoader {
     private static void writeDefaultGlobal(Path file) throws IOException {
         Files.createDirectories(file.getParent());
         String content = "{\n" +
-            "  \"schema-version\": 2,\n" +
+            "  \"schema-version\": 3,\n" +
             "  \"daily-limit\": {\n" +
             "    \"enabled\": true,\n" +
             "    \"global-limit\": 50000.0,\n" +
@@ -678,9 +733,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"BREAK-BLOCK\":{\"minecraft:coal_ore\":{\"money\":5,\"xp\":10},\"minecraft:copper_ore\":{\"money\":7,\"xp\":12},\"minecraft:iron_ore\":{\"money\":10,\"xp\":15},\"minecraft:gold_ore\":{\"money\":15,\"xp\":20},\"minecraft:redstone_ore\":{\"money\":12,\"xp\":18},\"minecraft:lapis_ore\":{\"money\":12,\"xp\":18},\"minecraft:diamond_ore\":{\"money\":30,\"xp\":40},\"minecraft:emerald_ore\":{\"money\":35,\"xp\":45},\"minecraft:nether_quartz_ore\":{\"money\":10,\"xp\":15},\"minecraft:nether_gold_ore\":{\"money\":12,\"xp\":18},\"minecraft:ancient_debris\":{\"money\":100,\"xp\":150},\"minecraft:stone\":{\"money\":1,\"xp\":2},\"minecraft:deepslate\":{\"money\":1.5,\"xp\":2.5},\"*\":{\"money\":0.5,\"xp\":1}}},\n" +
+            "  \"actions\":{\"BREAK-BLOCK\":{\"minecraft:coal_ore\":{\"money\":5,\"xp\":10},\"minecraft:copper_ore\":{\"money\":7,\"xp\":12},\"minecraft:iron_ore\":{\"money\":10,\"xp\":15},\"minecraft:gold_ore\":{\"money\":15,\"xp\":20},\"minecraft:redstone_ore\":{\"money\":12,\"xp\":18},\"minecraft:lapis_ore\":{\"money\":12,\"xp\":18},\"minecraft:diamond_ore\":{\"money\":30,\"xp\":40},\"minecraft:emerald_ore\":{\"money\":35,\"xp\":45},\"minecraft:nether_quartz_ore\":{\"money\":10,\"xp\":15},\"minecraft:nether_gold_ore\":{\"money\":12,\"xp\":18},\"minecraft:ancient_debris\":{\"money\":100,\"xp\":150},\"minecraft:stone\":{\"money\":1,\"xp\":2},\"minecraft:deepslate\":{\"money\":1.5,\"xp\":2.5}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Quebre minérios naturais para receber dinheiro.\",\"Minérios raros como Diamante, Esmeralda e Netherita pagam mais.\"],\"xp-lines\":[\"Todo bloco quebrado que paga dinheiro também concede XP.\"],\"example-targets\":[\"minecraft:diamond_ore\",\"minecraft:coal_ore\",\"minecraft:iron_ore\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Minerador!\",\"leave\":\"&cVocê deixou a profissão de Minerador.\",\"level-up\":\"&aParabéns! Nível %level% de Minerador! +%points% pontos\"}\n}";
     }
 
@@ -694,9 +749,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"BREAK-BLOCK\":{\"minecraft:oak_log\":{\"money\":5,\"xp\":10},\"minecraft:spruce_log\":{\"money\":5,\"xp\":10},\"minecraft:birch_log\":{\"money\":5,\"xp\":10},\"minecraft:jungle_log\":{\"money\":5,\"xp\":10},\"minecraft:acacia_log\":{\"money\":5,\"xp\":10},\"minecraft:dark_oak_log\":{\"money\":5,\"xp\":10},\"minecraft:mangrove_log\":{\"money\":5,\"xp\":10},\"minecraft:cherry_log\":{\"money\":6,\"xp\":11},\"minecraft:crimson_stem\":{\"money\":7,\"xp\":14},\"minecraft:warped_stem\":{\"money\":7,\"xp\":14},\"*\":{\"money\":1,\"xp\":2}}},\n" +
+            "  \"actions\":{\"BREAK-BLOCK\":{\"minecraft:oak_log\":{\"money\":5,\"xp\":10},\"minecraft:spruce_log\":{\"money\":5,\"xp\":10},\"minecraft:birch_log\":{\"money\":5,\"xp\":10},\"minecraft:jungle_log\":{\"money\":5,\"xp\":10},\"minecraft:acacia_log\":{\"money\":5,\"xp\":10},\"minecraft:dark_oak_log\":{\"money\":5,\"xp\":10},\"minecraft:mangrove_log\":{\"money\":5,\"xp\":10},\"minecraft:cherry_log\":{\"money\":6,\"xp\":11},\"minecraft:crimson_stem\":{\"money\":7,\"xp\":14},\"minecraft:warped_stem\":{\"money\":7,\"xp\":14}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Quebre troncos de árvores naturais.\",\"Madeiras do Nether (Carmesim e Distorcida) pagam mais.\"],\"xp-lines\":[\"Cada tronco quebrado concede XP.\"],\"example-targets\":[\"minecraft:oak_log\",\"minecraft:spruce_log\",\"minecraft:crimson_stem\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Lenhador!\",\"leave\":\"&cVocê deixou a profissão de Lenhador.\",\"level-up\":\"&aParabéns! Nível %level% de Lenhador! +%points% pontos\"}\n}";
     }
 
@@ -710,9 +765,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"HARVEST-CROP\":{\"minecraft:wheat\":{\"money\":3,\"xp\":5},\"minecraft:potatoes\":{\"money\":3,\"xp\":5},\"minecraft:carrots\":{\"money\":3,\"xp\":5},\"minecraft:beetroots\":{\"money\":3,\"xp\":5},\"minecraft:nether_wart\":{\"money\":8,\"xp\":12},\"minecraft:pumpkin\":{\"money\":4,\"xp\":6},\"minecraft:melon\":{\"money\":4,\"xp\":6},\"*\":{\"money\":1,\"xp\":2}},\"KILL-ENTITY\":{\"minecraft:cow\":{\"money\":5,\"xp\":10},\"minecraft:pig\":{\"money\":5,\"xp\":10},\"minecraft:sheep\":{\"money\":5,\"xp\":10},\"minecraft:chicken\":{\"money\":4,\"xp\":8},\"minecraft:rabbit\":{\"money\":4,\"xp\":8}}},\n" +
+            "  \"actions\":{\"HARVEST-CROP\":{\"minecraft:wheat\":{\"money\":3,\"xp\":5},\"minecraft:potatoes\":{\"money\":3,\"xp\":5},\"minecraft:carrots\":{\"money\":3,\"xp\":5},\"minecraft:beetroots\":{\"money\":3,\"xp\":5},\"minecraft:nether_wart\":{\"money\":8,\"xp\":12},\"minecraft:pumpkin\":{\"money\":4,\"xp\":6},\"minecraft:melon\":{\"money\":4,\"xp\":6}},\"KILL-ENTITY\":{\"minecraft:cow\":{\"money\":5,\"xp\":10},\"minecraft:pig\":{\"money\":5,\"xp\":10},\"minecraft:sheep\":{\"money\":5,\"xp\":10},\"minecraft:chicken\":{\"money\":4,\"xp\":8},\"minecraft:rabbit\":{\"money\":4,\"xp\":8}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Colha plantações maduras.\",\"Abata animais de fazenda para obter recursos.\"],\"xp-lines\":[\"Cada colheita ou abate concede XP.\"],\"example-targets\":[\"minecraft:wheat\",\"minecraft:carrots\",\"minecraft:cow\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Fazendeiro!\",\"leave\":\"&cVocê deixou a profissão de Fazendeiro.\",\"level-up\":\"&aParabéns! Nível %level% de Fazendeiro! +%points% pontos\"}\n}";
     }
 
@@ -726,9 +781,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"PLACE-BLOCK\":{\"minecraft:stone_bricks\":{\"money\":2,\"xp\":4},\"minecraft:bricks\":{\"money\":2,\"xp\":4},\"minecraft:oak_planks\":{\"money\":1,\"xp\":2},\"minecraft:polished_andesite\":{\"money\":3,\"xp\":5},\"minecraft:polished_granite\":{\"money\":3,\"xp\":5},\"minecraft:polished_diorite\":{\"money\":3,\"xp\":5},\"minecraft:glass\":{\"money\":2,\"xp\":3},\"minecraft:terracotta\":{\"money\":2,\"xp\":4},\"minecraft:concrete\":{\"money\":2,\"xp\":4},\"*\":{\"money\":0.5,\"xp\":1}}},\n" +
+            "  \"actions\":{\"PLACE-BLOCK\":{\"minecraft:stone_bricks\":{\"money\":2,\"xp\":4},\"minecraft:bricks\":{\"money\":2,\"xp\":4},\"minecraft:oak_planks\":{\"money\":1,\"xp\":2},\"minecraft:polished_andesite\":{\"money\":3,\"xp\":5},\"minecraft:polished_granite\":{\"money\":3,\"xp\":5},\"minecraft:polished_diorite\":{\"money\":3,\"xp\":5},\"minecraft:glass\":{\"money\":2,\"xp\":3},\"minecraft:terracotta\":{\"money\":2,\"xp\":4},\"minecraft:concrete\":{\"money\":2,\"xp\":4}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Coloque blocos decorativos e de construção.\",\"Blocos mais elaborados pagam mais.\"],\"xp-lines\":[\"Cada bloco colocado concede XP.\"],\"example-targets\":[\"minecraft:stone_bricks\",\"minecraft:polished_andesite\",\"minecraft:concrete\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Construtor!\",\"leave\":\"&cVocê deixou a profissão de Construtor.\",\"level-up\":\"&aParabéns! Nível %level% de Construtor! +%points% pontos\"}\n}";
     }
 
@@ -742,9 +797,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"SMELT-ITEM\":{\"minecraft:iron_ingot\":{\"money\":3,\"xp\":6},\"minecraft:gold_ingot\":{\"money\":5,\"xp\":10},\"minecraft:copper_ingot\":{\"money\":2,\"xp\":4},\"minecraft:netherite_ingot\":{\"money\":50,\"xp\":100},\"*\":{\"money\":1,\"xp\":2}}},\n" +
+            "  \"actions\":{\"SMELT-ITEM\":{\"minecraft:iron_ingot\":{\"money\":3,\"xp\":6},\"minecraft:gold_ingot\":{\"money\":5,\"xp\":10},\"minecraft:copper_ingot\":{\"money\":2,\"xp\":4},\"minecraft:netherite_ingot\":{\"money\":50,\"xp\":100}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Fundição de minérios em fornalhas ou alto-fornos.\",\"Netherita paga muito mais que metais comuns.\"],\"xp-lines\":[\"Cada item fundido concede XP.\"],\"example-targets\":[\"minecraft:iron_ingot\",\"minecraft:gold_ingot\",\"minecraft:netherite_ingot\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Ferreiro!\",\"leave\":\"&cVocê deixou a profissão de Ferreiro.\",\"level-up\":\"&aParabéns! Nível %level% de Ferreiro! +%points% pontos\"}\n}";
     }
 
@@ -758,9 +813,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"CRAFT-ITEM\":{\"minecraft:chest\":{\"money\":3,\"xp\":5},\"minecraft:furnace\":{\"money\":4,\"xp\":8},\"minecraft:bookshelf\":{\"money\":5,\"xp\":10},\"minecraft:enchanting_table\":{\"money\":15,\"xp\":30},\"minecraft:beacon\":{\"money\":200,\"xp\":500},\"*\":{\"money\":1,\"xp\":2}}},\n" +
+            "  \"actions\":{\"CRAFT-ITEM\":{\"minecraft:chest\":{\"money\":3,\"xp\":5},\"minecraft:furnace\":{\"money\":4,\"xp\":8},\"minecraft:bookshelf\":{\"money\":5,\"xp\":10},\"minecraft:enchanting_table\":{\"money\":15,\"xp\":30},\"minecraft:beacon\":{\"money\":200,\"xp\":500}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Crie itens usando a mesa de trabalho.\",\"Itens mais complexos pagam mais.\"],\"xp-lines\":[\"Cada item craftado concede XP.\"],\"example-targets\":[\"minecraft:chest\",\"minecraft:bookshelf\",\"minecraft:beacon\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Artesão!\",\"leave\":\"&cVocê deixou a profissão de Artesão.\",\"level-up\":\"&aParabéns! Nível %level% de Artesão! +%points% pontos\"}\n}";
     }
 
@@ -774,9 +829,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"EXPLORE\":{\"minecraft:plains\":{\"money\":10,\"xp\":20},\"minecraft:desert\":{\"money\":10,\"xp\":20},\"minecraft:jungle\":{\"money\":15,\"xp\":25},\"minecraft:mushroom_fields\":{\"money\":25,\"xp\":50},\"minecraft:badlands\":{\"money\":15,\"xp\":25},\"minecraft:deep_dark\":{\"money\":50,\"xp\":100},\"*\":{\"money\":5,\"xp\":10}}},\n" +
+            "  \"actions\":{\"EXPLORE\":{\"minecraft:plains\":{\"money\":10,\"xp\":20},\"minecraft:desert\":{\"money\":10,\"xp\":20},\"minecraft:jungle\":{\"money\":15,\"xp\":25},\"minecraft:mushroom_fields\":{\"money\":25,\"xp\":50},\"minecraft:badlands\":{\"money\":15,\"xp\":25},\"minecraft:deep_dark\":{\"money\":50,\"xp\":100},\"default-reward\":{\"money\":5,\"xp\":10}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Descubra novos biomas e estruturas.\",\"Biomas raros como Deep Dark pagam muito mais.\"],\"xp-lines\":[\"Cada descoberta concede XP.\"],\"example-targets\":[\"minecraft:jungle\",\"minecraft:mushroom_fields\",\"minecraft:deep_dark\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Explorador!\",\"leave\":\"&cVocê deixou a profissão de Explorador.\",\"level-up\":\"&aParabéns! Nível %level% de Explorador! +%points% pontos\"}\n}";
     }
 
@@ -790,9 +845,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"KILL-ENTITY\":{\"minecraft:zombie\":{\"money\":5,\"xp\":10},\"minecraft:skeleton\":{\"money\":5,\"xp\":10},\"minecraft:creeper\":{\"money\":8,\"xp\":15},\"minecraft:spider\":{\"money\":4,\"xp\":8},\"minecraft:enderman\":{\"money\":12,\"xp\":20},\"minecraft:witch\":{\"money\":10,\"xp\":18},\"minecraft:phantom\":{\"money\":8,\"xp\":12},\"minecraft:blaze\":{\"money\":10,\"xp\":18},\"minecraft:wither_skeleton\":{\"money\":15,\"xp\":25},\"minecraft:ghast\":{\"money\":15,\"xp\":25},\"minecraft:guardian\":{\"money\":12,\"xp\":20},\"minecraft:elder_guardian\":{\"money\":30,\"xp\":50},\"minecraft:evoker\":{\"money\":25,\"xp\":40},\"minecraft:ravager\":{\"money\":20,\"xp\":35},\"*\":{\"money\":2,\"xp\":4}}},\n" +
+            "  \"actions\":{\"KILL-ENTITY\":{\"minecraft:zombie\":{\"money\":5,\"xp\":10},\"minecraft:skeleton\":{\"money\":5,\"xp\":10},\"minecraft:creeper\":{\"money\":8,\"xp\":15},\"minecraft:spider\":{\"money\":4,\"xp\":8},\"minecraft:enderman\":{\"money\":12,\"xp\":20},\"minecraft:witch\":{\"money\":10,\"xp\":18},\"minecraft:phantom\":{\"money\":8,\"xp\":12},\"minecraft:blaze\":{\"money\":10,\"xp\":18},\"minecraft:wither_skeleton\":{\"money\":15,\"xp\":25},\"minecraft:ghast\":{\"money\":15,\"xp\":25},\"minecraft:guardian\":{\"money\":12,\"xp\":20},\"minecraft:elder_guardian\":{\"money\":30,\"xp\":50},\"minecraft:evoker\":{\"money\":25,\"xp\":40},\"minecraft:ravager\":{\"money\":20,\"xp\":35}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Derrote criaturas hostis.\",\"Chefes e criaturas raras pagam mais.\"],\"xp-lines\":[\"Cada criatura derrotada concede XP.\"],\"example-targets\":[\"minecraft:zombie\",\"minecraft:skeleton\",\"minecraft:wither_skeleton\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Guardião!\",\"leave\":\"&cVocê deixou a profissão de Guardião.\",\"level-up\":\"&aParabéns! Nível %level% de Guardião! +%points% pontos\"}\n}";
     }
 
@@ -806,9 +861,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"CRAFT-ITEM\":{\"minecraft:bread\":{\"money\":2,\"xp\":4},\"minecraft:cooked_beef\":{\"money\":5,\"xp\":10},\"minecraft:cooked_porkchop\":{\"money\":5,\"xp\":10},\"minecraft:cooked_chicken\":{\"money\":4,\"xp\":8},\"minecraft:cooked_mutton\":{\"money\":4,\"xp\":8},\"minecraft:cooked_rabbit\":{\"money\":4,\"xp\":8},\"minecraft:cooked_salmon\":{\"money\":5,\"xp\":10},\"minecraft:cooked_cod\":{\"money\":5,\"xp\":10},\"minecraft:cake\":{\"money\":12,\"xp\":25},\"minecraft:pumpkin_pie\":{\"money\":8,\"xp\":15},\"minecraft:golden_apple\":{\"money\":20,\"xp\":50},\"minecraft:golden_carrot\":{\"money\":10,\"xp\":20},\"*\":{\"money\":1,\"xp\":2}}},\n" +
+            "  \"actions\":{\"CRAFT-ITEM\":{\"minecraft:bread\":{\"money\":2,\"xp\":4},\"minecraft:cooked_beef\":{\"money\":5,\"xp\":10},\"minecraft:cooked_porkchop\":{\"money\":5,\"xp\":10},\"minecraft:cooked_chicken\":{\"money\":4,\"xp\":8},\"minecraft:cooked_mutton\":{\"money\":4,\"xp\":8},\"minecraft:cooked_rabbit\":{\"money\":4,\"xp\":8},\"minecraft:cooked_salmon\":{\"money\":5,\"xp\":10},\"minecraft:cooked_cod\":{\"money\":5,\"xp\":10},\"minecraft:cake\":{\"money\":12,\"xp\":25},\"minecraft:pumpkin_pie\":{\"money\":8,\"xp\":15},\"minecraft:golden_apple\":{\"money\":20,\"xp\":50},\"minecraft:golden_carrot\":{\"money\":10,\"xp\":20}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Cozinhe alimentos usando fornalhas e crafting.\",\"Alimentos mais elaborados pagam mais.\"],\"xp-lines\":[\"Cada alimento preparado concede XP.\"],\"example-targets\":[\"minecraft:cooked_beef\",\"minecraft:cake\",\"minecraft:golden_apple\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Culinarista!\",\"leave\":\"&cVocê deixou a profissão de Culinarista.\",\"level-up\":\"&aParabéns! Nível %level% de Culinarista! +%points% pontos\"}\n}";
     }
 
@@ -822,9 +877,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"USE-MAGIC\":{\"minecraft:enchanting_table\":{\"money\":10,\"xp\":20},\"minecraft:brewing_stand\":{\"money\":8,\"xp\":15},\"*\":{\"money\":2,\"xp\":5}}},\n" +
+            "  \"actions\":{\"USE-MAGIC\":{\"minecraft:enchanting_table\":{\"money\":10,\"xp\":20},\"minecraft:brewing_stand\":{\"money\":8,\"xp\":15}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Encante itens na mesa de encantamentos.\",\"Prepare poções no suporte de poções.\"],\"xp-lines\":[\"Cada encantamento ou poção concede XP.\"],\"example-targets\":[\"minecraft:enchanting_table\",\"minecraft:brewing_stand\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Mago!\",\"leave\":\"&cVocê deixou a profissão de Mago.\",\"level-up\":\"&aParabéns! Nível %level% de Mago! +%points% pontos\"}\n}";
     }
 
@@ -838,9 +893,9 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":100,\"multiplier\":1.0,\"exponent\":1.5},\n" +
             "  \"max-daily-earnings\":-1,\"money-bonus-per-level\":0.5,\"max-level-money-bonus\":50.0,\"skill-points-every\":2,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"FISH\":{\"minecraft:cod\":{\"money\":3,\"xp\":6},\"minecraft:salmon\":{\"money\":5,\"xp\":10},\"minecraft:tropical_fish\":{\"money\":8,\"xp\":12},\"minecraft:pufferfish\":{\"money\":6,\"xp\":10},\"*\":{\"money\":2,\"xp\":4}}},\n" +
+            "  \"actions\":{\"FISH\":{\"minecraft:cod\":{\"money\":3,\"xp\":6},\"minecraft:salmon\":{\"money\":5,\"xp\":10},\"minecraft:tropical_fish\":{\"money\":8,\"xp\":12},\"minecraft:pufferfish\":{\"money\":6,\"xp\":10}}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Pesque com vara de pesca em qualquer corpo d'água.\",\"Peixes tropicais pagam mais que peixes comuns.\"],\"xp-lines\":[\"Cada peixe pescado concede XP.\"],\"example-targets\":[\"minecraft:cod\",\"minecraft:salmon\",\"minecraft:tropical_fish\"]},\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Pescador!\",\"leave\":\"&cVocê deixou a profissão de Pescador.\",\"level-up\":\"&aParabéns! Nível %level% de Pescador! +%points% pontos\"}\n}";
     }
 
@@ -855,10 +910,10 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":150,\"multiplier\":1.2,\"exponent\":1.6},\n" +
             "  \"max-daily-earnings\":15000,\"money-bonus-per-level\":1.0,\"max-level-money-bonus\":100.0,\"skill-points-every\":3,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"POKEMON-CAPTURED\":{\"cobblemon:mewtwo\":{\"money\":500,\"xp\":1000},\"*\":{\"money\":15,\"xp\":20}},\"DEX-ENTRY-ADDED\":{\"*\":{\"money\":25,\"xp\":50}}},\n" +
+            "  \"actions\":{\"POKEMON-CAPTURED\":{\"cobblemon:mewtwo\":{\"money\":500,\"xp\":1000}}},\"DEX-ENTRY-ADDED\":{}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Capture Pokémon selvagens.\",\"Registre novas espécies na Pokédex para bônus extras.\",\"Pokémon lendários pagam recompensas enormes.\"],\"xp-lines\":[\"Cada captura e registro concede XP.\"],\"example-targets\":[\"cobblemon:pikachu\",\"cobblemon:charizard\",\"cobblemon:mewtwo\"]},\n" +
             "  \"license-objectives\":[{\"objective-id\":\"capture_50\",\"action-type\":\"POKEMON_CAPTURED\",\"required-amount\":50,\"progress-message\":\"Capture 50 Pokémon\"},{\"objective-id\":\"dex_30\",\"action-type\":\"DEX_ENTRY_ADDED\",\"required-amount\":30,\"progress-message\":\"Registre 30 espécies na Pokédex\"}],\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Pesquisador Pokémon!\",\"leave\":\"&cVocê deixou a especialização de Pesquisador.\",\"level-up\":\"&aParabéns! Nível %level% de Pesquisador! +%points% pontos\"}\n}";
     }
 
@@ -873,10 +928,10 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":150,\"multiplier\":1.2,\"exponent\":1.6},\n" +
             "  \"max-daily-earnings\":15000,\"money-bonus-per-level\":1.0,\"max-level-money-bonus\":100.0,\"skill-points-every\":3,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"EGG-CREATED\":{\"*\":{\"money\":10,\"xp\":20}},\"EGG-HATCHED\":{\"*\":{\"money\":30,\"xp\":60}}},\n" +
+            "  \"actions\":{\"EGG-CREATED\":{},\"EGG-HATCHED\":{}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Produza ovos Pokémon via breeding.\",\"Choque os ovos para obter recompensas maiores.\"],\"xp-lines\":[\"Cada ovo criado e chocado concede XP.\"],\"example-targets\":[\"cobblemon:egg\",\"cobblemon:rare_candy\"]},\n" +
             "  \"license-objectives\":[{\"objective-id\":\"hatch_10\",\"action-type\":\"EGG_HATCHED\",\"required-amount\":10,\"progress-message\":\"Choque 10 ovos\"}],\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Criador Pokémon!\",\"leave\":\"&cVocê deixou a especialização de Criador.\",\"level-up\":\"&aParabéns! Nível %level% de Criador! +%points% pontos\"}\n}";
     }
 
@@ -891,10 +946,10 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":150,\"multiplier\":1.2,\"exponent\":1.6},\n" +
             "  \"max-daily-earnings\":15000,\"money-bonus-per-level\":1.0,\"max-level-money-bonus\":100.0,\"skill-points-every\":3,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"TRAINER-BATTLE-WON\":{\"*\":{\"money\":20,\"xp\":40}}},\n" +
+            "  \"actions\":{\"TRAINER-BATTLE-WON\":{}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Derrote treinadores NPC em batalhas Pokémon.\"],\"xp-lines\":[\"Cada batalha vencida concede XP.\"],\"example-targets\":[\"cobblemon:trainer\"]},\n" +
             "  \"license-objectives\":[{\"objective-id\":\"win_25\",\"action-type\":\"TRAINER_BATTLE_WON\",\"required-amount\":25,\"progress-message\":\"Vença 25 batalhas contra treinadores NPC\"}],\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Treinador Pokémon!\",\"leave\":\"&cVocê deixou a especialização de Treinador.\",\"level-up\":\"&aParabéns! Nível %level% de Treinador! +%points% pontos\"}\n}";
     }
 
@@ -909,10 +964,10 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":150,\"multiplier\":1.2,\"exponent\":1.6},\n" +
             "  \"max-daily-earnings\":15000,\"money-bonus-per-level\":1.0,\"max-level-money-bonus\":100.0,\"skill-points-every\":3,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"PASTURE-TASK-COMPLETED\":{\"*\":{\"money\":15,\"xp\":30}}},\n" +
+            "  \"actions\":{\"PASTURE-TASK-COMPLETED\":{}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Complete tarefas de pasto como alimentação e coleta.\"],\"xp-lines\":[\"Cada tarefa completada concede XP.\"],\"example-targets\":[\"minecraft:hay_block\"]},\n" +
             "  \"license-objectives\":[{\"objective-id\":\"tasks_25\",\"action-type\":\"PASTURE_TASK_COMPLETED\",\"required-amount\":25,\"progress-message\":\"Complete 25 tarefas de pasto\"}],\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Cuidador de Pasto!\",\"leave\":\"&cVocê deixou a especialização de Cuidador.\",\"level-up\":\"&aParabéns! Nível %level% de Cuidador! +%points% pontos\"}\n}";
     }
 
@@ -927,10 +982,10 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":150,\"multiplier\":1.2,\"exponent\":1.6},\n" +
             "  \"max-daily-earnings\":15000,\"money-bonus-per-level\":1.0,\"max-level-money-bonus\":100.0,\"skill-points-every\":3,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"FOSSIL-REVIVED\":{\"*\":{\"money\":50,\"xp\":100}}},\n" +
+            "  \"actions\":{\"FOSSIL-REVIVED\":{}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Reviva fósseis em estações compatíveis.\"],\"xp-lines\":[\"Cada fóssil revivido concede XP.\"],\"example-targets\":[\"cobblemon:fossil\"]},\n" +
             "  \"license-objectives\":[{\"objective-id\":\"revive_5\",\"action-type\":\"FOSSIL_REVIVED\",\"required-amount\":5,\"progress-message\":\"Reviva 5 fósseis\"}],\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Paleontólogo!\",\"leave\":\"&cVocê deixou a especialização de Paleontólogo.\",\"level-up\":\"&aParabéns! Nível %level% de Paleontólogo! +%points% pontos\"}\n}";
     }
 
@@ -945,10 +1000,10 @@ public class JobsConfigLoader {
             "  \"max-level\":100,\"xp-curve\":{\"type\":\"polynomial\",\"base\":150,\"multiplier\":1.2,\"exponent\":1.6},\n" +
             "  \"max-daily-earnings\":15000,\"money-bonus-per-level\":1.0,\"max-level-money-bonus\":100.0,\"skill-points-every\":3,\n" +
             "  \"reset-progress-on-leave\":false,\n" +
-            "  \"actions\":{\"RAID-CLEARED\":{\"*\":{\"money\":40,\"xp\":80}}},\n" +
+            "  \"actions\":{\"RAID-CLEARED\":{}},\n" +
             "  \"how-to-earn\":{\"money-header\":\"Como ganhar dinheiro\",\"xp-header\":\"Como ganhar XP\",\"money-lines\":[\"Conclua raids Pokémon com sucesso.\"],\"xp-lines\":[\"Cada raid concluída concede XP.\"],\"example-targets\":[\"cobblemon:raid_den\"]},\n" +
             "  \"license-objectives\":[{\"objective-id\":\"raids_5\",\"action-type\":\"RAID_CLEARED\",\"required-amount\":5,\"progress-message\":\"Conclua 5 raids\"}],\n" +
-            "  \"skills\":{},\"level-up-rewards\":{},\n" +
+            "  \"crate-rewards\":[{\"actions\":[],\"key-id\":\"iniciante\",\"key-display-name\":\"Chave Iniciante\",\"chance\":0.02,\"amount\":1,\"minimum-job-level\":10,\"daily-limit\":3,\"cooldown-seconds\":3600,\"priority\":10,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"intermediaria\",\"key-display-name\":\"Chave Intermediária\",\"chance\":0.01,\"amount\":1,\"minimum-job-level\":25,\"daily-limit\":2,\"cooldown-seconds\":5400,\"priority\":20,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"avancada\",\"key-display-name\":\"Chave Avançada\",\"chance\":0.005,\"amount\":1,\"minimum-job-level\":50,\"daily-limit\":1,\"cooldown-seconds\":7200,\"priority\":30,\"one-reward-per-action\":true,\"physical-key\":false},{\"actions\":[],\"key-id\":\"lendaria\",\"key-display-name\":\"Chave Lendária\",\"chance\":0.002,\"amount\":1,\"minimum-job-level\":80,\"daily-limit\":1,\"cooldown-seconds\":14400,\"priority\":40,\"one-reward-per-action\":true,\"physical-key\":false}],\"skills\":{},\"level-up-rewards\":{},\n" +
             "  \"messages\":{\"join\":\"&aVocê agora é um Incursionista!\",\"leave\":\"&cVocê deixou a especialização de Incursionista.\",\"level-up\":\"&aParabéns! Nível %level% de Incursionista! +%points% pontos\"}\n}";
     }
 
