@@ -1,17 +1,117 @@
 {
-  "id":"pasture_keeper","enabled":true,"display-name":"Cuidador de Pasto",
-  "short-description":"Gerencie pastos e cuide de Pokémon",
-  "description":"Especialização Pokémon focada no gerenciamento de pastos.",
-  "icon":"minecraft:hay_block","category":"POKEMON_SPECIALIZATION","sort-order":15,
-  "permission":"bigbangessentials.jobs.profession.pasture_keeper",
-  "visible-without-permission":true,"unlocked-by-default":false,"license-required":true,
-  "required-integration":"cobblemon",
-  "max-level":100,"xp-curve":{"type":"polynomial","base":150,"multiplier":1.2,"exponent":1.6},
-  "max-daily-earnings":15000,"money-bonus-per-level":1.0,"max-level-money-bonus":100.0,"skill-points-every":3,
-  "reset-progress-on-leave":false,
-  "actions":{"PASTURE-TASK-COMPLETED":{"*":{"money":15,"xp":30}}},
-  "how-to-earn":{"money-header":"Como ganhar dinheiro","xp-header":"Como ganhar XP","money-lines":["Complete tarefas de pasto como alimentação e coleta."],"xp-lines":["Cada tarefa completada concede XP."],"example-targets":["minecraft:hay_block"]},
-  "license-objectives":[{"objective-id":"tasks_25","action-type":"PASTURE_TASK_COMPLETED","required-amount":25,"progress-message":"Complete 25 tarefas de pasto"}],
-  "skills":{},"level-up-rewards":{},
-  "messages":{"join":"&aVocê agora é um Cuidador de Pasto!","leave":"&cVocê deixou a especialização de Cuidador.","level-up":"&aParabéns! Nível %level% de Cuidador! +%points% pontos"}
+  "id": "pasture_keeper",
+  "enabled": true,
+  "display-name": "Cuidador de Pasto",
+  "short-description": "Gerencie pastos e cuide de Pokémon",
+  "description": "Especialização Pokémon focada no gerenciamento de pastos.",
+  "icon": "minecraft:hay_block",
+  "category": "POKEMON_SPECIALIZATION",
+  "sort-order": 15,
+  "permission": "bigbangessentials.jobs.profession.pasture_keeper",
+  "visible-without-permission": true,
+  "unlocked-by-default": false,
+  "license-required": true,
+  "required-integration": "cobblemon",
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 150,
+    "multiplier": 1.2,
+    "exponent": 1.6
+  },
+  "max-daily-earnings": 15000,
+  "money-bonus-per-level": 1.0,
+  "max-level-money-bonus": 100.0,
+  "skill-points-every": 3,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "PASTURE-TASK-COMPLETED": {
+      "*": {
+        "money": 15,
+        "xp": 30
+      }
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Complete tarefas de pasto como alimentação e coleta."
+    ],
+    "xp-lines": [
+      "Cada tarefa completada concede XP."
+    ],
+    "example-targets": [
+      "minecraft:hay_block"
+    ]
+  },
+  "license-objectives": [
+    {
+      "objective-id": "tasks_25",
+      "action-type": "PASTURE_TASK_COMPLETED",
+      "required-amount": 25,
+      "progress-message": "Complete 25 tarefas de pasto"
+    }
+  ],
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Cuidador de Pasto!",
+    "leave": "&cVocê deixou a especialização de Cuidador.",
+    "level-up": "&aParabéns! Nível %level% de Cuidador! +%points% pontos"
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
 }
