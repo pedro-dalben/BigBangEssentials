@@ -10,6 +10,8 @@ import com.pedrodalben.bigbangessentials.jobs.progression.JobRankMilestoneServic
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -28,7 +30,6 @@ public class JobRewardRollService {
 
         String jobId = jobDef.id;
 
-        // 1. Journey Fragments (25% chance per valid action, scaled by weight)
         double fragmentChance = 0.25 * (actionWeight > 0 ? actionWeight : 1.0);
         if (ThreadLocalRandom.current().nextDouble() < fragmentChance) {
             JourneyFragmentService.getInstance().addFragments(
@@ -36,27 +37,39 @@ public class JobRewardRollService {
             );
         }
 
-        // 2. Evaluate configured crate rewards (new path)
         if (!jobDef.crateRewards.isEmpty()) {
-            for (CrateRewardDefinition reward : jobDef.crateRewards) {
-                processConfiguredReward(playerUuid, jobDef, jobLevel, actionType, actionWeight, reward);
-            }
+            processConfiguredRewards(playerUuid, jobDef, jobLevel, actionType, actionWeight);
             return;
         }
 
-        // 3. Legacy fallback: use hardcoded JobKeyDropRule
         processLegacyReward(playerUuid, jobId, jobLevel, actionType, actionWeight);
+    }
+
+    private void processConfiguredRewards(UUID playerUuid, JobsConfig.JobDefinition jobDef, int jobLevel, String actionType, double actionWeight) {
+        String jobId = jobDef.id;
+
+        List<CrateRewardDefinition> matchingRewards = new ArrayList<>();
+        for (CrateRewardDefinition reward : jobDef.crateRewards) {
+            if (reward.matchesAction(actionType) && jobLevel >= reward.minimumJobLevel()) {
+                matchingRewards.add(reward);
+            }
+        }
+        if (matchingRewards.isEmpty()) return;
+
+        matchingRewards.sort(CrateRewardDefinition.PRIORITY_DESC);
+
+        boolean oneRewardMode = jobDef.crateRewards.stream().anyMatch(CrateRewardDefinition::oneRewardPerAction);
+
+        for (CrateRewardDefinition reward : matchingRewards) {
+            processConfiguredReward(playerUuid, jobDef, jobLevel, actionType, actionWeight, reward);
+            if (oneRewardMode) {
+                break;
+            }
+        }
     }
 
     private void processConfiguredReward(UUID playerUuid, JobsConfig.JobDefinition jobDef, int jobLevel, String actionType, double actionWeight, CrateRewardDefinition reward) {
         String jobId = jobDef.id;
-
-        if (!reward.matchesAction(actionType)) return;
-
-        if (jobLevel < reward.minimumJobLevel()) {
-            logSkip(playerUuid, jobId, reward.keyId(), "job_level_too_low", "level " + jobLevel + " < required " + reward.minimumJobLevel());
-            return;
-        }
 
         if (reward.requiredRankId() != null && !JobRankMilestoneService.getInstance().isAtOrAboveRank(playerUuid, reward.requiredRankId())) {
             logSkip(playerUuid, jobId, reward.keyId(), "rank_too_low", "required rank " + reward.requiredRankId() + " not reached");
@@ -92,14 +105,21 @@ public class JobRewardRollService {
 
         if (success) {
             CrateRewardGateway gateway = DefaultCrateRewardGateway.getInstance();
-            CrateKeyGrantResult grantResult = gateway.grantVirtualKey(
-                playerUuid, reward.keyId(), reward.amount(), CrateKeyGrantSource.JOB_LUCK, actionType, null
-            );
+            CrateKeyGrantResult grantResult;
+            if (reward.physicalKey()) {
+                grantResult = gateway.grantPhysicalKey(
+                    playerUuid, reward.keyId(), reward.amount(), CrateKeyGrantSource.JOB_LUCK, actionType, null
+                );
+            } else {
+                grantResult = gateway.grantVirtualKey(
+                    playerUuid, reward.keyId(), reward.amount(), CrateKeyGrantSource.JOB_LUCK, actionType, null
+                );
+            }
             if (grantResult.success()) {
                 LOGGER.info("[CrateReward] Player {} won {} x{} in job {} (level {}, action {}). Reward: {}/{}/{}",
                     playerUuid, reward.keyId(), reward.amount(), jobId, jobLevel, actionType,
                     reward.keyId(), reward.chance(), reward.dailyLimit());
-                JobRewardNotificationService.getInstance().notifyKeyFound(playerUuid, reward.keyId());
+                JobRewardNotificationService.getInstance().notifyKeyFound(playerUuid, reward.keyId(), reward.keyDisplayName());
             } else {
                 LOGGER.warn("[CrateReward] Player {} won {} roll but gateway failed: {}", playerUuid, reward.keyId(), grantResult.errorMessage());
             }
@@ -139,7 +159,7 @@ public class JobRewardRollService {
             );
             if (grantResult.success()) {
                 LOGGER.info("Player {} won craft_key drop in job {} (level {}) on action {}!", playerUuid, jobId, jobLevel, actionType);
-                JobRewardNotificationService.getInstance().notifyKeyFound(playerUuid, "craft_key");
+                JobRewardNotificationService.getInstance().notifyKeyFound(playerUuid, "craft_key", "Chave do Ofício");
             }
         }
     }

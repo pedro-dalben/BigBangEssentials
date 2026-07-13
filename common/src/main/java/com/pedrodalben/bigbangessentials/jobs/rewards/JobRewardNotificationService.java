@@ -30,10 +30,18 @@ public class JobRewardNotificationService {
     }
 
     public void notifyKeyFound(UUID playerUuid, String keyId) {
+        notifyKeyFound(playerUuid, keyId, keyId);
+    }
+
+    public void notifyKeyFound(UUID playerUuid, String keyId, String keyDisplayName) {
         ServerPlayer player = getPlayer(playerUuid);
         if (player == null) return;
-        String keyName = "craft_key".equalsIgnoreCase(keyId) ? "Chave do Ofício" : "Chave de Ascensão";
-        player.sendSystemMessage(MessageUtil.coloredText("<gold><bold>¡Sorte no Trabalho!</bold> <yellow>Você encontrou <bold>1x " + keyName + "</bold>!"));
+        if (keyDisplayName == null || keyDisplayName.isBlank()) {
+            keyDisplayName = keyId;
+        }
+        player.sendSystemMessage(MessageUtil.coloredText(
+                "<gold><bold>Sorte no Trabalho!</bold> <yellow>Você encontrou <bold>1x "
+                + keyDisplayName + "</bold>!</yellow>"));
     }
 
     public void notifyKeyExchanged(UUID playerUuid, int amount, String keyId) {
