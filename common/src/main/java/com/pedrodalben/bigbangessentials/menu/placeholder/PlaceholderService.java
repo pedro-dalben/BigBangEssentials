@@ -102,9 +102,9 @@ public class PlaceholderService {
                     }
                 }
             }
-        } catch (Exception e) {
-            LOGGER.error("Error executing custom placeholder resolver for '{}': {}", id, e.getMessage());
-        }
+            } catch (Exception e) {
+                LOGGER.error("Error executing custom placeholder resolver for '{}' (params='{}')", id, params, e);
+            }
 
         // 2. Resolve Core Built-in Placeholders
         String lowerId = id.toLowerCase();

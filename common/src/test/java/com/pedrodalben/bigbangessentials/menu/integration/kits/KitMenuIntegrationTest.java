@@ -86,6 +86,28 @@ class KitMenuIntegrationTest {
         assertEquals("1", value.value());
     }
 
+    @Test
+    void summaryPlaceholdersSurvivePermissionAdapterFailures() throws Exception {
+        UUID playerId = UUID.randomUUID();
+        ExternalPermissionAdapter adapter = mock(ExternalPermissionAdapter.class);
+        when(adapter.hasPermission(any(UUID.class), anyString())).thenThrow(new RuntimeException("permission backend unavailable"));
+        when(adapter.hasExactPermission(any(UUID.class), anyString())).thenReturn(false);
+        PermissionAPI.setExternalAdapter(adapter);
+
+        injectKit(new Kit("faulty", "Faulty Kit", "Kit with permission failure", List.of(ItemStack.EMPTY), 0L, "bigbangessentials.kits.faulty", -1, true));
+
+        ServerPlayer player = mock(ServerPlayer.class);
+        when(player.getUUID()).thenReturn(playerId);
+        when(player.getName()).thenReturn(Component.literal("Player"));
+
+        Map<String, Object> summary = KitMenuSupport.buildSummaryPlaceholders(player);
+
+        assertEquals("1", summary.get("kits_total"));
+        assertEquals("0", summary.get("kits_available"));
+        assertEquals("1", summary.get("kits_locked"));
+        assertEquals("0", summary.get("kits_cooldown"));
+    }
+
     @SuppressWarnings("unchecked")
     private static void injectKit(Kit kit) throws Exception {
         KitManager manager = KitManager.getInstance();
