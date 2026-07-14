@@ -220,14 +220,16 @@ public class JobsCommand {
         ServerPlayer player = ctx.getSource().getPlayer();
         if (player != null) {
             try {
-                var result = com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
+                com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
                     player,
                     "jobs_menu",
                     new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, "jobs", null, java.util.UUID.randomUUID())
-                ).toCompletableFuture().join();
-                if (result != null && result.success()) {
-                    return 1;
-                }
+                ).thenAcceptAsync(result -> {
+                    if (result != null && !result.success()) {
+                        player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cErro ao abrir o menu de trabalhos."));
+                    }
+                }, player.server);
+                return 1;
             } catch (Exception e) {
                 // Fallback to text
             }

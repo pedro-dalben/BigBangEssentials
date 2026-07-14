@@ -44,7 +44,8 @@ public class JobRewardLimitService {
             }
         }
 
-        long startOfDay = getStartOfDayMillis("America/Sao_Paulo");
+        String timezone = getConfiguredTimezone();
+        long startOfDay = getStartOfDayMillis(timezone);
         int jobDropsToday = JobRewardRollRepository.getInstance().countSuccessfulRollsForJobSince(playerUuid, jobId, startOfDay);
         if (maxPerJob > 0 && jobDropsToday >= maxPerJob) {
             return new LimitCheckResult(false, "Limite diário de chaves para a profissão (" + maxPerJob + ") atingido");
@@ -56,6 +57,16 @@ public class JobRewardLimitService {
         }
 
         return new LimitCheckResult(true, "OK");
+    }
+
+    private String getConfiguredTimezone() {
+        try {
+            var config = com.pedrodalben.bigbangessentials.jobs.JobsManager.getInstance().getConfig();
+            if (config != null && config.getDailyLimitTimezone() != null && !config.getDailyLimitTimezone().isBlank()) {
+                return config.getDailyLimitTimezone();
+            }
+        } catch (Exception ignored) {}
+        return "America/Sao_Paulo";
     }
 
     private long getStartOfDayMillis(String timezone) {

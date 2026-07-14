@@ -289,6 +289,11 @@ public class JobsEventListener {
         // Clean expired magic sessions
         activeMagicSessions.entrySet().removeIf(e -> e.getValue().isExpired());
 
+        // Periodic cleanup of fingerprint and other caches
+        if (player.tickCount % 6000 == 0) {
+            com.pedrodalben.bigbangessentials.jobs.pipeline.JobFingerprintService.getInstance().cleanup();
+        }
+
         // Check exploration every 40 ticks (2 seconds)
         if (player.tickCount % 40 == 0) {
             BlockPos pos = player.blockPosition();
