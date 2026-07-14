@@ -94,11 +94,14 @@ public class JobsManager {
 
     public boolean reload() {
         try {
+            System.err.println("[Jobs] Starting config reload...");
             JobsConfig newConfig = JobConfigurationLoader.loadAndValidate();
             if (newConfig == null) {
                 LOGGER.error("Configuration loader returned null config.");
+                System.err.println("[Jobs] ERROR: Configuration loader returned null config.");
                 return false;
             }
+            System.err.println("[Jobs] Config loaded: " + newConfig.getProfessions().size() + " professions, " + newConfig.getSlots().size() + " slots, " + newConfig.getRankMilestones().size() + " milestones");
             try {
                 com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().initializeAll();
             } catch (Exception e) {
@@ -116,6 +119,8 @@ public class JobsManager {
         } catch (Exception e) {
             LOGGER.error("Failed to load/reload jobs configuration. Previous configuration (if any) was kept. Cause: {}",
                     e.getMessage(), e);
+            System.err.println("[Jobs] ERROR loading config: " + e.getMessage());
+            e.printStackTrace(System.err);
             return false;
         }
     }
