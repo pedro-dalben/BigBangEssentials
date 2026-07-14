@@ -2,8 +2,12 @@ package com.pedrodalben.bigbangessentials.menu.integration.jobs.provider;
 
 import com.pedrodalben.bigbangessentials.jobs.JobsManager;
 import com.pedrodalben.bigbangessentials.jobs.PlayerJobsData;
+import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityResult;
+import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityService;
+import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityStatus;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.JobDefinition;
-import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository.JobProgress;
+import com.pedrodalben.bigbangessentials.jobs.discovery.JobDiscoveryService;
+import com.pedrodalben.bigbangessentials.jobs.favorite.JobFavoriteService;
 import com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService;
 import com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus;
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
@@ -13,12 +17,15 @@ import com.pedrodalben.bigbangessentials.menu.pagination.MenuDataResult;
 import com.pedrodalben.bigbangessentials.menu.pagination.PaginationRequest;
 import com.pedrodalben.bigbangessentials.menu.session.MenuContext;
 import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
 
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 public class JobsMenuDataProvider implements MenuDataProvider {
+    private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(JobsMenuDataProvider.class);
+
     private final String providerId;
     private final JobFilter filter;
 
@@ -31,61 +38,90 @@ public class JobsMenuDataProvider implements MenuDataProvider {
         this.filter = filter;
     }
 
+    private static boolean safeFilter(ServerPlayer p, JobDefinition j, String desc) {
+        try {
+            return JobAvailabilityService.getInstance().evaluate(p, j).visible();
+        } catch (Exception e) {
+            LOGGER.warn("Error filtering job '{}' for {}: {}", j.id, desc, e.getMessage());
+            return j.enabled && j.visibleWithoutPermission;
+        }
+    }
+
     public static JobsMenuDataProvider all() {
-        return new JobsMenuDataProvider("jobs.all", (p, j) -> j.enabled && isVisible(p, j));
+        return new JobsMenuDataProvider("jobs.all", (p, j) -> {
+            if (!j.enabled) return false;
+            return safeFilter(p, j, "all");
+        });
     }
 
     public static JobsMenuDataProvider common() {
-        return new JobsMenuDataProvider("jobs.common",
-                (p, j) -> j.enabled && "COMMON".equalsIgnoreCase(j.category) && isVisible(p, j));
+        return new JobsMenuDataProvider("jobs.common", (p, j) -> {
+            if (!j.enabled) return false;
+            if (!"COMMON".equalsIgnoreCase(j.category)) return false;
+            return safeFilter(p, j, "common");
+        });
     }
 
     public static JobsMenuDataProvider pokemon() {
-        return new JobsMenuDataProvider("jobs.pokemon",
-                (p, j) -> j.enabled && "POKEMON_SPECIALIZATION".equalsIgnoreCase(j.category) && isVisible(p, j));
+        return new JobsMenuDataProvider("jobs.pokemon", (p, j) -> {
+            if (!j.enabled) return false;
+            if (!"POKEMON_SPECIALIZATION".equalsIgnoreCase(j.category)) return false;
+            return safeFilter(p, j, "pokemon");
+        });
     }
 
     public static JobsMenuDataProvider active() {
         return new JobsMenuDataProvider("jobs.active", (p, j) -> {
             if (!j.enabled) return false;
-            PlayerJobsData data = p != null ? JobsManager.getInstance().getPlayerData(p.getUUID()) : null;
-            if (data == null) return false;
-            JobProgress prog = data.getProgress(j.id);
-            return prog != null && prog.isActive();
+            try { return JobAvailabilityService.getInstance().evaluate(p, j).status() == JobAvailabilityStatus.ACTIVE; }
+            catch (Exception e) { return false; }
         });
     }
 
     public static JobsMenuDataProvider available() {
         return new JobsMenuDataProvider("jobs.available", (p, j) -> {
             if (!j.enabled) return false;
-            if (!isVisible(p, j)) return false;
-            PlayerJobsData data = p != null ? JobsManager.getInstance().getPlayerData(p.getUUID()) : null;
-            boolean isActive = data != null && data.getProgress(j.id) != null && data.getProgress(j.id).isActive();
-            if (isActive) return false;
-            if (p != null) {
-                JobLicenseStatus licStatus = JobLicenseService.getInstance().getLicenseStatus(p.getUUID(), j.id);
-                return licStatus == JobLicenseStatus.LICENSED || licStatus == JobLicenseStatus.ELIGIBLE;
-            }
-            return true;
+            try {
+                JobAvailabilityResult result = JobAvailabilityService.getInstance().evaluate(p, j);
+                return result.visible() && result.status() == JobAvailabilityStatus.AVAILABLE;
+            } catch (Exception e) { return false; }
         });
     }
 
     public static JobsMenuDataProvider locked() {
         return new JobsMenuDataProvider("jobs.locked", (p, j) -> {
             if (!j.enabled) return false;
-            if (!isVisible(p, j)) return false;
-            if (p == null) return false;
-            JobLicenseStatus licStatus = JobLicenseService.getInstance().getLicenseStatus(p.getUUID(), j.id);
-            return licStatus == JobLicenseStatus.LOCKED_BY_RANK ||
-                   licStatus == JobLicenseStatus.IN_PROGRESS ||
-                   licStatus == JobLicenseStatus.READY_TO_CLAIM;
+            try {
+                JobAvailabilityResult result = JobAvailabilityService.getInstance().evaluate(p, j);
+                return result.visible() && result.isBlocked();
+            } catch (Exception e) { return false; }
         });
     }
 
-    private static boolean isVisible(ServerPlayer player, JobDefinition job) {
-        if (job.visibleWithoutPermission) return true;
-        if (player == null) return true;
-        return PermissionAPI.hasPermission(player.getUUID(), job.permission);
+    public static JobsMenuDataProvider favorites() {
+        return new JobsMenuDataProvider("jobs.favorites", (p, j) -> {
+            if (!j.enabled) return false;
+            if (p == null) return false;
+            return JobFavoriteService.getInstance().isFavorite(p.getUUID(), j.id);
+        });
+    }
+
+    public static JobsMenuDataProvider license_pending() {
+        return new JobsMenuDataProvider("jobs.license_pending", (p, j) -> {
+            if (!j.enabled) return false;
+            if (!j.licenseRequired) return false;
+            try {
+                return JobAvailabilityService.getInstance().evaluate(p, j).status() == JobAvailabilityStatus.LICENSE_REQUIRED;
+            } catch (Exception e) { return false; }
+        });
+    }
+
+    public static JobsMenuDataProvider discovered() {
+        return new JobsMenuDataProvider("jobs.discovered", (p, j) -> {
+            if (!j.enabled) return false;
+            if (p == null) return false;
+            return JobDiscoveryService.getInstance().isDiscovered(p.getUUID(), j.id);
+        });
     }
 
     @Override
@@ -94,13 +130,20 @@ public class JobsMenuDataProvider implements MenuDataProvider {
     @Override
     public CompletionStage<MenuDataResult> provide(ServerPlayer player, MenuContext context, PaginationRequest request) {
         List<JobDefinition> allJobs = JobsMenuSupport.getSortedJobs();
+        LOGGER.debug("provide() total allJobs count = {}", allJobs.size());
+
         List<JobDefinition> filtered = allJobs.stream()
-                .filter(j -> filter.accept(player, j))
+                .filter(j -> {
+                    boolean accepted = filter.accept(player, j);
+                    LOGGER.debug("provide() job '{}' enabled={} filterAccept={}", j.id, j.enabled, accepted);
+                    return accepted;
+                })
                 .collect(Collectors.toList());
 
         int totalItems = filtered.size();
         int fromIndex = (request.page() - 1) * request.itemsPerPage();
         int toIndex = Math.min(fromIndex + request.itemsPerPage(), totalItems);
+        LOGGER.debug("provide() filteredCount={} fromIndex={} toIndex={}", totalItems, fromIndex, toIndex);
 
         List<Map<String, Object>> items = new ArrayList<>();
         if (fromIndex >= 0 && fromIndex < totalItems) {
@@ -108,6 +151,7 @@ public class JobsMenuDataProvider implements MenuDataProvider {
                 items.add(JobsMenuSupport.buildJobPlaceholders(player, filtered.get(i)));
             }
         }
+        LOGGER.debug("provide() items.size() = {}", items.size());
 
         return CompletableFuture.completedFuture(new MenuDataResult(items, totalItems));
     }

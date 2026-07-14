@@ -32,15 +32,22 @@ public class JobsMenuIntegration {
         menuSystem.getDataProviderRegistry().registerProvider("jobs.active", JobsMenuDataProvider.active());
         menuSystem.getDataProviderRegistry().registerProvider("jobs.available", JobsMenuDataProvider.available());
         menuSystem.getDataProviderRegistry().registerProvider("jobs.locked", JobsMenuDataProvider.locked());
+        menuSystem.getDataProviderRegistry().registerProvider("jobs.favorites", JobsMenuDataProvider.favorites());
+        menuSystem.getDataProviderRegistry().registerProvider("jobs.license_pending", JobsMenuDataProvider.license_pending());
+        menuSystem.getDataProviderRegistry().registerProvider("jobs.discovered", JobsMenuDataProvider.discovered());
 
         menuSystem.getActionRegistry().registerActionHandler("join_job", new JoinJobMenuAction());
         menuSystem.getActionRegistry().registerActionHandler("leave_job", new LeaveJobMenuAction());
         menuSystem.getActionRegistry().registerActionHandler("toggle_job", new ToggleJobMenuAction());
         menuSystem.getActionRegistry().registerActionHandler("open_job_details", new OpenJobDetailsMenuAction());
+        menuSystem.getActionRegistry().registerActionHandler("favorite_job", new FavoriteJobMenuAction());
+        menuSystem.getActionRegistry().registerActionHandler("job_requirements", new JobRequirementsMenuAction());
+        menuSystem.getActionRegistry().registerActionHandler("job_comparison", new JobComparisonMenuAction());
+        menuSystem.getActionRegistry().registerActionHandler("job_slots_management", new JobSlotsManagementMenuAction());
 
         menuSystem.getPlaceholderRegistry().registerPlaceholder("jobs", new JobsPlaceholderResolver());
 
-        LOGGER.info("Jobs menu integration registered successfully (6 data providers, 4 actions, 1 placeholder resolver).");
+        LOGGER.info("Jobs menu integration registered successfully (9 data providers, 8 actions, 1 placeholder resolver).");
     }
 
     private void setupDefaultMenus(Path dir) {
