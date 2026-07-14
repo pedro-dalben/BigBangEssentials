@@ -96,12 +96,34 @@ public class JobRewardApplier {
             JobMessageService.getInstance().sendActionBarNotification(player, jobDef, allowedPayout, finalXp);
         }
 
-        // 5. Debug Mode Logging
+        // 5. Handle exploration discovery confirmation
+        if (action.type() == JobActionType.EXPLORE && action.context() != null && action.context().isFirstDiscovery()) {
+            String discoveryType = determineDiscoveryType(action);
+            String discoveryKey = action.targetId();
+            if (!discoveryType.isEmpty() && !discoveryKey.isEmpty()) {
+                com.pedrodalben.bigbangessentials.jobs.antiexploit.ExplorationDiscoveryService.getInstance()
+                        .confirmDiscovery(playerId, discoveryType, discoveryKey);
+            }
+        }
+
+        // 6. Debug Mode Logging
         if (data.isDebugMode() || JobsManager.isGlobalDebugMode()) {
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
                     String.format("§7[Debug] Ação: %s | Alvo: %s | Job: %s | XP: %.2f | Coins: %.2f",
                             action.type().name(), action.targetId(), jobDef.displayName, finalXp, allowedPayout)
             ));
         }
+    }
+
+    private String determineDiscoveryType(JobAction action) {
+        if (action.context() == null) return "";
+        String src = action.context().getEventSource();
+        if (src == null) return "";
+        if (src.equals("EXPLORATION_BIOME")) return "BIOME";
+        if (src.equals("EXPLORATION_STRUCTURE")) return "STRUCTURE";
+        if (src.equals("EXPLORATION_CELL")) return "CELL";
+        if (src.equals("EXPLORATION_DIMENSION")) return "DIMENSION";
+        if (action.context().getBiome() != null && !action.context().getBiome().isEmpty()) return "BIOME";
+        return "";
     }
 }
