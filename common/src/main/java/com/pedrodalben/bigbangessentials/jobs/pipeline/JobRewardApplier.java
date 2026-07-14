@@ -40,9 +40,10 @@ public class JobRewardApplier {
         if (config == null) return;
 
         // 1. Apply Money
+        boolean moneyApplied = true;
         if (allowedPayout > 0.0) {
-            boolean deposited = EconomyAPI.deposit(playerId, BigDecimal.valueOf(allowedPayout));
-            if (deposited) {
+            moneyApplied = EconomyAPI.deposit(playerId, BigDecimal.valueOf(allowedPayout));
+            if (moneyApplied) {
                 double currentEarnings = data.getDailyEarnings(jobId);
                 double newEarnings = currentEarnings + allowedPayout;
                 data.setDailyEarnings(jobId, newEarnings);
@@ -101,8 +102,14 @@ public class JobRewardApplier {
             String discoveryType = determineDiscoveryType(action);
             String discoveryKey = action.targetId();
             if (!discoveryType.isEmpty() && !discoveryKey.isEmpty()) {
-                com.pedrodalben.bigbangessentials.jobs.antiexploit.ExplorationDiscoveryService.getInstance()
-                        .confirmDiscovery(playerId, discoveryType, discoveryKey);
+                if (moneyApplied) {
+                    com.pedrodalben.bigbangessentials.jobs.antiexploit.ExplorationDiscoveryService.getInstance()
+                            .confirmDiscovery(playerId, discoveryType, discoveryKey);
+                } else {
+                    com.pedrodalben.bigbangessentials.jobs.antiexploit.ExplorationDiscoveryService.getInstance()
+                            .cancelDiscovery(playerId, discoveryType, discoveryKey);
+                    LOGGER.warn("Exploration discovery {} cancelled - deposit failed for player {}", discoveryKey, playerId);
+                }
             }
         }
 

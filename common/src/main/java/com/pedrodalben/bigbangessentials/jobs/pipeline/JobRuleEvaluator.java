@@ -158,6 +158,14 @@ public class JobRuleEvaluator {
                     }
                     yield false;
                 }
+                case USE_MAGIC -> {
+                    Block block = BuiltInRegistries.BLOCK.get(targetLoc);
+                    if (block != null) {
+                        BlockState state = block.defaultBlockState();
+                        yield JobsManager.blockMatches(state, pattern);
+                    }
+                    yield false;
+                }
                 default -> false;
             };
         } catch (Throwable ignored) {

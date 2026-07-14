@@ -139,6 +139,7 @@ public class JobActionProcessor {
                     action.targetId(), JobRewardOutcome.success(totalXp, totalCoins),
                     action.context().getMetadataJson());
         } else {
+            cancelDiscoveryIfPending(action);
             receiptRepo.recordReceipt(action.actionId(), player.getUUID(), "", action.type().name(),
                     action.targetId(), JobRewardOutcome.failure("NO_MATCHING_RULES_OR_ZERO_PAYOUT"),
                     action.context().getMetadataJson());

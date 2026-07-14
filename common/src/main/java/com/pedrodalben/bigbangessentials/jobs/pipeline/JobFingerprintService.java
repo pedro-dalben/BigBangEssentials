@@ -44,12 +44,13 @@ public class JobFingerprintService {
 
     public String computeActionFingerprint(JobAction action) {
         if (action == null) return UUID.randomUUID().toString();
-        String data = String.format("%s/%s/%d/%s/%s/%s",
+        String data = String.format("%s/%s/%d/%s/%s/%s/%s",
                 action.playerId(), action.type().name(),
                 action.occurredAt().getEpochSecond(),
                 action.context().getDimension(),
                 action.context().getPosition(),
-                action.targetId());
+                action.targetId(),
+                action.context().getEventSource());
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(data.getBytes(StandardCharsets.UTF_8));

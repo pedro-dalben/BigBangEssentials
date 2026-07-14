@@ -18,8 +18,8 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.BrewingStandBlock;
-import net.minecraft.world.level.block.EnchantingTableBlock;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import org.slf4j.Logger;
@@ -243,8 +243,9 @@ public class JobsEventListener {
 
         boolean isMature = CropHarvestValidationService.getInstance().isMatureCrop(state);
 
-        // Check provenance (player-placed or natural)
-        ProvenanceResult prov = BlockProvenanceService.getInstance().checkAndRemove(dimension, pos);
+        // Check provenance (player-placed or natural) - read-only to avoid consuming provenance
+        // Right-click harvest doesn't break the block, so provenance must remain for actual break events
+        ProvenanceResult prov = BlockProvenanceService.getInstance().checkProvenance(dimension, pos);
 
         JobActionContext context = JobActionContext.builder()
                 .dimension(dimension)
@@ -395,6 +396,7 @@ public class JobsEventListener {
     // === Magic session tracking for enchanting/brewing completion detection ===
     private static final ConcurrentHashMap<UUID, MagicSession> activeMagicSessions = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<UUID, Integer> playerExpLevels = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Integer> lastBrewOutputHashes = new ConcurrentHashMap<>();
 
     private record MagicSession(BlockPos pos, String blockId, MagicType type, long startedAt) {
         boolean isExpired() { return System.currentTimeMillis() - startedAt > 60000L; }
@@ -462,15 +464,57 @@ public class JobsEventListener {
         }
 
         if (session.type() == MagicType.ENCHANTING) {
-            Integer lastLevel = playerExpLevels.get(uuid);
-            if (lastLevel != null && currentLevel < lastLevel) {
-                playerExpLevels.put(uuid, currentLevel);
-                activeMagicSessions.remove(uuid);
-                onMagicCompleted(player, session.blockId());
+            // Only trigger if player is near the enchanting table (prevents death/commands from falsely firing)
+            if (session.pos().distSqr(player.blockPosition()) < 36) {
+                Integer lastLevel = playerExpLevels.get(uuid);
+                if (lastLevel != null && currentLevel < lastLevel) {
+                    playerExpLevels.put(uuid, currentLevel);
+                    activeMagicSessions.remove(uuid);
+                    onMagicCompleted(player, session.blockId());
+                } else {
+                    playerExpLevels.put(uuid, currentLevel);
+                }
             } else {
-                playerExpLevels.put(uuid, currentLevel);
+                // Player moved away from enchanting table - cancel session
+                activeMagicSessions.remove(uuid);
+                playerExpLevels.remove(uuid);
+            }
+        } else if (session.type() == MagicType.BREWING) {
+            checkBrewingCompletion(player, session);
+        }
+    }
+
+    /**
+     * Detects brewing completion by checking the BrewingStandBlockEntity's output slots.
+     * Used as a fallback on platforms without PlayerBrewedPotionEvent (e.g., Fabric).
+     * Only fires when new potions appear compared to the last known state.
+     */
+    private static void checkBrewingCompletion(ServerPlayer player, MagicSession session) {
+        if (!(player.level() instanceof ServerLevel level)) return;
+        var be = level.getBlockEntity(session.pos());
+        if (!(be instanceof BrewingStandBlockEntity brewingStand)) return;
+
+        int hash = computeBrewHash(brewingStand);
+        if (hash == 0) return;
+
+        String key = player.getStringUUID() + ":" + session.pos().toShortString();
+        Integer lastHash = lastBrewOutputHashes.get(key);
+        if (lastHash != null && hash == lastHash) return;
+
+        lastBrewOutputHashes.put(key, hash);
+        activeMagicSessions.remove(player.getUUID());
+        onBrewPotionTaken(player);
+    }
+
+    private static int computeBrewHash(BrewingStandBlockEntity bs) {
+        int h = 1;
+        for (int i = 0; i < 3; i++) {
+            ItemStack stack = bs.getItem(i);
+            if (!stack.isEmpty()) {
+                h = 31 * h + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).hashCode();
             }
         }
+        return h;
     }
 
     private static void processDoubleDrops(ServerPlayer player, BlockState state, BlockPos pos) {

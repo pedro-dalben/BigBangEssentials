@@ -108,11 +108,11 @@ public class JobRewardRollService {
             CrateKeyGrantResult grantResult;
             if (reward.physicalKey()) {
                 grantResult = gateway.grantPhysicalKey(
-                    playerUuid, reward.keyId(), reward.amount(), CrateKeyGrantSource.JOB_LUCK, actionType, null
+                    playerUuid, reward.keyId(), reward.amount(), CrateKeyGrantSource.JOB_LUCK, rollId, null
                 );
             } else {
                 grantResult = gateway.grantVirtualKey(
-                    playerUuid, reward.keyId(), reward.amount(), CrateKeyGrantSource.JOB_LUCK, actionType, null
+                    playerUuid, reward.keyId(), reward.amount(), CrateKeyGrantSource.JOB_LUCK, rollId, null
                 );
             }
             if (grantResult.success()) {
