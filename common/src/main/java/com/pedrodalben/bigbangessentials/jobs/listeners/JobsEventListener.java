@@ -82,11 +82,11 @@ public class JobsEventListener {
         String dimension = player.level().dimension().location().toString();
         String registryId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
 
-        // Check provenance
-        ProvenanceResult prov = BlockProvenanceService.getInstance().checkAndRemove(dimension, pos);
-
         PlayerJobsData data = JobsManager.getInstance().getPlayerData(player.getUUID());
         if (data == null) return;
+
+        // Check provenance (after data null check to avoid consuming provenance when data is missing)
+        ProvenanceResult prov = BlockProvenanceService.getInstance().checkAndRemove(dimension, pos);
 
         if (prov.isBlocked()) {
             if (data.isDebugMode()) {
@@ -561,7 +561,7 @@ public class JobsEventListener {
                 player.getServer(), "minecraft", "silk_touch");
         if (silkLevel > 0) return;
 
-        double chance = rank * 0.01;
+        double chance = Math.min(rank * 0.01, 1.0);
         if (player.getRandom().nextDouble() < chance) {
             if (player.level() instanceof ServerLevel serverLevel) {
                 List<ItemStack> drops = Block.getDrops(state, serverLevel, pos, null,

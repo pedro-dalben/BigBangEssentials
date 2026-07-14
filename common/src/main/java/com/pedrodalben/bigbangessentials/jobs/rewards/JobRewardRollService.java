@@ -96,10 +96,8 @@ public class JobRewardRollService {
             ? "Dropped " + reward.keyId() + " (x" + reward.amount() + ")"
             : "RNG failed (" + String.format("%.4f", randomVal) + " >= " + String.format("%.4f", finalChance) + ")";
 
-        JobKeyRollResult roll = new JobKeyRollResult(
-            rollId, actionType, playerUuid, jobId, jobLevel, baseChance, actionWeight, finalChance, randomVal, success, reason, now
-        );
-        JobRewardRollRepository.getInstance().saveRoll(roll);
+        boolean actualSuccess = false;
+        String finalReason = reason;
 
         if (success) {
             CrateRewardGateway gateway = DefaultCrateRewardGateway.getInstance();
@@ -114,14 +112,21 @@ public class JobRewardRollService {
                 );
             }
             if (grantResult.success()) {
+                actualSuccess = true;
                 LOGGER.info("[CrateReward] Player {} won {} x{} in job {} (level {}, action {}). Reward: {}/{}/{}",
                     playerUuid, reward.keyId(), reward.amount(), jobId, jobLevel, actionType,
                     reward.keyId(), reward.chance(), reward.dailyLimit());
                 JobRewardNotificationService.getInstance().notifyKeyFound(playerUuid, reward.keyId(), reward.keyDisplayName());
             } else {
+                finalReason = "Dropped " + reward.keyId() + " but grant failed: " + grantResult.errorMessage();
                 LOGGER.warn("[CrateReward] Player {} won {} roll but gateway failed: {}", playerUuid, reward.keyId(), grantResult.errorMessage());
             }
         }
+
+        JobKeyRollResult roll = new JobKeyRollResult(
+            rollId, actionType, playerUuid, jobId, jobLevel, baseChance, actionWeight, finalChance, randomVal, actualSuccess, finalReason, now
+        );
+        JobRewardRollRepository.getInstance().saveRoll(roll);
     }
 
     private void processLegacyReward(UUID playerUuid, String jobId, int jobLevel, String actionType, double actionWeight) {
