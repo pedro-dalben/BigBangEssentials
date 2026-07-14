@@ -31,7 +31,7 @@ class PokemonJobsTest {
     void testWildcardRewardEvaluationForPokemonActions() {
         Map<String, ActionReward> captureRewards = new LinkedHashMap<>();
         captureRewards.put("mewtwo", new ActionReward(500.0, 1000.0));
-        captureRewards.put("*", new ActionReward(15.0, 20.0));
+        captureRewards.put("default-reward", new ActionReward(15.0, 20.0));
 
         Map<String, Map<String, ActionReward>> actionsMap = new LinkedHashMap<>();
         actionsMap.put("POKEMON-CAPTURED", captureRewards);
@@ -53,17 +53,17 @@ class PokemonJobsTest {
                 .build();
 
         JobAction mewtwoAction = JobAction.create(playerId, JobActionType.POKEMON_CAPTURED, "cobblemon", "mewtwo", JobActionContext.empty());
-        Optional<JobRuleEvaluator.EvaluatedRule> mewtwoRule = JobRuleEvaluator.getInstance().evaluate(researcherJob, mewtwoAction);
-        assertTrue(mewtwoRule.isPresent());
-        assertEquals(500.0, mewtwoRule.get().reward().money);
-        assertEquals(1000.0, mewtwoRule.get().reward().xp);
+        JobRuleEvaluator.MatchResult mewtwoMatch = JobRuleEvaluator.getInstance().evaluate(researcherJob, mewtwoAction);
+        assertTrue(mewtwoMatch.isMatch());
+        assertEquals(500.0, mewtwoMatch.rule().reward().money);
+        assertEquals(1000.0, mewtwoMatch.rule().reward().xp);
 
         JobAction pikachuAction = JobAction.create(playerId, JobActionType.POKEMON_CAPTURED, "cobblemon", "pikachu", JobActionContext.empty());
-        Optional<JobRuleEvaluator.EvaluatedRule> pikachuRule = JobRuleEvaluator.getInstance().evaluate(researcherJob, pikachuAction);
-        assertTrue(pikachuRule.isPresent());
-        assertEquals(15.0, pikachuRule.get().reward().money, "pikachu should match wildcard money");
-        assertEquals(20.0, pikachuRule.get().reward().xp, "pikachu should match wildcard xp");
-        assertEquals("*", pikachuRule.get().matchedTargetKey());
+        JobRuleEvaluator.MatchResult pikachuMatch = JobRuleEvaluator.getInstance().evaluate(researcherJob, pikachuAction);
+        assertTrue(pikachuMatch.isMatch());
+        assertEquals(15.0, pikachuMatch.rule().reward().money, "pikachu should match wildcard money");
+        assertEquals(20.0, pikachuMatch.rule().reward().xp, "pikachu should match wildcard xp");
+        assertEquals("default-reward", pikachuMatch.rule().matchedTargetKey());
     }
 
     @Test
