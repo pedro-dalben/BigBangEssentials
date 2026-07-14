@@ -247,6 +247,14 @@ public class JobsEventListener {
         // Right-click harvest doesn't break the block, so provenance must remain for actual break events
         ProvenanceResult prov = BlockProvenanceService.getInstance().checkProvenance(dimension, pos);
 
+        if (prov.isBlocked()) {
+            if (data.isDebugMode()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                        "§7[Debug] Right-click crop harvest ignorado. Motivo: " + prov.reason()));
+            }
+            return;
+        }
+
         JobActionContext context = JobActionContext.builder()
                 .dimension(dimension)
                 .position(pos.toShortString())

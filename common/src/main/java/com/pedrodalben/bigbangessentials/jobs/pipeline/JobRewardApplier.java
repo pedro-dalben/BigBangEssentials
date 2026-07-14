@@ -97,18 +97,18 @@ public class JobRewardApplier {
             JobMessageService.getInstance().sendActionBarNotification(player, jobDef, allowedPayout, finalXp);
         }
 
-        // 5. Handle exploration discovery confirmation
+        // 5. Handle exploration discovery confirmation - only if reward was actually applied
         if (action.type() == JobActionType.EXPLORE && action.context() != null && action.context().isFirstDiscovery()) {
             String discoveryType = determineDiscoveryType(action);
             String discoveryKey = action.targetId();
             if (!discoveryType.isEmpty() && !discoveryKey.isEmpty()) {
-                if (moneyApplied) {
+                if (moneyApplied && (allowedPayout > 0.0 || finalXp > 0.0)) {
                     com.pedrodalben.bigbangessentials.jobs.antiexploit.ExplorationDiscoveryService.getInstance()
                             .confirmDiscovery(playerId, discoveryType, discoveryKey);
                 } else {
                     com.pedrodalben.bigbangessentials.jobs.antiexploit.ExplorationDiscoveryService.getInstance()
                             .cancelDiscovery(playerId, discoveryType, discoveryKey);
-                    LOGGER.warn("Exploration discovery {} cancelled - deposit failed for player {}", discoveryKey, playerId);
+                    LOGGER.warn("Exploration discovery {} cancelled - no reward applied for player {}", discoveryKey, playerId);
                 }
             }
         }

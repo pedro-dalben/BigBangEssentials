@@ -426,12 +426,18 @@ public class JobsConfig {
 
         public SkillDefinition(String id, String name, String description, int maxLevel, int maxRank,
                                int pointCost, List<String> prerequisites, Map<String, Double> effects) {
-            this(id, name, description, maxLevel, maxRank, pointCost, prerequisites, effects, 1);
+            this(id, name, description, maxLevel, maxRank, pointCost, prerequisites, effects, 1, List.of());
         }
 
         public SkillDefinition(String id, String name, String description, int maxLevel, int maxRank,
                                int pointCost, List<String> prerequisites, Map<String, Double> effects,
                                int requiredLevel) {
+            this(id, name, description, maxLevel, maxRank, pointCost, prerequisites, effects, requiredLevel, List.of());
+        }
+
+        public SkillDefinition(String id, String name, String description, int maxLevel, int maxRank,
+                               int pointCost, List<String> prerequisites, Map<String, Double> effects,
+                               int requiredLevel, List<String> dependencies) {
             this.id = id;
             this.name = name != null ? name : id;
             this.description = description != null ? description : "";
@@ -439,7 +445,8 @@ public class JobsConfig {
             this.maxRank = maxRank;
             this.requiredLevel = requiredLevel > 0 ? requiredLevel : 1;
             this.pointCost = pointCost;
-            this.dependencies = Collections.unmodifiableList(new ArrayList<>());
+            this.dependencies = Collections.unmodifiableList(
+                    new ArrayList<>(dependencies != null ? dependencies : Collections.emptyList()));
             this.prerequisites = Collections.unmodifiableList(
                     new ArrayList<>(prerequisites != null ? prerequisites : Collections.emptyList()));
             this.effects = Collections.unmodifiableMap(
@@ -467,11 +474,12 @@ public class JobsConfig {
             public Builder maxRank(int v) { maxRank = v; return this; }
             public Builder requiredLevel(int v) { requiredLevel = v; return this; }
             public Builder pointCost(int v) { pointCost = v; return this; }
-            public Builder prerequisites(List<String> v) { prerequisites = v; return this; }
+            public Builder prerequisite(List<String> v) { prerequisites = v; return this; }
             public Builder effects(Map<String, Double> v) { effects = v; return this; }
+            public Builder dependencies(List<String> v) { dependencies = v; return this; }
             public SkillDefinition build() {
                 return new SkillDefinition(id, name, description, maxLevel, maxRank,
-                        pointCost, prerequisites, effects, requiredLevel);
+                        pointCost, prerequisites, effects, requiredLevel, dependencies);
             }
         }
     }

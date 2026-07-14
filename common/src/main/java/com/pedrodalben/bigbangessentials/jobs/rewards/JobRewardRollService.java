@@ -58,11 +58,9 @@ public class JobRewardRollService {
 
         matchingRewards.sort(CrateRewardDefinition.PRIORITY_DESC);
 
-        boolean oneRewardMode = jobDef.crateRewards.stream().anyMatch(CrateRewardDefinition::oneRewardPerAction);
-
         for (CrateRewardDefinition reward : matchingRewards) {
             processConfiguredReward(playerUuid, jobDef, jobLevel, actionType, actionWeight, reward);
-            if (oneRewardMode) {
+            if (reward.oneRewardPerAction()) {
                 break;
             }
         }

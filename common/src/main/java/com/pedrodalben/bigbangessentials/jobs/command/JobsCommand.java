@@ -369,6 +369,10 @@ public class JobsCommand {
         switch (result) {
             case SUCCESS:
                 cfg = JobsManager.getInstance().getConfig();
+                if (cfg == null) {
+                    ctx.getSource().sendSuccess(() -> Component.literal("§aVoce entrou com sucesso no trabalho: §l" + jobName), false);
+                    return 1;
+                }
                 JobDefinition job = cfg.getJob(jobName);
                 ctx.getSource().sendSuccess(() -> Component.literal("§aVocê entrou com sucesso no trabalho: §l" + job.displayName), false);
                 return 1;
@@ -419,6 +423,10 @@ public class JobsCommand {
         switch (result) {
             case SUCCESS:
                 JobsConfig cfg = JobsManager.getInstance().getConfig();
+                if (cfg == null) {
+                    ctx.getSource().sendSuccess(() -> Component.literal("§aVoce saiu com sucesso do trabalho: §l" + jobName), false);
+                    return 1;
+                }
                 JobDefinition job = cfg.getJob(jobName);
                 ctx.getSource().sendSuccess(() -> Component.literal("§aVocê saiu com sucesso do trabalho: §l" + job.displayName), false);
                 return 1;
