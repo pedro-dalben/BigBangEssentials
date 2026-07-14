@@ -9,6 +9,9 @@ import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
 import com.pedrodalben.bigbangessentials.jobs.JobsManager;
 import com.pedrodalben.bigbangessentials.jobs.PlayerJobsData;
 import com.pedrodalben.bigbangessentials.jobs.JobCommandService;
+import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityResult;
+import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityService;
+import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityStatus;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.ActionReward;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.JobDefinition;
@@ -351,10 +354,21 @@ public class JobsCommand {
 
     private static int executeJoin(CommandContext<CommandSourceStack> ctx, String jobName) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
+        JobsConfig cfg = JobsManager.getInstance().getConfig();
+        if (cfg != null) {
+            JobDefinition job = cfg.getJob(jobName);
+            if (job != null) {
+                JobAvailabilityResult availability = JobAvailabilityService.getInstance().evaluate(player, job);
+                if (availability.status() != JobAvailabilityStatus.AVAILABLE && availability.status() != JobAvailabilityStatus.ACTIVE) {
+                    ctx.getSource().sendFailure(Component.literal("§c" + availability.primaryReason()));
+                    return 0;
+                }
+            }
+        }
         JobCommandService.JoinResult result = JobCommandService.getInstance().joinJob(player, jobName);
         switch (result) {
             case SUCCESS:
-                JobsConfig cfg = JobsManager.getInstance().getConfig();
+                cfg = JobsManager.getInstance().getConfig();
                 JobDefinition job = cfg.getJob(jobName);
                 ctx.getSource().sendSuccess(() -> Component.literal("§aVocê entrou com sucesso no trabalho: §l" + job.displayName), false);
                 return 1;
