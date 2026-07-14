@@ -229,6 +229,39 @@ public class JobsEventListener {
     }
 
     /**
+     * Handles right-click harvest of mature crops (wheat, carrots, etc.)
+     * Modern Minecraft allows right-click harvesting, which does NOT fire BlockEvent.BreakEvent.
+     * This method captures those harvests and publishes HARVEST_CROP actions.
+     */
+    public static void onRightClickCrop(ServerPlayer player, BlockPos pos, BlockState state) {
+        if (player == null || state == null || pos == null) return;
+        String dimension = player.level().dimension().location().toString();
+        String registryId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+
+        PlayerJobsData data = JobsManager.getInstance().getPlayerData(player.getUUID());
+        if (data == null) return;
+
+        boolean isMature = CropHarvestValidationService.getInstance().isMatureCrop(state);
+
+        // Check provenance (player-placed or natural)
+        ProvenanceResult prov = BlockProvenanceService.getInstance().checkAndRemove(dimension, pos);
+
+        JobActionContext context = JobActionContext.builder()
+                .dimension(dimension)
+                .position(pos.toShortString())
+                .blockId(registryId)
+                .blockStateString(state.toString())
+                .playerPlacedBlock(prov.type() == ProvenanceType.PLAYER_PLACED)
+                .cropMature(isMature)
+                .eventSource("RIGHT_CLICK_CROP")
+                .build();
+
+        JobAction action = JobAction.create(player.getUUID(), JobActionType.HARVEST_CROP,
+                "RIGHT_CLICK_CROP", registryId, context);
+        JobActionPublisher.getInstance().publish(player, action);
+    }
+
+    /**
      * Exploration discovery flow:
      * 1. Detect potential discovery
      * 2. Check if player has Explorer active (in eligibility resolver)
@@ -240,6 +273,12 @@ public class JobsEventListener {
      */
     public static void onPlayerTick(ServerPlayer player) {
         if (player == null || player.isSpectator() || player.level() == null) return;
+
+        // Track XP for enchanting completion detection
+        trackExperienceLevels(player);
+
+        // Clean expired magic sessions
+        activeMagicSessions.entrySet().removeIf(e -> e.getValue().isExpired());
 
         // Check exploration every 40 ticks (2 seconds)
         if (player.tickCount % 40 == 0) {
@@ -353,24 +392,85 @@ public class JobsEventListener {
         JobActionPublisher.getInstance().publish(player, action);
     }
 
-    public static void onUseMagic(ServerPlayer player, BlockPos pos, BlockState state) {
-        if (player == null || state == null) return;
+    // === Magic session tracking for enchanting/brewing completion detection ===
+    private static final ConcurrentHashMap<UUID, MagicSession> activeMagicSessions = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, Integer> playerExpLevels = new ConcurrentHashMap<>();
 
+    private record MagicSession(BlockPos pos, String blockId, MagicType type, long startedAt) {
+        boolean isExpired() { return System.currentTimeMillis() - startedAt > 60000L; }
+    }
+    private enum MagicType { ENCHANTING, BREWING }
+
+    /**
+     * Called on right-click of enchanting table or brewing stand.
+     * For enchanting: marks session; actual reward fires when XP drops (completion detected in tick)
+     * For brewing: marks session; reward fires on PlayerBrewedPotionEvent (NeoForge) or tick check (Fabric)
+     */
+    public static void onMagicInteraction(ServerPlayer player, BlockPos pos, BlockState state) {
+        if (player == null || state == null) return;
         String registryId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        MagicType type = state.is(Blocks.ENCHANTING_TABLE) ? MagicType.ENCHANTING : MagicType.BREWING;
+
+        activeMagicSessions.put(player.getUUID(), new MagicSession(pos, registryId, type, System.currentTimeMillis()));
+
+        if (type == MagicType.ENCHANTING) {
+            playerExpLevels.put(player.getUUID(), player.experienceLevel);
+        }
+    }
+
+    /**
+     * Called when enchanting is confirmed (XP dropped while enchanting session active).
+     * Or when brewing potion is taken (NeoForge PlayerBrewedPotionEvent).
+     */
+    public static void onMagicCompleted(ServerPlayer player, String blockId) {
+        if (player == null || blockId == null) return;
         PlayerJobsData data = JobsManager.getInstance().getPlayerData(player.getUUID());
         if (data == null) return;
 
         JobActionContext context = JobActionContext.builder()
                 .dimension(player.level().dimension().location().toString())
-                .position(pos != null ? pos.toShortString() : "")
-                .blockId(registryId)
-                .blockStateString(state.toString())
-                .eventSource("MAGIC")
+                .position(player.blockPosition().toShortString())
+                .blockId(blockId)
+                .eventSource("MAGIC_COMPLETED")
                 .build();
 
         JobAction action = JobAction.create(player.getUUID(), JobActionType.USE_MAGIC,
-                "MAGIC", registryId, context);
+                "MAGIC_COMPLETED", blockId, context);
         JobActionPublisher.getInstance().publish(player, action);
+    }
+
+    /**
+     * Called when a player picks up a brewed potion (NeoForge event).
+     */
+    public static void onBrewPotionTaken(ServerPlayer player) {
+        onMagicCompleted(player, "minecraft:brewing_stand");
+    }
+
+    /**
+     * Tracks experience level changes to detect enchanting completion.
+     */
+    public static void trackExperienceLevels(ServerPlayer player) {
+        if (player == null) return;
+        UUID uuid = player.getUUID();
+        int currentLevel = player.experienceLevel;
+
+        MagicSession session = activeMagicSessions.get(uuid);
+        if (session == null || session.isExpired()) {
+            activeMagicSessions.remove(uuid);
+            playerExpLevels.remove(uuid);
+            return;
+        }
+
+        if (session.type() == MagicType.ENCHANTING) {
+            Integer lastLevel = playerExpLevels.get(uuid);
+            if (lastLevel != null && currentLevel < lastLevel) {
+                playerExpLevels.put(uuid, currentLevel);
+                activeMagicSessions.remove(uuid);
+                onMagicCompleted(player, session.blockId());
+            } else {
+                playerExpLevels.put(uuid, currentLevel);
+            }
+        }
     }
 
     private static void processDoubleDrops(ServerPlayer player, BlockState state, BlockPos pos) {

@@ -15,6 +15,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class FabricEvents {
 
@@ -82,13 +83,25 @@ public class FabricEvents {
 
         FabricCrateEvents.register();
 
-        // USE-MAGIC: Enchanting table and brewing stand interactions
+        // Right-click crop harvest detection (wheat, carrots, etc. - modern right-click harvest)
+        UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
+            if (player instanceof ServerPlayer serverPlayer && !level.isClientSide()) {
+                BlockPos pos = hitResult.getBlockPos();
+                BlockState state = level.getBlockState(pos);
+                if (com.pedrodalben.bigbangessentials.jobs.antiexploit.CropHarvestValidationService.getInstance().isCrop(state)) {
+                    JobsEventListener.onRightClickCrop(serverPlayer, pos, state);
+                }
+            }
+            return InteractionResult.PASS;
+        });
+
+        // USE-MAGIC session tracking: marks player session for enchanting/brewing completion detection
         UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
             if (player instanceof ServerPlayer serverPlayer && !level.isClientSide()) {
                 BlockPos pos = hitResult.getBlockPos();
                 var state = level.getBlockState(pos);
                 if (state.is(Blocks.ENCHANTING_TABLE) || state.is(Blocks.BREWING_STAND)) {
-                    JobsEventListener.onUseMagic(serverPlayer, pos, state);
+                    JobsEventListener.onMagicInteraction(serverPlayer, pos, state);
                 }
             }
             return InteractionResult.PASS;

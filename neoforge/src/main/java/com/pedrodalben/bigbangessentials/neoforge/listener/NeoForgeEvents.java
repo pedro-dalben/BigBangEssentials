@@ -171,12 +171,30 @@ public class NeoForgeEvents {
 
 
     @SubscribeEvent
-    public static void onUseMagic(PlayerInteractEvent.RightClickBlock event) {
+    public static void onRightClickCrop(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getEntity() instanceof ServerPlayer player && !event.isCanceled()) {
+            BlockPos pos = event.getPos();
+            BlockState state = event.getLevel().getBlockState(pos);
+            if (com.pedrodalben.bigbangessentials.jobs.antiexploit.CropHarvestValidationService.getInstance().isCrop(state)) {
+                JobsEventListener.onRightClickCrop(player, pos, state);
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onMagicInteraction(PlayerInteractEvent.RightClickBlock event) {
         if (event.getEntity() instanceof ServerPlayer player && !event.isCanceled()) {
             BlockState state = event.getLevel().getBlockState(event.getPos());
             if (state.is(Blocks.ENCHANTING_TABLE) || state.is(Blocks.BREWING_STAND)) {
-                JobsEventListener.onUseMagic(player, event.getPos(), state);
+                JobsEventListener.onMagicInteraction(player, event.getPos(), state);
             }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onBrewPotionTaken(net.neoforged.neoforge.event.brewing.PlayerBrewedPotionEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            JobsEventListener.onBrewPotionTaken(player);
         }
     }
 
