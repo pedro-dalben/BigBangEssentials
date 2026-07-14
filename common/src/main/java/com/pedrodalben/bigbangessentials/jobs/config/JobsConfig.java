@@ -182,6 +182,7 @@ public class JobsConfig {
         public final HowToEarn howToEarn;
         public final List<CrateRewardDefinition> crateRewards;
         public final UnlockRequirements unlockRequirements;
+        public final VisibilityConfig visibility;
 
         private JobDefinition(Builder b) {
             this.id = requireNonEmpty(b.id, "id");
@@ -217,6 +218,7 @@ public class JobsConfig {
             this.crateRewards = Collections.unmodifiableList(
                     b.crateRewards != null ? new ArrayList<>(b.crateRewards) : new ArrayList<>());
             this.unlockRequirements = b.unlockRequirements != null ? b.unlockRequirements : UnlockRequirements.DEFAULT;
+            this.visibility = b.visibility != null ? b.visibility : VisibilityConfig.ALWAYS_VISIBLE;
         }
 
         public static Builder builder(String id) { return new Builder(id); }
@@ -234,6 +236,12 @@ public class JobsConfig {
         public ActionReward getWildcardReward(String configKey) {
             Map<String, ActionReward> map = actions.get(configKey);
             if (map != null) return map.get("*");
+            return null;
+        }
+
+        public ActionReward getDefaultReward(String configKey) {
+            Map<String, ActionReward> map = actions.get(configKey);
+            if (map != null) return map.get("default-reward");
             return null;
         }
 
@@ -283,6 +291,7 @@ public class JobsConfig {
             private HowToEarn howToEarn;
             private List<CrateRewardDefinition> crateRewards;
             private UnlockRequirements unlockRequirements;
+            private VisibilityConfig visibility;
 
             private Builder(String id) { this.id = id; }
 
@@ -313,8 +322,29 @@ public class JobsConfig {
             public Builder howToEarn(HowToEarn v) { howToEarn = v; return this; }
             public Builder crateRewards(List<CrateRewardDefinition> v) { crateRewards = v; return this; }
             public Builder unlockRequirements(UnlockRequirements v) { unlockRequirements = v; return this; }
+            public Builder visibility(VisibilityConfig v) { visibility = v; return this; }
             public JobDefinition build() { return new JobDefinition(this); }
         }
+    }
+
+    public enum VisibilityMode {
+        ALWAYS_VISIBLE,
+        VISIBLE_WHEN_DISCOVERED,
+        HIDDEN_WHEN_UNAVAILABLE;
+
+        public static VisibilityMode fromString(String s) {
+            if (s == null) return ALWAYS_VISIBLE;
+            try { return valueOf(s.toUpperCase(java.util.Locale.ROOT)); }
+            catch (IllegalArgumentException e) { return ALWAYS_VISIBLE; }
+        }
+    }
+
+    public record VisibilityConfig(
+        VisibilityMode mode,
+        boolean showRequirementsWhenLocked,
+        boolean allowPreview
+    ) {
+        public static final VisibilityConfig ALWAYS_VISIBLE = new VisibilityConfig(VisibilityMode.ALWAYS_VISIBLE, true, true);
     }
 
     public static class XpCurve {

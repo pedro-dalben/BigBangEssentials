@@ -1,5 +1,5 @@
 {
-  "schema-version": 2,
+  "schema-version": 3,
   "config-version": 2,
   "daily-limit": {
     "enabled": true,
