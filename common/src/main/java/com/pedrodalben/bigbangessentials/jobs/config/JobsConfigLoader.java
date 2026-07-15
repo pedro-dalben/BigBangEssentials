@@ -355,10 +355,20 @@ public class JobsConfigLoader {
         for (Map.Entry<String, JsonElement> actEntry : actionsObj.entrySet()) {
             Map<String, ActionReward> targets = new LinkedHashMap<>();
             JsonObject targetsObj = actEntry.getValue().getAsJsonObject();
+            JobActionType actionType = JobActionType.fromString(actEntry.getKey());
             for (Map.Entry<String, JsonElement> tEntry : targetsObj.entrySet()) {
                 String targetId = tEntry.getKey();
                 if (targetId.equals("*")) {
-                    LOGGER.warn("Skipping wildcard '*' in action '{}' — use 'default-reward' instead.", actEntry.getKey());
+                    if (supportsWildcardDefault(actionType)) {
+                        JsonObject rewardObj = tEntry.getValue().getAsJsonObject();
+                        double money = rewardObj.has("money") ? rewardObj.get("money").getAsDouble() : 0;
+                        double xp = rewardObj.has("xp") ? rewardObj.get("xp").getAsDouble() : 0;
+                        double chance = rewardObj.has("chance") ? rewardObj.get("chance").getAsDouble() : 1.0;
+                        targets.putIfAbsent("default-reward", new ActionReward(money, xp, chance));
+                        LOGGER.warn("Converting wildcard '*' to default-reward for integration action '{}'.", actEntry.getKey());
+                    } else {
+                        LOGGER.warn("Skipping wildcard '*' in action '{}' — use explicit targets or default-reward.", actEntry.getKey());
+                    }
                     continue;
                 }
                 JsonObject rewardObj = tEntry.getValue().getAsJsonObject();
@@ -367,13 +377,28 @@ public class JobsConfigLoader {
                 double chance = rewardObj.has("chance") ? rewardObj.get("chance").getAsDouble() : 1.0;
                 targets.put(targetId, new ActionReward(money, xp, chance));
             }
-            JobActionType actionType = JobActionType.fromString(actEntry.getKey());
             String actionKey = actionType != null
                     ? actionType.getConfigKeys().get(0)
                     : actEntry.getKey().toUpperCase(Locale.ROOT).replace('_', '-');
             result.put(actionKey, targets);
         }
         return result;
+    }
+
+    /**
+     * Integration actions identify a completed lifecycle event, not a block/item
+     * that can be safely wildcarded. Their wildcard is therefore a bounded,
+     * typed fallback; block/item/entity actions remain strict allowlists.
+     */
+    private static boolean supportsWildcardDefault(JobActionType actionType) {
+        return actionType == JobActionType.POKEMON_CAPTURED
+                || actionType == JobActionType.DEX_ENTRY_ADDED
+                || actionType == JobActionType.FOSSIL_REVIVED
+                || actionType == JobActionType.EGG_CREATED
+                || actionType == JobActionType.EGG_HATCHED
+                || actionType == JobActionType.PASTURE_TASK_COMPLETED
+                || actionType == JobActionType.TRAINER_BATTLE_WON
+                || actionType == JobActionType.RAID_CLEARED;
     }
 
     private static Map<String, SkillDefinition> parseSkills(JsonObject root) {

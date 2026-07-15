@@ -37,6 +37,9 @@ public class JobActionValidator {
         if (action.type() == null) {
             return ValidationResult.invalid("Tipo de acao nulo ou nao suportado.");
         }
+        if (!player.getUUID().equals(action.playerId())) {
+            return ValidationResult.invalid("A acao pertence a outro jogador.");
+        }
         if (action.targetId() == null || action.targetId().trim().isEmpty()) {
             return ValidationResult.invalid("Target ID invalido ou vazio.");
         }

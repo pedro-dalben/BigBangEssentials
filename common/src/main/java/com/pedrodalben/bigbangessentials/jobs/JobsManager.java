@@ -53,6 +53,7 @@ public class JobsManager {
     private JobsConfig config;
     private final JobsRepository repository = new JobsRepository();
     private final Map<UUID, PlayerJobsData> playerDataCache = new ConcurrentHashMap<>();
+    private final Map<UUID, CompletableFuture<PlayerJobsData>> playerDataLoads = new ConcurrentHashMap<>();
     private final Map<String, List<RankingEntry>> rankingCache = new ConcurrentHashMap<>();
     private final Map<String, Long> rankingCacheTime = new ConcurrentHashMap<>();
 
@@ -90,6 +91,20 @@ public class JobsManager {
             loadPlayerData(uuid);
         }
         return data;
+    }
+
+    /** Returns the load barrier used by the action pipeline before rewarding a player. */
+    public CompletableFuture<PlayerJobsData> getPlayerDataReady(UUID uuid) {
+        if (uuid == null) return CompletableFuture.completedFuture(null);
+        PlayerJobsData cached = playerDataCache.get(uuid);
+        if (cached != null && !playerDataLoads.containsKey(uuid)) {
+            return CompletableFuture.completedFuture(cached);
+        }
+        return loadPlayerData(uuid);
+    }
+
+    public void clearPlayerDataLoad(UUID uuid) {
+        if (uuid != null) playerDataLoads.remove(uuid);
     }
 
     public boolean reload() {
@@ -149,24 +164,27 @@ public class JobsManager {
     }
 
     public CompletableFuture<PlayerJobsData> loadPlayerData(UUID uuid) {
-        long cycleStart = calculateCurrentCycleStart();
-        PlayerJobsData data = playerDataCache.computeIfAbsent(uuid, PlayerJobsData::new);
-        data.setCurrentCycleStart(cycleStart);
+        if (uuid == null) return CompletableFuture.completedFuture(null);
+        return playerDataLoads.computeIfAbsent(uuid, ignored -> {
+            long cycleStart = calculateCurrentCycleStart();
+            PlayerJobsData data = playerDataCache.computeIfAbsent(uuid, PlayerJobsData::new);
+            data.setCurrentCycleStart(cycleStart);
 
-        return repository.loadPlayerJobs(uuid).thenCompose(jobs -> {
-            for (Map.Entry<String, JobProgress> entry : jobs.entrySet()) {
-                data.setProgress(entry.getKey(), entry.getValue());
-            }
-            return repository.loadPlayerJobEarnings(uuid, cycleStart);
-        }).thenApply(earnings -> {
-            for (Map.Entry<String, Double> entry : earnings.entrySet()) {
-                data.setDailyEarnings(entry.getKey(), entry.getValue());
-            }
-            playerDataCache.put(uuid, data);
-            return data;
-        }).exceptionally(e -> {
-            LOGGER.error("Failed to load jobs data for player {}", uuid, e);
-            return data;
+            return repository.loadPlayerJobs(uuid).thenCompose(jobs -> {
+                for (Map.Entry<String, JobProgress> entry : jobs.entrySet()) {
+                    data.setProgress(entry.getKey(), entry.getValue());
+                }
+                return repository.loadPlayerJobEarnings(uuid, cycleStart);
+            }).thenApply(earnings -> {
+                for (Map.Entry<String, Double> entry : earnings.entrySet()) {
+                    data.setDailyEarnings(entry.getKey(), entry.getValue());
+                }
+                playerDataCache.put(uuid, data);
+                return data;
+            }).exceptionally(e -> {
+                LOGGER.error("Failed to load jobs data for player {}", uuid, e);
+                return data;
+            });
         });
     }
 

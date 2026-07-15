@@ -18,6 +18,7 @@ import net.neoforged.neoforge.event.entity.living.MobSpawnEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.player.AdvancementEvent;
 import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
+import net.neoforged.neoforge.event.entity.player.AnvilRepairEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -183,7 +184,16 @@ public class NeoForgeEvents {
     @SubscribeEvent
     public static void onBrewPotionTaken(net.neoforged.neoforge.event.brewing.PlayerBrewedPotionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            JobsEventListener.onBrewPotionTaken(player);
+            if (JobsEventListener.isRewardablePotion(event.getStack())) {
+                JobsEventListener.onBrewPotionTaken(player);
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onAnvilRepair(AnvilRepairEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            JobsEventListener.onAnvilRepair(player, event.getOutput());
         }
     }
 

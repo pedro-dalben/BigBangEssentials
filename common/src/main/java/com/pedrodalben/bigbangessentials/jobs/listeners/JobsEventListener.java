@@ -18,9 +18,10 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -57,6 +58,7 @@ public class JobsEventListener {
     public static void onPlayerLoggedOut(ServerPlayer player) {
         UUID uuid = player.getUUID();
         JobsManager.getInstance().savePlayerData(uuid).thenAccept(v -> {
+            JobsManager.getInstance().clearPlayerDataLoad(uuid);
             JobsManager.getInstance().getPlayerDataCache().remove(uuid);
         });
         com.pedrodalben.bigbangessentials.jobs.progression.JobRankMilestoneService.getInstance()
@@ -91,6 +93,10 @@ public class JobsEventListener {
 
         // Check provenance (after data null check to avoid consuming provenance when data is missing)
         ProvenanceResult prov = BlockProvenanceService.getInstance().checkAndRemove(dimension, pos);
+
+        if (prov.type() == ProvenanceType.PLAYER_PLACED) {
+            BuildPlacementGuard.getInstance().recordPlayerPlacedBreak(player.getUUID(), registryId);
+        }
 
         if (prov.isBlocked()) {
             if (data.isDebugMode()) {
@@ -172,6 +178,14 @@ public class JobsEventListener {
                 .playerPlacedBlock(true)
                 .eventSource("BLOCK_PLACE")
                 .build();
+
+        if (BuildPlacementGuard.getInstance().shouldSuppressPlacementReward(player.getUUID(), registryId)) {
+            if (data.isDebugMode()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                        "§7[Debug] Colocação ignorada. Motivo: PLACE_BREAK_REUSE_LOOP"));
+            }
+            return;
+        }
 
         JobAction action = JobAction.create(player.getUUID(), JobActionType.PLACE_BLOCK,
                 "BLOCK_PLACE", registryId, context);
@@ -400,7 +414,8 @@ public class JobsEventListener {
     private static final ConcurrentHashMap<UUID, Integer> playerExpLevels = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Integer> lastBrewOutputHashes = new ConcurrentHashMap<>();
 
-    private record MagicSession(BlockPos pos, String blockId, MagicType type, long startedAt) {
+    private record MagicSession(BlockPos pos, String blockId, MagicType type, long startedAt,
+                                int initialBrewHash) {
         boolean isExpired() { return System.currentTimeMillis() - startedAt > 60000L; }
     }
     private enum MagicType { ENCHANTING, BREWING }
@@ -415,7 +430,15 @@ public class JobsEventListener {
         String registryId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         MagicType type = state.is(Blocks.ENCHANTING_TABLE) ? MagicType.ENCHANTING : MagicType.BREWING;
 
-        activeMagicSessions.put(player.getUUID(), new MagicSession(pos, registryId, type, System.currentTimeMillis()));
+        int initialBrewHash = 0;
+        if (type == MagicType.BREWING && player.level() instanceof ServerLevel level) {
+            var blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof BrewingStandBlockEntity brewingStand) {
+                initialBrewHash = computeBrewHash(brewingStand);
+            }
+        }
+        activeMagicSessions.put(player.getUUID(), new MagicSession(
+                pos, registryId, type, System.currentTimeMillis(), initialBrewHash));
 
         if (type == MagicType.ENCHANTING) {
             playerExpLevels.put(player.getUUID(), player.experienceLevel);
@@ -428,18 +451,23 @@ public class JobsEventListener {
      */
     public static void onMagicCompleted(ServerPlayer player, String blockId) {
         if (player == null || blockId == null) return;
+        String rewardTarget = switch (blockId) {
+            case "minecraft:enchanting_table" -> "minecraft:use_enchanting_table";
+            case "minecraft:brewing_stand" -> "minecraft:use_brewing_stand";
+            default -> blockId;
+        };
         PlayerJobsData data = JobsManager.getInstance().getPlayerData(player.getUUID());
         if (data == null) return;
 
         JobActionContext context = JobActionContext.builder()
                 .dimension(player.level().dimension().location().toString())
                 .position(player.blockPosition().toShortString())
-                .blockId(blockId)
+                .blockId(rewardTarget)
                 .eventSource("MAGIC_COMPLETED")
                 .build();
 
         JobAction action = JobAction.create(player.getUUID(), JobActionType.USE_MAGIC,
-                "MAGIC_COMPLETED", blockId, context);
+                "MAGIC_COMPLETED", rewardTarget, context);
         JobActionPublisher.getInstance().publish(player, action);
     }
 
@@ -447,7 +475,16 @@ public class JobsEventListener {
      * Called when a player picks up a brewed potion (NeoForge event).
      */
     public static void onBrewPotionTaken(ServerPlayer player) {
-        onMagicCompleted(player, "minecraft:brewing_stand");
+        MagicSession session = activeMagicSessions.get(player.getUUID());
+        if (session == null || session.type() != MagicType.BREWING || session.isExpired()) return;
+        activeMagicSessions.remove(player.getUUID(), session);
+        onMagicCompleted(player, "minecraft:brew_potion");
+    }
+
+    /** Called when an anvil result is actually taken, not while its preview changes. */
+    public static void onAnvilRepair(ServerPlayer player, ItemStack output) {
+        if (player == null || output == null || output.isEmpty()) return;
+        onMagicCompleted(player, "minecraft:enchant");
     }
 
     /**
@@ -499,12 +536,15 @@ public class JobsEventListener {
         int hash = computeBrewHash(brewingStand);
         if (hash == 0) return;
 
+        // Do not reward a potion that was already present when the player opened
+        // the stand. This also blocks remove/reinsert loops in the Fabric fallback.
+        if (hash == session.initialBrewHash()) return;
+
         String key = player.getStringUUID() + ":" + session.pos().toShortString();
         Integer lastHash = lastBrewOutputHashes.get(key);
         if (lastHash != null && hash == lastHash) return;
 
         lastBrewOutputHashes.put(key, hash);
-        activeMagicSessions.remove(player.getUUID());
         onBrewPotionTaken(player);
     }
 
@@ -512,11 +552,25 @@ public class JobsEventListener {
         int h = 1;
         for (int i = 0; i < 3; i++) {
             ItemStack stack = bs.getItem(i);
-            if (!stack.isEmpty()) {
-                h = 31 * h + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).hashCode();
+            if (isRewardablePotion(stack)) {
+                var contents = stack.get(DataComponents.POTION_CONTENTS);
+                h = 31 * h + java.util.Objects.hash(
+                        net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()),
+                        stack.getCount(), contents);
             }
         }
-        return h;
+        return h == 1 ? 0 : h;
+    }
+
+    /** Water bottles are inputs, not brewed potion results. */
+    public static boolean isRewardablePotion(ItemStack stack) {
+        if (stack == null || stack.isEmpty()
+                || (stack.getItem() != Items.POTION
+                && stack.getItem() != Items.SPLASH_POTION
+                && stack.getItem() != Items.LINGERING_POTION)) return false;
+        var contents = stack.get(DataComponents.POTION_CONTENTS);
+        return contents != null && contents.potion().isPresent()
+                && contents.potion().stream().noneMatch(potion -> potion.is(net.minecraft.world.item.alchemy.Potions.WATER));
     }
 
     private static void processDoubleDrops(ServerPlayer player, BlockState state, BlockPos pos) {

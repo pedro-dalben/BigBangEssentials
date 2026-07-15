@@ -64,10 +64,6 @@
       "minecraft:sugar_cane": {
         "money": 2.0,
         "xp": 3.0
-      },
-      "*": {
-        "money": 1.0,
-        "xp": 2.0
       }
     },
     "KILL-ENTITY": {

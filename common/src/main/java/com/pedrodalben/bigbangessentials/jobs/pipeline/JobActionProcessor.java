@@ -56,6 +56,19 @@ public class JobActionProcessor {
     public void process(ServerPlayer player, JobAction action) {
         if (player == null || action == null) return;
 
+        // Login data is loaded asynchronously. Queue the action behind that
+        // barrier instead of evaluating an empty PlayerJobsData and silently
+        // dropping the first actions made after joining the server.
+        java.util.concurrent.CompletableFuture<PlayerJobsData> ready =
+                JobsManager.getInstance().getPlayerDataReady(player.getUUID());
+        if (!ready.isDone()) {
+            ready.whenComplete((ignored, error) -> {
+                if (error == null) process(player, action);
+                else LOGGER.error("Jobs data was not ready for player {}; action discarded", player.getUUID(), error);
+            });
+            return;
+        }
+
         processedCount.incrementAndGet();
 
         // 1. Idempotency Check (UUID-based)

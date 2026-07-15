@@ -41,6 +41,10 @@
         "money": 3,
         "xp": 5
       },
+      "minecraft:cocoa": {
+        "money": 5,
+        "xp": 8
+      },
       "minecraft:nether_wart": {
         "money": 8,
         "xp": 12
@@ -53,9 +57,13 @@
         "money": 4,
         "xp": 6
       },
-      "*": {
-        "money": 1,
-        "xp": 2
+      "minecraft:sugar_cane": {
+        "money": 2,
+        "xp": 3
+      },
+      "minecraft:sweet_berry_bush": {
+        "money": 4,
+        "xp": 6
       }
     },
     "KILL-ENTITY": {

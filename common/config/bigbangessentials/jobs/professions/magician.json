@@ -25,17 +25,25 @@
   "reset-progress-on-leave": false,
   "actions": {
     "USE-MAGIC": {
-      "minecraft:enchanting_table": {
-        "money": 10,
-        "xp": 20
+      "minecraft:enchant": {
+        "money": 15,
+        "xp": 25
       },
-      "minecraft:brewing_stand": {
+      "minecraft:brew_potion": {
+        "money": 10,
+        "xp": 18
+      },
+      "minecraft:use_enchanting_table": {
         "money": 8,
-        "xp": 15
+        "xp": 12
+      },
+      "minecraft:use_brewing_stand": {
+        "money": 5,
+        "xp": 8
       },
       "default-reward": {
-        "money": 2,
-        "xp": 5
+        "money": 1,
+        "xp": 1.5
       }
     }
   },

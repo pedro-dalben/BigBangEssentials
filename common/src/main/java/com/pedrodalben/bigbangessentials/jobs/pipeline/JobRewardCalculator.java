@@ -40,7 +40,10 @@ public class JobRewardCalculator {
         boolean preventXp = isAfk && config.isPreventXpWhileAfk();
 
         int amount = action.context() != null ? action.context().getCustomAttributeAsInt("amount", 1) : 1;
-        if (amount < 1) amount = 1;
+        // Amount is supplied by integrations and must never be allowed to become
+        // an unbounded multiplier for money/XP. One action represents at most one
+        // inventory stack/result batch.
+        amount = Math.max(1, Math.min(amount, 64));
 
         // 1. Calculate Coins (Money)
         double baseMoney = baseReward.money * amount;
