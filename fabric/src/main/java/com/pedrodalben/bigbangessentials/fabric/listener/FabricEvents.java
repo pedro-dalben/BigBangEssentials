@@ -83,18 +83,6 @@ public class FabricEvents {
 
         FabricCrateEvents.register();
 
-        // Right-click crop harvest detection (wheat, carrots, etc. - modern right-click harvest)
-        UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
-            if (player instanceof ServerPlayer serverPlayer && !level.isClientSide()) {
-                BlockPos pos = hitResult.getBlockPos();
-                BlockState state = level.getBlockState(pos);
-                if (com.pedrodalben.bigbangessentials.jobs.antiexploit.CropHarvestValidationService.getInstance().isCrop(state)) {
-                    JobsEventListener.onRightClickCrop(serverPlayer, pos, state);
-                }
-            }
-            return InteractionResult.PASS;
-        });
-
         // USE-MAGIC session tracking: marks player session for enchanting/brewing completion detection
         UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
             if (player instanceof ServerPlayer serverPlayer && !level.isClientSide()) {

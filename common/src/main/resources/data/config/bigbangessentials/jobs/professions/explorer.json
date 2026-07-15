@@ -77,7 +77,7 @@
         "money": 80.0,
         "xp": 120.0
       },
-      "*": {
+      "default-reward": {
         "money": 10.0,
         "xp": 15.0
       }

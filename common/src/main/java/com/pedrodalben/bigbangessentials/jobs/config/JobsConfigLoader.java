@@ -213,6 +213,7 @@ public class JobsConfigLoader {
             JsonObject s = e.getValue().getAsJsonObject();
             result.put(e.getKey(), new JobSlotDefinition(
                     getString(s, "slot-type", e.getKey()),
+                    getString(s, "display-name", e.getKey()),
                     getString(s, "category", "COMMON"),
                     getInt(s, "cooldown-minutes", 30)
             ));

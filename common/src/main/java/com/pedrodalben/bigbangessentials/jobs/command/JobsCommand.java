@@ -18,6 +18,8 @@ import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.JobDefinition;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.SkillDefinition;
 import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository.JobProgress;
 import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository.RankingEntry;
+import com.pedrodalben.bigbangessentials.jobs.slot.JobSlot;
+import com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -395,7 +397,10 @@ public class JobsCommand {
                 ctx.getSource().sendFailure(Component.literal("§cLimite de trabalhos ativos atingido (" + maxJobs + "). Saia de um para poder entrar em outro."));
                 return 0;
             case NO_COMPATIBLE_SLOT:
-                ctx.getSource().sendFailure(Component.literal("§cNenhum slot compatível disponível para esta profissão."));
+                JobDefinition jobDef = cfg != null ? cfg.getJob(jobName) : null;
+                String cat = jobDef != null ? jobDef.category : "COMMON";
+                String display = jobDef != null ? jobDef.displayName : jobName;
+                ctx.getSource().sendFailure(buildSlotOccupiedMessage(player, cat, display));
                 return 0;
             case SLOT_COOLDOWN:
                 ctx.getSource().sendFailure(Component.literal("§cO slot para esta profissão está em tempo de recarga."));
@@ -907,5 +912,21 @@ public class JobsCommand {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         com.pedrodalben.bigbangessentials.jobs.contracts.JobContractService.getInstance().claimContract(player, contractId);
         return 1;
+    }
+
+    private static Component buildSlotOccupiedMessage(ServerPlayer player, String category, String targetJobName) {
+        java.util.Map<String, JobSlot> slots = JobSlotService.getInstance().getSlots(player.getUUID());
+        JobsConfig cfg = JobsManager.getInstance().getConfig();
+
+        for (JobSlot slot : slots.values()) {
+            if (slot.category() != null && slot.category().equalsIgnoreCase(category) && slot.activeJobId().isPresent()) {
+                String jobId = slot.activeJobId().get();
+                JobDefinition occupyingJob = cfg != null ? cfg.getJob(jobId) : null;
+                String occDisplay = occupyingJob != null ? occupyingJob.displayName : jobId;
+                return Component.literal("§cVocê já está como §e" + occDisplay + "§c. Saia com §f/jobs leave " + jobId + "§c antes de entrar em §e" + targetJobName + "§c.");
+            }
+        }
+
+        return Component.literal("§cNenhum slot compatível disponível para esta profissão.");
     }
 }

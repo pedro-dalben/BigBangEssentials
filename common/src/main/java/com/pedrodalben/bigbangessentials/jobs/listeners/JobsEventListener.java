@@ -8,6 +8,8 @@ import com.pedrodalben.bigbangessentials.jobs.pipeline.JobActionClassifier;
 import com.pedrodalben.bigbangessentials.jobs.pipeline.JobActionPublisher;
 import com.pedrodalben.bigbangessentials.jobs.pipeline.RawJobEvent;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -22,6 +24,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.levelgen.structure.Structure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import it.unimi.dsi.fastutil.longs.LongSet;
 
 public class JobsEventListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobsEventListener.class);
@@ -229,48 +233,6 @@ public class JobsEventListener {
     }
 
     /**
-     * Handles right-click harvest of mature crops (wheat, carrots, etc.)
-     * Modern Minecraft allows right-click harvesting, which does NOT fire BlockEvent.BreakEvent.
-     * This method captures those harvests and publishes HARVEST_CROP actions.
-     */
-    public static void onRightClickCrop(ServerPlayer player, BlockPos pos, BlockState state) {
-        if (player == null || state == null || pos == null) return;
-        String dimension = player.level().dimension().location().toString();
-        String registryId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-
-        PlayerJobsData data = JobsManager.getInstance().getPlayerData(player.getUUID());
-        if (data == null) return;
-
-        boolean isMature = CropHarvestValidationService.getInstance().isMatureCrop(state);
-
-        // Check provenance (player-placed or natural) - read-only to avoid consuming provenance
-        // Right-click harvest doesn't break the block, so provenance must remain for actual break events
-        ProvenanceResult prov = BlockProvenanceService.getInstance().checkProvenance(dimension, pos);
-
-        if (prov.isBlocked()) {
-            if (data.isDebugMode()) {
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                        "§7[Debug] Right-click crop harvest ignorado. Motivo: " + prov.reason()));
-            }
-            return;
-        }
-
-        JobActionContext context = JobActionContext.builder()
-                .dimension(dimension)
-                .position(pos.toShortString())
-                .blockId(registryId)
-                .blockStateString(state.toString())
-                .playerPlacedBlock(prov.type() == ProvenanceType.PLAYER_PLACED)
-                .cropMature(isMature)
-                .eventSource("RIGHT_CLICK_CROP")
-                .build();
-
-        JobAction action = JobAction.create(player.getUUID(), JobActionType.HARVEST_CROP,
-                "RIGHT_CLICK_CROP", registryId, context);
-        JobActionPublisher.getInstance().publish(player, action);
-    }
-
-    /**
      * Exploration discovery flow:
      * 1. Detect potential discovery
      * 2. Check if player has Explorer active (in eligibility resolver)
@@ -344,6 +306,33 @@ public class JobsEventListener {
                         .build();
                 JobAction action = JobAction.create(player.getUUID(), JobActionType.EXPLORE,
                         "EXPLORATION", cellId, ctx);
+                JobActionPublisher.getInstance().publish(player, action);
+            }
+
+            // Structures have no universal cross-loader "entered structure" event.
+            // The server-side structure manager is authoritative and lets us detect
+            // the player while inside a generated structure without rewarding scans
+            // or repeated ticks.
+            Registry<Structure> structureRegistry = player.serverLevel().registryAccess()
+                    .registryOrThrow(Registries.STRUCTURE);
+            for (Map.Entry<Structure, LongSet> entry : player.serverLevel().structureManager()
+                    .getAllStructuresAt(pos).entrySet()) {
+                String structureId = structureRegistry.getKey(entry.getKey()).toString();
+                if (structureId.isEmpty()) continue;
+
+                boolean isNewStructure = ExplorationDiscoveryService.getInstance()
+                        .reserveDiscovery(player.getUUID(), "STRUCTURE", structureId);
+                if (!isNewStructure) continue;
+
+                JobActionContext ctx = JobActionContext.builder()
+                        .dimension(dimension)
+                        .position(pos.toShortString())
+                        .structure(structureId)
+                        .firstDiscovery(true)
+                        .eventSource("EXPLORATION_STRUCTURE")
+                        .build();
+                JobAction action = JobAction.create(player.getUUID(), JobActionType.EXPLORE,
+                        "EXPLORATION", structureId, ctx);
                 JobActionPublisher.getInstance().publish(player, action);
             }
         }

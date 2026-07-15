@@ -21,7 +21,8 @@
       "minecraft:wheat": { "money": 0.5, "xp": 0.5 },
       "minecraft:carrots": { "money": 0.5, "xp": 0.5 },
       "minecraft:potatoes": { "money": 0.5, "xp": 0.5 },
-      "minecraft:beetroots": { "money": 0.5, "xp": 0.5 }
+      "minecraft:beetroots": { "money": 0.5, "xp": 0.5 },
+      "minecraft:sugar_cane": { "money": 0.5, "xp": 0.5 }
     }
   },
   "skills": {

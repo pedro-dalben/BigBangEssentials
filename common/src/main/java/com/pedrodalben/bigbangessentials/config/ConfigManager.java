@@ -2777,4 +2777,51 @@ public class ConfigManager {
         } catch (Exception ignored) {}
         return null;
     }
+
+    // ───── Fake Player Integration ─────
+
+    public boolean isFakeCommandTpaEnabled() {
+        try {
+            JsonObject config = getConfig(MAIN_CONFIG);
+            if (config.has("fake-command-behavior")) {
+                JsonObject fcb = config.getAsJsonObject("fake-command-behavior");
+                if (fcb.has("tpa")) {
+                    return fcb.getAsJsonObject("tpa").get("enabled").getAsBoolean();
+                }
+            }
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    public int getFakeTpaMinExpirationSeconds() {
+        try {
+            JsonObject config = getConfig(MAIN_CONFIG);
+            if (config.has("fake-command-behavior")) {
+                JsonObject fcb = config.getAsJsonObject("fake-command-behavior");
+                if (fcb.has("tpa")) {
+                    JsonObject tpa = fcb.getAsJsonObject("tpa");
+                    if (tpa.has("minimum-expiration-seconds")) {
+                        return tpa.get("minimum-expiration-seconds").getAsInt();
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return 30;
+    }
+
+    public int getFakeTpaMaxExpirationSeconds() {
+        try {
+            JsonObject config = getConfig(MAIN_CONFIG);
+            if (config.has("fake-command-behavior")) {
+                JsonObject fcb = config.getAsJsonObject("fake-command-behavior");
+                if (fcb.has("tpa")) {
+                    JsonObject tpa = fcb.getAsJsonObject("tpa");
+                    if (tpa.has("maximum-expiration-seconds")) {
+                        return tpa.get("maximum-expiration-seconds").getAsInt();
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return 60;
+    }
 }

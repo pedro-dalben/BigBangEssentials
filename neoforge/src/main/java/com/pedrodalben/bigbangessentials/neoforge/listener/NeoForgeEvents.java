@@ -171,17 +171,6 @@ public class NeoForgeEvents {
 
 
     @SubscribeEvent
-    public static void onRightClickCrop(PlayerInteractEvent.RightClickBlock event) {
-        if (event.getEntity() instanceof ServerPlayer player && !event.isCanceled()) {
-            BlockPos pos = event.getPos();
-            BlockState state = event.getLevel().getBlockState(pos);
-            if (com.pedrodalben.bigbangessentials.jobs.antiexploit.CropHarvestValidationService.getInstance().isCrop(state)) {
-                JobsEventListener.onRightClickCrop(player, pos, state);
-            }
-        }
-    }
-
-    @SubscribeEvent
     public static void onMagicInteraction(PlayerInteractEvent.RightClickBlock event) {
         if (event.getEntity() instanceof ServerPlayer player && !event.isCanceled()) {
             BlockState state = event.getLevel().getBlockState(event.getPos());

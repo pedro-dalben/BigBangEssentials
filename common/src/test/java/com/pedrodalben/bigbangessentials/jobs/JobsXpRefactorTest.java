@@ -213,6 +213,7 @@ class JobsXpRefactorTest {
         Map<String, ActionReward> harvests = new LinkedHashMap<>();
         harvests.put("minecraft:wheat", new ActionReward(3, 5));
         harvests.put("minecraft:potatoes", new ActionReward(3, 6));
+        harvests.put("minecraft:sugar_cane", new ActionReward(2, 3));
         actions.put("HARVEST-CROP", harvests);
 
         JobDefinition farmer = JobDefinition.builder("farmer").enabled(true)
@@ -227,6 +228,10 @@ class JobsXpRefactorTest {
         var result = JobRuleEvaluator.getInstance().evaluate(farmerCfg,
                 JobAction.create(playerId, JobActionType.HARVEST_CROP, "TEST", "minecraft:wheat", JobActionContext.empty()));
         assertTrue(result.isMatch(), "Trigo configurado deve corresponder");
+
+        var sugarCane = JobRuleEvaluator.getInstance().evaluate(farmerCfg,
+                JobAction.create(playerId, JobActionType.HARVEST_CROP, "TEST", "minecraft:sugar_cane", JobActionContext.empty()));
+        assertTrue(sugarCane.isMatch(), "Cana-de-acucar configurada deve corresponder");
 
         var unconfig = JobRuleEvaluator.getInstance().evaluate(farmerCfg,
                 JobAction.create(playerId, JobActionType.HARVEST_CROP, "TEST", "minecraft:sweet_berry_bush", JobActionContext.empty()));

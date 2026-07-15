@@ -6,7 +6,6 @@ import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.*;
 import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository.JobProgress;
 import com.pedrodalben.bigbangessentials.jobs.license.*;
 import com.pedrodalben.bigbangessentials.jobs.slot.*;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.*;
@@ -65,13 +64,11 @@ public class JobCommandService {
         JobLicenseStatus licStatus = JobLicenseService.getInstance().getLicenseStatus(player.getUUID(), job.id);
         switch (licStatus) {
             case LOCKED_BY_RANK:
-                player.sendSystemMessage(Component.literal("§cVocê ainda não alcançou o marco de Rank necessário para esta profissão."));
                 return JoinResult.LOCKED_BY_RANK;
             case ELIGIBLE:
                 JobLicenseService.getInstance().startLicenseQuest(player, job.id);
                 return JoinResult.LICENSE_AVAILABLE;
             case IN_PROGRESS:
-                player.sendSystemMessage(Component.literal("§eA missão de licença para " + job.displayName + " está em andamento!"));
                 return JoinResult.LICENSE_IN_PROGRESS;
             case READY_TO_CLAIM:
                 JobLicenseService.getInstance().claimLicense(player, job.id);
@@ -89,14 +86,12 @@ public class JobCommandService {
                 .findFirst();
 
         if (emptySlot.isEmpty()) {
-            player.sendSystemMessage(Component.literal("§cNenhum slot compatível disponível para a categoria " + job.category));
             return JoinResult.NO_COMPATIBLE_SLOT;
         }
 
         JobSlot slot = emptySlot.get();
         long now = System.currentTimeMillis();
         if (slot.cooldownUntil() > now) {
-            player.sendSystemMessage(Component.literal("§cO slot " + slot.slotType() + " está em cooldown."));
             return JoinResult.SLOT_COOLDOWN;
         }
 

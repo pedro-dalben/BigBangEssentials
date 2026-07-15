@@ -1088,5 +1088,12 @@
   "commands.bigbangessentials.gems.history.item": "§7- §f{0}§7: §e{1}§7 | Before: §f{2}§7 | After: §f{3}§7 | Source: §f{4}§7 | Purpose: §f{5}",
   "commands.bigbangessentials.gems.reservations.header": "§6Active reservations for §e{0}§7:",
   "commands.bigbangessentials.gems.reservations.item": "§7- ID: §f{0}§7 | Amount: §e{1}§7 | Expires in: §f{2}s§7 | Source: §f{3}",
-  "commands.bigbangessentials.gems.reservation.inspect": "§6Reservation §e{0}§7:\n§7Player: §f{1}\n§7Amount: §e{2}\n§7Status: §f{3}\n§7Source: §f{4}\n§7Purpose: §f{5}\n§7Expires in: §f{6}s\n§7Idempotency Key: §f{7}\n§7External Reference: §f{8}\n§7Metadata: §f{9}"
+  "commands.bigbangessentials.gems.reservation.inspect": "§6Reservation §e{0}§7:\n§7Player: §f{1}\n§7Amount: §e{2}\n§7Status: §f{3}\n§7Source: §f{4}\n§7Purpose: §f{5}\n§7Expires in: §f{6}s\n§7Idempotency Key: §f{7}\n§7External Reference: §f{8}\n§7Metadata: §f{9}",
+  "commands.bigbangessentials.fakeplayer.msg.sent": "&7[&aTo &f{0}&7] &f{MESSAGE}",
+  "commands.bigbangessentials.fakeplayer.tpa.sent": "§aSolicitação de teleporte enviada para §f{0}§a.",
+  "commands.bigbangessentials.fakeplayer.tpa.expired": "§cA solicitação de teleporte para §f{0}§c expirou.",
+  "commands.bigbangessentials.fakeplayer.seen.online": "§a§l{0} §ais currently online on server §f{1}",
+  "commands.bigbangessentials.fakeplayer.seen.duration": "§eOnline for: §f{0}",
+  "commands.bigbangessentials.fakeplayer.ping": "§e{0}''s Ping: §f{1}ms §7({2})",
+  "commands.bigbangessentials.fakeplayer.not_available": "§c{0} is not available for that interaction."
 }

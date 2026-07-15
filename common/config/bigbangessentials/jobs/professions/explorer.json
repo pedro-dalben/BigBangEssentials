@@ -49,7 +49,7 @@
         "money": 50,
         "xp": 100
       },
-      "*": {
+      "default-reward": {
         "money": 5,
         "xp": 10
       }
