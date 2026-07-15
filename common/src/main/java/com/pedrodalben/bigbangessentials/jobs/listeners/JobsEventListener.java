@@ -117,7 +117,11 @@ public class JobsEventListener {
                     .position(pos != null ? pos.getX() + "," + pos.getY() + "," + pos.getZ() : "")
                     .blockId(registryId)
                     .blockStateString(state.toString())
-                    .playerPlacedBlock(prov.type() == ProvenanceType.PLAYER_PLACED)
+                    // Mature crops are legitimate farmer actions regardless of
+                    // who planted them. Maturity plus the explicit crop rule is
+                    // the anti-exploit boundary here; provenance must not make
+                    // normal player farming silently lose XP.
+                    .playerPlacedBlock(false)
                     .cropMature(isMature)
                     .eventSource("BLOCK_BREAK")
                     .build();
@@ -354,6 +358,14 @@ public class JobsEventListener {
 
     public static void onItemCrafted(ServerPlayer player, ItemStack stack, int amount) {
         if (player == null || stack == null || stack.isEmpty() || amount <= 0) return;
+
+        // Fabric's result-slot hook is the authoritative successful-take signal
+        // for an anvil. Keep this fallback in the common path because some
+        // loader/version combinations do not emit AnvilRepairEvent.
+        if (player.containerMenu instanceof net.minecraft.world.inventory.AnvilMenu) {
+            onAnvilRepair(player, stack);
+            return;
+        }
         String registryId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
 
         CraftingValidationService.ValidationResult val = CraftingValidationService.getInstance()
