@@ -1,0 +1,43 @@
+{
+  "id": "explorer",
+  "enabled": true,
+  "display-name": "Explorador",
+  "description": "Ganhe experiência e dinheiro ao descobrir regiões, estruturas, biomas e marcos do mundo.",
+  "permission": "jobs.profissao.explorer",
+  "unlocked-by-default": true,
+  "max-level": 100,
+  "max-daily-earnings": 10000.0,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "xp-curve": {
+    "initial-xp": 100,
+    "multiplier": 1.2
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "explore": {
+      "minecraft:plains": { "money": 5.0, "xp": 5.0 },
+      "minecraft:forest": { "money": 5.0, "xp": 5.0 },
+      "minecraft:desert": { "money": 5.0, "xp": 5.0 }
+    }
+  },
+  "skills": {
+    "passo_veloz": {
+      "name": "Passo Veloz",
+      "description": "+1% de XP por rank ao explorar.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.01
+      }
+    }
+  },
+  "level-up-rewards": {},
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% de %job%! Pontos de habilidade: +%points%"
+  }
+}

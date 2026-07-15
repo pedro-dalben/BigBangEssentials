@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.pedrodalben.bigbangessentials.economy.managers.EconomyManager;
+import com.pedrodalben.bigbangessentials.integrations.fakeplayer.FakePlayerIntegration;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
@@ -136,6 +137,12 @@ public class PayCommand {
         // Prevent self-payment
         if (finalRecipientUUID.equals(sender.getUUID())) {
             ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.pay.cannot_pay_self"));
+            return 0;
+        }
+
+        // Block payment to fake players
+        if (FakePlayerIntegration.getInstance().isFakePlayerActive(targetName)) {
+            ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.fakeplayer.not_available", finalRecipientName));
             return 0;
         }
 

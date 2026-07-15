@@ -1,11 +1,11 @@
 # BigBangEssentials — Complete Commands Reference
 
-> **Last Updated:** 2026-03-06 · **Version:** 1.0.2.6  
-> All commands are prefixed with `/`. Permission nodes follow `bigbangessentials.<node>` pattern.  
+> **Last Updated:** 2026-07-11 · **Version:** 1.0.2.6+build.942  
+> All commands are prefixed with `/`. Permission nodes follow `bigbangessentials.<node>` or `jobs.<node>` pattern.  
 > `🔒` = op-only by default · `✅` = available to all players by default  
 > Square brackets `[x]` = optional · Angle brackets `<x>` = required · `|` = or
 >
-> Compatibility note: some rows below still mention legacy permission aliases used by older configs. The runtime accepts both the canonical nodes from `PermissionSystem.md` and the older aliases documented here, but legacy child aliases are only honored when assigned explicitly. Parent nodes like `bigbangessentials.spawn` no longer imply `setspawn`.
+> Compatibility: Job permissions accept both `jobs.<node>` (internal) and `bigbangessentials.jobs.<node>` (canonical) forms — see legacy alias table below. All other systems use the `bigbangessentials.<node>` pattern exclusively.
 
 ---
 
@@ -492,41 +492,151 @@ Each tag is protected by `bigbangessentials.tag.<name>` and can be granted indiv
 
 Jobs and Professions system with levels, skills, daily limit tracking, and admin tools.
 
+### Permission Resolution
+
+Permission checks use **both** the internal `PermissionAPI` and the `JobPermissionService`. The service resolves nodes through these steps:
+1. Try the exact node (e.g., `jobs.command.jobs`)
+2. Check against the canonical prefix `bigbangessentials.jobs.*` (e.g., `bigbangessentials.jobs.command.menu`)
+3. Fall back to legacy ↔ canonical bidirectional aliasing:
+   - `jobs.xxx` → `bigbangessentials.jobs.xxx` (and vice versa)
+   - Explicit alias table (see below)
+
+Therefore, **any of the equivalent forms work** depending on your permission plugin.
+
 ### Player Commands
+
 | Command | Syntax | Permission | Default | Description |
 |---|---|---|---|---|
 | `/jobs` | `/jobs` | `jobs.command.jobs` | ✅ | View your jobs summary profile and daily earnings |
-| `/jobs list` | `/jobs list` | `jobs.command.list` | ✅ | List all available jobs, their statuses and commands |
-| `/jobs entrar` | `/jobs entrar <job>` | `jobs.command.entrar` | ✅ | Enter/Join a profession |
-| `/jobs join` | alias for `/jobs entrar` | same | ✅ | Alias |
+| `/jobs ajuda` | `/jobs ajuda` | none | ✅ | Show jobs help menu |
+| `/jobs help` | alias for `/ajuda` | none | ✅ | Alias |
+| `/jobs list` | `/jobs list` | `jobs.command.list` | ✅ | List all available jobs, their statuses and join commands |
+| `/jobs entrar` | `/jobs entrar <job>` | `jobs.command.entrar` | ✅ | Join a profession |
+| `/jobs join` | alias for `/entrar` | same | ✅ | Alias |
 | `/jobs sair` | `/jobs sair <job>` | `jobs.command.sair` | ✅ | Leave a profession |
-| `/jobs leave` | alias for `/jobs sair` | same | ✅ | Alias |
+| `/jobs leave` | alias for `/sair` | same | ✅ | Alias |
 | `/jobs info` | `/jobs info [job]` | `jobs.command.info` | ✅ | Show detailed information on actions/rewards for a job |
 | `/jobs progresso` | `/jobs progresso [job]` | `jobs.command.info` | ✅ | View detailed XP progression bar for a job |
+| `/jobs progress` | alias for `/progresso` | same | ✅ | Alias |
 | `/jobs habilidades` | `/jobs habilidades <job>` | `jobs.command.habilidades` | ✅ | View passive skill trees for a job |
-| `/jobs skills` | alias for `/jobs habilidades` | same | ✅ | Alias |
+| `/jobs skills` | alias for `/habilidades` | same | ✅ | Alias |
 | `/jobs habilidade` | `/jobs habilidade <job> desbloquear <skill>` | `jobs.command.habilidades` | ✅ | Upgrade a passive skill using skill points |
+| `/jobs skill` | alias for `/habilidade` | same | ✅ | Alias |
 | `/jobs ganhos` | `/jobs ganhos` | `jobs.command.ganhos` | ✅ | Show daily earnings, limits, multipliers, and reset time |
+| `/jobs earnings` | alias for `/ganhos` | same | ✅ | Alias |
 | `/jobs top` | `/jobs top <job>` | `jobs.command.top` | ✅ | View leaderboard for the highest levels in a job |
 | `/jobs notificacoes` | `/jobs notificacoes <on\|off>` | `jobs.command.jobs` | ✅ | Toggle actionbar notifications on/off |
-| `/jobs ajuda` | `/jobs ajuda` | none | ✅ | Show jobs help menu |
+| `/jobs notifications` | alias for `/notificacoes` | same | ✅ | Alias |
+| `/jobs license` | `/jobs license [list\|status]` | `jobs.command.license` | ✅ | View license progress for locked professions |
+| `/jobs slot` | `/jobs slot [list]` | `jobs.command.slot` | ✅ | View or manage your job slot assignments |
+| `/jobs fragmentos` | `/jobs fragmentos` | `jobs.command.jobs` | ✅ | View your collected journey fragments |
+| `/jobs fragments` | alias for `/fragmentos` | same | ✅ | Alias |
+| `/jobs fragmentos trocar` | `/jobs fragmentos trocar` | `jobs.command.jobs` | ✅ | Exchange journey fragments for rewards |
+| `/jobs contrato` | `/jobs contrato [list]` | `jobs.command.jobs` | ✅ | View your active job contracts/commitments |
 
 ### Admin Commands
+
 | Command | Syntax | Permission | Default | Description |
 |---|---|---|---|---|
 | `/jobsadmin reload` | `/jobsadmin reload` | `jobs.admin.reload` | 🔒 | Reload jobs and professions configurations |
 | `/jobsadmin info` | `/jobsadmin info <player> [job]` | `jobs.admin.info` | 🔒 | View another player's jobs profile or detailed job stats |
-| `/jobsadmin entrar` | `/jobsadmin entrar <player> <job>` | `jobs.admin.modify` | 🔒 | Force a player to join a profession |
-| `/jobsadmin sair` | `/jobsadmin sair <player> <job>` | `jobs.admin.modify` | 🔒 | Force a player to leave a profession |
+| `/jobsadmin entrar` | `/jobsadmin entrar <player> <job>` | `jobs.admin.modify` | 🔒 | Force a player to join a profession (grants license if needed) |
+| `/jobsadmin sair` | `/jobsadmin sair <player> <job>` | `jobs.admin.modify` | 🔒 | Force a player to leave a profession (player must be online) |
 | `/jobsadmin setlevel` | `/jobsadmin setlevel <player> <job> <level>` | `jobs.admin.modify` | 🔒 | Set a player's job level |
 | `/jobsadmin addxp` | `/jobsadmin addxp <player> <job> <xp>` | `jobs.admin.modify` | 🔒 | Add XP to a player's job (triggers level-ups) |
 | `/jobsadmin removexp` | `/jobsadmin removexp <player> <job> <xp>` | `jobs.admin.modify` | 🔒 | Remove XP from a player's job |
 | `/jobsadmin reset` | `/jobsadmin reset <player> [job]` | `jobs.admin.reset` | 🔒 | Reset progress of one or all of a player's jobs |
 | `/jobsadmin resetganhos` | `/jobsadmin resetganhos <player>` | `jobs.admin.reset` | 🔒 | Reset a player's daily earnings |
-| `/jobsadmin pontos` | `/jobsadmin pontos <player> <job> <adicionar\|remover> <qty>` | `jobs.admin.modify` | 🔒 | Add or remove skill points for a player's job |
+| `/jobsadmin addxp` | `/jobsadmin addxp <player> <job> <xp>` | `jobs.admin.modify` | 🔒 | Add XP to a player's job |
+| `/jobsadmin pontos` | `/jobsadmin pontos <player> <job> adicionar\|remover <qty>` | `jobs.admin.modify` | 🔒 | Add or remove skill points for a player's job |
 | `/jobsadmin desbloquear` | `/jobsadmin desbloquear <player> <job>` | `jobs.admin.modify` | 🔒 | Grant permission/unlock access to a job for a player |
 | `/jobsadmin bloquear` | `/jobsadmin bloquear <player> <job>` | `jobs.admin.modify` | 🔒 | Revoke permission/lock access to a job for a player |
+| `/jobsadmin sync-rank` | `/jobsadmin sync-rank <player>` | `jobs.admin.modify` | 🔒 | Re-sync rank milestone checks for a player |
 | `/jobsadmin debug` | `/jobsadmin debug <on\|off>` | `jobs.admin.debug` | 🔒 | Toggle global administrative debug mode |
+| `/jobsadmin diag` | `/jobsadmin diag` | `jobs.admin.info` | 🔒 | Show diagnostic pipeline stats (published, processed, duplicates) |
+| `/jobsadmin integrations` | `/jobsadmin integrations [probe] [id]` | `jobs.admin.info` | 🔒 | Show Cobbleverse integration status and probe details |
+| `/jobsadmin audit` | `/jobsadmin audit <player>` | `jobs.admin.info` | 🔒 | Run an audit on a player's job data integrity |
+| `/jobsadmin licenca conceder` | `/jobsadmin licenca conceder <player> <job>` | `jobs.admin.modify` | 🔒 | Grant a permanent license for a profession |
+| `/jobsadmin licenca revogar` | `/jobsadmin licenca revogar <player> <job>` | `jobs.admin.modify` | 🔒 | Revoke a permanent license for a profession |
+| `/jobsadmin slot alocar` | `/jobsadmin slot alocar <player> <slot> <job>` | `jobs.admin.modify` | 🔒 | Assign a job to a player's slot (player must be online) |
+| `/jobsadmin slot remover` | `/jobsadmin slot remover <player> <slot>` | `jobs.admin.modify` | 🔒 | Remove a job from a player's slot (player must be online) |
+| `/jobsadmin slot resetcooldown` | `/jobsadmin slot resetcooldown <player> <slot>` | `jobs.admin.modify` | 🔒 | Reset a player's slot cooldown |
+| `/jobsadmin pokemon status` | `/jobsadmin pokemon status <player>` | `jobs.admin.modify` | 🔒 | Show Pokémon job integration status for a player |
+| `/jobsadmin pokemon grantkey` | `/jobsadmin pokemon grantkey <player> <qty>` | `jobs.admin.modify` | 🔒 | Grant crate keys to a player (1-100) |
+| `/jobsadmin pokemon resetcd` | `/jobsadmin pokemon resetcd <player>` | `jobs.admin.modify` | 🔒 | Reset a player's Pokémon job cooldown |
+
+### Permission Nodes
+
+#### Player Command Nodes
+| Node | Default | Description |
+|---|---|---|
+| `jobs.command.jobs` | ✅ | Access `/jobs` main menu and general commands |
+| `jobs.command.list` | ✅ | List all available jobs |
+| `jobs.command.entrar` | ✅ | Join a profession |
+| `jobs.command.sair` | ✅ | Leave a profession |
+| `jobs.command.info` | ✅ | View job info and progress |
+| `jobs.command.ganhos` | ✅ | View daily earnings |
+| `jobs.command.habilidades` | ✅ | View and unlock skill upgrades |
+| `jobs.command.top` | ✅ | View job leaderboards |
+| `jobs.command.license` | ✅ | View license progress |
+| `jobs.command.slot` | ✅ | Manage job slot assignments |
+
+#### Admin Nodes
+
+| Node | Default | Subcommands |
+|---|---|---|
+| `jobs.admin.*` | 🔒 | Wildcard — all admin subcommands |
+| `jobs.admin.reload` | 🔒 | `/jobsadmin reload` |
+| `jobs.admin.info` | 🔒 | `/jobsadmin info`, `diag`, `integrations`, `audit` |
+| `jobs.admin.modify` | 🔒 | `/jobsadmin entrar`, `sair`, `setlevel`, `addxp`, `removexp`, `pontos`, `desbloquear`, `bloquear`, `sync-rank`, `licenca`, `slot`, `pokemon` |
+| `jobs.admin.reset` | 🔒 | `/jobsadmin reset`, `resetganhos` |
+| `jobs.admin.debug` | 🔒 | `/jobsadmin debug` |
+
+#### Bonus & Limit Multiplier Nodes (Dynamic)
+
+These follow a numeric suffix pattern. The **highest** matching number is used.
+
+| Pattern | Range | Example | Effect |
+|---|---|---|---|
+| `jobs.ganhos.<N>` or `bigbangessentials.jobs.bonus.earnings.<N>` | 1–500 | `jobs.ganhos.50` | +50% money earnings from jobs |
+| `jobs.xp.<N>` or `bigbangessentials.jobs.bonus.xp.<N>` | 1–500 | `jobs.xp.100` | +100% XP gain from jobs |
+| `jobs.limitediario.<N>` or `bigbangessentials.jobs.bonus.dailylimit.<N>` | 1–500 | `jobs.limitediario.25` | +25% daily earnings limit |
+| `jobs.limite.<N>` or `bigbangessentials.jobs.bonus.slots.<N>` | 1–5 | `jobs.limite.3` | 3 max active job slots (config default = 2) |
+
+#### Profession Access Nodes (Per-Job)
+
+Each profession has a permission node controlling who can join it:
+
+```
+bigbangessentials.jobs.profession.<job.id>
+```
+
+The `<job.id>` comes from each profession's configuration file. If a profession sets a custom `"permission"` field in its `unlock-requirements`, that node is used instead.
+
+Additionally, an individual profession can define a custom `"permission"` node in its `unlock-requirements` config block. When present, the player must have both the custom node **and** any rank/slot prerequisites.
+
+#### Legacy Alias Table
+
+The config maps these legacy nodes to canonical forms. **Both** sides work in permission lookups:
+
+| Legacy Node | Canonical Equivalent |
+|---|---|
+| `jobs.command.jobs` | `bigbangessentials.jobs.command.menu` |
+| `jobs.command.list` | `bigbangessentials.jobs.command.list` |
+| `jobs.command.entrar` | `bigbangessentials.jobs.command.join` |
+| `jobs.command.sair` | `bigbangessentials.jobs.command.leave` |
+| `jobs.command.info` | `bigbangessentials.jobs.command.info` |
+| `jobs.command.ganhos` | `bigbangessentials.jobs.command.earnings` |
+| `jobs.command.habilidades` | `bigbangessentials.jobs.command.skills` |
+| `jobs.command.top` | `bigbangessentials.jobs.command.top` |
+| `jobs.command.license` | `bigbangessentials.jobs.command.license` |
+| `jobs.command.slot` | `bigbangessentials.jobs.command.slot` |
+| `jobs.ganhos.*` | `bigbangessentials.jobs.bonus.earnings` |
+| `jobs.xp.*` | `bigbangessentials.jobs.bonus.xp` |
+| `jobs.limitediario.*` | `bigbangessentials.jobs.bonus.dailylimit` |
+| `jobs.limite.*` | `bigbangessentials.jobs.bonus.slots` |
+| `jobs.admin.*` | `bigbangessentials.jobs.admin` |
+| `jobs.profissao.*` | `bigbangessentials.jobs.profession` |
 
 ---
 

@@ -6,6 +6,7 @@ import com.pedrodalben.bigbangessentials.menu.pagination.PaginationRequest;
 import com.pedrodalben.bigbangessentials.menu.session.MenuContext;
 import com.pedrodalben.bigbangessentials.rankup.RankupManager;
 import com.pedrodalben.bigbangessentials.rankup.config.RankupConfig;
+import com.pedrodalben.bigbangessentials.rankup.domain.RankupEligibilitySnapshot;
 import com.pedrodalben.bigbangessentials.rankup.domain.RankupRank;
 import com.pedrodalben.bigbangessentials.rankup.menu.RankupMenuSupport;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,8 +29,17 @@ public class RankupRankDataProvider implements MenuDataProvider {
         boolean isAdmin = "rankupadmin".equals(context.sourceCommand());
         RankupConfig config = isAdmin ? mgr.getDraftConfig() : mgr.getConfig();
         List<RankupRank> ranks = config != null ? config.getOrderedRanks() : List.of();
-        RankupRank current = mgr.getCurrentRank(player.getUUID());
-        RankupRank next = mgr.getNextRank(player.getUUID());
+        
+        RankupRank current;
+        RankupRank next;
+        if (isAdmin) {
+            current = mgr.getCurrentRank(player.getUUID());
+            next = config != null ? config.getNextEnabledRank(current) : null;
+        } else {
+            RankupEligibilitySnapshot snapshot = mgr.getEligibilitySnapshot(player.getUUID());
+            current = snapshot.currentRank();
+            next = snapshot.nextRank();
+        }
 
         int totalItems = ranks.size();
         int fromIndex = (request.page() - 1) * request.itemsPerPage();

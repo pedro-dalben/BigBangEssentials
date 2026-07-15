@@ -9,7 +9,14 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Validates basic data and general rules for a job action before processing,
- * integrating anti-exploit protections (eligibility, AFK, fake player, cooldowns, repeat loops, crop maturity).
+ * integrating anti-exploit protections.
+ *
+ * Player-placed block rule:
+ *   - Ores, wood, stone resources placed by player: NO REWARD.
+ *   - Crops planted by player AND fully mature: REWARD ALLOWED.
+ *   - Immature crops: NO REWARD.
+ *   - Place-and-break-immediately: caught by RepeatActionGuard and cooldowns.
+ *   - Melon/pumpkin placed decoratively: NO REWARD without explicit rule check.
  */
 public class JobActionValidator {
     private static final JobActionValidator INSTANCE = new JobActionValidator();
@@ -25,50 +32,65 @@ public class JobActionValidator {
             return ValidationResult.invalid("Jogador nulo.");
         }
         if (action == null || action.actionId() == null) {
-            return ValidationResult.invalid("Ação ou actionId nulo.");
+            return ValidationResult.invalid("Acao ou actionId nulo.");
         }
         if (action.type() == null) {
-            return ValidationResult.invalid("Tipo de ação nulo ou não suportado.");
+            return ValidationResult.invalid("Tipo de acao nulo ou nao suportado.");
+        }
+        if (!player.getUUID().equals(action.playerId())) {
+            return ValidationResult.invalid("A acao pertence a outro jogador.");
         }
         if (action.targetId() == null || action.targetId().trim().isEmpty()) {
-            return ValidationResult.invalid("Target ID inválido ou vazio.");
+            return ValidationResult.invalid("Target ID invalido ou vazio.");
         }
 
-        if ((action.type() == JobActionType.BREAK_BLOCK || action.type() == JobActionType.HARVEST_CROP) && action.context() != null && action.context().isPlayerPlacedBlock()) {
-            return ValidationResult.invalid("Bloco colocado pelo jogador não concede recompensa ao quebrar.");
+        // Player-placed block policy:
+        // For BREAK_BLOCK: always reject (ores, wood, stone placed by player = no reward)
+        // For HARVEST_CROP: only reject if immature; mature player-placed crops are allowed
+        if (action.context() != null && action.context().isPlayerPlacedBlock()) {
+            if (action.type() == JobActionType.BREAK_BLOCK) {
+                return ValidationResult.invalid("Bloco colocado pelo jogador nao concede recompensa ao quebrar.");
+            }
+            // HARVEST_CROP with player-placed block: check maturity below
         }
 
-        // Delegate to PlayerActionEligibilityService (checks AFK, spectator, fake player, automation blocked)
-        PlayerActionEligibilityService.EligibilityResult elig = PlayerActionEligibilityService.getInstance().evaluate(player, action);
+        // AFK, spectator, fake player, automation
+        PlayerActionEligibilityService.EligibilityResult elig =
+                PlayerActionEligibilityService.getInstance().evaluate(player, action);
         if (!elig.isEligible()) {
             return ValidationResult.invalid(elig.reason());
         }
 
-        // Check immature crops
-        if (action.type() == JobActionType.HARVEST_CROP && action.context() != null && !action.context().isCropMature()) {
-            return ValidationResult.invalid("Colheita imatura não gera recompensa.");
+        // Immature crop check for HARVEST_CROP
+        if (action.type() == JobActionType.HARVEST_CROP && action.context() != null
+                && !action.context().isCropMature()) {
+            return ValidationResult.invalid("Colheita imatura nao gera recompensa.");
         }
 
-        // Check already discovered biomes / exploration
-        if (action.type() == JobActionType.EXPLORE && action.context() != null && !action.context().isFirstDiscovery()) {
-            return ValidationResult.invalid("Bioma ou região já foi descoberto anteriormente.");
+        // Already discovered biomes / exploration
+        if (action.type() == JobActionType.EXPLORE && action.context() != null
+                && !action.context().isFirstDiscovery()) {
+            return ValidationResult.invalid("Bioma ou regiao ja foi descoberto anteriormente.");
         }
 
-        // Check repeat action loops (e.g. breaking/placing or harvesting same target/position over and over)
+        // Repeat action loops
         if (action.context() != null && !action.context().getPosition().isEmpty()) {
-            if (RepeatActionGuard.getInstance().isRepeatLoop(player.getUUID(), action.type().name(), action.targetId(), action.context().getPosition(), 15, 60000L)) {
-                return ValidationResult.invalid("Proteção anti-exploit: repetição excessiva na mesma posição.");
+            if (RepeatActionGuard.getInstance().isRepeatLoop(player.getUUID(),
+                    action.type().name(), action.targetId(), action.context().getPosition(), 15, 60000L)) {
+                return ValidationResult.invalid("Protecao anti-exploit: repeticao excessiva na mesma posicao.");
             }
         }
 
-        // Check global action cooldown (150ms spam protection)
-        if (ActionCooldownService.getInstance().isOnCooldown(player.getUUID(), "global", action.type().name(), action.targetId(), 150L)) {
-            return ValidationResult.invalid("Ação em tempo de recarga.");
+        // Global action cooldown
+        if (ActionCooldownService.getInstance().isOnCooldown(player.getUUID(),
+                "global", action.type().name(), action.targetId(), 150L)) {
+            return ValidationResult.invalid("Acao em tempo de recarga.");
         }
 
-        // Check Pokemon specific action validations
+        // Pokemon specific action validations
         com.pedrodalben.bigbangessentials.jobs.pokemon.PokemonJobActionValidator.ValidationResult pokeVal =
-                com.pedrodalben.bigbangessentials.jobs.pokemon.PokemonJobActionValidator.getInstance().validatePokemonAction(player, action);
+                com.pedrodalben.bigbangessentials.jobs.pokemon.PokemonJobActionValidator.getInstance()
+                        .validatePokemonAction(player, action);
         if (!pokeVal.valid()) {
             return ValidationResult.invalid(pokeVal.reason());
         }

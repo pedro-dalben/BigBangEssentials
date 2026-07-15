@@ -47,7 +47,7 @@ public class RankupAdminEditorService {
         int order = draft.getOrderedRanks().size();
         RankupRank rank = new RankupRank(id, order, "&7New Rank", new ArrayList<>(),
                 new RankupIcon("minecraft:paper"), new RankupLuckPermsSettings(id, true),
-                new RankupRequirements(0.0, 0, RankupTaskMode.ALL, new ArrayList<>()),
+                new RankupRequirements(java.math.BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>()),
                 new RankupActions(null, new ArrayList<>()), true);
         draft.addRank(rank);
         reindexRanks(draft);
@@ -123,12 +123,15 @@ public class RankupAdminEditorService {
         return false;
     }
 
-    public boolean setRankMoney(UUID uuid, String rankId, double amount) {
+    public boolean setRankMoney(UUID uuid, String rankId, java.math.BigDecimal amount) {
         RankupConfig draft = getDraft(uuid);
         RankupRank rank = draft.getRank(rankId);
         if (rank == null) return false;
         draft.removeRank(rankId);
-        draft.addRank(rank.withRequirements(rank.requirements().withMoney(Math.max(0.0, amount))));
+        if (amount == null || amount.compareTo(java.math.BigDecimal.ZERO) < 0) {
+            amount = java.math.BigDecimal.ZERO;
+        }
+        draft.addRank(rank.withRequirements(rank.requirements().withMoney(amount)));
         return true;
     }
 
@@ -260,6 +263,7 @@ public class RankupAdminEditorService {
 
     public boolean discardDraft(UUID uuid) {
         RankupManager.getInstance().discardDraft();
+        clearSession(uuid);
         return true;
     }
 

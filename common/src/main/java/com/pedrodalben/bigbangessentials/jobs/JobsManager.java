@@ -53,13 +53,13 @@ public class JobsManager {
     private JobsConfig config;
     private final JobsRepository repository = new JobsRepository();
     private final Map<UUID, PlayerJobsData> playerDataCache = new ConcurrentHashMap<>();
+    private final Map<UUID, CompletableFuture<PlayerJobsData>> playerDataLoads = new ConcurrentHashMap<>();
     private final Map<String, List<RankingEntry>> rankingCache = new ConcurrentHashMap<>();
     private final Map<String, Long> rankingCacheTime = new ConcurrentHashMap<>();
 
     private JobsManager() {
         reload();
         com.pedrodalben.bigbangessentials.jobs.license.JobLicenseProgressService.getInstance().init();
-        com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().initializeAll();
     }
 
     public CompletableFuture<List<RankingEntry>> getRanking(String jobId) {
@@ -93,15 +93,49 @@ public class JobsManager {
         return data;
     }
 
+    /** Returns the load barrier used by the action pipeline before rewarding a player. */
+    public CompletableFuture<PlayerJobsData> getPlayerDataReady(UUID uuid) {
+        if (uuid == null) return CompletableFuture.completedFuture(null);
+        PlayerJobsData cached = playerDataCache.get(uuid);
+        if (cached != null && !playerDataLoads.containsKey(uuid)) {
+            return CompletableFuture.completedFuture(cached);
+        }
+        return loadPlayerData(uuid);
+    }
+
+    public void clearPlayerDataLoad(UUID uuid) {
+        if (uuid != null) playerDataLoads.remove(uuid);
+    }
+
     public boolean reload() {
         try {
+            System.err.println("[Jobs] Starting config reload...");
             JobsConfig newConfig = JobConfigurationLoader.loadAndValidate();
+            if (newConfig == null) {
+                LOGGER.error("Configuration loader returned null config.");
+                System.err.println("[Jobs] ERROR: Configuration loader returned null config.");
+                return false;
+            }
+            System.err.println("[Jobs] Config loaded: " + newConfig.getProfessions().size() + " professions, " + newConfig.getSlots().size() + " slots, " + newConfig.getRankMilestones().size() + " milestones");
+            try {
+                com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().initializeAll();
+            } catch (Exception e) {
+                LOGGER.error("Failed to initialize integrations after config load", e);
+            }
+            try {
+                JobRankingService.getInstance().clearCache();
+            } catch (Exception e) {
+                LOGGER.error("Failed to clear ranking cache after config load", e);
+            }
             this.config = newConfig;
-            com.pedrodalben.bigbangessentials.jobs.compat.PokemonIntegrationRegistry.getInstance().reload();
-            LOGGER.info("Jobs configuration loaded/reloaded successfully.");
+            LOGGER.info("Jobs configuration loaded/reloaded successfully ({} professions, {} slots, {} milestones).",
+                    newConfig.getProfessions().size(), newConfig.getSlots().size(), newConfig.getRankMilestones().size());
             return true;
         } catch (Exception e) {
-            LOGGER.error("Failed to load/reload jobs configuration. Previous configuration (if any) was kept.", e);
+            LOGGER.error("Failed to load/reload jobs configuration. Previous configuration (if any) was kept. Cause: {}",
+                    e.getMessage(), e);
+            System.err.println("[Jobs] ERROR loading config: " + e.getMessage());
+            e.printStackTrace(System.err);
             return false;
         }
     }
@@ -130,24 +164,27 @@ public class JobsManager {
     }
 
     public CompletableFuture<PlayerJobsData> loadPlayerData(UUID uuid) {
-        long cycleStart = calculateCurrentCycleStart();
-        PlayerJobsData data = playerDataCache.computeIfAbsent(uuid, PlayerJobsData::new);
-        data.setCurrentCycleStart(cycleStart);
+        if (uuid == null) return CompletableFuture.completedFuture(null);
+        return playerDataLoads.computeIfAbsent(uuid, ignored -> {
+            long cycleStart = calculateCurrentCycleStart();
+            PlayerJobsData data = playerDataCache.computeIfAbsent(uuid, PlayerJobsData::new);
+            data.setCurrentCycleStart(cycleStart);
 
-        return repository.loadPlayerJobs(uuid).thenCompose(jobs -> {
-            for (Map.Entry<String, JobProgress> entry : jobs.entrySet()) {
-                data.setProgress(entry.getKey(), entry.getValue());
-            }
-            return repository.loadPlayerJobEarnings(uuid, cycleStart);
-        }).thenApply(earnings -> {
-            for (Map.Entry<String, Double> entry : earnings.entrySet()) {
-                data.setDailyEarnings(entry.getKey(), entry.getValue());
-            }
-            playerDataCache.put(uuid, data);
-            return data;
-        }).exceptionally(e -> {
-            LOGGER.error("Failed to load jobs data for player {}", uuid, e);
-            return data;
+            return repository.loadPlayerJobs(uuid).thenCompose(jobs -> {
+                for (Map.Entry<String, JobProgress> entry : jobs.entrySet()) {
+                    data.setProgress(entry.getKey(), entry.getValue());
+                }
+                return repository.loadPlayerJobEarnings(uuid, cycleStart);
+            }).thenApply(earnings -> {
+                for (Map.Entry<String, Double> entry : earnings.entrySet()) {
+                    data.setDailyEarnings(entry.getKey(), entry.getValue());
+                }
+                playerDataCache.put(uuid, data);
+                return data;
+            }).exceptionally(e -> {
+                LOGGER.error("Failed to load jobs data for player {}", uuid, e);
+                return data;
+            });
         });
     }
 

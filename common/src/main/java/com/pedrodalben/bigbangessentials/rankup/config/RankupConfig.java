@@ -1,5 +1,7 @@
 package com.pedrodalben.bigbangessentials.rankup.config;
 
+import java.math.BigDecimal;
+
 import com.google.gson.*;
 import com.pedrodalben.bigbangessentials.objectives.ObjectiveActionType;
 import com.pedrodalben.bigbangessentials.rankup.domain.*;
@@ -19,10 +21,12 @@ public class RankupConfig {
     private boolean enabled = true;
     private RankupLadder ladder = new RankupLadder("main", "&6Main Progression", "member",
             RankupPromotionMode.REPLACE_LADDER_INHERITANCE_AND_PRIMARY, true);
+    private PromotionTimeouts promotionTimeouts = new PromotionTimeouts();
     private final Map<String, RankupRank> ranks = new LinkedHashMap<>();
 
     public boolean isEnabled() { return enabled; }
     public RankupLadder getLadder() { return ladder; }
+    public PromotionTimeouts getPromotionTimeouts() { return promotionTimeouts; }
 
     public Map<String, RankupRank> getRanks() {
         return ranks;
@@ -101,6 +105,13 @@ public class RankupConfig {
         ladderObj.addProperty("require-confirmation", ladder.requireConfirmation());
         root.add("ladder", ladderObj);
 
+        JsonObject timeoutObj = new JsonObject();
+        timeoutObj.addProperty("promotion-timeout-seconds", promotionTimeouts.promotionTimeoutSeconds());
+        timeoutObj.addProperty("database-step-timeout-seconds", promotionTimeouts.databaseStepTimeoutSeconds());
+        timeoutObj.addProperty("luckperms-step-timeout-seconds", promotionTimeouts.luckpermsStepTimeoutSeconds());
+        timeoutObj.addProperty("server-thread-step-timeout-seconds", promotionTimeouts.serverThreadStepTimeoutSeconds());
+        root.add("promotion-timeouts", timeoutObj);
+
         JsonArray ranksArr = new JsonArray();
         List<RankupRank> ordered = getOrderedRanks();
         for (RankupRank rank : ordered) {
@@ -127,6 +138,10 @@ public class RankupConfig {
 
         if (obj.has("ladder")) {
             config.ladder = parseLadder(obj.getAsJsonObject("ladder"));
+        }
+
+        if (obj.has("promotion-timeouts")) {
+            config.promotionTimeouts = parsePromotionTimeouts(obj.getAsJsonObject("promotion-timeouts"));
         }
 
         if (obj.has("ranks")) {
@@ -190,7 +205,7 @@ public class RankupConfig {
                 "member", 0, "&7Member", List.of("&7Starting rank."),
                 new RankupIcon("minecraft:wooden_sword"),
                 new RankupLuckPermsSettings("member", true),
-                new RankupRequirements(0.0, 0, RankupTaskMode.ALL, new ArrayList<>()),
+                new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>()),
                 new RankupActions(null, new ArrayList<>()),
                 true
         );
@@ -206,7 +221,7 @@ public class RankupConfig {
                 "trainer", 1, "&aTrainer", List.of("&7Prove your worth."),
                 new RankupIcon("minecraft:iron_sword"),
                 new RankupLuckPermsSettings("trainer", true),
-                new RankupRequirements(5000.0, 3, RankupTaskMode.ALL, List.of(breakLogs)),
+                new RankupRequirements(BigDecimal.valueOf(5000), 3, RankupTaskMode.ALL, List.of(breakLogs)),
                 new RankupActions("&a%player% became a &fTrainer&a!", List.of("give %player% minecraft:diamond 3")),
                 true
         );
@@ -218,7 +233,7 @@ public class RankupConfig {
 
     private static RankupLadder parseLadder(JsonObject obj) {
         String id = obj.has("id") ? obj.get("id").getAsString() : "main";
-        String displayName = obj.has("display-name") ? obj.get("display-name").getAsString() : "&6Main Progression";
+        String displayName = obj.has("display-name") ? translateColors(obj.get("display-name").getAsString()) : "&6Main Progression";
         String initialRankId = obj.has("initial-rank-id") ? obj.get("initial-rank-id").getAsString() : "";
         RankupPromotionMode mode = RankupPromotionMode.fromString(
                 obj.has("luckperms-mode") ? obj.get("luckperms-mode").getAsString() : null);
@@ -226,11 +241,22 @@ public class RankupConfig {
         return new RankupLadder(id, displayName, initialRankId, mode, requireConfirmation);
     }
 
+    private static PromotionTimeouts parsePromotionTimeouts(JsonObject obj) {
+        if (obj == null) {
+            return new PromotionTimeouts();
+        }
+        long promotion = obj.has("promotion-timeout-seconds") ? obj.get("promotion-timeout-seconds").getAsLong() : 20L;
+        long database = obj.has("database-step-timeout-seconds") ? obj.get("database-step-timeout-seconds").getAsLong() : 5L;
+        long luckperms = obj.has("luckperms-step-timeout-seconds") ? obj.get("luckperms-step-timeout-seconds").getAsLong() : 8L;
+        long server = obj.has("server-thread-step-timeout-seconds") ? obj.get("server-thread-step-timeout-seconds").getAsLong() : 5L;
+        return new PromotionTimeouts(promotion, database, luckperms, server);
+    }
+
     private static RankupRank parseRank(JsonObject obj) {
         String id = obj.get("id").getAsString();
         int order = obj.has("order") ? obj.get("order").getAsInt() : 0;
-        String displayName = obj.has("display-name") ? obj.get("display-name").getAsString() : id;
-        List<String> description = parseStringList(obj, "description");
+        String displayName = obj.has("display-name") ? translateColors(obj.get("display-name").getAsString()) : id;
+        List<String> description = parseStringList(obj, "description").stream().map(RankupConfig::translateColors).toList();
         RankupIcon icon = parseIcon(obj.has("icon") ? obj.getAsJsonObject("icon") : null);
         RankupLuckPermsSettings luckPerms = parseLuckPerms(obj.has("luckperms") ? obj.getAsJsonObject("luckperms") : null);
         RankupRequirements requirements = parseRequirements(obj.has("requirements") ? obj.getAsJsonObject("requirements") : null);
@@ -256,8 +282,8 @@ public class RankupConfig {
     }
 
     private static RankupRequirements parseRequirements(JsonObject obj) {
-        if (obj == null) return new RankupRequirements(0.0, 0, RankupTaskMode.ALL, new ArrayList<>());
-        double money = obj.has("money") ? obj.get("money").getAsDouble() : 0.0;
+        if (obj == null) return new RankupRequirements(BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>());
+        BigDecimal money = obj.has("money") ? new BigDecimal(obj.get("money").getAsString()) : BigDecimal.ZERO;
         int gems = obj.has("gems") ? obj.get("gems").getAsInt() : 0;
         RankupTaskMode taskMode = RankupTaskMode.fromString(
                 obj.has("task-mode") ? obj.get("task-mode").getAsString() : null);
@@ -273,8 +299,8 @@ public class RankupConfig {
 
     private static RankupTask parseTask(JsonObject obj) {
         String id = obj.get("id").getAsString();
-        String displayName = obj.has("display-name") ? obj.get("display-name").getAsString() : id;
-        List<String> description = parseStringList(obj, "description");
+        String displayName = obj.has("display-name") ? translateColors(obj.get("display-name").getAsString()) : id;
+        List<String> description = parseStringList(obj, "description").stream().map(RankupConfig::translateColors).toList();
         ObjectiveActionType type = ObjectiveActionType.fromString(
                 obj.has("type") ? obj.get("type").getAsString() : "");
         int target = obj.has("target") ? obj.get("target").getAsInt() : 0;
@@ -302,9 +328,27 @@ public class RankupConfig {
 
     private static RankupActions parseActions(JsonObject obj) {
         if (obj == null) return new RankupActions(null, new ArrayList<>());
-        String broadcast = obj.has("broadcast") ? obj.get("broadcast").getAsString() : null;
+        String broadcast = obj.has("broadcast") ? translateColors(obj.get("broadcast").getAsString()) : null;
         List<String> commands = parseStringList(obj, "commands");
         return new RankupActions(broadcast, commands);
+    }
+
+    public record PromotionTimeouts(
+            long promotionTimeoutSeconds,
+            long databaseStepTimeoutSeconds,
+            long luckpermsStepTimeoutSeconds,
+            long serverThreadStepTimeoutSeconds
+    ) {
+        public PromotionTimeouts() {
+            this(20L, 5L, 8L, 5L);
+        }
+
+        public PromotionTimeouts {
+            promotionTimeoutSeconds = Math.max(1L, promotionTimeoutSeconds);
+            databaseStepTimeoutSeconds = Math.max(1L, databaseStepTimeoutSeconds);
+            luckpermsStepTimeoutSeconds = Math.max(1L, luckpermsStepTimeoutSeconds);
+            serverThreadStepTimeoutSeconds = Math.max(1L, serverThreadStepTimeoutSeconds);
+        }
     }
 
     private static List<String> parseStringList(JsonObject obj, String key) {
@@ -407,5 +451,18 @@ public class RankupConfig {
         JsonArray arr = new JsonArray();
         for (String s : list) arr.add(s);
         return arr;
+    }
+
+    private static BigDecimal getBigDecimal(Map<String, Object> map, String key, BigDecimal def) {
+        Object val = map.get(key);
+        if (val instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        if (val instanceof String s) {
+            try { return new BigDecimal(s); } catch (Exception e) { return def; }
+        }
+        return def;
+    }
+
+    public static String translateColors(String input) {
+        return input != null ? input.replace('&', '\u00a7') : null;
     }
 }

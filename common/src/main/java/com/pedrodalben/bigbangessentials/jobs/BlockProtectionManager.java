@@ -118,7 +118,13 @@ public class BlockProtectionManager {
         ioExecutor.execute(() -> {
             Set<BlockPos> set = loadChunkData(dimension, chunkX, chunkZ);
             if (set != null) {
-                protectedBlocks.put(key, set);
+                // A colocação de um bloco pode acontecer enquanto a carga assíncrona
+                // do chunk ainda está em andamento. Nunca substitua marcas recentes
+                // por um snapshot antigo do disco.
+                protectedBlocks.merge(key, set, (current, loaded) -> {
+                    loaded.addAll(current);
+                    return loaded;
+                });
             }
         });
     }

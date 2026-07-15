@@ -38,17 +38,18 @@ class CrateTransactionalTest {
             Bootstrap.bootStrap();
         } catch (Throwable ignored) {}
 
-        Path configDir = Paths.get("config");
-        if (!Files.exists(configDir)) Files.createDirectories(configDir);
+        java.io.File configFile = com.pedrodalben.bigbangessentials.util.ResourceUtil.getConfigFile("database.json");
+        if (configFile.getParentFile() != null) configFile.getParentFile().mkdirs();
 
         String dbConfig = "{"
             + "\"enabled\": true,"
             + "\"type\": \"SQLITE\","
-            + "\"path\": \"config/test_crates.db\","
+            + "\"sqlite\": {\"file\": \"config/test_crates.db\"},"
             + "\"required\": false"
             + "}";
-        Files.writeString(configDir.resolve("database.json"), dbConfig);
+        Files.writeString(configFile.toPath(), dbConfig);
 
+        DatabaseManager.getInstance().shutdown();
         DatabaseManager.getInstance().initialize();
 
         openingService = CrateOpeningService.getInstance();
@@ -65,13 +66,17 @@ class CrateTransactionalTest {
     }
 
     @BeforeEach
-    void clearData() {
+    void clearData() throws IOException {
+        if (!DatabaseManager.getInstance().isReady()) {
+            setup();
+        }
         crateService.reload();
         keyService.reload();
         rewardService.reload();
         metricsService.resetMetrics();
         auditService.cleanOldAudits(Instant.now().plusSeconds(365 * 86400));
     }
+
 
     private static ServerPlayer mockPlayer(UUID playerId) {
         ServerPlayer player = mock(ServerPlayer.class);

@@ -1,0 +1,151 @@
+{
+  "id": "woodcutter",
+  "enabled": true,
+  "display-name": "Lenhador",
+  "short-description": "Corte árvores e colete madeira",
+  "description": "Profissão dedicada ao corte de madeira e coleta de recursos florestais.",
+  "icon": "minecraft:diamond_axe",
+  "category": "COMMON",
+  "sort-order": 2,
+  "permission": "bigbangessentials.jobs.profession.woodcutter",
+  "visible-without-permission": true,
+  "unlocked-by-default": true,
+  "license-required": false,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 100,
+    "multiplier": 1.0,
+    "exponent": 1.5
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "BREAK-BLOCK": {
+      "minecraft:oak_log": {
+        "money": 5,
+        "xp": 10
+      },
+      "minecraft:spruce_log": {
+        "money": 5,
+        "xp": 10
+      },
+      "minecraft:birch_log": {
+        "money": 5,
+        "xp": 10
+      },
+      "minecraft:jungle_log": {
+        "money": 5,
+        "xp": 10
+      },
+      "minecraft:acacia_log": {
+        "money": 5,
+        "xp": 10
+      },
+      "minecraft:dark_oak_log": {
+        "money": 5,
+        "xp": 10
+      },
+      "minecraft:mangrove_log": {
+        "money": 5,
+        "xp": 10
+      },
+      "minecraft:cherry_log": {
+        "money": 6,
+        "xp": 11
+      },
+      "minecraft:crimson_stem": {
+        "money": 7,
+        "xp": 14
+      },
+      "minecraft:warped_stem": {
+        "money": 7,
+        "xp": 14
+      },
+      "*": {
+        "money": 1,
+        "xp": 2
+      }
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Quebre troncos de árvores naturais.",
+      "Madeiras do Nether (Carmesim e Distorcida) pagam mais."
+    ],
+    "xp-lines": [
+      "Cada tronco quebrado concede XP."
+    ],
+    "example-targets": [
+      "minecraft:oak_log",
+      "minecraft:spruce_log",
+      "minecraft:crimson_stem"
+    ]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Lenhador!",
+    "leave": "&cVocê deixou a profissão de Lenhador.",
+    "level-up": "&aParabéns! Nível %level% de Lenhador! +%points% pontos"
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
+}

@@ -40,9 +40,10 @@ public class JobRewardApplier {
         if (config == null) return;
 
         // 1. Apply Money
+        boolean moneyApplied = true;
         if (allowedPayout > 0.0) {
-            boolean deposited = EconomyAPI.deposit(playerId, BigDecimal.valueOf(allowedPayout));
-            if (deposited) {
+            moneyApplied = EconomyAPI.deposit(playerId, BigDecimal.valueOf(allowedPayout));
+            if (moneyApplied) {
                 double currentEarnings = data.getDailyEarnings(jobId);
                 double newEarnings = currentEarnings + allowedPayout;
                 data.setDailyEarnings(jobId, newEarnings);
@@ -82,8 +83,9 @@ public class JobRewardApplier {
         // 3.5. Process Phase 4 Reward Cycle (Fragments, Key Rolls & Contracts)
         try {
             int jobLevel = data.getProgress(jobId) != null ? data.getProgress(jobId).getLevel() : 1;
+            String actionType = action.type() != null ? action.type().name() : action.actionId().toString();
             com.pedrodalben.bigbangessentials.jobs.rewards.JobRewardRollService.getInstance()
-                    .processActionRewards(action.actionId().toString(), playerId, jobId, jobLevel, outcome.experience() > 0 ? 1.0 : 0.5);
+                    .processActionRewards(playerId, jobDef, jobLevel, actionType, outcome.experience() > 0 ? 1.0 : 0.5);
             com.pedrodalben.bigbangessentials.jobs.contracts.JobContractService.getInstance()
                     .processActionProgress(player, action, jobId);
         } catch (Exception e) {
@@ -95,12 +97,40 @@ public class JobRewardApplier {
             JobMessageService.getInstance().sendActionBarNotification(player, jobDef, allowedPayout, finalXp);
         }
 
-        // 5. Debug Mode Logging
+        // 5. Handle exploration discovery confirmation - only if reward was actually applied
+        if (action.type() == JobActionType.EXPLORE && action.context() != null && action.context().isFirstDiscovery()) {
+            String discoveryType = determineDiscoveryType(action);
+            String discoveryKey = action.targetId();
+            if (!discoveryType.isEmpty() && !discoveryKey.isEmpty()) {
+                if (moneyApplied && (allowedPayout > 0.0 || finalXp > 0.0)) {
+                    com.pedrodalben.bigbangessentials.jobs.antiexploit.ExplorationDiscoveryService.getInstance()
+                            .confirmDiscovery(playerId, discoveryType, discoveryKey);
+                } else {
+                    com.pedrodalben.bigbangessentials.jobs.antiexploit.ExplorationDiscoveryService.getInstance()
+                            .cancelDiscovery(playerId, discoveryType, discoveryKey);
+                    LOGGER.warn("Exploration discovery {} cancelled - no reward applied for player {}", discoveryKey, playerId);
+                }
+            }
+        }
+
+        // 6. Debug Mode Logging
         if (data.isDebugMode() || JobsManager.isGlobalDebugMode()) {
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
                     String.format("§7[Debug] Ação: %s | Alvo: %s | Job: %s | XP: %.2f | Coins: %.2f",
                             action.type().name(), action.targetId(), jobDef.displayName, finalXp, allowedPayout)
             ));
         }
+    }
+
+    private String determineDiscoveryType(JobAction action) {
+        if (action.context() == null) return "";
+        String src = action.context().getEventSource();
+        if (src == null) return "";
+        if (src.equals("EXPLORATION_BIOME")) return "BIOME";
+        if (src.equals("EXPLORATION_STRUCTURE")) return "STRUCTURE";
+        if (src.equals("EXPLORATION_CELL")) return "CELL";
+        if (src.equals("EXPLORATION_DIMENSION")) return "DIMENSION";
+        if (action.context().getBiome() != null && !action.context().getBiome().isEmpty()) return "BIOME";
+        return "";
     }
 }

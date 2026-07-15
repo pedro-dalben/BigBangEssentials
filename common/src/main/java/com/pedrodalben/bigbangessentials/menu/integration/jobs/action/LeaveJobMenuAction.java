@@ -60,7 +60,6 @@ public class LeaveJobMenuAction implements MenuActionHandler {
             case NOT_ACTIVE:
                 player.sendSystemMessage(Component.literal("§cVocê não está ativo neste trabalho."));
                 return CompletableFuture.completedFuture(ActionExecutionResult.denied());
-            case CANCELLED:
             default:
                 player.sendSystemMessage(Component.literal("§cA saída do trabalho foi impedida por outro sistema."));
                 return CompletableFuture.completedFuture(ActionExecutionResult.denied());

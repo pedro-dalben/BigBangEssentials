@@ -21,7 +21,9 @@ public class BlockItemMixin {
                 BlockPos pos = context.getClickedPos();
                 BlockState state = context.getLevel().getBlockState(pos);
                 JobsEventListener.onBlockPlace(player, pos, state);
+                com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener.onBlockPlace(player, pos, state, false);
             }
         }
+
     }
 }

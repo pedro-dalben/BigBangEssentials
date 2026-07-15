@@ -4,9 +4,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Display;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class HologramDefinitionBuilder {
     private final String id;
@@ -18,7 +20,7 @@ public final class HologramDefinitionBuilder {
     private HologramVisibilityPolicy visibilityPolicy = HologramVisibilityPolicy.NEARBY_PLAYERS;
     private HologramUpdatePolicy updatePolicy = HologramUpdatePolicy.STATIC;
     private HologramRendererType rendererType = HologramRendererType.CLIENT_ONLY_TEXT_DISPLAY;
-    private boolean persistent;
+    private HologramPersistenceMode persistenceMode;
     private int refreshIntervalTicks = 20;
     private double offsetX;
     private double offsetY;
@@ -33,6 +35,15 @@ public final class HologramDefinitionBuilder {
     private boolean hideInSpectator;
     private String requiredPermission = "";
     private final Map<String, String> metadata = new LinkedHashMap<>();
+    private int displayDistance;
+    private int updateDistance;
+    private boolean enabled = true;
+    private int defaultPage;
+    private String displayName = "";
+    private Set<HologramFlag> flags = EnumSet.noneOf(HologramFlag.class);
+    private int schemaVersion = 1;
+    private long createdAt;
+    private long updatedAt;
 
     public HologramDefinitionBuilder(String id) {
         this.id = id;
@@ -48,7 +59,7 @@ public final class HologramDefinitionBuilder {
         builder.visibilityPolicy = definition.visibilityPolicy();
         builder.updatePolicy = definition.updatePolicy();
         builder.rendererType = definition.rendererType();
-        builder.persistent = definition.persistent();
+        builder.persistenceMode = definition.persistenceMode();
         builder.refreshIntervalTicks = definition.refreshIntervalTicks();
         builder.offsetX = definition.offsetX();
         builder.offsetY = definition.offsetY();
@@ -63,6 +74,15 @@ public final class HologramDefinitionBuilder {
         builder.hideInSpectator = definition.hideInSpectator();
         builder.requiredPermission = definition.requiredPermission();
         builder.metadata.putAll(definition.metadata());
+        builder.displayDistance = definition.displayDistance();
+        builder.updateDistance = definition.updateDistance();
+        builder.enabled = definition.enabled();
+        builder.defaultPage = definition.defaultPage();
+        builder.displayName = definition.displayName();
+        builder.flags = definition.flags().isEmpty() ? EnumSet.noneOf(HologramFlag.class) : EnumSet.copyOf(definition.flags());
+        builder.schemaVersion = definition.schemaVersion();
+        builder.createdAt = definition.createdAt();
+        builder.updatedAt = definition.updatedAt();
         return builder;
     }
 
@@ -129,7 +149,12 @@ public final class HologramDefinitionBuilder {
     }
 
     public HologramDefinitionBuilder persistent(boolean persistent) {
-        this.persistent = persistent;
+        this.persistenceMode = persistent ? HologramPersistenceMode.PERSISTENT : HologramPersistenceMode.RUNTIME;
+        return this;
+    }
+
+    public HologramDefinitionBuilder persistenceMode(HologramPersistenceMode persistenceMode) {
+        this.persistenceMode = persistenceMode;
         return this;
     }
 
@@ -201,6 +226,61 @@ public final class HologramDefinitionBuilder {
         return this;
     }
 
+    public HologramDefinitionBuilder displayDistance(int displayDistance) {
+        this.displayDistance = displayDistance;
+        return this;
+    }
+
+    public HologramDefinitionBuilder updateDistance(int updateDistance) {
+        this.updateDistance = updateDistance;
+        return this;
+    }
+
+    public HologramDefinitionBuilder enabled(boolean enabled) {
+        this.enabled = enabled;
+        return this;
+    }
+
+    public HologramDefinitionBuilder defaultPage(int defaultPage) {
+        this.defaultPage = defaultPage;
+        return this;
+    }
+
+    public HologramDefinitionBuilder displayName(String displayName) {
+        this.displayName = displayName;
+        return this;
+    }
+
+    public HologramDefinitionBuilder flags(Set<HologramFlag> flags) {
+        this.flags = flags == null ? EnumSet.noneOf(HologramFlag.class) : EnumSet.copyOf(flags);
+        return this;
+    }
+
+    public HologramDefinitionBuilder addFlag(HologramFlag flag) {
+        this.flags.add(flag);
+        return this;
+    }
+
+    public HologramDefinitionBuilder removeFlag(HologramFlag flag) {
+        this.flags.remove(flag);
+        return this;
+    }
+
+    public HologramDefinitionBuilder schemaVersion(int schemaVersion) {
+        this.schemaVersion = schemaVersion;
+        return this;
+    }
+
+    public HologramDefinitionBuilder createdAt(long createdAt) {
+        this.createdAt = createdAt;
+        return this;
+    }
+
+    public HologramDefinitionBuilder updatedAt(long updatedAt) {
+        this.updatedAt = updatedAt;
+        return this;
+    }
+
     public HologramDefinition build() {
         return new HologramDefinition(
             id,
@@ -212,7 +292,7 @@ public final class HologramDefinitionBuilder {
             visibilityPolicy,
             updatePolicy,
             rendererType,
-            persistent,
+            persistenceMode != null ? persistenceMode : HologramPersistenceMode.RUNTIME,
             refreshIntervalTicks,
             offsetX,
             offsetY,
@@ -226,7 +306,16 @@ public final class HologramDefinitionBuilder {
             scale,
             hideInSpectator,
             requiredPermission,
-            metadata
+            metadata,
+            displayDistance,
+            updateDistance,
+            enabled,
+            defaultPage,
+            displayName,
+            flags,
+            schemaVersion,
+            createdAt != 0 ? createdAt : System.currentTimeMillis(),
+            updatedAt != 0 ? updatedAt : System.currentTimeMillis()
         );
     }
 }

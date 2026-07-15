@@ -356,6 +356,53 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
     }
 
     @Override
+    public java.util.Set<String> getInheritedGroups(UUID uuid) {
+        if (!luckPermsLoaded) {
+            return java.util.Set.of();
+        }
+
+        LuckPerms api = resolveApi();
+        if (api == null) {
+            return java.util.Set.of();
+        }
+
+        try {
+            User user = api.getUserManager().getUser(uuid);
+            if (user == null) {
+                try {
+                    CompletableFuture<User> userFuture = api.getUserManager().loadUser(uuid);
+                    user = userFuture.get(USER_LOAD_TIMEOUT, TimeUnit.SECONDS);
+                } catch (Exception e) {
+                    LOGGER.debug("Could not load user {} from LuckPerms for inherited groups: {}", uuid, e.getMessage());
+                    return java.util.Set.of();
+                }
+            }
+
+            if (user != null) {
+                java.util.Set<String> groups = new java.util.HashSet<>();
+                for (net.luckperms.api.node.Node node : user.getNodes()) {
+                    if (node instanceof net.luckperms.api.node.types.InheritanceNode inheritance) {
+                        groups.add(inheritance.getGroupName().toLowerCase());
+                    }
+                }
+                for (net.luckperms.api.node.Node node : user.resolveInheritedNodes(QueryOptions.defaultContextualOptions())) {
+                    if (node instanceof net.luckperms.api.node.types.InheritanceNode inheritance) {
+                        groups.add(inheritance.getGroupName().toLowerCase());
+                    }
+                }
+                if (user.getPrimaryGroup() != null) {
+                    groups.add(user.getPrimaryGroup().toLowerCase());
+                }
+                return groups;
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error getting inherited groups for user {}: {}", uuid, e.getMessage(), e);
+        }
+
+        return java.util.Set.of();
+    }
+
+    @Override
     public void reload() {
         // LuckPerms handles its own reloading via /lp reload
         LOGGER.info("LuckPerms reload requested - use '/lp reload' command to reload LuckPerms data");
@@ -461,7 +508,10 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
                         UUID uuid = e.getUser().getUniqueId();
                         com.pedrodalben.bigbangessentials.teleportation.HomeManager.getInstance().invalidateMaxHomesCache(uuid);
                         com.pedrodalben.bigbangessentials.teleportation.Warp.WarpManager.getInstance().invalidateMaxPlayerWarpsCache(uuid);
-                        LOGGER.debug("Invalidated home/warp cache for user {} due to LuckPerms recalculation", uuid);
+                        try {
+                            com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().invalidatePlayerData(uuid);
+                        } catch (Exception ignored) {}
+                        LOGGER.debug("Invalidated home/warp/rankup cache for user {} due to LuckPerms recalculation", uuid);
                     });
                     LOGGER.info("Successfully registered LuckPerms event listener for cache invalidation");
                 } catch (Exception e) {

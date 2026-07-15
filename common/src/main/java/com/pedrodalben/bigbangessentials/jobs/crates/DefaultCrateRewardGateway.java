@@ -8,6 +8,8 @@ import com.pedrodalben.bigbangessentials.crates.service.CrateKeyService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateOpeningService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
 import com.pedrodalben.bigbangessentials.crates.service.CrateOpeningService.CrateOpeningResult;
+import com.pedrodalben.bigbangessentials.util.Platform;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +40,33 @@ public class DefaultCrateRewardGateway implements CrateRewardGateway {
             return CrateKeyGrantResult.success(amount, keyId);
         } else {
             return CrateKeyGrantResult.failure("Failed to grant virtual key via CrateKeyService");
+        }
+    }
+
+    @Override
+    public CrateKeyGrantResult grantPhysicalKey(UUID playerId, String keyId, int amount, CrateKeyGrantSource source, String referenceId, Map<String, String> metadata) {
+        if (playerId == null || keyId == null || amount <= 0) {
+            return CrateKeyGrantResult.failure("Invalid parameters for physical key grant");
+        }
+
+        MinecraftServer server = Platform.getCurrentServer();
+        if (server == null) {
+            return CrateKeyGrantResult.failure("Server not available for physical key grant");
+        }
+
+        ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+        if (player == null) {
+            LOGGER.warn("Player {} is offline; falling back to virtual key grant for '{}'", playerId, keyId);
+            return grantVirtualKey(playerId, keyId, amount, source, referenceId, metadata);
+        }
+
+        GrantSource mappedSource = mapSource(source);
+        boolean granted = CrateKeyService.getInstance().givePhysicalKey(player, keyId, amount, mappedSource, referenceId);
+        if (granted) {
+            LOGGER.info("Granted {}x physical key '{}' to player {} (source: {}, ref: {})", amount, keyId, playerId, source, referenceId);
+            return CrateKeyGrantResult.success(amount, keyId);
+        } else {
+            return CrateKeyGrantResult.failure("Failed to grant physical key via CrateKeyService");
         }
     }
 
@@ -103,6 +132,34 @@ public class DefaultCrateRewardGateway implements CrateRewardGateway {
                 ascKey.getCompatibleCrateIds().add("ascension_crate");
                 crateService.saveKey(ascKey);
                 LOGGER.info("Auto-created utility key: ascension_key");
+            }
+
+            // Job Progression Keys (4 tiers)
+            String[][] progressionKeys = {
+                {"iniciante", "Chave Iniciante"},
+                {"intermediaria", "Chave Intermediária"},
+                {"avancada", "Chave Avançada"},
+                {"lendaria", "Chave Lendária"}
+            };
+            for (String[] pair : progressionKeys) {
+                String keyId = pair[0];
+                String displayName = pair[1];
+                String crateId = keyId + "_crate";
+                if (!crateService.crateExists(crateId)) {
+                    CrateDefinition crate = crateService.createCrate(crateId, "Caixa " + displayName);
+                    crate.getRequirements().addAcceptedKeyId(keyId);
+                    crate.getRequirements().setRequireVirtualKey(true);
+                    crate.getRequirements().setRequirePhysicalKey(false);
+                    crateService.saveCrate(crate);
+                    LOGGER.info("Auto-created job progression crate: {}", crateId);
+                }
+                if (!crateService.keyExists(keyId)) {
+                    KeyDefinition key = crateService.createKey(keyId, displayName);
+                    key.setKeyType(CrateKeyType.VIRTUAL);
+                    key.getCompatibleCrateIds().add(crateId);
+                    crateService.saveKey(key);
+                    LOGGER.info("Auto-created job progression key: {}", keyId);
+                }
             }
         } catch (Exception e) {
             LOGGER.error("Failed to ensure utility crates exist: {}", e.getMessage(), e);

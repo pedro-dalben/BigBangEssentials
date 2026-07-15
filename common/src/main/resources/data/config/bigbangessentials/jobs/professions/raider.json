@@ -1,0 +1,146 @@
+{
+  "id": "raider",
+  "enabled": true,
+  "display-name": "Incursionista",
+  "short-description": "Participe de raids e enfrente chefes",
+  "description": "Profissão especializada em incursões Pokémon. Incursionistas ganham dinheiro e XP completando raids, derrotando chefes poderosos e conquistando recompensas em batalhas de alto risco.",
+  "icon": "minecraft:totem_of_undying",
+  "category": "POKEMON_SPECIALIZATION",
+  "sort-order": 17,
+  "permission": "bigbangessentials.jobs.profession.raider",
+  "visible-without-permission": true,
+  "unlocked-by-default": false,
+  "license-required": true,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 150,
+    "multiplier": 1.2,
+    "exponent": 1.6
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "RAID-CLEARED": {
+      "cobblemon:raid_one_star": {
+        "money": 40.0,
+        "xp": 60.0
+      },
+      "cobblemon:raid_two_star": {
+        "money": 75.0,
+        "xp": 120.0
+      },
+      "cobblemon:raid_three_star": {
+        "money": 140.0,
+        "xp": 220.0
+      },
+      "cobblemon:raid_four_star": {
+        "money": 250.0,
+        "xp": 400.0
+      },
+      "cobblemon:raid_five_star": {
+        "money": 450.0,
+        "xp": 700.0
+      },
+      "cobblemon:raid_mega": {
+        "money": 800.0,
+        "xp": 1200.0
+      },
+      "cobblemon:raid_legendary": {
+        "money": 1500.0,
+        "xp": 2500.0
+      },
+      "cobblemon:raid_event": {
+        "money": 500.0,
+        "xp": 800.0
+      },
+      "*": {
+        "money": 20.0,
+        "xp": 30.0
+      }
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Participe e complete raids Pokémon com sucesso.",
+      "Raids de estrelas mais altas pagam recompensas progressivamente maiores.",
+      "Raids Lendárias e Mega Raids oferecem as melhores recompensas.",
+      "Eventos especiais de raid também concedem bônus."
+    ],
+    "xp-lines": [
+      "Toda raid completada que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": [
+      "cobblemon:raid_five_star",
+      "cobblemon:raid_mega",
+      "cobblemon:raid_legendary"
+    ]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Incursionista! Enfrente raids e conquiste a vitória!",
+    "leave": "&cVocê deixou a profissão de Incursionista.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Incursionista! Pontos de habilidade: +%points%"
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "id": "explorer",
+  "enabled": true,
+  "display-name": "Explorador",
+  "short-description": "Explore o mundo e descubra novos lugares",
+  "description": "Profissão dedicada à exploração e descoberta. Exploradores ganham dinheiro e XP viajando pelo mundo, descobrindo biomas, estruturas e pontos de interesse.",
+  "icon": "minecraft:compass",
+  "category": "COMMON",
+  "sort-order": 7,
+  "permission": "bigbangessentials.jobs.profession.explorer",
+  "visible-without-permission": true,
+  "unlocked-by-default": true,
+  "license-required": false,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 100,
+    "multiplier": 1.0,
+    "exponent": 1.5
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "EXPLORE": {
+      "minecraft:village": {
+        "money": 50.0,
+        "xp": 80.0
+      },
+      "minecraft:desert_pyramid": {
+        "money": 100.0,
+        "xp": 150.0
+      },
+      "minecraft:jungle_pyramid": {
+        "money": 100.0,
+        "xp": 150.0
+      },
+      "minecraft:pillager_outpost": {
+        "money": 75.0,
+        "xp": 120.0
+      },
+      "minecraft:woodland_mansion": {
+        "money": 200.0,
+        "xp": 300.0
+      },
+      "minecraft:ocean_monument": {
+        "money": 150.0,
+        "xp": 250.0
+      },
+      "minecraft:bastion_remnant": {
+        "money": 180.0,
+        "xp": 280.0
+      },
+      "minecraft:nether_fortress": {
+        "money": 130.0,
+        "xp": 200.0
+      },
+      "minecraft:end_city": {
+        "money": 250.0,
+        "xp": 400.0
+      },
+      "minecraft:ancient_city": {
+        "money": 300.0,
+        "xp": 500.0
+      },
+      "minecraft:trail_ruins": {
+        "money": 60.0,
+        "xp": 100.0
+      },
+      "minecraft:shipwreck": {
+        "money": 40.0,
+        "xp": 60.0
+      },
+      "minecraft:buried_treasure": {
+        "money": 80.0,
+        "xp": 120.0
+      },
+      "default-reward": {
+        "money": 10.0,
+        "xp": 15.0
+      }
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Descubra estruturas naturais como Vilas, Templos e Monumentos.",
+      "Estruturas raras como Cidade Ancestral e Mansão da Floresta pagam mais.",
+      "Biomas e marcos também podem dar recompensas ao serem descobertos."
+    ],
+    "xp-lines": [
+      "Toda descoberta que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": [
+      "minecraft:village",
+      "minecraft:ancient_city",
+      "minecraft:end_city"
+    ]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Explorador! Aventure-se pelo mundo e faça descobertas!",
+    "leave": "&cVocê deixou a profissão de Explorador.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Explorador! Pontos de habilidade: +%points%"
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
+}

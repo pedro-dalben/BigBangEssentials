@@ -47,7 +47,7 @@ public class RankupConfigurationValidator {
                     result.addError("Duplicate LuckPerms group in ladder: " + rank.luckPerms().group());
                 }
             }
-            if (rank.requirements().money() < 0) {
+            if (rank.requirements().money().compareTo(java.math.BigDecimal.ZERO) < 0) {
                 result.addError("Rank '" + rank.id() + "' has negative money requirement");
             }
             if (rank.requirements().gems() < 0) {
@@ -105,6 +105,10 @@ public class RankupConfigurationValidator {
                 result.addError("Rank '" + rank.id() + "' task '" + task.id() + "' has invalid target amount");
             }
 
+            if (task.type() == ObjectiveActionType.COBBLEMON_DEFEAT) {
+                result.addError("Rank '" + rank.id() + "' task '" + task.id() + "' uses COBBLEMON_DEFEAT which is currently unsupported due to insecure player win attribution.");
+            }
+
             if (isCobblemonType(task.type())) {
                 boolean cobblemonLoaded = Platform.isModLoaded("cobblemon");
                 if (!cobblemonLoaded) {
@@ -156,13 +160,13 @@ public class RankupConfigurationValidator {
                     result.addError("Rank '" + rank.id() + "' task '" + task.id() + "' has invalid registry ID: " + entry);
                 } else {
                     boolean found = switch (kind) {
-                        case "block" -> BuiltInRegistries.BLOCK.containsKey(ObjectiveTargetMatcher.parse(entry));
-                        case "entity" -> BuiltInRegistries.ENTITY_TYPE.containsKey(ObjectiveTargetMatcher.parse(entry));
-                        case "item" -> BuiltInRegistries.ITEM.containsKey(ObjectiveTargetMatcher.parse(entry));
+                        case "block" -> BuiltInRegistries.BLOCK != null && BuiltInRegistries.BLOCK.containsKey(ObjectiveTargetMatcher.parse(entry));
+                        case "entity" -> BuiltInRegistries.ENTITY_TYPE != null && BuiltInRegistries.ENTITY_TYPE.containsKey(ObjectiveTargetMatcher.parse(entry));
+                        case "item" -> BuiltInRegistries.ITEM != null && BuiltInRegistries.ITEM.containsKey(ObjectiveTargetMatcher.parse(entry));
                         case "biome" -> true; // Biomes are data-driven; cannot reliably check at this stage
                         default -> true;
                     };
-                    if (!found && !BuiltInRegistries.BLOCK.keySet().isEmpty()) {
+                    if (!found && BuiltInRegistries.BLOCK != null && !BuiltInRegistries.BLOCK.keySet().isEmpty()) {
                         result.addWarning("Rank '" + rank.id() + "' task '" + task.id() + "' unknown " + kind + " registry ID: " + entry);
                     }
                 }

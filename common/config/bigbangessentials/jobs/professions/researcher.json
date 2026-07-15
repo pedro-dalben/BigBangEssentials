@@ -1,0 +1,137 @@
+{
+  "id": "researcher",
+  "enabled": true,
+  "display-name": "Pesquisador Pokémon",
+  "short-description": "Capture Pokémon e registre na Pokédex",
+  "description": "Especialização Pokémon focada em captura e pesquisa de novas espécies.",
+  "icon": "cobblemon:poke_ball",
+  "category": "POKEMON_SPECIALIZATION",
+  "sort-order": 12,
+  "permission": "bigbangessentials.jobs.profession.researcher",
+  "visible-without-permission": true,
+  "unlocked-by-default": false,
+  "license-required": true,
+  "required-integration": "cobblemon",
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 150,
+    "multiplier": 1.2,
+    "exponent": 1.6
+  },
+  "max-daily-earnings": 15000,
+  "money-bonus-per-level": 1.0,
+  "max-level-money-bonus": 100.0,
+  "skill-points-every": 3,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "POKEMON-CAPTURED": {
+      "cobblemon:mewtwo": {
+        "money": 500,
+        "xp": 1000
+      },
+      "*": {
+        "money": 15,
+        "xp": 20
+      }
+    },
+    "DEX-ENTRY-ADDED": {
+      "*": {
+        "money": 25,
+        "xp": 50
+      }
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Capture Pokémon selvagens.",
+      "Registre novas espécies na Pokédex para bônus extras.",
+      "Pokémon lendários pagam recompensas enormes."
+    ],
+    "xp-lines": [
+      "Cada captura e registro concede XP."
+    ],
+    "example-targets": [
+      "cobblemon:pikachu",
+      "cobblemon:charizard",
+      "cobblemon:mewtwo"
+    ]
+  },
+  "license-objectives": [
+    {
+      "objective-id": "capture_50",
+      "action-type": "POKEMON_CAPTURED",
+      "required-amount": 50,
+      "progress-message": "Capture 50 Pokémon"
+    },
+    {
+      "objective-id": "dex_30",
+      "action-type": "DEX_ENTRY_ADDED",
+      "required-amount": 30,
+      "progress-message": "Registre 30 espécies na Pokédex"
+    }
+  ],
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Pesquisador Pokémon!",
+    "leave": "&cVocê deixou a especialização de Pesquisador.",
+    "level-up": "&aParabéns! Nível %level% de Pesquisador! +%points% pontos"
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
+}

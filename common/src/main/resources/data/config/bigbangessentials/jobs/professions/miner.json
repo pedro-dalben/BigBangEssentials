@@ -1,0 +1,165 @@
+{
+  "id": "miner",
+  "enabled": true,
+  "display-name": "Minerador",
+  "short-description": "Extraia minérios e pedras preciosas",
+  "description": "Profissão dedicada à mineração e extração de recursos minerais. Mineradores ganham dinheiro e XP quebrando blocos de minério, pedra e outros recursos subterrâneos.",
+  "icon": "minecraft:diamond_pickaxe",
+  "category": "COMMON",
+  "sort-order": 1,
+  "permission": "bigbangessentials.jobs.profession.miner",
+  "visible-without-permission": true,
+  "unlocked-by-default": true,
+  "license-required": false,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 100,
+    "multiplier": 1.0,
+    "exponent": 1.5
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "BREAK-BLOCK": {
+      "minecraft:coal_ore": {
+        "money": 5.0,
+        "xp": 10.0
+      },
+      "minecraft:copper_ore": {
+        "money": 7.0,
+        "xp": 12.0
+      },
+      "minecraft:iron_ore": {
+        "money": 10.0,
+        "xp": 15.0
+      },
+      "minecraft:gold_ore": {
+        "money": 15.0,
+        "xp": 20.0
+      },
+      "minecraft:redstone_ore": {
+        "money": 12.0,
+        "xp": 18.0
+      },
+      "minecraft:lapis_ore": {
+        "money": 12.0,
+        "xp": 18.0
+      },
+      "minecraft:diamond_ore": {
+        "money": 30.0,
+        "xp": 40.0
+      },
+      "minecraft:emerald_ore": {
+        "money": 35.0,
+        "xp": 45.0
+      },
+      "minecraft:nether_quartz_ore": {
+        "money": 10.0,
+        "xp": 15.0
+      },
+      "minecraft:nether_gold_ore": {
+        "money": 12.0,
+        "xp": 18.0
+      },
+      "minecraft:ancient_debris": {
+        "money": 100.0,
+        "xp": 150.0
+      },
+      "minecraft:stone": {
+        "money": 1.0,
+        "xp": 2.0
+      },
+      "minecraft:deepslate": {
+        "money": 1.5,
+        "xp": 2.5
+      },
+      "*": {
+        "money": 0.5,
+        "xp": 1.0
+      }
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Quebre minérios naturais para receber dinheiro.",
+      "Minérios raros como Diamante, Esmeralda e Netherita pagam mais.",
+      "Pedra comum e Deepslate dão recompensas menores."
+    ],
+    "xp-lines": [
+      "Todo bloco quebrado que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": [
+      "minecraft:diamond_ore",
+      "minecraft:coal_ore",
+      "minecraft:iron_ore"
+    ]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Minerador! Pegue sua picareta e vá para as minas!",
+    "leave": "&cVocê deixou a profissão de Minerador.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Minerador! Pontos de habilidade: +%points%"
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
+}

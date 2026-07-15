@@ -311,9 +311,9 @@ public class SpawnManager {
                 if (config.has("teleportDelay")) {
                     teleportDelay = config.get("teleportDelay").getAsInt();
                 }
-                if (config.has("requireSafeLocation")) {
-                    requireSafeLocation = config.get("requireSafeLocation").getAsBoolean();
-                }
+                // NOTE: requireSafeLocation is intentionally NOT overridden here.
+                // The main config (enableSpawnSafety) is authoritative, so saving the
+                // spawn file cannot silently re-enable safety that the user disabled.
                 if (config.has("allowSetSpawnInNether")) {
                     allowSetSpawnInNether = config.get("allowSetSpawnInNether").getAsBoolean();
                 }

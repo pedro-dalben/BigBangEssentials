@@ -41,7 +41,26 @@ public class JobActionReceiptRepository extends JdbcRepository {
      */
     public boolean isAlreadyProcessedOrProcessing(UUID actionId) {
         if (actionId == null) return false;
-        return memoryCache.containsKey(actionId);
+        if (memoryCache.containsKey(actionId)) return true;
+
+        // UUID.nameUUIDFromBytes(...) produces version 3 IDs and is used by
+        // lifecycle integrations (egg/raid/fossil/battle). Those actions must
+        // remain idempotent after a server restart, when memoryCache is empty.
+        // Random event IDs are intentionally not queried here: doing a database
+        // lookup for every block break/fish/craft would turn normal gameplay into
+        // a database round-trip per event.
+        if (actionId.version() != 3 || !isDatabaseAvailable()) return false;
+        try {
+            return getDatabase().querySingle(
+                    "checkJobActionReceipt",
+                    "SELECT action_id FROM bbe_job_action_receipts WHERE action_id = ? LIMIT 1",
+                    stmt -> stmt.setString(1, actionId.toString()),
+                    rs -> rs.getString(1)
+            ).join().isPresent();
+        } catch (Exception e) {
+            LOGGER.warn("Could not check persistent job receipt for {}", actionId, e);
+            return false;
+        }
     }
 
     /**

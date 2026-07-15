@@ -1,0 +1,62 @@
+{
+  "id": "trainer",
+  "enabled": true,
+  "display-name": "Treinador da Liga",
+  "description": "Ganhe experiência e moedas derrotando treinadores NPC, líderes de ginásio e desafiantes.",
+  "permission": "jobs.profissao.trainer",
+  "unlocked-by-default": false,
+  "category": "POKEMON_SPECIALIZATION",
+  "license-required": true,
+  "max-level": 100,
+  "max-daily-earnings": 15000.0,
+  "money-bonus-per-level": 1.0,
+  "max-level-money-bonus": 100.0,
+  "xp-curve": {
+    "initial-xp": 150,
+    "multiplier": 1.25
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "TRAINER_BATTLE_WON": {
+      "*": { "money": 40.0, "xp": 50.0 }
+    }
+  },
+  "license-objectives": [
+    {
+      "id": "lic_tr_win",
+      "action": "TRAINER_BATTLE_WON",
+      "amount": 3,
+      "message": "Derrote 3 treinadores em batalha para se qualificar como Treinador da Liga."
+    }
+  ],
+  "skills": {
+    "taticas_de_batalha": {
+      "name": "Táticas de Batalha",
+      "description": "+3% de XP por rank ao vencer batalhas contra treinadores.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.03
+      }
+    },
+    "bolsa_de_premio": {
+      "name": "Bolsa de Prêmio Aumentada",
+      "description": "+2% de moedas por rank em vitórias contra treinadores.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 10,
+      "prerequisites": [],
+      "effects": {
+        "money-multiplier": 0.02
+      }
+    }
+  },
+  "level-up-rewards": {},
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% como Treinador da Liga! Pontos de habilidade: +%points%"
+  }
+}

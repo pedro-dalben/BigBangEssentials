@@ -1,0 +1,21 @@
+{
+  "schema-version": 2,
+  "crates": {
+    "craft_crate": {
+      "id": "craft_crate",
+      "display-name": "Caixa do Ofício",
+      "description": "Obtida ao trocar 12 Fragmentos de Jornada.",
+      "key-item": "bigbangessentials:craft_key",
+      "fragments-required": 12,
+      "source": "FRAGMENT_EXCHANGE"
+    },
+    "specialist_crate": {
+      "id": "specialist_crate",
+      "display-name": "Caixa de Especialista",
+      "description": "Obtida com Chave de Especialista (Pokémon).",
+      "key-item": "bigbangessentials:specialist_key",
+      "source": "DEX_MILESTONE",
+      "integrations-required": ["cobblemon"]
+    }
+  }
+}

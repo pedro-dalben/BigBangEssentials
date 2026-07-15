@@ -1,0 +1,167 @@
+{
+  "id": "ranger",
+  "enabled": true,
+  "display-name": "Guardião",
+  "short-description": "Derrote criaturas hostis e proteja o reino",
+  "description": "Profissão dedicada ao combate contra criaturas hostis e proteção do mundo.",
+  "icon": "minecraft:bow",
+  "category": "COMMON",
+  "sort-order": 8,
+  "permission": "bigbangessentials.jobs.profession.ranger",
+  "visible-without-permission": true,
+  "unlocked-by-default": true,
+  "license-required": false,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 100,
+    "multiplier": 1.0,
+    "exponent": 1.5
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "KILL-ENTITY": {
+      "minecraft:zombie": {
+        "money": 5,
+        "xp": 10
+      },
+      "minecraft:skeleton": {
+        "money": 5,
+        "xp": 10
+      },
+      "minecraft:creeper": {
+        "money": 8,
+        "xp": 15
+      },
+      "minecraft:spider": {
+        "money": 4,
+        "xp": 8
+      },
+      "minecraft:enderman": {
+        "money": 12,
+        "xp": 20
+      },
+      "minecraft:witch": {
+        "money": 10,
+        "xp": 18
+      },
+      "minecraft:phantom": {
+        "money": 8,
+        "xp": 12
+      },
+      "minecraft:blaze": {
+        "money": 10,
+        "xp": 18
+      },
+      "minecraft:wither_skeleton": {
+        "money": 15,
+        "xp": 25
+      },
+      "minecraft:ghast": {
+        "money": 15,
+        "xp": 25
+      },
+      "minecraft:guardian": {
+        "money": 12,
+        "xp": 20
+      },
+      "minecraft:elder_guardian": {
+        "money": 30,
+        "xp": 50
+      },
+      "minecraft:evoker": {
+        "money": 25,
+        "xp": 40
+      },
+      "minecraft:ravager": {
+        "money": 20,
+        "xp": 35
+      },
+      "*": {
+        "money": 2,
+        "xp": 4
+      }
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Derrote criaturas hostis.",
+      "Chefes e criaturas raras pagam mais."
+    ],
+    "xp-lines": [
+      "Cada criatura derrotada concede XP."
+    ],
+    "example-targets": [
+      "minecraft:zombie",
+      "minecraft:skeleton",
+      "minecraft:wither_skeleton"
+    ]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Guardião!",
+    "leave": "&cVocê deixou a profissão de Guardião.",
+    "level-up": "&aParabéns! Nível %level% de Guardião! +%points% pontos"
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
+}

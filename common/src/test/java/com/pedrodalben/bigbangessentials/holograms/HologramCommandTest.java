@@ -48,16 +48,17 @@ class HologramCommandTest {
 
         HologramCommand.register(dispatcher);
 
+        assertNotNull(dispatcher.getRoot().getChild("bbholo"));
         assertNotNull(dispatcher.getRoot().getChild("hologram"));
         assertNotNull(dispatcher.getRoot().getChild("holograms"));
-        assertNotNull(dispatcher.getRoot().getChild("hologram").getChild("list"));
-        assertNotNull(dispatcher.getRoot().getChild("hologram").getChild("inspect"));
-        assertNotNull(dispatcher.getRoot().getChild("hologram").getChild("create"));
-        assertNotNull(dispatcher.getRoot().getChild("hologram").getChild("remove"));
-        assertNotNull(dispatcher.getRoot().getChild("hologram").getChild("move"));
-        assertNotNull(dispatcher.getRoot().getChild("hologram").getChild("stats"));
-        assertNotNull(dispatcher.getRoot().getChild("hologram").getChild("cleanup").getChild("legacy"));
-        assertNotNull(dispatcher.getRoot().getChild("holograms").getChild("cleanup").getChild("legacy"));
+        assertNotNull(dispatcher.getRoot().getChild("holo"));
+        assertNotNull(dispatcher.getRoot().getChild("bbholo").getChild("list"));
+        assertNotNull(dispatcher.getRoot().getChild("bbholo").getChild("info"));
+        assertNotNull(dispatcher.getRoot().getChild("bbholo").getChild("create"));
+        assertNotNull(dispatcher.getRoot().getChild("bbholo").getChild("delete"));
+        assertNotNull(dispatcher.getRoot().getChild("bbholo").getChild("movehere"));
+        assertNotNull(dispatcher.getRoot().getChild("bbholo").getChild("stats"));
+        assertNotNull(dispatcher.getRoot().getChild("bbholo").getChild("reconcile"));
     }
 
     @Test
@@ -65,7 +66,7 @@ class HologramCommandTest {
         UUID playerId = UUID.randomUUID();
         ExternalPermissionAdapter adapter = mock(ExternalPermissionAdapter.class);
         when(adapter.hasPermission(any(UUID.class), anyString())).thenAnswer(invocation -> switch (invocation.getArgument(1, String.class)) {
-            case HologramPermissions.CREATE, HologramPermissions.EDIT, HologramPermissions.RELOAD -> true;
+            case HologramPermissions.CREATE, HologramPermissions.LINES, HologramPermissions.RELOAD -> true;
             default -> false;
         });
         PermissionAPI.setExternalAdapter(adapter);
@@ -79,14 +80,14 @@ class HologramCommandTest {
         CommandSourceStack source = mock(CommandSourceStack.class);
         when(source.getPlayer()).thenReturn(player);
 
-        assertTrue(dispatcher.getRoot().getChild("hologram").canUse(source));
-        assertTrue(dispatcher.getRoot().getChild("hologram").getChild("create").canUse(source));
-        assertTrue(dispatcher.getRoot().getChild("hologram").getChild("setline").canUse(source));
-        assertTrue(dispatcher.getRoot().getChild("hologram").getChild("reload").canUse(source));
-        assertFalse(dispatcher.getRoot().getChild("hologram").getChild("list").canUse(source));
-        assertFalse(dispatcher.getRoot().getChild("hologram").getChild("remove").canUse(source));
-        assertFalse(dispatcher.getRoot().getChild("hologram").getChild("cleanup").canUse(source));
-        assertFalse(dispatcher.getRoot().getChild("hologram").getChild("stats").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").getChild("create").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").getChild("line").getChild("add").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").getChild("reload").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("bbholo").getChild("list").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("bbholo").getChild("delete").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("bbholo").getChild("reconcile").canUse(source));
+        assertFalse(dispatcher.getRoot().getChild("bbholo").getChild("stats").canUse(source));
     }
 
     @Test
@@ -106,12 +107,12 @@ class HologramCommandTest {
         CommandSourceStack source = mock(CommandSourceStack.class);
         when(source.getPlayer()).thenReturn(player);
 
-        assertTrue(dispatcher.getRoot().getChild("hologram").canUse(source));
-        assertTrue(dispatcher.getRoot().getChild("hologram").getChild("list").canUse(source));
-        assertTrue(dispatcher.getRoot().getChild("hologram").getChild("inspect").canUse(source));
-        assertTrue(dispatcher.getRoot().getChild("hologram").getChild("create").canUse(source));
-        assertTrue(dispatcher.getRoot().getChild("hologram").getChild("remove").canUse(source));
-        assertTrue(dispatcher.getRoot().getChild("hologram").getChild("cleanup").canUse(source));
-        assertTrue(dispatcher.getRoot().getChild("hologram").getChild("stats").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").getChild("list").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").getChild("info").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").getChild("create").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").getChild("delete").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").getChild("reconcile").canUse(source));
+        assertTrue(dispatcher.getRoot().getChild("bbholo").getChild("stats").canUse(source));
     }
 }

@@ -8,8 +8,14 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class FabricEvents {
 
@@ -39,9 +45,10 @@ public class FabricEvents {
             return allow[0];
         });
 
-        // Player Logged In Event
+        // Player Logged In Event - includes JobsEventListener for data loading
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             com.pedrodalben.bigbangessentials.BigBangEssentials.GameEvents.onPlayerLoggedIn(handler.getPlayer());
+            JobsEventListener.onPlayerLoggedIn(handler.getPlayer());
             RankupEventListener.onPlayerLoggedIn(handler.getPlayer());
         });
 
@@ -66,7 +73,7 @@ public class FabricEvents {
             JobsEventListener.onChunkUnload(chunk);
         });
 
-        // Block Break Event
+        // Block Break Event - AFTER ensures the break completed successfully
         PlayerBlockBreakEvents.AFTER.register((level, player, pos, state, blockEntity) -> {
             if (player instanceof ServerPlayer serverPlayer) {
                 JobsEventListener.onBlockBreak(serverPlayer, pos, state);
@@ -75,6 +82,18 @@ public class FabricEvents {
         });
 
         FabricCrateEvents.register();
+
+        // USE-MAGIC session tracking: marks player session for enchanting/brewing completion detection
+        UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
+            if (player instanceof ServerPlayer serverPlayer && !level.isClientSide()) {
+                BlockPos pos = hitResult.getBlockPos();
+                var state = level.getBlockState(pos);
+                if (state.is(Blocks.ENCHANTING_TABLE) || state.is(Blocks.BREWING_STAND)) {
+                    JobsEventListener.onMagicInteraction(serverPlayer, pos, state);
+                }
+            }
+            return InteractionResult.PASS;
+        });
 
         // Living Death Event (Entity Kill)
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {

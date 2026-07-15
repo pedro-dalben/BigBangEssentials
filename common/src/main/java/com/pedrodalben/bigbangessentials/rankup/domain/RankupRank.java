@@ -25,7 +25,7 @@ public class RankupRank {
         this.description = description != null ? new ArrayList<>(description) : new ArrayList<>();
         this.icon = icon != null ? icon : new RankupIcon("minecraft:paper");
         this.luckPerms = luckPerms != null ? luckPerms : new RankupLuckPermsSettings(this.id, true);
-        this.requirements = requirements != null ? requirements : new RankupRequirements(0.0, 0, RankupTaskMode.ALL, new ArrayList<>());
+        this.requirements = requirements != null ? requirements : new RankupRequirements(java.math.BigDecimal.ZERO, 0, RankupTaskMode.ALL, new ArrayList<>());
         this.actions = actions != null ? actions : new RankupActions(null, new ArrayList<>());
         this.enabled = enabled;
     }

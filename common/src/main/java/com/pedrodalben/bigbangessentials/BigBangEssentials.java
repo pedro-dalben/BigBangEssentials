@@ -336,6 +336,15 @@ public class BigBangEssentials {
                 ManagerRegistry.getInstance().markFailed("BigBangHologramsManager", e.getMessage());
             }
 
+            // Initialize FakePlayerIntegration
+            try {
+                LOGGER.info("⚙ Initializing FakePlayer Integration...");
+                com.pedrodalben.bigbangessentials.integrations.fakeplayer.FakePlayerIntegration.init();
+                LOGGER.info("✓ FakePlayer Integration initialized");
+            } catch (Exception e) {
+                LOGGER.error("✗ FakePlayer Integration failed to initialize: {}", e.getMessage(), e);
+            }
+
             // Initialize RankUp system
             try {
                 LOGGER.info("⚙ Initializing RankUp system...");
@@ -441,6 +450,13 @@ public class BigBangEssentials {
             } catch (Exception e) {
                 LOGGER.error("Failed to initialize Jobs RankUp integration listener: {}", e.getMessage());
             }
+
+            // Ensure utility crates and job progression keys exist
+            try {
+                com.pedrodalben.bigbangessentials.jobs.crates.DefaultCrateRewardGateway.getInstance().ensureUtilityCratesExist();
+            } catch (Exception e) {
+                LOGGER.error("Failed to ensure utility crates exist: {}", e.getMessage());
+            }
         }
         
         public static void onPlayerLoggedIn(net.minecraft.server.level.ServerPlayer player) {
@@ -506,6 +522,8 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().onPlayerLogout(player.getUUID());
                 com.pedrodalben.bigbangessentials.chat.MsgToggleManager.clearPlayer(player);
                 com.pedrodalben.bigbangessentials.chat.SocialSpyManager.clearPlayer(player);
+                com.pedrodalben.bigbangessentials.integrations.fakeplayer.FakeTpaManager.getInstance()
+                    .cancelAllForPlayer(player.getUUID(), player.getName().getString());
             } catch (Exception e) {
                 LOGGER.debug("Failed to persist database-backed player state for {}: {}", player.getName().getString(), e.getMessage(), e);
             }
@@ -618,6 +636,14 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown BigBangHolograms", e);
+            }
+
+            // Shutdown FakeTpaManager
+            try {
+                LOGGER.info("Shutting down Fake TPA Manager...");
+                com.pedrodalben.bigbangessentials.integrations.fakeplayer.FakeTpaManager.getInstance().shutdown();
+            } catch (Exception e) {
+                LOGGER.error("Failed to shutdown Fake TPA Manager", e);
             }
 
             // Shutdown RankUp Manager

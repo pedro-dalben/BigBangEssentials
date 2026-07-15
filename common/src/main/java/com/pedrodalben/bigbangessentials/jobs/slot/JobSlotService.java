@@ -210,7 +210,10 @@ public class JobSlotService {
             return CompletableFuture.completedFuture(LicenseActionResult.fail("Você precisa possuir a licença permanente de " + jobDef.displayName + " para alocá-lo no slot!"));
         }
 
-        if (JobSwitchCooldownService.getInstance().isOnCooldown(slot)) {
+        JobSlotDefinition slotDef = config != null ? config.getSlots().get(cleanSlot) : null;
+        boolean cooldownDisabled = slotDef != null && slotDef.cooldownMinutes() <= 0;
+
+        if (!cooldownDisabled && JobSwitchCooldownService.getInstance().isOnCooldown(slot)) {
             String rem = JobSwitchCooldownService.getInstance().formatRemainingTime(slot);
             return CompletableFuture.completedFuture(LicenseActionResult.fail("O slot " + cleanSlot + " está em tempo de recarga por mais " + rem + "."));
         }
@@ -253,8 +256,7 @@ public class JobSlotService {
         JobsConfig config = JobsManager.getInstance().getConfig();
         JobSlotDefinition def = config != null ? config.getSlots().get(cleanSlot) : null;
         int cdMinutes = def != null ? def.cooldownMinutes() : 30;
-        long cooldownUntil = JobSwitchCooldownService.getInstance().calculateCooldownUntil(cdMinutes);
-
+        long cooldownUntil = cdMinutes > 0 ? System.currentTimeMillis() + java.time.Duration.ofMinutes(cdMinutes).toMillis() : 0L;
         long now = System.currentTimeMillis();
         JobSlot updated = new JobSlot(cleanSlot, slot.category(), Optional.empty(), slot.activatedAt(), now, cooldownUntil, slot.source());
         slotCache.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>()).put(cleanSlot, updated);

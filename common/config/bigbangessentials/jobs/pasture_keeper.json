@@ -1,0 +1,62 @@
+{
+  "id": "pasture_keeper",
+  "enabled": true,
+  "display-name": "Cuidador de Pasture",
+  "description": "Ganhe experiência e moedas administrando pastures e realizando coletas ativas e contratos de entrega no pasto.",
+  "permission": "jobs.profissao.pasture_keeper",
+  "unlocked-by-default": false,
+  "category": "POKEMON_SPECIALIZATION",
+  "license-required": true,
+  "max-level": 100,
+  "max-daily-earnings": 15000.0,
+  "money-bonus-per-level": 1.0,
+  "max-level-money-bonus": 100.0,
+  "xp-curve": {
+    "initial-xp": 150,
+    "multiplier": 1.25
+  },
+  "skill-point-settings": {
+    "every": 2
+  },
+  "actions": {
+    "PASTURE_TASK_COMPLETED": {
+      "*": { "money": 30.0, "xp": 40.0 }
+    }
+  },
+  "license-objectives": [
+    {
+      "id": "lic_pk_task",
+      "action": "PASTURE_TASK_COMPLETED",
+      "amount": 5,
+      "message": "Conclua 5 tarefas ou coletas de Pasture para receber sua licença de Cuidador."
+    }
+  ],
+  "skills": {
+    "gestao_de_habitat": {
+      "name": "Gestão de Habitat",
+      "description": "+3% de XP por rank em tarefas de Pasture.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 5,
+      "prerequisites": [],
+      "effects": {
+        "xp-multiplier": 0.03
+      }
+    },
+    "colheita_organica": {
+      "name": "Colheita Orgânica",
+      "description": "+2% de moedas por rank nas entregas de Pasture.",
+      "max-rank": 5,
+      "point-cost": 1,
+      "required-level": 10,
+      "prerequisites": [],
+      "effects": {
+        "money-multiplier": 0.02
+      }
+    }
+  },
+  "level-up-rewards": {},
+  "messages": {
+    "level-up": "§aVocê alcançou o nível %level% como Cuidador de Pasture! Pontos de habilidade: +%points%"
+  }
+}

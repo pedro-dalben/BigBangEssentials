@@ -10,6 +10,7 @@ import java.util.function.Consumer;
 public class RankupAdminChatInputHandler {
     private static final RankupAdminChatInputHandler INSTANCE = new RankupAdminChatInputHandler();
     private final Map<UUID, PendingInput> pending = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
 
     private RankupAdminChatInputHandler() {}
 
@@ -19,7 +20,19 @@ public class RankupAdminChatInputHandler {
 
     public void request(ServerPlayer player, String promptMessage, InputType type, Consumer<String> callback) {
         player.sendSystemMessage(net.minecraft.network.chat.Component.literal(promptMessage));
-        pending.put(player.getUUID(), new PendingInput(type, callback));
+        UUID uuid = player.getUUID();
+        PendingInput input = new PendingInput(type, callback);
+        pending.put(uuid, input);
+        
+        // Schedule a timeout to clean up
+        scheduler.schedule(() -> {
+            PendingInput removed = pending.remove(uuid);
+            if (removed != null && removed == input) {
+                try {
+                    player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cInput cancelled due to timeout."));
+                } catch (Exception ignored) {}
+            }
+        }, 60, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     public boolean onChat(ServerPlayer player, String message) {

@@ -9,12 +9,17 @@ import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
 import com.pedrodalben.bigbangessentials.jobs.JobsManager;
 import com.pedrodalben.bigbangessentials.jobs.PlayerJobsData;
 import com.pedrodalben.bigbangessentials.jobs.JobCommandService;
+import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityResult;
+import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityService;
+import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityStatus;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.ActionReward;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.JobDefinition;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.SkillDefinition;
 import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository.JobProgress;
 import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository.RankingEntry;
+import com.pedrodalben.bigbangessentials.jobs.slot.JobSlot;
+import com.pedrodalben.bigbangessentials.jobs.slot.JobSlotService;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -217,14 +222,16 @@ public class JobsCommand {
         ServerPlayer player = ctx.getSource().getPlayer();
         if (player != null) {
             try {
-                var result = com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
+                com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
                     player,
                     "jobs_menu",
                     new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, "jobs", null, java.util.UUID.randomUUID())
-                ).toCompletableFuture().join();
-                if (result != null && result.success()) {
-                    return 1;
-                }
+                ).thenAcceptAsync(result -> {
+                    if (result != null && !result.success()) {
+                        player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cErro ao abrir o menu de trabalhos."));
+                    }
+                }, player.server);
+                return 1;
             } catch (Exception e) {
                 // Fallback to text
             }
@@ -351,17 +358,35 @@ public class JobsCommand {
 
     private static int executeJoin(CommandContext<CommandSourceStack> ctx, String jobName) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
+        JobsConfig cfg = JobsManager.getInstance().getConfig();
+        if (cfg != null) {
+            JobDefinition job = cfg.getJob(jobName);
+            if (job != null) {
+                JobAvailabilityResult availability = JobAvailabilityService.getInstance().evaluate(player, job);
+                if (availability.status() != JobAvailabilityStatus.AVAILABLE && availability.status() != JobAvailabilityStatus.ACTIVE) {
+                    ctx.getSource().sendFailure(Component.literal("§c" + availability.primaryReason()));
+                    return 0;
+                }
+            }
+        }
         JobCommandService.JoinResult result = JobCommandService.getInstance().joinJob(player, jobName);
         switch (result) {
             case SUCCESS:
-                JobsConfig cfg = JobsManager.getInstance().getConfig();
+                cfg = JobsManager.getInstance().getConfig();
+                if (cfg == null) {
+                    ctx.getSource().sendSuccess(() -> Component.literal("§aVoce entrou com sucesso no trabalho: §l" + jobName), false);
+                    return 1;
+                }
                 JobDefinition job = cfg.getJob(jobName);
                 ctx.getSource().sendSuccess(() -> Component.literal("§aVocê entrou com sucesso no trabalho: §l" + job.displayName), false);
                 return 1;
             case NOT_FOUND:
                 ctx.getSource().sendFailure(Component.literal("§cTrabalho '" + jobName + "' não encontrado ou desabilitado."));
                 return 0;
-            case NO_PERMISSION:
+            case JOB_DISABLED:
+                ctx.getSource().sendFailure(Component.literal("§cEste trabalho está temporariamente desabilitado."));
+                return 0;
+            case MISSING_PERMISSION:
                 ctx.getSource().sendFailure(Component.literal("§cVocê não possui permissão para entrar neste trabalho."));
                 return 0;
             case ALREADY_ACTIVE:
@@ -371,9 +396,30 @@ public class JobsCommand {
                 int maxJobs = JobsManager.getInstance().getMaxActiveJobsForPlayer(player);
                 ctx.getSource().sendFailure(Component.literal("§cLimite de trabalhos ativos atingido (" + maxJobs + "). Saia de um para poder entrar em outro."));
                 return 0;
-            case CANCELLED:
+            case NO_COMPATIBLE_SLOT:
+                JobDefinition jobDef = cfg != null ? cfg.getJob(jobName) : null;
+                String cat = jobDef != null ? jobDef.category : "COMMON";
+                String display = jobDef != null ? jobDef.displayName : jobName;
+                ctx.getSource().sendFailure(buildSlotOccupiedMessage(player, cat, display));
+                return 0;
+            case SLOT_COOLDOWN:
+                ctx.getSource().sendFailure(Component.literal("§cO slot para esta profissão está em tempo de recarga."));
+                return 0;
+            case INTEGRATION_UNAVAILABLE:
+                ctx.getSource().sendFailure(Component.literal("§cA integração necessária para esta profissão não está disponível no servidor."));
+                return 0;
+            case LOCKED_BY_RANK:
+                ctx.getSource().sendFailure(Component.literal("§cVocê ainda não alcançou o rank necessário para esta profissão."));
+                return 0;
+            case LICENSE_AVAILABLE:
+            case LICENSE_IN_PROGRESS:
+            case LICENSE_READY_TO_CLAIM:
+                return 1;
+            case PERSISTENCE_FAILED:
+                ctx.getSource().sendFailure(Component.literal("§cErro ao salvar seu progresso. Tente novamente."));
+                return 0;
             default:
-                ctx.getSource().sendFailure(Component.literal("§cA entrada no trabalho foi impedida por outro sistema."));
+                ctx.getSource().sendFailure(Component.literal("§cNão foi possível entrar neste trabalho."));
                 return 0;
         }
     }
@@ -384,6 +430,10 @@ public class JobsCommand {
         switch (result) {
             case SUCCESS:
                 JobsConfig cfg = JobsManager.getInstance().getConfig();
+                if (cfg == null) {
+                    ctx.getSource().sendSuccess(() -> Component.literal("§aVoce saiu com sucesso do trabalho: §l" + jobName), false);
+                    return 1;
+                }
                 JobDefinition job = cfg.getJob(jobName);
                 ctx.getSource().sendSuccess(() -> Component.literal("§aVocê saiu com sucesso do trabalho: §l" + job.displayName), false);
                 return 1;
@@ -393,7 +443,6 @@ public class JobsCommand {
             case NOT_ACTIVE:
                 ctx.getSource().sendFailure(Component.literal("§cVocê não está ativo neste trabalho."));
                 return 0;
-            case CANCELLED:
             default:
                 ctx.getSource().sendFailure(Component.literal("§cA saída do trabalho foi impedida por outro sistema."));
                 return 0;
@@ -863,5 +912,21 @@ public class JobsCommand {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         com.pedrodalben.bigbangessentials.jobs.contracts.JobContractService.getInstance().claimContract(player, contractId);
         return 1;
+    }
+
+    private static Component buildSlotOccupiedMessage(ServerPlayer player, String category, String targetJobName) {
+        java.util.Map<String, JobSlot> slots = JobSlotService.getInstance().getSlots(player.getUUID());
+        JobsConfig cfg = JobsManager.getInstance().getConfig();
+
+        for (JobSlot slot : slots.values()) {
+            if (slot.category() != null && slot.category().equalsIgnoreCase(category) && slot.activeJobId().isPresent()) {
+                String jobId = slot.activeJobId().get();
+                JobDefinition occupyingJob = cfg != null ? cfg.getJob(jobId) : null;
+                String occDisplay = occupyingJob != null ? occupyingJob.displayName : jobId;
+                return Component.literal("§cVocê já está como §e" + occDisplay + "§c. Saia com §f/jobs leave " + jobId + "§c antes de entrar em §e" + targetJobName + "§c.");
+            }
+        }
+
+        return Component.literal("§cNenhum slot compatível disponível para esta profissão.");
     }
 }

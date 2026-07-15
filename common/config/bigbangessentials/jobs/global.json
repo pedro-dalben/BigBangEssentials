@@ -1,0 +1,23 @@
+{
+  "schema-version": 3,
+  "daily-limit": {
+    "enabled": true,
+    "global-limit": 50000.0,
+    "timezone": "America/Sao_Paulo",
+    "reset-time": "00:00"
+  },
+  "max-active-jobs": 2,
+  "max-in-progress-licenses": 1,
+  "switch-cooldown-minutes": 30,
+  "afk-prevention": {
+    "prevent-earnings-while-afk": true,
+    "prevent-xp-while-afk": true,
+    "continue-xp-after-limit": false
+  },
+  "permissions": {
+    "prefix": "bigbangessentials.jobs",
+    "legacy-aliases": {
+      "jobs.command.jobs": "bigbangessentials.jobs.command.menu"
+    }
+  }
+}

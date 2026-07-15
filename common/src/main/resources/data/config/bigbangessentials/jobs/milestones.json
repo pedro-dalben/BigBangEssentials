@@ -1,0 +1,29 @@
+{
+  "schema-version": 2,
+  "milestones": {
+    "novice": {
+      "id": "novice",
+      "display-name": "Novato",
+      "required-rank-id": "novice",
+      "required-rank-order": 1,
+      "unlocked-slots": ["COMMON_PRIMARY"],
+      "eligible-jobs": ["miner","woodcutter","farmer","builder","blacksmith","crafter","explorer","ranger","culinarian","magician","fisherman"]
+    },
+    "veteran": {
+      "id": "veteran",
+      "display-name": "Veterano",
+      "required-rank-id": "veteran",
+      "required-rank-order": 2,
+      "unlocked-slots": ["COMMON_SECONDARY"],
+      "eligible-jobs": ["miner","woodcutter","farmer","builder","blacksmith","crafter","explorer","ranger","culinarian","magician","fisherman"]
+    },
+    "adept": {
+      "id": "adept",
+      "display-name": "Adepto",
+      "required-rank-id": "adept",
+      "required-rank-order": 3,
+      "unlocked-slots": ["POKEMON_SPECIALIZATION"],
+      "eligible-jobs": ["researcher","breeder","trainer","pasture_keeper","paleontologist","raider"]
+    }
+  }
+}

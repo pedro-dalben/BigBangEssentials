@@ -133,19 +133,19 @@ class RankupAdminEditorServiceTest {
     @Test
     void testSetRankMoney() {
         RankupRank rank = editor.createRank(adminUuid);
-        assertTrue(editor.setRankMoney(adminUuid, rank.id(), 5000.0));
+        assertTrue(editor.setRankMoney(adminUuid, rank.id(), java.math.BigDecimal.valueOf(5000.0)));
 
         RankupConfig draft = RankupManager.getInstance().getDraftConfig();
-        assertEquals(5000.0, draft.getRank(rank.id()).requirements().money());
+        assertEquals(java.math.BigDecimal.valueOf(5000.0), draft.getRank(rank.id()).requirements().money());
     }
 
     @Test
     void testSetRankMoneyPreventsNegative() {
         RankupRank rank = editor.createRank(adminUuid);
-        assertTrue(editor.setRankMoney(adminUuid, rank.id(), -100.0));
+        assertTrue(editor.setRankMoney(adminUuid, rank.id(), java.math.BigDecimal.valueOf(-100.0)));
 
         RankupConfig draft = RankupManager.getInstance().getDraftConfig();
-        assertEquals(0.0, draft.getRank(rank.id()).requirements().money());
+        assertEquals(0, draft.getRank(rank.id()).requirements().money().compareTo(java.math.BigDecimal.ZERO));
     }
 
     @Test
@@ -324,13 +324,13 @@ class RankupAdminEditorServiceTest {
     @Test
     void testDraftSurvivesMultipleOperations() {
         RankupRank rank = editor.createRank(adminUuid);
-        editor.setRankMoney(adminUuid, rank.id(), 2500.0);
+        editor.setRankMoney(adminUuid, rank.id(), java.math.BigDecimal.valueOf(2500.0));
         editor.setRankGems(adminUuid, rank.id(), 5);
         editor.setRankField(adminUuid, rank.id(), "display-name", "&bTestDraft");
 
         RankupConfig draft = RankupManager.getInstance().getDraftConfig();
         RankupRank saved = draft.getRank(rank.id());
-        assertEquals(2500.0, saved.requirements().money());
+        assertEquals(java.math.BigDecimal.valueOf(2500.0), saved.requirements().money());
         assertEquals(5, saved.requirements().gems());
         assertEquals("&bTestDraft", saved.displayName());
     }

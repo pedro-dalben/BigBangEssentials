@@ -5,6 +5,7 @@ package com.pedrodalben.bigbangessentials.jobs.slot;
  */
 public record JobSlotDefinition(
         String slotType,
+        String displayName,
         String category,
         int cooldownMinutes
 ) {}

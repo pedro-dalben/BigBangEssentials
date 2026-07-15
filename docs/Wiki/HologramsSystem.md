@@ -1,121 +1,65 @@
-# Holograms System
+# BigBangHolograms — Sistema de Hologramas
 
-## Overview
+BigBangHolograms é o sistema administrativo e público de hologramas do BigBangEssentials, inspirado funcionalmente no DecentHolograms.
 
-`BigBangHolograms` is the shared hologram module for BigBangEssentials.
+## Características
 
-The default renderer is `CLIENT_ONLY_TEXT_DISPLAY`:
+- **Entidades virtuais**: hologramas existem apenas no cliente, sem entidades persistentes no mundo
+- **Multi-página**: cada holograma pode ter múltiplas páginas com rotação automática
+- **Conteúdo rico**: texto, itens, cabeças de jogador, animações
+- **Placeholders**: {player}, {online}, {world}, {x}/{y}/{z} e extensível via API
+- **Animações**: typewriter, scroll, rainbow, burn, wave
+- **Ações**: comandos, mensagens, sons, teleporte ao clicar
+- **Permissões granulares**: controle por comando e por holograma
+- **Persistência segura**: arquivo por holograma, escrita atômica, schema versionado
+- **Diagnóstico**: métricas de performance, cache hit rate, packet counters
+- **Multi-loader**: Fabric e NeoForge com bridges de plataforma
 
-- no `ArmorStand` renderer for new holograms
-- no persistent hologram entities saved in chunks
-- one multiline virtual `TextDisplay` per hologram
-- visibility tracked per player
+## Comandos rápidos
 
-## Public API
+```mcfunction
+/bbholo create spawn "&6&lBIGBANGCRAFT"
+/bbholo line add spawn "&fBem-vindo, {player}!"
+/bbholo line add spawn "&eUse /menu para começar"
+/bbholo displayrange spawn 32
+/bbholo updaterange spawn 16
+/bbholo movehere spawn
+```
 
-Entry point:
+## Atalhos
+
+- `/bbholo` (principal)
+- `/hologram` (alias)
+- `/holograms` (alias)
+- `/holo` (alias)
+
+## API
 
 ```java
-HologramService api = BigBangHolograms.getApi();
+// Criar holograma
+HologramDefinition definition = HologramDefinition.builder("bigbangessentials:admin/spawn")
+    .ownerId("bigbangessentials:admin")
+    .location(location)
+    .lines(List.of("&6&lBIGBANGCRAFT", "&fBem-vindo, {player}!"))
+    .persistent(true)
+    .build();
+
+BigBangHolograms.getApi().createOrUpdate(definition);
+
+// Buscar/Buscar/Excluir
+Optional<HologramDefinition> def = BigBangHolograms.getApi().findDefinition("bigbangessentials:admin/spawn");
+BigBangHolograms.getApi().delete("bigbangessentials:admin/spawn");
 ```
 
-Create or update:
+## Estrutura de arquivos
 
-```java
-api.createOrUpdate(
-    HologramDefinition.builder("bigbangessentials:spawn/rules")
-        .ownerId("bigbangessentials:admin")
-        .location(new HologramLocation(Level.OVERWORLD, 0.5D, 80.0D, 0.5D))
-        .lines(List.of("&6Regras", "&7Leia antes de jogar"))
-        .viewDistance(24)
-        .visibilityPolicy(HologramVisibilityPolicy.NEARBY_PLAYERS)
-        .persistent(true)
-        .build()
-);
+Cada holograma persistente é salvo em:
+```
+config/bigbangessentials/holograms/<id>.json
 ```
 
-Supported operations:
+## Separação das Crates
 
-- `find`
-- `findDefinition`
-- `exists`
-- `create`
-- `createOrUpdate`
-- `update`
-- `delete`
-- `deleteByOwner`
-- `showTo`
-- `hideFrom`
-- `reload`
-- `shutdown`
-- `getStats`
-
-## Crates Migration
-
-Crate holograms now use stable IDs:
-
-```text
-bigbangessentials:crate/<location-uuid>
-```
-
-The crate adapter delegates to `BigBangHolograms` and no longer treats `ArmorStand` as the active renderer path.
-
-## Legacy Cleanup
-
-Legacy crate holograms are recognized only by these tags:
-
-- `crate_hologram`
-- `crate_hologram_<uuid>`
-
-Cleanup entry points:
-
-- `/crates location cleanup`
-- `/crate location cleanup`
-- `/hologram cleanup legacy`
-
-These commands use the same cleaner and do not touch virtual holograms.
-
-## Commands
-
-Available admin commands:
-
-- `/hologram list`
-- `/hologram inspect <id>`
-- `/hologram create <id>`
-- `/hologram remove <id>`
-- `/hologram move <id>`
-- `/hologram setline <id> <line> <text>`
-- `/hologram addline <id> <text>`
-- `/hologram removeline <id> <line>`
-- `/hologram setdistance <id> <blocks>`
-- `/hologram setoffset <id> <x> <y> <z>`
-- `/hologram page add <id>`
-- `/hologram page remove <id> <page>`
-- `/hologram page setinterval <id> <ticks>`
-- `/hologram visibility <id> <mode>`
-- `/hologram reload`
-- `/hologram stats`
-- `/hologram cleanup legacy`
-
-Permissions:
-
-- `bigbangessentials.holograms.admin`
-- `bigbangessentials.holograms.create`
-- `bigbangessentials.holograms.edit`
-- `bigbangessentials.holograms.remove`
-- `bigbangessentials.holograms.reload`
-- `bigbangessentials.holograms.cleanup`
-- `bigbangessentials.holograms.stats`
-
-## Performance Model
-
-The service uses:
-
-- chunk-based spatial indexing
-- per-player visible hologram caches
-- scheduled content updates instead of full per-tick scans
-- client-only spawn/update/destroy packets
-
-## Current Notes
-
-This implementation is centered on the shared runtime, crate migration path, legacy cleanup, and the admin command surface. The renderer sends client-only `TextDisplay` metadata and does not persist hologram entities in the world.
+O módulo de crates usa `bigbangessentials:crate` como owner e IDs `bigbangessentials:crate/<uuid>`.
+Comandos administrativos normais não mostram hologramas de sistema por padrão.
+Use `--all` ou `--owner bigbangessentials:crate` para visualizá-los.

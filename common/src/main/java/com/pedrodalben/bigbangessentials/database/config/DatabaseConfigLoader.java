@@ -39,9 +39,10 @@ public class DatabaseConfigLoader {
                 String envVar = matcher.group(1);
                 String envVal = System.getenv(envVar);
                 if (envVal == null) {
-                    throw new DatabaseException("Missing environment variable: " + envVar);
+                    matcher.appendReplacement(sb, Matcher.quoteReplacement("__MISSING_ENV__" + envVar));
+                } else {
+                    matcher.appendReplacement(sb, Matcher.quoteReplacement(envVal));
                 }
-                matcher.appendReplacement(sb, Matcher.quoteReplacement(envVal));
             }
             matcher.appendTail(sb);
             
@@ -50,12 +51,28 @@ public class DatabaseConfigLoader {
                 config = new DatabaseConfig();
             }
             if (config.getType() == com.pedrodalben.bigbangessentials.database.DatabaseType.SQLITE) {
+                checkMissingEnv(config.getSqlite().getFile());
+                checkMissingEnv(config.getSqlite().path);
                 config.getPool().setMaximumPoolSize(1);
                 config.getExecutor().setThreads(1);
+            } else if (config.getType() == com.pedrodalben.bigbangessentials.database.DatabaseType.MYSQL) {
+                checkMissingEnv(config.getMysql().getHost());
+                checkMissingEnv(config.getMysql().getDatabase());
+                checkMissingEnv(config.getMysql().getUsername());
+                checkMissingEnv(config.getMysql().getPassword());
+                checkMissingEnv(config.getMysql().getSslMode());
+                checkMissingEnv(config.getMysql().getServerTimezone());
             }
             return config;
         } catch (IOException e) {
             throw new DatabaseException("Failed to read config", e);
         }
     }
+
+    private static void checkMissingEnv(String val) throws DatabaseException {
+        if (val != null && val.startsWith("__MISSING_ENV__")) {
+            throw new DatabaseException("Missing environment variable: " + val.substring("__MISSING_ENV__".length()));
+        }
+    }
+
 }

@@ -13,24 +13,57 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 final class KitMenuSupport {
+    private static final Logger LOGGER = LoggerFactory.getLogger(KitMenuSupport.class);
+
     private KitMenuSupport() {}
 
     static List<Kit> getSortedKits() {
-        List<Kit> kits = new ArrayList<>(KitManager.getInstance().getAllKits());
+        // Keep menu rendering isolated from a malformed/stale runtime entry. The
+        // manager API is generically typed, but its backing state can survive a
+        // reload or a mixed-version deployment; sorting would otherwise throw a
+        // ClassCastException before the menu can render any valid kit.
+        List<Kit> kits = new ArrayList<>();
+        for (Object value : KitManager.getInstance().getAllKits()) {
+            if (value instanceof Kit kit) {
+                kits.add(kit);
+            } else if (value != null) {
+                LOGGER.warn("Ignoring invalid kit entry of type {} while rendering kits menu", value.getClass().getName());
+            }
+        }
         kits.sort(Comparator.comparing(Kit::getName, String.CASE_INSENSITIVE_ORDER));
         return kits;
     }
 
     static Map<String, Object> buildKitPlaceholders(ServerPlayer player, Kit kit) {
         Map<String, Object> values = new LinkedHashMap<>();
-        KitStatus status = classify(player, kit);
+        KitStatus status;
+        int itemCount = 0;
+        int usageCount = 0;
 
-        int itemCount = (int) kit.getItems().stream()
-            .filter(item -> item != null && !item.isEmpty())
-            .count();
-        int usageCount = player != null ? KitManager.getInstance().getUsageCount(player.getUUID(), kit.getName()) : 0;
+        try {
+            status = classify(player, kit);
+        } catch (Exception e) {
+            LOGGER.error("Failed to classify kit '{}' while building menu placeholders", kit != null ? kit.getName() : "null", e);
+            status = new KitStatus("locked", "<red>Bloqueado", "<red>", "Indisponível", false, "Falha ao avaliar o kit");
+        }
+
+        try {
+            itemCount = (int) kit.getItems().stream()
+                .filter(item -> item != null && !item.isEmpty())
+                .count();
+        } catch (Exception e) {
+            LOGGER.error("Failed to count items for kit '{}' while building menu placeholders", kit != null ? kit.getName() : "null", e);
+        }
+
+        try {
+            usageCount = player != null ? KitManager.getInstance().getUsageCount(player.getUUID(), kit.getName()) : 0;
+        } catch (Exception e) {
+            LOGGER.error("Failed to read usage count for kit '{}' while building menu placeholders", kit != null ? kit.getName() : "null", e);
+        }
 
         values.put("kit_name", kit.getName());
         values.put("kit_display_name", kit.getDisplayName());
@@ -67,13 +100,18 @@ final class KitMenuSupport {
 
         for (Kit kit : getSortedKits()) {
             total++;
-            KitStatus status = classify(player, kit);
-            switch (status.key()) {
-                case "ready" -> available++;
-                case "cooldown" -> cooldown++;
-                case "used" -> used++;
-                case "disabled" -> disabled++;
-                default -> locked++;
+            try {
+                KitStatus status = classify(player, kit);
+                switch (status.key()) {
+                    case "ready" -> available++;
+                    case "cooldown" -> cooldown++;
+                    case "used" -> used++;
+                    case "disabled" -> disabled++;
+                    default -> locked++;
+                }
+            } catch (Exception e) {
+                LOGGER.error("Failed to classify kit '{}' while building summary placeholders", kit != null ? kit.getName() : "null", e);
+                locked++;
             }
         }
 
@@ -109,7 +147,13 @@ final class KitMenuSupport {
             return new KitStatus("locked", "<gray>Indisponível", "<gray>", "N/A", false, "Jogador indisponível");
         }
 
-        KitManager.KitUsageResult canUse = KitManager.getInstance().canUseKit(player, kit.getName());
+        KitManager.KitUsageResult canUse;
+        try {
+            canUse = KitManager.getInstance().canUseKit(player, kit.getName());
+        } catch (Exception e) {
+            LOGGER.error("Failed to evaluate kit '{}' availability", kit.getName(), e);
+            return new KitStatus("locked", "<red>Bloqueado", "<red>", "Indisponível", false, "Falha ao avaliar o kit");
+        }
         if (canUse.isAllowed()) {
             return new KitStatus("ready", "<green>Pronto", "<green>", "Disponível", true, "");
         }

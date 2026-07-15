@@ -1,0 +1,177 @@
+{
+  "id": "culinarian",
+  "enabled": true,
+  "display-name": "Culinarista",
+  "short-description": "Prepare alimentos e crie receitas",
+  "description": "Profissão dedicada à culinária e gastronomia. Culinaristas ganham dinheiro e XP preparando alimentos, poções comestíveis e itens de confeitaria na bancada de trabalho e fornalha.",
+  "icon": "minecraft:cake",
+  "category": "COMMON",
+  "sort-order": 9,
+  "permission": "bigbangessentials.jobs.profession.culinarian",
+  "visible-without-permission": true,
+  "unlocked-by-default": true,
+  "license-required": false,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 100,
+    "multiplier": 1.0,
+    "exponent": 1.5
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "CRAFT-ITEM": {
+      "minecraft:bread": {
+        "money": 3.0,
+        "xp": 5.0
+      },
+      "minecraft:cooked_beef": {
+        "money": 5.0,
+        "xp": 8.0
+      },
+      "minecraft:cooked_porkchop": {
+        "money": 5.0,
+        "xp": 8.0
+      },
+      "minecraft:cooked_mutton": {
+        "money": 4.0,
+        "xp": 6.0
+      },
+      "minecraft:cooked_chicken": {
+        "money": 3.5,
+        "xp": 5.5
+      },
+      "minecraft:cooked_rabbit": {
+        "money": 4.0,
+        "xp": 6.0
+      },
+      "minecraft:cooked_cod": {
+        "money": 4.0,
+        "xp": 6.0
+      },
+      "minecraft:cooked_salmon": {
+        "money": 5.0,
+        "xp": 8.0
+      },
+      "minecraft:mushroom_stew": {
+        "money": 6.0,
+        "xp": 10.0
+      },
+      "minecraft:beetroot_soup": {
+        "money": 5.0,
+        "xp": 8.0
+      },
+      "minecraft:rabbit_stew": {
+        "money": 8.0,
+        "xp": 12.0
+      },
+      "minecraft:pumpkin_pie": {
+        "money": 7.0,
+        "xp": 10.0
+      },
+      "minecraft:cake": {
+        "money": 12.0,
+        "xp": 18.0
+      },
+      "minecraft:cookie": {
+        "money": 2.0,
+        "xp": 3.0
+      },
+      "minecraft:golden_apple": {
+        "money": 20.0,
+        "xp": 30.0
+      },
+      "minecraft:golden_carrot": {
+        "money": 15.0,
+        "xp": 25.0
+      },
+      "*": {
+        "money": 0.5,
+        "xp": 1.0
+      }
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Prepare alimentos na bancada de trabalho ou fornalha.",
+      "Receitas complexas como Bolo, Sopa de Coelho e Maçã Dourada pagam mais.",
+      "Alimentos simples como Pão e Biscoitos dão recompensas menores."
+    ],
+    "xp-lines": [
+      "Todo alimento preparado que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": [
+      "minecraft:cake",
+      "minecraft:golden_apple",
+      "minecraft:rabbit_stew"
+    ]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Culinarista! Hora de preparar banquetes!",
+    "leave": "&cVocê deixou a profissão de Culinarista.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Culinarista! Pontos de habilidade: +%points%"
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
+}

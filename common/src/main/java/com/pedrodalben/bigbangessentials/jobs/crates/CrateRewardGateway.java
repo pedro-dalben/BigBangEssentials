@@ -14,6 +14,15 @@ public interface CrateRewardGateway {
         Map<String, String> metadata
     );
 
+    CrateKeyGrantResult grantPhysicalKey(
+        UUID playerId,
+        String keyId,
+        int amount,
+        CrateKeyGrantSource source,
+        String referenceId,
+        Map<String, String> metadata
+    );
+
     CrateOpenResult openCrate(
         ServerPlayer player,
         String crateId,

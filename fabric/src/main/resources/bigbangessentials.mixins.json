@@ -10,7 +10,9 @@
     "FishingHookMixin",
     "FurnaceResultSlotMixin",
     "MobMixin",
+    "PlayerAdvancementsMixin",
     "ResultSlotMixin",
+
     "TextDisplayAccessor"
   ],
   "client": [],

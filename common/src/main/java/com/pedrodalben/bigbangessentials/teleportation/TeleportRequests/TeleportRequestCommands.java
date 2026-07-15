@@ -1,28 +1,29 @@
 package com.pedrodalben.bigbangessentials.teleportation.TeleportRequests;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
+import com.pedrodalben.bigbangessentials.integrations.fakeplayer.FakePlayerIntegration;
+import com.pedrodalben.bigbangessentials.integrations.fakeplayer.FakePlayerSnapshot;
+import com.pedrodalben.bigbangessentials.integrations.fakeplayer.FakeTpaManager;
 import com.pedrodalben.bigbangessentials.teleportation.Misc.MiscTeleportManager;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Commands for teleportation requests: /tpa, /tpahere, /tpaccept, /tpdeny, /tpcancel
- */
+import java.util.Optional;
+
 public class TeleportRequestCommands {
     private static final Logger LOGGER = LoggerFactory.getLogger(TeleportRequestCommands.class);
-    
-    // Permission nodes for teleport requests
+
     private static final String PERMISSION_TPA = "bigbangessentials.teleport.request.tpa";
     private static final String PERMISSION_TPAHERE = "bigbangessentials.teleport.request.tpahere";
     private static final String PERMISSION_ACCEPT = "bigbangessentials.teleport.request.accept";
@@ -48,24 +49,19 @@ public class TeleportRequestCommands {
         PERMISSION_CANCEL,
         "bigbangessentials.teleport.tpacancel"
     };
-    
-    // Suggestion provider for online players
-    private static final SuggestionProvider<CommandSourceStack> ONLINE_PLAYERS = (context, builder) -> {
-        return SharedSuggestionProvider.suggest(
-            context.getSource().getServer().getPlayerList().getPlayers().stream()
-                .map(player -> player.getName().getString()),
-            builder
-        );
+
+    private static final SuggestionProvider<CommandSourceStack> FAKE_PLAYER_SUGGESTIONS = (ctx, builder) -> {
+        for (FakePlayerSnapshot fake : FakePlayerIntegration.getInstance().getAllFakePlayers()) {
+            builder.suggest(fake.username());
+        }
+        return builder.buildFuture();
     };
-    
+
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         ConfigManager config = ConfigManager.getInstance();
-        
-        // Only register if teleportation module is enabled
+
         if (config.isTeleportationEnabled()) {
-            // Register individual teleport request commands based on their command settings
             if (config.isCommandEnabled("tpa")) {
-                // /tpa <player> - Request to teleport to another player
                 dispatcher.register(
                     Commands.literal("tpa")
                         .requires(source -> {
@@ -74,17 +70,19 @@ public class TeleportRequestCommands {
                                 LOGGER.debug("[TPA] Checking permission {} for {}: {}", PERMISSION_TPA, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
-                            return false; // Console can't use teleport requests
+                            return false;
                         })
                         .then(Commands.argument("player", EntityArgument.player())
-                            .suggests(ONLINE_PLAYERS)
                             .executes(context -> executeTpa(context))
+                        )
+                        .then(Commands.argument("player", StringArgumentType.word())
+                            .suggests(FAKE_PLAYER_SUGGESTIONS)
+                            .executes(context -> executeTpaFakeFallback(context))
                         )
                 );
             }
-            
+
             if (config.isCommandEnabled("tpahere")) {
-                // /tpahere <player> - Request another player to teleport to you
                 dispatcher.register(
                     Commands.literal("tpahere")
                         .requires(source -> {
@@ -93,17 +91,19 @@ public class TeleportRequestCommands {
                                 LOGGER.debug("[TPAHERE] Checking permission {} for {}: {}", PERMISSION_TPAHERE, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
-                            return false; // Console can't use teleport requests
+                            return false;
                         })
                         .then(Commands.argument("player", EntityArgument.player())
-                            .suggests(ONLINE_PLAYERS)
                             .executes(context -> executeTpaHere(context))
+                        )
+                        .then(Commands.argument("player", StringArgumentType.word())
+                            .suggests(FAKE_PLAYER_SUGGESTIONS)
+                            .executes(context -> executeTpaHereFakeFallback(context))
                         )
                 );
             }
-            
+
             if (config.isCommandEnabled("tpaccept")) {
-                // /tpaccept - Accept a pending teleport request
                 dispatcher.register(
                     Commands.literal("tpaccept")
                         .requires(source -> {
@@ -112,14 +112,13 @@ public class TeleportRequestCommands {
                                 LOGGER.debug("[TPACCEPT] Checking permission {} for {}: {}", PERMISSION_ACCEPT, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
-                            return false; // Console can't use teleport requests
+                            return false;
                         })
                         .executes(context -> executeTpAccept(context))
                 );
             }
-            
+
             if (config.isCommandEnabled("tpdeny")) {
-                // /tpdeny - Deny a pending teleport request
                 dispatcher.register(
                     Commands.literal("tpdeny")
                         .requires(source -> {
@@ -128,42 +127,34 @@ public class TeleportRequestCommands {
                                 LOGGER.debug("[TPDENY] Checking permission {} for {}: {}", PERMISSION_DENY, player.getName().getString(), hasPerm);
                                 return hasPerm;
                             }
-                            return false; // Console can't use teleport requests
+                            return false;
                         })
                         .executes(context -> executeTpDeny(context))
                 );
             }
-            
+
             if (config.isCommandEnabled("tpcancel") || config.isCommandEnabled("tpacancel")) {
-                // /tpcancel - Cancel your sent teleport request
                 registerTpCancelCommand(dispatcher, "tpcancel");
                 registerTpCancelCommand(dispatcher, "tpacancel");
             }
-            
+
             LOGGER.info("Registered enabled teleport request commands");
         }
     }
-    
-    /**
-     * Execute /tpa command
-     */
+
     private static int executeTpa(CommandContext<CommandSourceStack> context) {
         try {
             ServerPlayer requester = context.getSource().getPlayerOrException();
             ServerPlayer target = EntityArgument.getPlayer(context, "player");
-            
-            // Prevent self-teleport
+
             if (requester.getUUID().equals(target.getUUID())) {
                 requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.self"));
                 return 0;
             }
-            
-            // Send the request
+
             TeleportRequestManager manager = TeleportRequestManager.getInstance();
-            boolean success = manager.sendTeleportRequest(requester, target, TeleportRequestType.TPA);
-            
-            return success ? 1 : 0;
-            
+            return manager.sendTeleportRequest(requester, target, TeleportRequestType.TPA) ? 1 : 0;
+
         } catch (CommandSyntaxException e) {
             LOGGER.error("Command syntax error in /tpa", e);
             return 0;
@@ -172,27 +163,64 @@ public class TeleportRequestCommands {
             return 0;
         }
     }
-    
-    /**
-     * Execute /tpahere command
-     */
+
+    private static int executeTpaFakeFallback(CommandContext<CommandSourceStack> context) {
+        try {
+            ServerPlayer requester = context.getSource().getPlayerOrException();
+            String targetName = StringArgumentType.getString(context, "player");
+
+            if (requester.getName().getString().equalsIgnoreCase(targetName)) {
+                requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.self"));
+                return 0;
+            }
+
+            ServerPlayer realTarget = context.getSource().getServer().getPlayerList().getPlayerByName(targetName);
+            if (realTarget != null) {
+                return 0;
+            }
+
+            Optional<FakePlayerSnapshot> fakeOpt = FakePlayerIntegration.getInstance().findActiveFakePlayer(targetName);
+            if (fakeOpt.isPresent()) {
+                if (!ConfigManager.getInstance().isFakeCommandTpaEnabled()) {
+                    requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.fakeplayer.not_available", targetName));
+                    return 0;
+                }
+                LOGGER.debug("Fake TPA: requester={}, target={}",
+                    requester.getName().getString(), targetName);
+                FakeTpaManager.getInstance().scheduleFakeTpa(
+                    requester,
+                    targetName,
+                    ConfigManager.getInstance().getFakeTpaMinExpirationSeconds(),
+                    ConfigManager.getInstance().getFakeTpaMaxExpirationSeconds()
+                );
+                return 1;
+            }
+
+            requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.target_busy", targetName));
+            return 0;
+
+        } catch (CommandSyntaxException e) {
+            LOGGER.error("Command syntax error in /tpa", e);
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Error executing /tpa command", e);
+            return 0;
+        }
+    }
+
     private static int executeTpaHere(CommandContext<CommandSourceStack> context) {
         try {
             ServerPlayer requester = context.getSource().getPlayerOrException();
             ServerPlayer target = EntityArgument.getPlayer(context, "player");
-            
-            // Prevent self-teleport
+
             if (requester.getUUID().equals(target.getUUID())) {
                 requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.self"));
                 return 0;
             }
-            
-            // Send the request
+
             TeleportRequestManager manager = TeleportRequestManager.getInstance();
-            boolean success = manager.sendTeleportRequest(requester, target, TeleportRequestType.TPAHERE);
-            
-            return success ? 1 : 0;
-            
+            return manager.sendTeleportRequest(requester, target, TeleportRequestType.TPAHERE) ? 1 : 0;
+
         } catch (CommandSyntaxException e) {
             LOGGER.error("Command syntax error in /tpahere", e);
             return 0;
@@ -201,22 +229,57 @@ public class TeleportRequestCommands {
             return 0;
         }
     }
-    
-    /**
-     * Execute /tpaccept command
-     */
+
+    private static int executeTpaHereFakeFallback(CommandContext<CommandSourceStack> context) {
+        try {
+            ServerPlayer requester = context.getSource().getPlayerOrException();
+            String targetName = StringArgumentType.getString(context, "player");
+
+            if (requester.getName().getString().equalsIgnoreCase(targetName)) {
+                requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.self"));
+                return 0;
+            }
+
+            ServerPlayer realTarget = context.getSource().getServer().getPlayerList().getPlayerByName(targetName);
+            if (realTarget != null) {
+                return 0;
+            }
+
+            Optional<FakePlayerSnapshot> fakeOpt = FakePlayerIntegration.getInstance().findActiveFakePlayer(targetName);
+            if (fakeOpt.isPresent()) {
+                if (!ConfigManager.getInstance().isFakeCommandTpaEnabled()) {
+                    requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.fakeplayer.not_available", targetName));
+                    return 0;
+                }
+                LOGGER.debug("Fake TPAHERE: requester={}, target={}",
+                    requester.getName().getString(), targetName);
+                FakeTpaManager.getInstance().scheduleFakeTpa(
+                    requester,
+                    targetName,
+                    ConfigManager.getInstance().getFakeTpaMinExpirationSeconds(),
+                    ConfigManager.getInstance().getFakeTpaMaxExpirationSeconds()
+                );
+                return 1;
+            }
+
+            requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.target_busy", targetName));
+            return 0;
+
+        } catch (CommandSyntaxException e) {
+            LOGGER.error("Command syntax error in /tpahere", e);
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Error executing /tpahere command", e);
+            return 0;
+        }
+    }
+
     private static int executeTpAccept(CommandContext<CommandSourceStack> context) {
         try {
             ServerPlayer teleportedPlayer = context.getSource().getPlayerOrException();
             TeleportRequestManager manager = TeleportRequestManager.getInstance();
-
-            // Save the player's current location for /back
             MiscTeleportManager.getInstance().saveBackLocation(teleportedPlayer);
-
-            boolean success = manager.acceptTeleportRequest(teleportedPlayer);
-
-            return success ? 1 : 0;
-            
+            return manager.acceptTeleportRequest(teleportedPlayer) ? 1 : 0;
         } catch (CommandSyntaxException e) {
             LOGGER.error("Command syntax error in /tpaccept", e);
             return 0;
@@ -225,18 +288,12 @@ public class TeleportRequestCommands {
             return 0;
         }
     }
-    
-    /**
-     * Execute /tpdeny command
-     */
+
     private static int executeTpDeny(CommandContext<CommandSourceStack> context) {
         try {
             ServerPlayer player = context.getSource().getPlayerOrException();
             TeleportRequestManager manager = TeleportRequestManager.getInstance();
-            boolean success = manager.denyTeleportRequest(player);
-            
-            return success ? 1 : 0;
-            
+            return manager.denyTeleportRequest(player) ? 1 : 0;
         } catch (CommandSyntaxException e) {
             LOGGER.error("Command syntax error in /tpdeny", e);
             return 0;
@@ -245,18 +302,12 @@ public class TeleportRequestCommands {
             return 0;
         }
     }
-    
-    /**
-     * Execute /tpcancel command
-     */
+
     private static int executeTpCancel(CommandContext<CommandSourceStack> context) {
         try {
             ServerPlayer player = context.getSource().getPlayerOrException();
             TeleportRequestManager manager = TeleportRequestManager.getInstance();
-            boolean success = manager.cancelTeleportRequest(player);
-            
-            return success ? 1 : 0;
-            
+            return manager.cancelTeleportRequest(player) ? 1 : 0;
         } catch (CommandSyntaxException e) {
             LOGGER.error("Command syntax error in /tpcancel", e);
             return 0;
@@ -275,7 +326,7 @@ public class TeleportRequestCommands {
                         LOGGER.debug("[TPCANCEL] Checking permission {} for {}: {}", PERMISSION_CANCEL, player.getName().getString(), hasPerm);
                         return hasPerm;
                     }
-                    return false; // Console can't use teleport requests
+                    return false;
                 })
                 .executes(context -> executeTpCancel(context))
         );

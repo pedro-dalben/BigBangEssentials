@@ -1,0 +1,15 @@
+{
+  "id":"farmer","enabled":true,"display-name":"Fazendeiro",
+  "short-description":"Plante, colha e cuide de animais",
+  "description":"Profissão dedicada à agricultura e pecuária.",
+  "icon":"minecraft:diamond_hoe","category":"COMMON","sort-order":3,
+  "permission":"bigbangessentials.jobs.profession.farmer",
+  "visible-without-permission":true,"unlocked-by-default":true,"license-required":false,
+  "max-level":100,"xp-curve":{"type":"polynomial","base":100,"multiplier":1.0,"exponent":1.5},
+  "max-daily-earnings":-1,"money-bonus-per-level":0.5,"max-level-money-bonus":50.0,"skill-points-every":2,
+  "reset-progress-on-leave":false,
+  "actions":{"HARVEST-CROP":{"minecraft:wheat":{"money":3,"xp":5},"minecraft:potatoes":{"money":3,"xp":5},"minecraft:carrots":{"money":3,"xp":5},"minecraft:beetroots":{"money":3,"xp":5},"minecraft:nether_wart":{"money":8,"xp":12},"minecraft:pumpkin":{"money":4,"xp":6},"minecraft:melon":{"money":4,"xp":6},"*":{"money":1,"xp":2}},"KILL-ENTITY":{"minecraft:cow":{"money":5,"xp":10},"minecraft:pig":{"money":5,"xp":10},"minecraft:sheep":{"money":5,"xp":10},"minecraft:chicken":{"money":4,"xp":8},"minecraft:rabbit":{"money":4,"xp":8}}},
+  "how-to-earn":{"money-header":"Como ganhar dinheiro","xp-header":"Como ganhar XP","money-lines":["Colha plantações maduras.","Abata animais de fazenda para obter recursos."],"xp-lines":["Cada colheita ou abate concede XP."],"example-targets":["minecraft:wheat","minecraft:carrots","minecraft:cow"]},
+  "skills":{},"level-up-rewards":{},
+  "messages":{"join":"&aVocê agora é um Fazendeiro!","leave":"&cVocê deixou a profissão de Fazendeiro.","level-up":"&aParabéns! Nível %level% de Fazendeiro! +%points% pontos"}
+}

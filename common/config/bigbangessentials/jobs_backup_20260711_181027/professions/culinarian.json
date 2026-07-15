@@ -1,0 +1,15 @@
+{
+  "id":"culinarian","enabled":true,"display-name":"Culinarista",
+  "short-description":"Cozinhe alimentos e prepare banquetes",
+  "description":"Profissão dedicada à culinária e preparação de alimentos.",
+  "icon":"minecraft:cake","category":"COMMON","sort-order":9,
+  "permission":"bigbangessentials.jobs.profession.culinarian",
+  "visible-without-permission":true,"unlocked-by-default":true,"license-required":false,
+  "max-level":100,"xp-curve":{"type":"polynomial","base":100,"multiplier":1.0,"exponent":1.5},
+  "max-daily-earnings":-1,"money-bonus-per-level":0.5,"max-level-money-bonus":50.0,"skill-points-every":2,
+  "reset-progress-on-leave":false,
+  "actions":{"CRAFT-ITEM":{"minecraft:bread":{"money":2,"xp":4},"minecraft:cooked_beef":{"money":5,"xp":10},"minecraft:cooked_porkchop":{"money":5,"xp":10},"minecraft:cooked_chicken":{"money":4,"xp":8},"minecraft:cooked_mutton":{"money":4,"xp":8},"minecraft:cooked_rabbit":{"money":4,"xp":8},"minecraft:cooked_salmon":{"money":5,"xp":10},"minecraft:cooked_cod":{"money":5,"xp":10},"minecraft:cake":{"money":12,"xp":25},"minecraft:pumpkin_pie":{"money":8,"xp":15},"minecraft:golden_apple":{"money":20,"xp":50},"minecraft:golden_carrot":{"money":10,"xp":20},"*":{"money":1,"xp":2}}},
+  "how-to-earn":{"money-header":"Como ganhar dinheiro","xp-header":"Como ganhar XP","money-lines":["Cozinhe alimentos usando fornalhas e crafting.","Alimentos mais elaborados pagam mais."],"xp-lines":["Cada alimento preparado concede XP."],"example-targets":["minecraft:cooked_beef","minecraft:cake","minecraft:golden_apple"]},
+  "skills":{},"level-up-rewards":{},
+  "messages":{"join":"&aVocê agora é um Culinarista!","leave":"&cVocê deixou a profissão de Culinarista.","level-up":"&aParabéns! Nível %level% de Culinarista! +%points% pontos"}
+}

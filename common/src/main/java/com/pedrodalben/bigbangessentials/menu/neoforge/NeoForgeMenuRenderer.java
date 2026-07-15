@@ -62,17 +62,24 @@ public class NeoForgeMenuRenderer {
                         awaitStage(provider.provide(player, context, request), player, "pagination provider '" + source + "'");
                     
                     if (result != null && result.items() != null) {
-                        List<Map<String, Object>> items = result.items();
+                        List<?> items = result.items();
                         for (int i = 0; i < contentSlotsSize; i++) {
                             if (i >= items.size()) break;
                             
                             int slot = menu.pagination().contentSlots().get(i);
                             if (slot >= 0 && slot < inv.getContainerSize()) {
-                                Map<String, Object> itemData = items.get(i);
+                                Object rawItemData = items.get(i);
+                                if (!(rawItemData instanceof Map<?, ?>)) {
+                                    LOGGER.error("Ignoring invalid paginated item at index {} from '{}': {}",
+                                        i, source, rawItemData == null ? "null" : rawItemData.getClass().getName());
+                                    continue;
+                                }
+                                Map<?, ?> itemData = (Map<?, ?>) rawItemData;
                                 Map<String, String> stringOverrides = new java.util.HashMap<>();
-                                if (itemData != null) {
-                                    for (Map.Entry<String, Object> entry : itemData.entrySet()) {
-                                        stringOverrides.put(entry.getKey(), entry.getValue() != null ? entry.getValue().toString() : "");
+                                for (Map.Entry<?, ?> entry : itemData.entrySet()) {
+                                    if (entry.getKey() != null) {
+                                        stringOverrides.put(String.valueOf(entry.getKey()),
+                                            entry.getValue() != null ? entry.getValue().toString() : "");
                                     }
                                 }
                                 

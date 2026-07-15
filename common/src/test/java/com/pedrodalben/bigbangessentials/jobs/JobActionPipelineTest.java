@@ -91,7 +91,7 @@ class JobActionPipelineTest {
         JobAction action = JobAction.create(playerId, JobActionType.BREAK_BLOCK, "TEST_SOURCE", "minecraft:diamond_ore", context);
 
         JobActionValidator.ValidationResult result = JobActionValidator.getInstance().validate(mockPlayer, action);
-        assertFalse(result.isValid(), "A quebra de bloco colocado pelo jogador deve ser considerada inválida.");
-        assertEquals("Bloco colocado pelo jogador não concede recompensa ao quebrar.", result.reason());
+        assertFalse(result.isValid(), "A quebra de bloco colocado pelo jogador deve ser considerada invalida.");
+        assertTrue(result.reason().contains("colocado pelo jogador"), "Deve mencionar bloco colocado pelo jogador");
     }
 }

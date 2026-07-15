@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.config;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -980,12 +981,14 @@ public class ConfigManager {
      */
     public boolean isNewPlayerKitEnabled() {
         JsonObject config = getConfig(MAIN_CONFIG);
-        if (config.has("kits")) {
+        if (config.has("kits") && config.get("kits").isJsonObject()) {
             JsonObject kits = config.getAsJsonObject("kits");
-            if (kits.has("newPlayerKit")) {
+            if (kits.has("newPlayerKit") && kits.get("newPlayerKit").isJsonObject()) {
                 JsonObject npk = kits.getAsJsonObject("newPlayerKit");
                 if (npk.has("enabled")) {
-                    return npk.get("enabled").getAsBoolean();
+                    try {
+                        return npk.get("enabled").getAsBoolean();
+                    } catch (Exception ignored) {}
                 }
             }
         }
@@ -997,12 +1000,14 @@ public class ConfigManager {
      */
     public String getNewPlayerKitName() {
         JsonObject config = getConfig(MAIN_CONFIG);
-        if (config.has("kits")) {
+        if (config.has("kits") && config.get("kits").isJsonObject()) {
             JsonObject kits = config.getAsJsonObject("kits");
-            if (kits.has("newPlayerKit")) {
+            if (kits.has("newPlayerKit") && kits.get("newPlayerKit").isJsonObject()) {
                 JsonObject npk = kits.getAsJsonObject("newPlayerKit");
                 if (npk.has("kitName")) {
-                    return npk.get("kitName").getAsString();
+                    try {
+                        return npk.get("kitName").getAsString();
+                    } catch (Exception ignored) {}
                 }
             }
         }
@@ -1014,7 +1019,7 @@ public class ConfigManager {
      */
     public int getMaxKitsPerPlayer() {
         JsonObject config = getConfig(MAIN_CONFIG);
-        if (config.has("kits")) {
+        if (config.has("kits") && config.get("kits").isJsonObject()) {
             JsonObject kits = config.getAsJsonObject("kits");
             if (kits.has("maxKitsPerPlayer")) {
                 try {
@@ -1119,9 +1124,15 @@ public class ConfigManager {
     public boolean isAllowKitOverrideEnabled() {
         JsonObject config = getConfig(MAIN_CONFIG);
         if (config.has("kits")) {
-            JsonObject kits = config.getAsJsonObject("kits");
-            if (kits.has("allowKitOverride")) {
-                return kits.get("allowKitOverride").getAsBoolean();
+            JsonElement kitsElement = config.get("kits");
+            // The current kits configuration is an array of kit definitions.
+            // Older configurations used an object for the kits section, so only
+            // inspect it as an object when it actually has that shape.
+            if (kitsElement != null && kitsElement.isJsonObject()) {
+                JsonObject kits = kitsElement.getAsJsonObject();
+                if (kits.has("allowKitOverride")) {
+                    return kits.get("allowKitOverride").getAsBoolean();
+                }
             }
         }
         return false;
@@ -1154,7 +1165,18 @@ public class ConfigManager {
 
             File file = ResourceUtil.getConfigFile(configName);
             reader = new FileReader(file, StandardCharsets.UTF_8);
-            JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
+            JsonElement parsed = JsonParser.parseReader(reader);
+            JsonObject obj;
+            if (parsed != null && parsed.isJsonObject()) {
+                obj = parsed.getAsJsonObject();
+            } else if (KITS_CONFIG.equals(configName) && parsed != null && parsed.isJsonArray()) {
+                // Older kit files used the kit list itself as the root value.
+                // Keep the public config contract object-shaped for menu/config callers.
+                obj = new JsonObject();
+                obj.add("kits", parsed.getAsJsonArray());
+            } else {
+                throw new IllegalArgumentException("Config root must be a JSON object");
+            }
             configCache.put(configName, obj);
             return obj;
         } catch (IOException e) {
@@ -1963,9 +1985,9 @@ public class ConfigManager {
      */
     public static double getKitCommandCost(String commandName) {
         JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("kits")) {
+        if (config.has("kits") && config.get("kits").isJsonObject()) {
             JsonObject kits = config.getAsJsonObject("kits");
-            if (kits.has("commandCosts")) {
+            if (kits.has("commandCosts") && kits.get("commandCosts").isJsonObject()) {
                 JsonObject costs = kits.getAsJsonObject("commandCosts");
                 if (costs.has(commandName)) {
                     try {
@@ -1983,10 +2005,12 @@ public class ConfigManager {
      */
     public static boolean isPastebinCreatekitEnabled() {
         JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("kits")) {
+        if (config.has("kits") && config.get("kits").isJsonObject()) {
             JsonObject kits = config.getAsJsonObject("kits");
             if (kits.has("pastebinCreatekit")) {
-                return kits.get("pastebinCreatekit").getAsBoolean();
+                try {
+                    return kits.get("pastebinCreatekit").getAsBoolean();
+                } catch (Exception ignored) {}
             }
         }
         return false;
@@ -1998,10 +2022,12 @@ public class ConfigManager {
      */
     public static boolean isSkipUsedOneTimeKitsFromKitList() {
         JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("kits")) {
+        if (config.has("kits") && config.get("kits").isJsonObject()) {
             JsonObject kits = config.getAsJsonObject("kits");
             if (kits.has("skipUsedOneTimeKitsFromKitList")) {
-                return kits.get("skipUsedOneTimeKitsFromKitList").getAsBoolean();
+                try {
+                    return kits.get("skipUsedOneTimeKitsFromKitList").getAsBoolean();
+                } catch (Exception ignored) {}
             }
         }
         return false;
@@ -2013,10 +2039,12 @@ public class ConfigManager {
      */
     public static boolean isKitAutoEquipEnabled() {
         JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("kits")) {
+        if (config.has("kits") && config.get("kits").isJsonObject()) {
             JsonObject kits = config.getAsJsonObject("kits");
             if (kits.has("kitAutoEquip")) {
-                return kits.get("kitAutoEquip").getAsBoolean();
+                try {
+                    return kits.get("kitAutoEquip").getAsBoolean();
+                } catch (Exception ignored) {}
             }
         }
         return false;
@@ -2028,10 +2056,12 @@ public class ConfigManager {
      */
     public static boolean isLogKitUsageEnabled() {
         JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("kits")) {
+        if (config.has("kits") && config.get("kits").isJsonObject()) {
             JsonObject kits = config.getAsJsonObject("kits");
             if (kits.has("logKitUsage")) {
-                return kits.get("logKitUsage").getAsBoolean();
+                try {
+                    return kits.get("logKitUsage").getAsBoolean();
+                } catch (Exception ignored) {}
             }
         }
         return true;
@@ -2746,5 +2776,52 @@ public class ConfigManager {
             }
         } catch (Exception ignored) {}
         return null;
+    }
+
+    // ───── Fake Player Integration ─────
+
+    public boolean isFakeCommandTpaEnabled() {
+        try {
+            JsonObject config = getConfig(MAIN_CONFIG);
+            if (config.has("fake-command-behavior")) {
+                JsonObject fcb = config.getAsJsonObject("fake-command-behavior");
+                if (fcb.has("tpa")) {
+                    return fcb.getAsJsonObject("tpa").get("enabled").getAsBoolean();
+                }
+            }
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    public int getFakeTpaMinExpirationSeconds() {
+        try {
+            JsonObject config = getConfig(MAIN_CONFIG);
+            if (config.has("fake-command-behavior")) {
+                JsonObject fcb = config.getAsJsonObject("fake-command-behavior");
+                if (fcb.has("tpa")) {
+                    JsonObject tpa = fcb.getAsJsonObject("tpa");
+                    if (tpa.has("minimum-expiration-seconds")) {
+                        return tpa.get("minimum-expiration-seconds").getAsInt();
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return 30;
+    }
+
+    public int getFakeTpaMaxExpirationSeconds() {
+        try {
+            JsonObject config = getConfig(MAIN_CONFIG);
+            if (config.has("fake-command-behavior")) {
+                JsonObject fcb = config.getAsJsonObject("fake-command-behavior");
+                if (fcb.has("tpa")) {
+                    JsonObject tpa = fcb.getAsJsonObject("tpa");
+                    if (tpa.has("maximum-expiration-seconds")) {
+                        return tpa.get("maximum-expiration-seconds").getAsInt();
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return 60;
     }
 }
