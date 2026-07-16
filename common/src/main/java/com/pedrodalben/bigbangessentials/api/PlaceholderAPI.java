@@ -32,6 +32,14 @@ public interface PlaceholderAPI {
     static boolean registerPlaceholder(String identifier, PlaceholderProvider provider) {
         return PlaceholderManager.getInstance().registerPlaceholder(identifier, provider);
     }
+
+    /**
+     * Register a shorthand alias that delegates to an existing expansion.
+     * Public convenience method so callers don't need to reference PlaceholderProvider.
+     */
+    static boolean registerShorthand(String identifier, DefaultPlaceholderExpansion expansion, String key) {
+        return registerPlaceholder(identifier, (player, params) -> expansion.onPlaceholderRequest(player, key, params));
+    }
     
     /**
      * Unregister a placeholder from the system.

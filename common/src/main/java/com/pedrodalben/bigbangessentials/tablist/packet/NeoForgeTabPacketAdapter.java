@@ -70,8 +70,10 @@ public class NeoForgeTabPacketAdapter implements TabPacketAdapter {
         ServerPlayer target = viewer.getServer().getPlayerList().getPlayer(targetId);
         if (target == null) return;
         try {
-            viewer.connection.send(new ClientboundPlayerInfoUpdatePacket(
-                    EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LIST_ORDER), List.of(target)));
+            // 1.21.1 has no UPDATE_LIST_ORDER packet action. Re-add to refresh entry;
+            // actual ordering is determined server-side by SortingFeature's sort.
+            viewer.connection.send(new ClientboundPlayerInfoRemovePacket(List.of(targetId)));
+            viewer.connection.send(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(target)));
         } catch (Exception e) {
             LOGGER.error("Failed to send list order update for {} to viewer {}", target.getName().getString(), viewer.getName().getString(), e);
         }

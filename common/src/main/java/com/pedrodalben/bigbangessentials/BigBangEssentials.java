@@ -1219,10 +1219,8 @@ public class BigBangEssentials {
             
             // Register shorthand aliases as direct placeholders so {online} and {max}
             // work without needing the {bigbangessentials_online_players} prefix
-            com.pedrodalben.bigbangessentials.api.PlaceholderAPI.registerPlaceholder("online",
-                (player, params) -> defaultExpansion.onPlaceholderRequest(player, "online", params));
-            com.pedrodalben.bigbangessentials.api.PlaceholderAPI.registerPlaceholder("max",
-                (player, params) -> defaultExpansion.onPlaceholderRequest(player, "max", params));
+            com.pedrodalben.bigbangessentials.api.PlaceholderAPI.registerShorthand("online", defaultExpansion, "online");
+            com.pedrodalben.bigbangessentials.api.PlaceholderAPI.registerShorthand("max", defaultExpansion, "max");
             
             boolean registered = com.pedrodalben.bigbangessentials.api.PlaceholderAPI.registerExpansion(defaultExpansion);
             
