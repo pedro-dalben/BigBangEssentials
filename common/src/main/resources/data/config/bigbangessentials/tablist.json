@@ -1,0 +1,76 @@
+{
+  "_configVersion": 2,
+  "tablist": {
+    "enabled": true,
+    "performance": {
+      "fallbackRefreshTicks": 100,
+      "maxPacketUpdatesPerTick": 250,
+      "componentCacheSize": 1000,
+      "permissionRefreshTicks": 100
+    },
+    "animations": {},
+    "headerFooter": {
+      "enabled": true,
+      "designs": [
+        {
+          "id": "default",
+          "priority": 0,
+          "default": true,
+          "header": ["&6&l{server_name}"],
+          "footer": ["&7{online}&8/&7{max} online"]
+        }
+      ]
+    },
+    "playerList": {
+      "enabled": true,
+      "defaultFormat": "{prefix}{tag}{name}{suffix}{afk}",
+      "nameSource": "NICK_OR_REAL",
+      "groups": {},
+      "players": {}
+    },
+    "nameTags": {
+      "enabled": true,
+      "prefixFormat": "{prefix}{tag}",
+      "suffixFormat": "{afk}",
+      "collision": "ALWAYS",
+      "nameVisibility": "ALWAYS",
+      "canSeeFriendlyInvisibles": false
+    },
+    "sorting": {
+      "enabled": true,
+      "rules": [
+        "GROUP_PRIORITY:owner,admin,moderator,helper,default",
+        "AFK_LAST",
+        "NAME_ASC"
+      ]
+    },
+    "visibility": {
+      "hideVanished": true,
+      "vanishBypassPermission": "bigbangessentials.vanish.see"
+    },
+    "afk": {
+      "enabled": true,
+      "format": " &7[AFK]",
+      "sortLast": true
+    },
+    "objectives": {
+      "playerList": {
+        "enabled": false,
+        "value": "{ping}",
+        "updateTicks": 20,
+        "title": ""
+      },
+      "belowName": {
+        "enabled": false,
+        "value": "{ping}",
+        "updateTicks": 20,
+        "title": ""
+      }
+    },
+    "diagnostics": {
+      "enabled": true,
+      "slowUpdateWarningMillis": 10,
+      "logPacketStatistics": false
+    }
+  }
+}
