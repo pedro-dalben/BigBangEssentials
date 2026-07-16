@@ -91,46 +91,28 @@ public class PermissionAPI {
             return false;
         }
         
-        LOGGER.debug("═══ PERMISSION CHECK ═══");
-        LOGGER.debug("Player UUID: {}", uuid);
-        LOGGER.debug("Permission: {}", permission);
-        LOGGER.debug("External adapter: {}", (externalAdapter != null ? externalAdapter.getName() : "NONE"));
+        LOGGER.debug("hasPermission uuid={} perm={} ext={}", uuid, permission, externalAdapter != null);
 
         // Minecraft OPs should be able to use admin commands even when a permission
         // bridge is configured, as long as the mod's OP bypass setting is enabled.
         if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isOpsBypassPermissionsEnabled()) {
             if (isPlayerOpped(uuid)) {
-                LOGGER.debug("Player is OP - bypassing permission check");
-                LOGGER.debug("Result: TRUE (op bypass)");
-                LOGGER.debug("═══════════════════════");
                 return true;
             }
         }
 
         // If using external permissions (LuckPerms, FTB Ranks), delegate after OP bypass.
         if (externalAdapter != null) {
-            LOGGER.debug("Using external permission system: {}", externalAdapter.getName());
-            boolean hasExternalPerm = externalAdapter.hasPermission(uuid, permission);
-            LOGGER.debug("External system returned: {}", hasExternalPerm);
-            LOGGER.debug("═══════════════════════");
-            return hasExternalPerm;
+            return externalAdapter.hasPermission(uuid, permission);
         }
         
-        LOGGER.debug("Using INTERNAL permission system");
-
         // Finally check internal permission manager
         if (manager == null) {
             LOGGER.warn("PermissionAPI.hasPermission: PermissionManager is null - returning false");
-            LOGGER.debug("Result: FALSE (no manager)");
-            LOGGER.debug("═══════════════════════");
             return false;
         }
 
-        boolean hasInternalPerm = manager.hasPermission(uuid, permission);
-        LOGGER.debug("Internal system returned: {}", hasInternalPerm);
-        LOGGER.debug("Result: {}", hasInternalPerm);
-        LOGGER.debug("═══════════════════════");
-        return hasInternalPerm;
+        return manager.hasPermission(uuid, permission);
     }
 
     /**
@@ -234,26 +216,15 @@ public class PermissionAPI {
             return "";
         }
 
-        LOGGER.debug(">>> PermissionAPI.getPrefix() called for UUID: {}", uuid);
-        LOGGER.debug(">>> Using external adapter: {}", (externalAdapter != null ? externalAdapter.getName() : "NONE"));
-
         if (externalAdapter != null) {
-            LOGGER.debug(">>> Querying external adapter for prefix...");
             String prefix = externalAdapter.getPrefix(uuid);
-            LOGGER.debug(">>> External adapter returned: [{}]", prefix);
             if (prefix != null && !prefix.isBlank()) {
                 return prefix;
             }
-
-            String fallback = fallbackInternalPrefix(uuid);
-            LOGGER.debug(">>> Falling back to internal prefix: [{}]", fallback);
-            return fallback;
+            return fallbackInternalPrefix(uuid);
         }
 
-        LOGGER.debug(">>> Using internal permission system (no external adapter)");
-        String prefix = fallbackInternalPrefix(uuid);
-        LOGGER.debug(">>> Internal system prefix: [{}]", prefix);
-        return prefix;
+        return fallbackInternalPrefix(uuid);
     }
 
     public static String getSuffix(UUID uuid) {

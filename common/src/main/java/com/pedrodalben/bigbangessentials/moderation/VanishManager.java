@@ -123,22 +123,20 @@ public class VanishManager {
         int vanishPriority = getPlayerPriority(playerId);
         vanishedPlayers.put(playerId, vanishPriority);
         saveData();
-        
-        // Hide player from others
-        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-        if (server != null) {
-            ServerPlayer vanishedPlayer = server.getPlayerList().getPlayer(playerId);
-            if (vanishedPlayer != null) {
-                hidePlayerFromOthers(vanishedPlayer);
-                
-                // Don't send message here - let the command handle it
-                // to avoid duplicate messages
-            }
-        }
+
+        // Packet sending is handled by VisibilityFeature via VanishTabIntegration below
+        // Do NOT send packets directly here to avoid duplicates
         
         if (com.pedrodalben.bigbangessentials.config.ConfigManager.isLogVanishActionsEnabled()) {
             LOGGER.info("Player {} ({}) vanished by {}", playerName, playerId, vanishedBy);
         }
+
+        try {
+            com.pedrodalben.bigbangessentials.tablist.integration.VanishTabIntegration.onVanishChange(playerId, true);
+        } catch (Exception e) {
+            LOGGER.debug("Failed to notify tablist of vanish: {}", e.getMessage());
+        }
+
         return true;
     }
     
@@ -150,22 +148,20 @@ public class VanishManager {
             return false; // Not vanished
         }
         saveData();
-        
-        // Show player to others
-        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-        if (server != null) {
-            ServerPlayer unvanishedPlayer = server.getPlayerList().getPlayer(playerId);
-            if (unvanishedPlayer != null) {
-                showPlayerToOthers(unvanishedPlayer);
-                
-                // Don't send message here - let the command handle it
-                // to avoid duplicate messages
-            }
-        }
+
+        // Packet sending is handled by VisibilityFeature via VanishTabIntegration below
+        // Do NOT send packets directly here to avoid duplicates
         
         if (com.pedrodalben.bigbangessentials.config.ConfigManager.isLogVanishActionsEnabled()) {
             LOGGER.info("Player ({}) unvanished", playerId);
         }
+
+        try {
+            com.pedrodalben.bigbangessentials.tablist.integration.VanishTabIntegration.onVanishChange(playerId, false);
+        } catch (Exception e) {
+            LOGGER.debug("Failed to notify tablist of unvanish: {}", e.getMessage());
+        }
+
         return true;
     }
     
@@ -182,25 +178,12 @@ public class VanishManager {
     
     /**
      * Enable see vanished for a player
+     * Packet sending handled by VisibilityFeature; VanishManager only tracks state.
      */
     public void enableSeeVanished(UUID playerId) {
     // Default priority for viewer (can be customized)
     int viewerPriority = getPlayerPriority(playerId);
     viewerPriorities.put(playerId, viewerPriority);
-        
-        // Show all vanished players to this player
-        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-        if (server != null) {
-            ServerPlayer observer = server.getPlayerList().getPlayer(playerId);
-            if (observer != null) {
-                for (UUID vanishedId : vanishedPlayers.keySet()) {
-                    ServerPlayer vanishedPlayer = server.getPlayerList().getPlayer(vanishedId);
-                    if (vanishedPlayer != null && !vanishedId.equals(playerId)) {
-                        showPlayerToSpecific(vanishedPlayer, observer);
-                    }
-                }
-            }
-        }
         
         if (com.pedrodalben.bigbangessentials.config.ConfigManager.isLogVanishActionsEnabled()) {
             LOGGER.info("Player ({}) enabled see vanished", playerId);
@@ -209,23 +192,10 @@ public class VanishManager {
     
     /**
      * Disable see vanished for a player
+     * Packet sending handled by VisibilityFeature; VanishManager only tracks state.
      */
     public void disableSeeVanished(UUID playerId) {
     viewerPriorities.remove(playerId);
-        
-        // Hide all vanished players from this player
-        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-        if (server != null) {
-            ServerPlayer observer = server.getPlayerList().getPlayer(playerId);
-            if (observer != null) {
-                for (UUID vanishedId : vanishedPlayers.keySet()) {
-                    ServerPlayer vanishedPlayer = server.getPlayerList().getPlayer(vanishedId);
-                    if (vanishedPlayer != null && !vanishedId.equals(playerId)) {
-                        hidePlayerFromSpecific(vanishedPlayer, observer);
-                    }
-                }
-            }
-        }
         
         if (com.pedrodalben.bigbangessentials.config.ConfigManager.isLogVanishActionsEnabled()) {
             LOGGER.info("Player ({}) disabled see vanished", playerId);
@@ -275,30 +245,15 @@ public class VanishManager {
     
     /**
      * Handle player join - set up vanish state
+     * Packet sending handled by VisibilityFeature via TablistModule.onPlayerJoin
      */
     public void onPlayerJoin(ServerPlayer player) {
         UUID playerId = player.getUUID();
         
-        // If player is vanished, hide them from others
+        // Remind vanished player that they are still vanished
         if (isPlayerVanished(playerId)) {
-            hidePlayerFromOthers(player);
             String message = MessageUtil.localize("bigbangessentials.moderation.vanish_reminder");
             player.sendSystemMessage(MessageUtil.info(message));
-        }
-        // If player can see vanished, show all vanished players to them (priority check)
-        if (canPlayerSeeVanished(playerId)) {
-            int viewerPriority = viewerPriorities.getOrDefault(playerId, 10);
-            for (UUID vanishedId : vanishedPlayers.keySet()) {
-                if (!vanishedId.equals(playerId)) {
-                    int vanishedPriority = vanishedPlayers.getOrDefault(vanishedId, 10);
-                    if (viewerPriority <= vanishedPriority) {
-                        ServerPlayer vanishedPlayer = player.getServer().getPlayerList().getPlayer(vanishedId);
-                        if (vanishedPlayer != null) {
-                            showPlayerToSpecific(vanishedPlayer, player);
-                        }
-                    }
-                }
-            }
         }
     }
     
@@ -311,67 +266,16 @@ public class VanishManager {
     }
     
     /**
-     * Hide a player from all other players (except those who can see vanished)
+     * Check whether a viewer is allowed to see a vanished target player.
+     * Used by VisibilityFeature to decide tablist visibility without duplicate packet logic.
+     * Priority system: lower number = higher priority (owner=0, default=10).
+     * Viewer can see vanished player if viewer priority <= vanished priority.
      */
-    private void hidePlayerFromOthers(ServerPlayer vanishedPlayer) {
-        // Only hide from tab list if enabled in config
-    boolean hideFromTabList = com.pedrodalben.bigbangessentials.config.ConfigManager.isHideFromTabListEnabled();
-        if (!hideFromTabList) return;
-
-        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-        if (server == null) return;
-
-        UUID vanishedId = vanishedPlayer.getUUID();
-        int vanishedPriority = vanishedPlayers.getOrDefault(vanishedId, 10); // Default priority 10 if not set
-        for (ServerPlayer otherPlayer : server.getPlayerList().getPlayers()) {
-            if (otherPlayer != vanishedPlayer) {
-                int viewerPriority = viewerPriorities.getOrDefault(otherPlayer.getUUID(), 10);
-                // Only show if viewerPriority <= vanishedPriority
-                if (viewerPriority > vanishedPriority) {
-                    hidePlayerFromSpecific(vanishedPlayer, otherPlayer);
-                }
-            }
-        }
-    }
-    
-    /**
-     * Show a player to all other players
-     */
-    private void showPlayerToOthers(ServerPlayer unvanishedPlayer) {
-        MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-        if (server == null) return;
-        
-        for (ServerPlayer otherPlayer : server.getPlayerList().getPlayers()) {
-            if (otherPlayer != unvanishedPlayer) {
-                showPlayerToSpecific(unvanishedPlayer, otherPlayer);
-            }
-        }
-    }
-    
-    /**
-     * Hide a specific player from a specific observer
-     */
-    private void hidePlayerFromSpecific(ServerPlayer vanishedPlayer, ServerPlayer observer) {
-        try {
-            // Use NeoForge networking to hide player
-            observer.connection.send(new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(
-                List.of(vanishedPlayer.getUUID())
-            ));
-        } catch (Exception e) {
-            LOGGER.error("Failed to hide player {} from {}", vanishedPlayer.getName().getString(), observer.getName().getString(), e);
-        }
-    }
-    
-    /**
-     * Show a specific player to a specific observer
-     */
-    private void showPlayerToSpecific(ServerPlayer unvanishedPlayer, ServerPlayer observer) {
-        try {
-            // Player will be re-added to tab list automatically on respawn/rejoin
-            // For now, we'll rely on the client's natural player discovery
-        } catch (Exception e) {
-            LOGGER.error("Failed to show player {} to {}", unvanishedPlayer.getName().getString(), observer.getName().getString(), e);
-        }
+    public boolean canViewerSeeVanished(UUID viewerId, UUID targetId) {
+        if (!isPlayerVanished(targetId)) return true;
+        int viewerPriority = viewerPriorities.getOrDefault(viewerId, 10);
+        int vanishedPriority = vanishedPlayers.getOrDefault(targetId, 10);
+        return viewerPriority <= vanishedPriority;
     }
     
     /**

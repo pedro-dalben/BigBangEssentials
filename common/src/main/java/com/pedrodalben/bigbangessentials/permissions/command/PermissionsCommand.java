@@ -638,7 +638,17 @@ public class PermissionsCommand {
             }
             
             user.setGroup(groupName);
-            
+
+            // Notify tablist of group change
+            try {
+                ServerPlayer targetPlayer = server.getPlayerList().getPlayer(uuid);
+                if (targetPlayer != null) {
+                    com.pedrodalben.bigbangessentials.tablist.integration.PermissionTabIntegration.onGroupChange(targetPlayer);
+                }
+            } catch (Exception e) {
+                LOGGER.debug("Failed to notify tablist of group change: {}", e.getMessage());
+            }
+
             // Clear permission cache after modification
             PermissionAPI.getManager().clearCache();
             

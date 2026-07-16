@@ -79,9 +79,6 @@ public class AfkManager {
     
     // Additional configuration fields
     private boolean ignoreAfkInSleep = true;
-    private boolean enableTablistIndicator = true;
-    private String tablistAfkPrefix = "[AFK] ";
-    private String tablistAfkSuffix = "";
     private boolean enableActivityTracking = true;
     private boolean trackMovement = true;
     private boolean trackChat = true;
@@ -267,7 +264,7 @@ public class AfkManager {
                 reason != null && !reason.equals("Inactive") ? " (" + reason + ")" : "");
 
             // Update tablist display
-            com.pedrodalben.bigbangessentials.chat.handlers.AfkTablistHandler.onPlayerAfk(player);
+            com.pedrodalben.bigbangessentials.tablist.integration.AfkTabIntegration.onAfkChange(player.getUUID(), true);
                 
         } catch (Exception e) {
             LOGGER.error("Error broadcasting AFK message", e);
@@ -278,29 +275,25 @@ public class AfkManager {
      * Called when player returns from AFK
      */
     private void onPlayerReturnFromAfk(UUID playerUuid) {
-        if (!broadcastReturnMessages) return;
-        
         try {
-            // Get player reference
             net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
             if (server == null) return;
-            
+
+            // Always update tablist, regardless of broadcast settings
+            com.pedrodalben.bigbangessentials.tablist.integration.AfkTabIntegration.onAfkChange(playerUuid, false);
+
+            if (!broadcastReturnMessages) return;
+
             ServerPlayer player = server.getPlayerList().getPlayer(playerUuid);
             if (player == null) return;
-            
-            // Create return message
+
             String message = returnMessage.replace("{player}", player.getName().getString());
-            
-            // Broadcast to all players and log to console
+
             Component returnComponent = Component.literal("§e" + message);
             server.getPlayerList().broadcastSystemMessage(returnComponent, false);
             server.sendSystemMessage(returnComponent);
 
             LOGGER.info("Player {} returned from AFK", player.getName().getString());
-            
-            // Update tablist display
-            com.pedrodalben.bigbangessentials.chat.handlers.AfkTablistHandler.onPlayerReturnFromAfk(player);
-            
         } catch (Exception e) {
             LOGGER.error("Error broadcasting return message", e);
         }
@@ -603,9 +596,6 @@ public class AfkManager {
     
     // Configuration getter methods for external access
     public boolean isIgnoreAfkInSleep() { return ignoreAfkInSleep; }
-    public boolean isEnableTablistIndicator() { return enableTablistIndicator; }
-    public String getTablistAfkPrefix() { return tablistAfkPrefix; }
-    public String getTablistAfkSuffix() { return tablistAfkSuffix; }
     public boolean isEnableActivityTracking() { return enableActivityTracking; }
     public boolean isTrackMovement() { return trackMovement; }
     public boolean isTrackChat() { return trackChat; }

@@ -287,17 +287,14 @@ public class NickCommand {
 
         if (nickname != null) {
             String formattedNick = nickname.replace("&", "\u00a7");
-            player.setCustomName(com.pedrodalben.bigbangessentials.util.MessageUtil.coloredText(formattedNick));
-            player.setCustomNameVisible(true);
-            com.pedrodalben.bigbangessentials.tablist.TablistManager.getInstance().setCustomName(player.getUUID(), formattedNick);
+            // Nametag above head is managed by NameTagFeature (scoreboard teams).
+            // Tablist display name is managed by PlayerListFormattingFeature.
+            // Chat display name is managed by ChatHandler.
+            // NickCommand stores the nick data and notifies the tablist module.
+            // DO NOT call setCustomName/setCustomNameVisible here — conflicts with team prefix/suffix rendering.
+            com.pedrodalben.bigbangessentials.tablist.integration.NickTabIntegration.onNickChange(player.getUUID(), formattedNick);
         } else {
-            player.setCustomName(null);
-            player.setCustomNameVisible(false);
-            com.pedrodalben.bigbangessentials.tablist.TablistManager.getInstance().clearCustomName(player.getUUID());
-        }
-
-        if (player.getServer() != null) {
-            com.pedrodalben.bigbangessentials.tablist.TablistManager.getInstance().updateAll(player.getServer());
+            com.pedrodalben.bigbangessentials.tablist.integration.NickTabIntegration.onNickChange(player.getUUID(), "");
         }
     }
 
@@ -406,7 +403,9 @@ public class NickCommand {
             if (nickname != null && !nickname.isBlank()) {
                 NICKNAMES.put(playerId, nickname);
             }
-            updatePlayerDisplayName(player);
+            if (player.getServer() != null) {
+                player.getServer().execute(() -> updatePlayerDisplayName(player));
+            }
         }).exceptionally(err -> {
             System.err.println("Failed to refresh nickname for " + playerId + ": " + err.getMessage());
             return null;

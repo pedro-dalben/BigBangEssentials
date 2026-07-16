@@ -293,6 +293,14 @@ public class TagCommands {
             "commands.bigbangessentials.tags.select_success",
             normalized
         ), false);
+
+        try {
+            String tagFormat = TagManager.getInstance().getSelectedTagFormat(player.getUUID());
+            com.pedrodalben.bigbangessentials.tablist.integration.TagTabIntegration.onTagChange(player.getUUID(), tagFormat);
+        } catch (Exception e) {
+            LOGGER.debug("Failed to notify tablist of tag select: {}", e.getMessage());
+        }
+
         return 1;
     }
 
@@ -306,6 +314,12 @@ public class TagCommands {
 
         TagManager tagManager = TagManager.getInstance();
         tagManager.clearSelectedTag(player.getUUID());
+
+        try {
+            com.pedrodalben.bigbangessentials.tablist.integration.TagTabIntegration.onTagChange(player.getUUID(), "");
+        } catch (Exception e) {
+            LOGGER.debug("Failed to notify tablist of tag clear: {}", e.getMessage());
+        }
 
         source.sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.tags.cleared"), false);
         return 1;

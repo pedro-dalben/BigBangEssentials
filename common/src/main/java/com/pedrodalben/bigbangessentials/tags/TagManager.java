@@ -37,6 +37,7 @@ public class TagManager {
     private static volatile TagManager instance;
 
     private final Map<String, String> tags = new ConcurrentHashMap<>();
+    private final Map<UUID, String> selectedTagCache = new ConcurrentHashMap<>();
     private final PlayerDataStore selectedTagStore = new PlayerDataStore("tags");
     private final File tagsFile = ResourceUtil.getConfigFile(TAGS_FILE_NAME);
     private final Object fileLock = new Object();
@@ -133,43 +134,84 @@ public class TagManager {
     }
 
     public String getSelectedTagName(UUID playerId) {
-        String dbTag = loadSelectedTagFromDatabase(playerId);
-        if (dbTag != null) {
-            String normalized = normalizeTagName(dbTag);
-            if (normalized != null && tags.containsKey(normalized)) {
-                return normalized;
-            }
-            return null;
+        // Fast path: cache hit
+        String cached = selectedTagCache.get(playerId);
+        if (cached != null) {
+            return cached;
         }
 
+        // Synchronous fallback: load from local store
+        String local = loadFromLocalStore(playerId);
+        if (local != null) {
+            selectedTagCache.put(playerId, local);
+            return local;
+        }
+
+        // No local data — try DB asynchronously
+        loadSelectedTagFromDBAsync(playerId);
+        return null;
+    }
+
+    /**
+     * Kicks off an async DB load on login. The result is cached and
+     * notified to the tablist when it arrives. Public so login handler
+     * can call it without modifying the synchronous contract of
+     * {@link #getSelectedTagName(UUID)}.
+     */
+    public void loadSelectedTagNameAsync(UUID playerId) {
+        loadSelectedTagFromDBAsync(playerId);
+    }
+
+    private void loadSelectedTagFromDBAsync(UUID playerId) {
+        // Already cached — nothing to do
+        if (selectedTagCache.containsKey(playerId)) {
+            return;
+        }
+
+        PlayerPreferencesStorage storage = resolveDbStorage();
+        if (storage == null) return;
+
+        storage.loadTag(playerId).thenAccept(dbTag -> {
+            if (dbTag != null) {
+                String normalized = normalizeTagName(dbTag);
+                if (normalized != null && tags.containsKey(normalized)) {
+                    selectedTagCache.put(playerId, normalized);
+                    String tagFormat = getTagFormat(normalized);
+                    // Defer tablist notification to main server thread.
+                    // CompletableFuture callbacks run on ForkJoinPool; direct
+                    // access to TabPlayerState + invalidatePlayer is not atomic.
+                    net.minecraft.server.MinecraftServer server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
+                    if (server != null) {
+                        server.tell(new net.minecraft.server.TickTask(server.getTickCount(),
+                            () -> notifyTablistOfTag(playerId, tagFormat)));
+                    }
+                }
+            }
+        }).exceptionally(err -> {
+            LOGGER.debug("Failed to async load tag for {}: {}", playerId, err.getMessage());
+            return null;
+        });
+    }
+
+    private void notifyTablistOfTag(UUID playerId, String tagFormat) {
+        try {
+            com.pedrodalben.bigbangessentials.tablist.integration.TagTabIntegration.onTagChange(playerId, tagFormat != null ? tagFormat : "");
+        } catch (Exception e) {
+            LOGGER.debug("Failed to notify tablist of tag: {}", e.getMessage());
+        }
+    }
+
+    private String loadFromLocalStore(UUID playerId) {
         JsonObject data = selectedTagStore.load(playerId);
         if (data == null || !data.has(SELECTED_TAG_KEY)) {
             return null;
         }
-
         String selected = data.get(SELECTED_TAG_KEY).getAsString();
         String normalized = normalizeTagName(selected);
-        if (normalized == null || normalized.isEmpty()) {
-            clearSelectedTag(playerId);
+        if (normalized == null || normalized.isEmpty() || !tags.containsKey(normalized)) {
             return null;
         }
-
-        if (!tags.containsKey(normalized)) {
-            clearSelectedTag(playerId);
-            return null;
-        }
-
         return normalized;
-    }
-
-    private String loadSelectedTagFromDatabase(UUID playerId) {
-        PlayerPreferencesStorage storage = resolveDbStorage();
-        if (storage == null) return null;
-        try {
-            return storage.loadTag(playerId).get();
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     public String getSelectedTagFormat(UUID playerId) {
@@ -227,6 +269,8 @@ public class TagManager {
             return false;
         }
 
+        selectedTagCache.put(playerId, normalized);
+
         JsonObject data = selectedTagStore.load(playerId);
         data.addProperty(SELECTED_TAG_KEY, normalized);
         selectedTagStore.save(playerId, data);
@@ -236,6 +280,7 @@ public class TagManager {
     }
 
     public void clearSelectedTag(UUID playerId) {
+        selectedTagCache.remove(playerId);
         selectedTagStore.delete(playerId);
         deleteSelectedTagFromDatabase(playerId);
     }
