@@ -66,8 +66,13 @@ public class CompiledTabTemplate {
         }
         @Override
         public String render(ServerPlayer player, TabAnimationRegistry animationRegistry) {
-            // Evaluated externally usually, or handled specially
-            return "{" + placeholderName + "}";
+            // Resolve via PlaceholderManager like regular placeholders.
+            // These are "internal" only in the sense that the tablist module
+            // also resolves them locally in buildDisplayName/nameTag for
+            // display-name-specific formatting. For header/footer/objective
+            // templates, this is the only resolution path.
+            String val = PlaceholderManager.getInstance().getPlaceholderValue(player, placeholderName, null);
+            return val != null ? val.replace("&", "§") : "{" + placeholderName + "}";
         }
     }
 
