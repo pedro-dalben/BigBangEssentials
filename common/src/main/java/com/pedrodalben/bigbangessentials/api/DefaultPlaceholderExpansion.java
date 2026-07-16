@@ -96,6 +96,7 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
         // Aliases for common shorthand use
         placeholders.add("online");      // alias for online_players
         placeholders.add("max");         // alias for max_players
+        placeholders.add("tps");         // server TPS
 
         LOGGER.debug("Initialized {} default placeholders", placeholders.size());
     }
@@ -171,6 +172,7 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
                 case "server_name" -> getServerName(player);
                 case "online", "online_players" -> getOnlinePlayerCount(player);
                 case "max", "max_players" -> getMaxPlayerCount(player);
+                case "tps" -> getTps(player);
                 
                 // Time
                 case "time" -> getCurrentTime();
@@ -200,7 +202,7 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
      */
     private boolean requiresPlayer(String identifier) {
         return switch (identifier.toLowerCase()) {
-            case "server_name", "online_players", "max_players", "time", "time_24", "date", "gems_currency_name", "gems_currency_symbol" -> false;
+            case "server_name", "online_players", "max_players", "tps", "time", "time_24", "date", "gems_currency_name", "gems_currency_symbol" -> false;
             case "rankup_current_id", "rankup_current_name", "rankup_next_id", "rankup_next_name",
                  "rankup_progress_percent", "rankup_money_required", "rankup_gems_required",
                  "rankup_tasks_completed", "rankup_tasks_total" -> true;
@@ -508,6 +510,32 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
             LOGGER.debug("Error getting max player count: {}", e.getMessage());
         }
         return "20";
+    }
+
+    /**
+     * Get the current server TPS (ticks per second).
+     */
+    private String getTps(@Nullable ServerPlayer player) {
+        try {
+            if (player != null && player.getServer() != null) {
+                net.minecraft.server.MinecraftServer server = player.getServer();
+                // MinecraftServer stores last 100 tick times in nanoseconds.
+                // Access via reflection since getTickTimes() doesn't exist in 1.21.1 mappings.
+                java.lang.reflect.Field tickTimesField = net.minecraft.server.MinecraftServer.class.getDeclaredField("tickTimes");
+                tickTimesField.setAccessible(true);
+                long[] tickTimes = (long[]) tickTimesField.get(server);
+                if (tickTimes != null && tickTimes.length > 0) {
+                    double avgNanos = 0;
+                    for (long t : tickTimes) avgNanos += t;
+                    avgNanos /= tickTimes.length;
+                    double tps = 1_000_000_000.0 / avgNanos;
+                    return String.format("%.1f", Math.min(tps, 20.0));
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Error getting TPS: {}", e.getMessage());
+        }
+        return "20.0";
     }
     
     /**

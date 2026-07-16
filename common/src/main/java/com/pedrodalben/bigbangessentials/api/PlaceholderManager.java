@@ -287,11 +287,11 @@ public class PlaceholderManager {
             }
         }
         
-        // Check expansions for prefixed placeholders (e.g., "bigbangessentials:player_name")
-        int colonIndex = normalizedIdentifier.indexOf('_');
-        if (colonIndex != -1) {
-            String expansionId = normalizedIdentifier.substring(0, colonIndex);
-            String placeholderName = normalizedIdentifier.substring(colonIndex + 1);
+        // Check expansions for prefixed placeholders (e.g., "bigbangessentials_world")
+        int underscoreIndex = normalizedIdentifier.indexOf('_');
+        if (underscoreIndex != -1) {
+            String expansionId = normalizedIdentifier.substring(0, underscoreIndex);
+            String placeholderName = normalizedIdentifier.substring(underscoreIndex + 1);
             
             PlaceholderExpansion expansion = expansions.get(expansionId);
             if (expansion != null) {
@@ -301,6 +301,19 @@ public class PlaceholderManager {
                     LOGGER.error("Error resolving expansion placeholder '{}' from '{}': {}", 
                         placeholderName, expansionId, e.getMessage(), e);
                     return null;
+                }
+            }
+        }
+        
+        // Fallback: check all expansions for unqualified placeholder names.
+        // This allows {world}, {ping}, {time}, etc. to resolve without the
+        // "bigbangessentials_" prefix in tablist templates.
+        for (PlaceholderExpansion expansion : expansions.values()) {
+            if (expansion.getPlaceholders().contains(normalizedIdentifier)) {
+                try {
+                    return expansion.onPlaceholderRequest(player, normalizedIdentifier, params);
+                } catch (Exception e) {
+                    LOGGER.debug("Expansion fallback error for '{}': {}", normalizedIdentifier, e.getMessage());
                 }
             }
         }
