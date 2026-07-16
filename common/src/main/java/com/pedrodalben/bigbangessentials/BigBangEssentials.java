@@ -438,10 +438,11 @@ public class BigBangEssentials {
 
             // Initialize Tablist system
             try {
-                com.pedrodalben.bigbangessentials.tablist.TablistManager.getInstance().loadConfig();
-                LOGGER.info("TablistManager initialized successfully");
+                com.pedrodalben.bigbangessentials.tablist.TablistModule tablist = new com.pedrodalben.bigbangessentials.tablist.TablistModule();
+                tablist.onEnable(server);
+                LOGGER.info("TablistModule initialized successfully");
             } catch (Exception e) {
-                LOGGER.error("Failed to initialize TablistManager: {}", e.getMessage());
+                LOGGER.error("Failed to initialize TablistModule: {}", e.getMessage());
             }
 
             // Initialize Jobs RankUp integration
@@ -466,6 +467,7 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.util.commands.NickCommand.refreshNicknameFromDatabase(player);
                 com.pedrodalben.bigbangessentials.chat.MsgToggleManager.refreshFromDatabase(player);
                 com.pedrodalben.bigbangessentials.chat.SocialSpyManager.refreshFromDatabase(player);
+                com.pedrodalben.bigbangessentials.tags.TagManager.getInstance().loadSelectedTagNameAsync(player.getUUID());
             } catch (Exception e) {
                 LOGGER.debug("Failed to refresh database-backed player state for {}: {}", player.getName().getString(), e.getMessage(), e);
             }
@@ -1167,6 +1169,10 @@ public class BigBangEssentials {
 
         registry.registerCommand("hologram", "Manage holograms", "holograms");
         com.pedrodalben.bigbangessentials.holograms.command.HologramCommand.register(dispatcher);
+
+        // ========== TABLIST MODULE ==========
+        registry.registerCommand("tablist", "Manage tablist configuration, reload, debug");
+        com.pedrodalben.bigbangessentials.tablist.TablistCommand.register(dispatcher);
     }
         /*
          * All command registration and related logic that was previously outside of methods has been moved here as a block comment.
@@ -1210,6 +1216,13 @@ public class BigBangEssentials {
             
             LOGGER.debug("Created DefaultPlaceholderExpansion with {} placeholders", 
                 defaultExpansion.getPlaceholders().size());
+            
+            // Register shorthand aliases as direct placeholders so {online} and {max}
+            // work without needing the {bigbangessentials_online_players} prefix
+            com.pedrodalben.bigbangessentials.api.PlaceholderAPI.registerPlaceholder("online",
+                (player, params) -> defaultExpansion.onPlaceholderRequest(player, "online", params));
+            com.pedrodalben.bigbangessentials.api.PlaceholderAPI.registerPlaceholder("max",
+                (player, params) -> defaultExpansion.onPlaceholderRequest(player, "max", params));
             
             boolean registered = com.pedrodalben.bigbangessentials.api.PlaceholderAPI.registerExpansion(defaultExpansion);
             

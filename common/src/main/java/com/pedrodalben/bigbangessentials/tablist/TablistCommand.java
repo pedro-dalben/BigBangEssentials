@@ -2,150 +2,95 @@ package com.pedrodalben.bigbangessentials.tablist;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
-import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
-import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-/**
- * /tablist — Admin command to manage the tablist at runtime.
- *
- * Sub-commands:
- *   /tablist reload          — reload tablist config and push to all players
- *   /tablist enable          — enable the tablist system
- *   /tablist disable         — disable the tablist system (revert to vanilla)
- *   /tablist preview         — show your own current header/footer
- *   /tablist set header <text>  — set a single-frame header in-game
- *   /tablist set footer <text>  — set a single-frame footer in-game
- *   /tablist info            — show current tablist config status
- */
-public class TablistCommand {
 
+public class TablistCommand {
     private static final String PERM_ADMIN = "bigbangessentials.tablist.admin";
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        if (!ConfigManager.getInstance().isCommandEnabled("tablist")) return;
-
         dispatcher.register(Commands.literal("tablist")
-            .requires(src -> {
-                var p = src.getPlayer();
-                return p == null ? src.hasPermission(2) : PermissionAPI.hasPermission(p.getUUID(), PERM_ADMIN);
-            })
-            .executes(ctx -> {
-                showHelp(ctx.getSource());
-                return 1;
-            })
-            // /tablist reload
-            .then(Commands.literal("reload")
-                .executes(ctx -> {
-                    TablistManager.getInstance().loadConfig();
-                    var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-                    if (server != null) TablistManager.getInstance().updateAll(server);
-                    ctx.getSource().sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.tablist.reloaded"), false);
+                .requires(source -> source.hasPermission(2))
+                .executes(context -> {
+                    showHelp(context.getSource());
                     return 1;
                 })
-            )
-            // /tablist enable
-            .then(Commands.literal("enable")
-                .executes(ctx -> {
-                    TablistManager.getInstance().setEnabled(true);
-                    var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-                    if (server != null) TablistManager.getInstance().updateAll(server);
-                    ctx.getSource().sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.tablist.enabled"), false);
-                    return 1;
-                })
-            )
-            // /tablist disable
-            .then(Commands.literal("disable")
-                .executes(ctx -> {
-                    TablistManager.getInstance().setEnabled(false);
-                    // Send empty header/footer to all players to restore vanilla appearance
-                    var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-                    if (server != null) {
-                        var emptyPacket = new net.minecraft.network.protocol.game.ClientboundTabListPacket(
-                            Component.empty(), Component.empty());
-                        for (var p : server.getPlayerList().getPlayers()) {
-                            p.connection.send(emptyPacket);
-                        }
-                    }
-                    ctx.getSource().sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.tablist.disabled"), false);
-                    return 1;
-                })
-            )
-            // /tablist preview
-            .then(Commands.literal("preview")
-                .executes(ctx -> {
-                    ServerPlayer player = ctx.getSource().getPlayer();
-                    if (player == null) {
-                        ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.general.player_only"));
-                        return 0;
-                    }
-                    var server = player.getServer();
-                    if (server != null) TablistManager.getInstance().updatePlayer(player, server);
-                    ctx.getSource().sendSuccess(() -> Component.literal("§aPreviewing your tablist header/footer."), false);
-                    return 1;
-                })
-            )
-            // /tablist info
-            .then(Commands.literal("info")
-                .executes(ctx -> {
-                    boolean enabled = TablistManager.getInstance().isEnabled();
-                    ctx.getSource().sendSuccess(() -> Component.literal(
-                        "§6Tablist System §8— §" + (enabled ? "aEnabled" : "cDisabled") + "\n" +
-                        "§7Use §e/tablist reload §7to reload config, §e/tablist preview §7to preview your tab."
-                    ), false);
-                    return 1;
-                })
-            )
-            // /tablist set header|footer <text>
-            .then(Commands.literal("set")
-                .then(Commands.literal("header")
-                    .then(Commands.argument("text", StringArgumentType.greedyString())
-                        .executes(ctx -> {
-                            String text = StringArgumentType.getString(ctx, "text");
-                            // Update the in-memory first frame directly (runtime override)
-                            // A full reload from disk will reset this
-                            TablistManager tablist = TablistManager.getInstance();
-                            tablist.setHeaderOverride(text);
-                            var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-                            if (server != null) tablist.updateAll(server);
-                            ctx.getSource().sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.tablist.header_set"), false);
+                .then(Commands.literal("reload")
+                        .executes(context -> {
+                            TablistModule module = TablistModule.getInstance();
+                            if (module == null) {
+                                context.getSource().sendFailure(Component.literal("Tablist module not initialized"));
+                                return 0;
+                            }
+                            module.onEnable(context.getSource().getServer());
+                            context.getSource().sendSuccess(() -> Component.literal("Tablist reloaded!"), true);
                             return 1;
                         })
-                    )
                 )
-                .then(Commands.literal("footer")
-                    .then(Commands.argument("text", StringArgumentType.greedyString())
-                        .executes(ctx -> {
-                            String text = StringArgumentType.getString(ctx, "text");
-                            TablistManager tablist = TablistManager.getInstance();
-                            tablist.setFooterOverride(text);
-                            var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-                            if (server != null) tablist.updateAll(server);
-                            ctx.getSource().sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.tablist.footer_set"), false);
+                .then(Commands.literal("debug")
+                        .executes(context -> {
+                            ServerPlayer player = context.getSource().getPlayerOrException();
+                            com.pedrodalben.bigbangessentials.tablist.diagnostics.TablistDiagnostics.runDiagnostics(player);
                             return 1;
                         })
-                    )
                 )
-            )
+                .then(Commands.literal("enable")
+                        .executes(context -> {
+                            TablistModule module = TablistModule.getInstance();
+                            if (module != null) {
+                                module.onEnable(context.getSource().getServer());
+                            }
+                            context.getSource().sendSuccess(() -> Component.literal("Tablist enabled"), true);
+                            return 1;
+                        })
+                )
+                .then(Commands.literal("disable")
+                        .executes(context -> {
+                            TablistModule module = TablistModule.getInstance();
+                            if (module != null) {
+                                module.onDisable();
+                            }
+                            context.getSource().sendSuccess(() -> Component.literal("Tablist disabled"), true);
+                            return 1;
+                        })
+                )
+                .then(Commands.literal("info")
+                        .executes(context -> {
+                            TablistModule module = TablistModule.getInstance();
+                            boolean enabled = module != null && module.isEnabled();
+                            context.getSource().sendSuccess(() -> Component.literal(
+                                    "\u00a76Tablist System \u00a78\u2014 \u00a7" + (enabled ? "aEnabled" : "cDisabled")
+                            ), false);
+                            return 1;
+                        })
+                )
+                .then(Commands.literal("refresh")
+                        .then(Commands.literal("all")
+                                .executes(context -> {
+                                    TablistModule module = TablistModule.getInstance();
+                                    if (module != null) {
+                                        module.invalidateAll(com.pedrodalben.bigbangessentials.tablist.api.TablistInvalidationReason.RELOAD);
+                                    }
+                                    context.getSource().sendSuccess(() -> Component.literal("All players refreshed"), true);
+                                    return 1;
+                                })
+                        )
+                )
         );
     }
 
     private static void showHelp(CommandSourceStack src) {
         src.sendSuccess(() -> Component.literal(
-            "§6§lTablist Commands:\n" +
-            "§e/tablist reload §7— reload tablist.json config\n" +
-            "§e/tablist enable §7— enable tablist\n" +
-            "§e/tablist disable §7— disable tablist\n" +
-            "§e/tablist preview §7— preview your header/footer\n" +
-            "§e/tablist set header <text> §7— runtime header override\n" +
-            "§e/tablist set footer <text> §7— runtime footer override\n" +
-            "§e/tablist info §7— show status and config file path\n" +
-            "§e/tablist config §7— show current settings summary\n" +
-            "§7Config file: §f" + ResourceUtil.getConfigFile("tablist.json").getPath()
+                "\u00a76\u00a7lTablist Commands:\n" +
+                        "\u00a7e/tablist reload \u00a77\u2014 reload tablist.json config\n" +
+                        "\u00a7e/tablist enable \u00a77\u2014 enable tablist\n" +
+                        "\u00a7e/tablist disable \u00a77\u2014 disable tablist\n" +
+                        "\u00a7e/tablist debug \u00a77\u2014 run diagnostics\n" +
+                        "\u00a7e/tablist info \u00a77\u2014 show status\n" +
+                        "\u00a7e/tablist refresh all \u00a77\u2014 force refresh all players"
         ), false);
     }
 }
