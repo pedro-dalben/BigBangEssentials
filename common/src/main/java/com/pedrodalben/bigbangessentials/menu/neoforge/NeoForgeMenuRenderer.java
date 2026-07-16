@@ -23,14 +23,17 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
 
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.regex.Pattern;
 
 public class NeoForgeMenuRenderer {
 
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(NeoForgeMenuRenderer.class);
+    private static final Pattern PLACEHOLDER_ONLY_LINE = Pattern.compile("^\\s*\\{[^{}]+}\\s*$");
 
     public void openMenu(ServerPlayer player, MenuSession session, MenuDefinition menu, MenuContext context, MenuServiceImpl service) {
         NeoForgeMenuProvider provider = new NeoForgeMenuProvider(player, session, menu, service);
@@ -150,13 +153,47 @@ public class NeoForgeMenuRenderer {
         
         // Lore
         if (itemDef.item().lore() != null && !itemDef.item().lore().isEmpty()) {
-            List<Component> components = itemDef.item().lore().stream()
-                .map(line -> PlaceholderService.resolve(line, player, context))
-                .map(ChatComponentUtil::parseColorCodes)
-                .toList();
+            List<Component> components = resolveLoreComponents(itemDef.item().lore(), player, context);
             stack.set(DataComponents.LORE, new ItemLore(components));
         }
         return stack;
+    }
+
+    static List<Component> resolveLoreComponents(List<String> loreLines, ServerPlayer player, MenuContext context) {
+        List<Component> components = new ArrayList<>();
+        if (loreLines == null || loreLines.isEmpty()) {
+            return components;
+        }
+
+        for (String line : loreLines) {
+            String resolved = PlaceholderService.resolve(line, player, context);
+            if (resolved == null) {
+                if (!isPlaceholderOnlyLine(line)) {
+                    components.add(Component.empty());
+                }
+                continue;
+            }
+
+            if (resolved.isBlank() && isPlaceholderOnlyLine(line)) {
+                continue;
+            }
+
+            String[] segments = resolved.split("\\R", -1);
+            if (segments.length == 0) {
+                components.add(ChatComponentUtil.parseColorCodes(resolved));
+                continue;
+            }
+
+            for (String segment : segments) {
+                components.add(ChatComponentUtil.parseColorCodes(segment));
+            }
+        }
+
+        return components;
+    }
+
+    private static boolean isPlaceholderOnlyLine(String line) {
+        return line != null && PLACEHOLDER_ONLY_LINE.matcher(line).matches();
     }
 
     public static boolean checkPermissionSpec(com.pedrodalben.bigbangessentials.menu.model.PermissionSpec spec, ServerPlayer player, MenuContext context) {
