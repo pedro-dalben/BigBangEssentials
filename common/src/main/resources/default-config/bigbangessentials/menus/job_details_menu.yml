@@ -19,7 +19,11 @@ pages:
             - "{context:job_xp_progress_bar}"
             - "<gray>Limite Diário: <white>${context:job_earnings} / ${context:job_limit}"
             - "<gray>Categoria: <white>{context:job_category_label}"
-            - "<gray>Licença: {context:job_license_label}"
+            - "<gray>Rank: <white>{context:job_required_rank_label}"
+            - "<gray>Licença: {context:job_license_required_label}"
+            - "<gray>Status da licença: {context:job_license_status}"
+            - "{context:job_license_objectives}"
+            - "{context:job_license_progress}"
             - "<gray>Slot Ocupado: <yellow>{context:job_slot_assigned}"
             - "<gray>Status: {context:job_status_color}{context:job_status}"
       toggle_action:

@@ -54,17 +54,19 @@ visibility:
 
 ### Visual States (item lore/name)
 
-The `JobsMenuSupport.buildJobPlaceholders` method injects these placeholders:
+The `JobsMenuSupport.buildJobPlaceholders` method injects the menu-local `job_*` values used by the default menus. The full placeholder reference lives in [PLACEHOLDERS.md](../modules/jobs/PLACEHOLDERS.md).
 
-| Placeholder | Source | Example |
-|-------------|--------|---------|
-| `{job_status_color}` | Availability result | `<green>` (ACTIVE), `<red>` (LOCKED) |
-| `{job_status_key}` | Status enum lowercase | `active`, `locked` |
-| `{job_status}` | Status text from ViewModel | `Ativo`, `Bloqueado` |
-| `{job_license_label}` | License + availability | `Disponível para entrar` |
-| `{job_can_join}` | `avail.canJoin()` | `true`/`false` |
-| `{job_favorite}` | `JobFavoriteService` | `true`/`false` |
-| `{job_icon}` | Job definition | `minecraft:diamond_pickaxe` |
+Common values used by the default layouts:
+
+- `{job_status_color}` - availability-driven color prefix
+- `{job_status}` - rendered status text
+- `{job_license_label}` - short access label
+- `{job_license_status}` - license state label
+- `{job_license_objectives}` and `{job_license_progress}` - multiline license lore blocks
+- `{job_xp_progress_bar}` - rendered progress bar
+- `{job_icon}` - item icon id
+
+`job_details_menu.yml` and `pokemon_job_details_menu.yml` usually reference these through `{context:job_*}`.
 
 Color mapping by status:
 - **ACTIVE**: `<green>` (green name, glint enabled)
@@ -145,6 +147,7 @@ Permission-based multipliers (checked via `ExternalPermissionAdapter`):
 4. Visibility config replaces the old `hiddenUntilDiscovered` boolean — migrate to `VISIBLE_WHEN_DISCOVERED` mode.
 
 ### YAML Menu Changes
-- All new placeholders are prefixed with `job_` — update custom menu YAML files.
+- `job_*` placeholders are injected per job card or detail view, while `jobs:*` placeholders are reserved for the summary widget.
+- See [PLACEHOLDERS.md](../modules/jobs/PLACEHOLDERS.md) for the full list before customizing menu YAML files.
 - License labels now come from availability state, not hardcoded strings.
 - Favorite/unfavorite toggling is handled client-side in the menu actions.

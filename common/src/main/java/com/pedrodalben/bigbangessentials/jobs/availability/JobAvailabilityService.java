@@ -185,9 +185,9 @@ public class JobAvailabilityService {
             return new JobRequirementResult("permission", JobRequirementType.PERMISSION,
                 true, "Permission", "Server console", "-", "-", JobRequirementResult.NO_ACTION);
         }
-        boolean hasPerm = PermissionAPI.hasPermission(player.getUUID(), job.permission);
+        boolean hasPerm = com.pedrodalben.bigbangessentials.jobs.JobPermissionService.getInstance().hasPermission(player.getUUID(), job.permission);
         if (!hasPerm && job.unlockRequirements != null && job.unlockRequirements.hasPermissionRequirement()) {
-            hasPerm = PermissionAPI.hasPermission(player.getUUID(), job.unlockRequirements.permission());
+            hasPerm = com.pedrodalben.bigbangessentials.jobs.JobPermissionService.getInstance().hasPermission(player.getUUID(), job.unlockRequirements.permission());
         }
         LOGGER.debug("evaluatePermission() jobId={} permission={} result={}", job.id, job.permission, hasPerm);
         return new JobRequirementResult("permission", JobRequirementType.PERMISSION,
@@ -325,7 +325,7 @@ public class JobAvailabilityService {
 
     public JobAvailabilityResult evaluateForAdmin(ServerPlayer admin, ServerPlayer target, JobDefinition job) {
         JobAvailabilityResult base = evaluate(target, job);
-        if (admin == null || PermissionAPI.hasPermission(admin.getUUID(), "bigbangessentials.jobs.admin.debug")) {
+        if (admin == null || com.pedrodalben.bigbangessentials.jobs.JobPermissionService.getInstance().hasPermission(admin.getUUID(), "bigbangessentials.jobs.admin.debug")) {
             return base;
         }
         if (base.status() == JobAvailabilityStatus.CONFIGURATION_ERROR) {

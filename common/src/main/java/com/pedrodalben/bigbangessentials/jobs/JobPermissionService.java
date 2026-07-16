@@ -20,19 +20,27 @@ public class JobPermissionService {
         if (PermissionAPI.hasPermission(playerUuid, resolved)) return true;
 
         Map<String, String> aliases = cfg != null ? cfg.global().legacyPermissionAliases : null;
-        if (aliases != null && aliases.containsKey(node)) {
-            return PermissionAPI.hasPermission(playerUuid, aliases.get(node));
+        if (aliases != null) {
+            // Check direct legacy-to-canonical mapping
+            if (aliases.containsKey(node)) {
+                if (PermissionAPI.hasPermission(playerUuid, aliases.get(node))) return true;
+            }
+            // Check backward canonical-to-legacy mapping
+            for (Map.Entry<String, String> entry : aliases.entrySet()) {
+                if (entry.getValue().equals(node)) {
+                    if (PermissionAPI.hasPermission(playerUuid, entry.getKey())) return true;
+                }
+            }
         }
-        if (cfg != null && node.startsWith(cfg.global().permissionPrefix)) return false;
 
         String legacyEquivalent = node.replace("bigbangessentials.jobs", "jobs");
         if (!legacyEquivalent.equals(node)) {
-            return PermissionAPI.hasPermission(playerUuid, legacyEquivalent);
+            if (PermissionAPI.hasPermission(playerUuid, legacyEquivalent)) return true;
         }
 
         String canonicalEquivalent = node.replace("jobs.", "bigbangessentials.jobs.");
         if (!canonicalEquivalent.equals(node)) {
-            return PermissionAPI.hasPermission(playerUuid, canonicalEquivalent);
+            if (PermissionAPI.hasPermission(playerUuid, canonicalEquivalent)) return true;
         }
 
         return PermissionAPI.hasPermission(playerUuid, node);

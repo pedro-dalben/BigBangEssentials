@@ -110,7 +110,11 @@ public class JobsMenuIntegration {
                "      - \"{job_xp_progress_bar}\"\n" +
                "      - \"<gray>Ganhos Hoje: <white>${job_earnings} / ${job_limit}\"\n" +
                "      - \"<gray>Categoria: <white>{job_category_label}\"\n" +
-               "      - \"<gray>Licença: {job_license_label}\"\n" +
+               "      - \"<gray>Rank: <white>{job_required_rank_label}\"\n" +
+               "      - \"<gray>Licença: {job_license_required_label}\"\n" +
+               "      - \"<gray>Status da licença: {job_license_status}\"\n" +
+               "      - \"{job_license_objectives}\"\n" +
+               "      - \"{job_license_progress}\"\n" +
                "      - \"<gray>Slot Ocupado: <yellow>{job_slot_assigned}\"\n" +
                "      - \"<gray>Status: {job_status_color}{job_status}\"\n" +
                "      - \"\"\n" +
@@ -182,7 +186,11 @@ public class JobsMenuIntegration {
                "            - \"{context:job_xp_progress_bar}\"\n" +
                "            - \"<gray>Limite Diário: <white>${context:job_earnings} / ${context:job_limit}\"\n" +
                "            - \"<gray>Categoria: <white>{context:job_category_label}\"\n" +
-               "            - \"<gray>Licença: {context:job_license_label}\"\n" +
+               "            - \"<gray>Rank: <white>{context:job_required_rank_label}\"\n" +
+               "            - \"<gray>Licença: {context:job_license_required_label}\"\n" +
+               "            - \"<gray>Status da licença: {context:job_license_status}\"\n" +
+               "            - \"{context:job_license_objectives}\"\n" +
+               "            - \"{context:job_license_progress}\"\n" +
                "            - \"<gray>Slot Ocupado: <yellow>{context:job_slot_assigned}\"\n" +
                "            - \"<gray>Status: {context:job_status_color}{context:job_status}\"\n" +
                "      toggle_action:\n" +
@@ -214,7 +222,7 @@ public class JobsMenuIntegration {
                "title: \"<aqua>Profissões Pokémon\"\n\n" +
                "pagination:\n" +
                "  enabled: true\n" +
-               "  source: \"jobs.all\"\n" +
+               "  source: \"jobs.pokemon\"\n" +
                "  content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]\n\n" +
                "dynamic-item-template:\n" +
                "  item:\n" +
@@ -226,8 +234,12 @@ public class JobsMenuIntegration {
                "      - \"<gray>Nível: <white>{job_level}\"\n" +
                "      - \"<gray>XP: <white>{job_xp} / {job_xp_required}\"\n" +
                "      - \"{job_xp_progress_bar}\"\n" +
-               "      - \"<gray>Especialização Pokémon: <aqua>Ativa\"\n" +
-               "      - \"<gray>Licença: {job_license_label}\"\n" +
+               "      - \"<gray>Categoria: <white>{job_category_label}\"\n" +
+               "      - \"<gray>Rank: <white>{job_required_rank_label}\"\n" +
+               "      - \"<gray>Licença: {job_license_required_label}\"\n" +
+               "      - \"<gray>Status da licença: {job_license_status}\"\n" +
+               "      - \"{job_license_objectives}\"\n" +
+               "      - \"{job_license_progress}\"\n" +
                "      - \"<gray>Status: {job_status_color}{job_status}\"\n" +
                "      - \"\"\n" +
                "      - \"<green>Clique Esquerdo: Ver detalhes / marcos\"\n" +
@@ -236,6 +248,7 @@ public class JobsMenuIntegration {
                "    - type: \"open_job_details\"\n" +
                "      params:\n" +
                "        job-id: \"{job_id}\"\n" +
+               "        menu-id: \"pokemon_job_details_menu\"\n" +
                "      clicks: [\"LEFT\"]\n" +
                "    - type: \"toggle_job\"\n" +
                "      params:\n" +
@@ -289,6 +302,12 @@ public class JobsMenuIntegration {
                "            - \"\"\n" +
                "            - \"<gray>Nível Atual: <white>{context:job_level}\"\n" +
                "            - \"<gray>XP: <white>{context:job_xp} / {context:job_xp_required}\"\n" +
+               "            - \"<gray>Categoria: <white>{context:job_category_label}\"\n" +
+               "            - \"<gray>Rank: <white>{context:job_required_rank_label}\"\n" +
+               "            - \"<gray>Licença: {context:job_license_required_label}\"\n" +
+               "            - \"<gray>Status da licença: {context:job_license_status}\"\n" +
+               "            - \"{context:job_license_objectives}\"\n" +
+               "            - \"{context:job_license_progress}\"\n" +
                "            - \"<gray>Chaves de Especialista: <gold>Ativas\"\n" +
                "      milestones_btn:\n" +
                "        slot: 13\n" +

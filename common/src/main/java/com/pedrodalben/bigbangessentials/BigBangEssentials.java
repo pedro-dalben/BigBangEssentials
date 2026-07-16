@@ -1024,6 +1024,7 @@ public class BigBangEssentials {
         registry.registerCommand("xp", "Manage player experience (alias)");
         registry.registerCommand("sudo", "Run a command as another player");
         registry.registerCommand("playtime", "Check player play time");
+        registry.registerCommand("nightvision", "Toggle night vision mode", "nv");
         com.pedrodalben.bigbangessentials.util.commands.PlayerStateCommands.register(dispatcher);
 
         // ========== SERVER ADMIN COMMANDS ==========

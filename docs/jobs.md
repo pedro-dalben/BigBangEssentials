@@ -138,32 +138,64 @@ A interface do usuário é gerenciada através de menus interativos altamente cu
 * **Menu Principal de Profissões (`jobs_menu.yml`)**: Exibe todas as profissões disponíveis, divididas por categoria (Comum, Manufatura, Especialização Pokémon), indicando status de licença, nível atual e slots disponíveis.
 * **Menu de Detalhes e Habilidades (`job_details_menu.yml`)**: Permite visualizar o progresso da licença em andamento, aceitar missões curtas, gastar pontos de habilidade na árvore passiva e consultar contratos ativos.
 * **Ações Integradas**: Suporte a placeholders dinâmicos e ações de clique rápidas, como `toggle_job`, `open_job_details`, `claim_license_reward` e integração com o menu de teleporte e Crates.
+* **Referência completa de placeholders**: [docs/modules/jobs/PLACEHOLDERS.md](modules/jobs/PLACEHOLDERS.md) lista todos os placeholders `job_*`, `job_license_*` e `jobs:*` usados nos menus.
 
 ---
 
 ## 7. Referência de Comandos e Permissões
 
 ### 7.1 Comandos para Jogadores (`/jobs`)
-| Comando | Descrição | Permissão |
-| :--- | :--- | :--- |
-| `/jobs` ou `/jobs menu` | Abre o menu principal interativo de profissões. | Padrão (Livre) |
-| `/jobs list` | Lista no chat todas as profissões disponíveis no servidor. | Padrão (Livre) |
-| `/jobs entrar <id>` | Inicia a licença ou ingressa na profissão especificada. | `jobs.profissao.<id>` |
-| `/jobs sair <id>` | Abandona uma profissão ativa (respeitando cooldowns). | Padrão (Livre) |
-| `/jobs info <id>` | Exibe estatísticas detalhadas, nível, XP e habilidades de uma profissão. | Padrão (Livre) |
-| `/jobs licenca <id>` | Exibe o progresso atual da missão de licenciamento. | Padrão (Livre) |
-| `/jobs contratos` | Abre a tela de contratos diários e semanais disponíveis. | Padrão (Livre) |
 
-### 7.2 Comandos Administrativos (`/jobs admin`)
-| Comando | Descrição | Permissão |
-| :--- | :--- | :--- |
-| `/jobs admin reload` | Recarrega todas as configurações JSON/YAML, menus e regras. | `jobs.admin` |
-| `/jobs admin integrations` | Exibe o status de saúde em tempo real de todas as 6 bridges do Cobbleverse. | `jobs.admin` |
-| `/jobs admin audit [player]` | Exibe os últimos eventos de exploração rejeitados pelo anti-exploit. | `jobs.admin` |
-| `/jobs admin pokemon status <player>` | Exibe os cooldowns e timers de captura/batalha de um jogador. | `jobs.admin` |
-| `/jobs admin pokemon grantkey <player> <qtd>`| Concede diretamente Chaves de Especialista para um jogador. | `jobs.admin` |
-| `/jobs admin pokemon resetcd <player>` | Zera todos os tempos de recarga e bloqueios anti-spam de um jogador. | `jobs.admin` |
-| `/jobs admin migrate` | Executa rotinas de migração e converte dados de sistemas legados. | `jobs.admin` |
+Todas as permissões abaixo aceitam a tradução automática e aliasing bidirecional (ex: `jobs.command.jobs` equivale a `bigbangessentials.jobs.command.menu`).
+
+| Comando | Descrição | Permissão Canonical | Permissão Legada (Alias) |
+| :--- | :--- | :--- | :--- |
+| `/jobs` ou `/jobs menu` | Abre o menu principal de profissões. | `bigbangessentials.jobs.command.menu` | `jobs.command.jobs` |
+| `/jobs ajuda` ou `/jobs help` | Exibe a ajuda com comandos. | Nenhuma (Livre) | Nenhuma (Livre) |
+| `/jobs list` | Lista as profissões no chat. | `bigbangessentials.jobs.command.list` | `jobs.command.list` |
+| `/jobs entrar <job>` | Ingressa em uma profissão livre/licenciada. | `bigbangessentials.jobs.command.join` | `jobs.command.entrar` |
+| `/jobs sair <job>` | Abandona uma profissão ativa. | `bigbangessentials.jobs.command.leave` | `jobs.command.sair` |
+| `/jobs info <job>` | Exibe detalhes sobre ações e recompensas. | `bigbangessentials.jobs.command.info` | `jobs.command.info` |
+| `/jobs progresso <job>` | Exibe o progresso de nível e XP no chat. | `bigbangessentials.jobs.command.info` | `jobs.command.info` |
+| `/jobs habilidades <job>` | Exibe a árvore de habilidades passivas. | `bigbangessentials.jobs.command.skills` | `jobs.command.habilidades` |
+| `/jobs ganhos` | Mostra os ganhos diários e limites de moedas. | `bigbangessentials.jobs.command.earnings` | `jobs.command.ganhos` |
+| `/jobs top <job>` | Mostra o ranking dos maiores níveis do servidor. | `bigbangessentials.jobs.command.top` | `jobs.command.top` |
+| `/jobs license` | Mostra o andamento de missões de licença. | `bigbangessentials.jobs.command.license` | `jobs.command.license` |
+| `/jobs slot` | Mostra e gerencia slots de profissões do jogador. | `bigbangessentials.jobs.command.slot` | `jobs.command.slot` |
+| `/jobs fragmentos` | Mostra os fragmentos de jornada possuídos. | `bigbangessentials.jobs.command.menu` | `jobs.command.jobs` |
+| `/jobs contrato` | Mostra os contratos diários/semanais ativos. | `bigbangessentials.jobs.command.menu` | `jobs.command.jobs` |
+
+> **Nota:** Para de fato ingressar em uma profissão específica `<id>`, além da permissão do comando (`jobs.command.entrar`), o jogador precisa da permissão de acesso da profissão (`bigbangessentials.jobs.profession.<id>` ou `jobs.profissao.<id>`).
+
+### 7.2 Comandos Administrativos (`/jobsadmin` ou `/jobs admin`)
+
+Os comandos administrativos requerem permissão de OP por padrão ou acesso explícito aos nós listados abaixo:
+
+| Comando | Descrição | Permissão Canonical | Permissão Legada (Alias) |
+| :--- | :--- | :--- | :--- |
+| `/jobsadmin reload` | Recarrega arquivos de configuração, regras e menus. | `bigbangessentials.jobs.admin.reload` | `jobs.admin.reload` |
+| `/jobsadmin info <player>` | Detalha a progressão de profissão de um jogador. | `bigbangessentials.jobs.admin.info` | `jobs.admin.info` |
+| `/jobsadmin entrar <p> <j>` | Força a entrada do jogador em uma profissão. | `bigbangessentials.jobs.admin.join` | `jobs.admin.modify` |
+| `/jobsadmin sair <p> <j>` | Força a saída do jogador de uma profissão. | `bigbangessentials.jobs.admin.leave` | `jobs.admin.modify` |
+| `/jobsadmin setlevel <p> <j> <nv>` | Altera o nível do jogador em um trabalho. | `bigbangessentials.jobs.admin.setlevel` | `jobs.admin.modify` |
+| `/jobsadmin addxp <p> <j> <xp>` | Adiciona XP ao progresso do jogador. | `bigbangessentials.jobs.admin.xp` | `jobs.admin.modify` |
+| `/jobsadmin removexp <p> <j> <xp>` | Remove XP do progresso do jogador. | `bigbangessentials.jobs.admin.xp` | `jobs.admin.modify` |
+| `/jobsadmin pontos <p> <j> <a\|r> <q>` | Gerencia os pontos de habilidade do jogador. | `bigbangessentials.jobs.admin.skillpoints` | `jobs.admin.modify` |
+| `/jobsadmin desbloquear <p> <j>` | Concede acesso ou remove restrições de um trabalho. | `bigbangessentials.jobs.admin.unlock` | `jobs.admin.modify` |
+| `/jobsadmin bloquear <p> <j>` | Revoga o acesso a um trabalho. | `bigbangessentials.jobs.admin.lock` | `jobs.admin.modify` |
+| `/jobsadmin sync-rank <player>` | Sincroniza os marcos de rank de um jogador. | `bigbangessentials.jobs.admin.modify` | `jobs.admin.modify` |
+| `/jobsadmin reset <player> [j]` | Reseta o progresso de nível de um ou todos os trabalhos. | `bigbangessentials.jobs.admin.reset` | `jobs.admin.reset` |
+| `/jobsadmin resetganhos <player>` | Zera o acumulado diário de moedas do jogador. | `bigbangessentials.jobs.admin.resetearnings` | `jobs.admin.reset` |
+| `/jobsadmin debug <on\|off>` | Liga/desliga o modo administrativo de depuração. | `bigbangessentials.jobs.admin.debug` | `jobs.admin.debug` |
+| `/jobsadmin diag` | Executa diagnóstico do pipeline de processamento. | `bigbangessentials.jobs.admin.diag` | `jobs.admin.info` |
+| `/jobsadmin integrations` | Verifica pontes e probes do Cobblemon/Cobbleverse. | `bigbangessentials.jobs.admin.integrations` | `jobs.admin.info` |
+| `/jobsadmin audit <player>` | Consulta logs de auditoria do anti-exploit. | `bigbangessentials.jobs.admin.audit` | `jobs.admin.info` |
+| `/jobsadmin licenca <c\|r> <p> <j>` | Concede/revoga licenças de profissão diretamente. | `bigbangessentials.jobs.admin.license` | `jobs.admin.modify` |
+| `/jobsadmin slot <a\|r\|reset> <p>` | Controla a alocação e cooldowns de slots do jogador. | `bigbangessentials.jobs.admin.slot` | `jobs.admin.modify` |
+| `/jobsadmin pokemon status <player>` | Exibe o status da integração Pokémon do jogador. | `bigbangessentials.jobs.admin.pokemon` | `jobs.admin.modify` |
+| `/jobsadmin pokemon grantkey <p> <q>` | Concede chaves de crates para um jogador. | `bigbangessentials.jobs.admin.pokemon` | `jobs.admin.modify` |
+| `/jobsadmin pokemon resetcd <player>` | Reseta cooldowns e filtros de spam Pokémon. | `bigbangessentials.jobs.admin.pokemon` | `jobs.admin.modify` |
+| `/jobsadmin migrate` | Migra dados históricos de profissões (se aplicável). | `bigbangessentials.jobs.admin.migrate` | `jobs.admin` |
 
 ---
 

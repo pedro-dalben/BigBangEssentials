@@ -129,6 +129,7 @@ All events extend `JobsEvents.JobEvent` and are fired on the NeoForge event bus:
 ### Related Documentation
 
 - [CONFIGURATION.md](CONFIGURATION.md) — Complete config reference
+- [PLACEHOLDERS.md](PLACEHOLDERS.md) — Complete placeholder reference for menus and summary widgets
 - [PROFESSIONS.md](PROFESSIONS.md) — All 17 profession details
 - [COBBLEVERSE_INTEGRATIONS.md](COBBLEVERSE_INTEGRATIONS.md) — Integration architecture
 - [PERMISSIONS.md](PERMISSIONS.md) — Permission matrix

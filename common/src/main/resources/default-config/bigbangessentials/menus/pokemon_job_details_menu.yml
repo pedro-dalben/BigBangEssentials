@@ -1,0 +1,45 @@
+id: "pokemon_job_details_menu"
+size: 27
+title: "<aqua>Especialização: {context:job_display_name}"
+
+pages:
+  main:
+    default-page: true
+    items:
+      job_info:
+        slot: 11
+        item:
+          material-id: "{context:job_icon}"
+          display-name: "{context:job_status_color}{context:job_display_name}"
+          lore:
+            - "<gray>{context:job_description}"
+            - ""
+            - "<gray>Nível Atual: <white>{context:job_level}"
+            - "<gray>XP: <white>{context:job_xp} / {context:job_xp_required}"
+            - "<gray>Categoria: <white>{context:job_category_label}"
+            - "<gray>Rank: <white>{context:job_required_rank_label}"
+            - "<gray>Licença: {context:job_license_required_label}"
+            - "<gray>Status da licença: {context:job_license_status}"
+            - "{context:job_license_objectives}"
+            - "{context:job_license_progress}"
+            - "<gray>Chaves de Especialista: <gold>Ativas"
+      milestones_btn:
+        slot: 13
+        item:
+          material-id: "minecraft:nether_star"
+          display-name: "<gold>Marcos e Progresso"
+          lore:
+            - "<gray>Clique para ver seus marcos de carreira"
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "job_milestones_menu"
+      back_btn:
+        slot: 15
+        item:
+          material-id: "minecraft:arrow"
+          display-name: "<red>Voltar"
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "pokemon_jobs_menu"

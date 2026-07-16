@@ -162,6 +162,8 @@ Sign-based chest shops for automated buy/sell trading.
 | Command | Syntax | Permission | Default | Description |
 |---|---|---|---|---|
 | `/fly` | `/fly [on\|off]` or `/fly <player> [on\|off]` | `bigbangessentials.fly` / `.fly.others` | 🔒 | Toggle flight mode |
+| `/nightvision` | `/nightvision [on\|off]` or `/nightvision <player> [on\|off]` | `bigbangessentials.nightvision` / `.nightvision.others` | 🔒 | Toggle night vision mode |
+| `/nv` | alias for `/nightvision` | same | 🔒 | Alias |
 | `/god` | `/god [on\|off]` or `/god <player> [on\|off]` | `bigbangessentials.god` / `.god.others` | 🔒 | Toggle invincibility (god mode) |
 | `/heal` | `/heal [player]` | `bigbangessentials.heal` / `.heal.others` | 🔒 | Restore full health, hunger, saturation, clear effects |
 | `/feed` | `/feed [player]` | `bigbangessentials.feed` / `.feed.others` | 🔒 | Restore full hunger and saturation |
@@ -649,7 +651,7 @@ The config maps these legacy nodes to canonical forms. **Both** sides work in pe
 | Homes | 5 |
 | Warps | 8 |
 | Spawn | 2 |
-| Player State & Admin Tools | 15 |
+| Player State & Admin Tools | 17 |
 | Server Admin | 16 |
 | Moderation | 23 |
 | Chat & Messaging | 13 |
@@ -662,7 +664,7 @@ The config maps these legacy nodes to canonical forms. **Both** sides work in pe
 | Permissions Management | 2 |
 | Miscellaneous | 22 |
 | Jobs & Professions | 27 |
-| **Total** | **~199** |
+| **Total** | **~201** |
 
 ---
 

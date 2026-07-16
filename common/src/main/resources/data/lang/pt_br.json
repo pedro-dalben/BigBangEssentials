@@ -757,6 +757,8 @@
   "_comment_player_state": "=== Comandos de Estado do Jogador / Ferramentas de Admin ===",
   "commands.bigbangessentials.fly.self": "§eVoo §f{0}§e.",
   "commands.bigbangessentials.fly.other": "§eDefinido voo §f{1}§e para §f{0}§e.",
+  "commands.bigbangessentials.nightvision.self": "§eVisão noturna §f{0}§e.",
+  "commands.bigbangessentials.nightvision.other": "§eDefinida visão noturna §f{1}§e para §f{0}§e.",
   "commands.bigbangessentials.god.self": "§eModo deus §f{0}§e.",
   "commands.bigbangessentials.god.other": "§eDefinido modo deus §f{1}§e para §f{0}§e.",
   "commands.bigbangessentials.heal.self": "§aVocê foi curado.",

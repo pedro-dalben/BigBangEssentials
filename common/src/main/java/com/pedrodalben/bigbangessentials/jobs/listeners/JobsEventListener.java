@@ -39,6 +39,7 @@ public class JobsEventListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobsEventListener.class);
 
     private static final ConcurrentHashMap<String, Long> placeCooldowns = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, Integer> lastAnvilCompletionTicks = new ConcurrentHashMap<>();
 
     public static void onPlayerLoggedIn(ServerPlayer player) {
         JobsManager.getInstance().loadPlayerData(player.getUUID()).thenAccept(data -> {
@@ -57,6 +58,7 @@ public class JobsEventListener {
 
     public static void onPlayerLoggedOut(ServerPlayer player) {
         UUID uuid = player.getUUID();
+        lastAnvilCompletionTicks.remove(uuid);
         JobsManager.getInstance().savePlayerData(uuid).thenAccept(v -> {
             JobsManager.getInstance().clearPlayerDataLoad(uuid);
             JobsManager.getInstance().getPlayerDataCache().remove(uuid);
@@ -88,6 +90,11 @@ public class JobsEventListener {
         String dimension = player.level().dimension().location().toString();
         String registryId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
 
+        boolean isCrop = CropHarvestValidationService.getInstance().isCrop(state);
+        boolean isMature = isCrop && CropHarvestValidationService.getInstance().isMatureCrop(state);
+        boolean canRewardPlayerCultivatedCrop = isMature
+                && CropHarvestValidationService.getInstance().isPlayerCultivatedCrop(state);
+
         PlayerJobsData data = JobsManager.getInstance().getPlayerData(player.getUUID());
         if (data == null) return;
 
@@ -98,7 +105,9 @@ public class JobsEventListener {
             BuildPlacementGuard.getInstance().recordPlayerPlacedBreak(player.getUUID(), registryId);
         }
 
-        if (prov.isBlocked()) {
+        // A mature crop is a valid farmer action even when its seed was planted
+        // by a player. Other player-placed blocks remain blocked by provenance.
+        if (prov.isBlocked() && !canRewardPlayerCultivatedCrop) {
             if (data.isDebugMode()) {
                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
                         "§7[Debug] Bloco ignorado. Motivo: " + prov.reason()));
@@ -107,9 +116,6 @@ public class JobsEventListener {
         }
 
         // Classify: is this a crop harvest or a regular block break?
-        boolean isCrop = CropHarvestValidationService.getInstance().isCrop(state);
-        boolean isMature = isCrop && CropHarvestValidationService.getInstance().isMatureCrop(state);
-
         if (isCrop) {
             // Publish as HARVEST_CROP - only if we have a blockStateString for maturity
             JobActionContext context = JobActionContext.builder()
@@ -117,11 +123,7 @@ public class JobsEventListener {
                     .position(pos != null ? pos.getX() + "," + pos.getY() + "," + pos.getZ() : "")
                     .blockId(registryId)
                     .blockStateString(state.toString())
-                    // Mature crops are legitimate farmer actions regardless of
-                    // who planted them. Maturity plus the explicit crop rule is
-                    // the anti-exploit boundary here; provenance must not make
-                    // normal player farming silently lose XP.
-                    .playerPlacedBlock(false)
+                    .playerPlacedBlock(prov.type() == ProvenanceType.PLAYER_PLACED)
                     .cropMature(isMature)
                     .eventSource("BLOCK_BREAK")
                     .build();
@@ -496,6 +498,12 @@ public class JobsEventListener {
     /** Called when an anvil result is actually taken, not while its preview changes. */
     public static void onAnvilRepair(ServerPlayer player, ItemStack output) {
         if (player == null || output == null || output.isEmpty()) return;
+
+        // ResultSlot and the loader-specific anvil event can observe the same
+        // successful take. They must not create two rewards in the same tick.
+        Integer previousTick = lastAnvilCompletionTicks.put(player.getUUID(), player.tickCount);
+        if (previousTick != null && previousTick == player.tickCount) return;
+
         onMagicCompleted(player, "minecraft:enchant");
     }
 

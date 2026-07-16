@@ -170,11 +170,11 @@
       "projectName": "neoforge",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@/home/pedro/Documentos/java/BigBangEssentials/neoforge/build/moddev/clientRunProgramArgs.txt"
+        "@/home/pedro/Documents/BigBangEssentials/neoforge/build/moddev/clientRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@/home/pedro/Documentos/java/BigBangEssentials/neoforge/build/moddev/clientRunVmArgs.txt",
-        "-Dfml.modFolders\u003dbigbangessentials%%/home/pedro/Documentos/java/BigBangEssentials/neoforge/bin/main:bigbangessentials%%/home/pedro/Documentos/java/BigBangEssentials/common/bin/main"
+        "@/home/pedro/Documents/BigBangEssentials/neoforge/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbigbangessentials%%/home/pedro/Documents/BigBangEssentials/neoforge/bin/main:bigbangessentials%%/home/pedro/Documents/BigBangEssentials/common/bin/main"
       ],
       "cwd": "${workspaceFolder}/neoforge/run",
       "env": {},
@@ -192,11 +192,11 @@
       "projectName": "neoforge",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@/home/pedro/Documentos/java/BigBangEssentials/neoforge/build/moddev/dataRunProgramArgs.txt"
+        "@/home/pedro/Documents/BigBangEssentials/neoforge/build/moddev/dataRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@/home/pedro/Documentos/java/BigBangEssentials/neoforge/build/moddev/dataRunVmArgs.txt",
-        "-Dfml.modFolders\u003dbigbangessentials%%/home/pedro/Documentos/java/BigBangEssentials/neoforge/bin/main:bigbangessentials%%/home/pedro/Documentos/java/BigBangEssentials/common/bin/main"
+        "@/home/pedro/Documents/BigBangEssentials/neoforge/build/moddev/dataRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbigbangessentials%%/home/pedro/Documents/BigBangEssentials/neoforge/bin/main:bigbangessentials%%/home/pedro/Documents/BigBangEssentials/common/bin/main"
       ],
       "cwd": "${workspaceFolder}/neoforge/run",
       "env": {},
@@ -214,11 +214,11 @@
       "projectName": "neoforge",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@/home/pedro/Documentos/java/BigBangEssentials/neoforge/build/moddev/serverRunProgramArgs.txt"
+        "@/home/pedro/Documents/BigBangEssentials/neoforge/build/moddev/serverRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@/home/pedro/Documentos/java/BigBangEssentials/neoforge/build/moddev/serverRunVmArgs.txt",
-        "-Dfml.modFolders\u003dbigbangessentials%%/home/pedro/Documentos/java/BigBangEssentials/neoforge/bin/main:bigbangessentials%%/home/pedro/Documentos/java/BigBangEssentials/common/bin/main"
+        "@/home/pedro/Documents/BigBangEssentials/neoforge/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbigbangessentials%%/home/pedro/Documents/BigBangEssentials/neoforge/bin/main:bigbangessentials%%/home/pedro/Documents/BigBangEssentials/common/bin/main"
       ],
       "cwd": "${workspaceFolder}/neoforge/run",
       "env": {},
