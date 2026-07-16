@@ -93,6 +93,10 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
         placeholders.add("rankup_tasks_completed");
         placeholders.add("rankup_tasks_total");
         
+        // Aliases for common shorthand use
+        placeholders.add("online");      // alias for online_players
+        placeholders.add("max");         // alias for max_players
+
         LOGGER.debug("Initialized {} default placeholders", placeholders.size());
     }
     
@@ -165,8 +169,8 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
                 
                 // Server
                 case "server_name" -> getServerName(player);
-                case "online_players" -> getOnlinePlayerCount(player);
-                case "max_players" -> getMaxPlayerCount(player);
+                case "online", "online_players" -> getOnlinePlayerCount(player);
+                case "max", "max_players" -> getMaxPlayerCount(player);
                 
                 // Time
                 case "time" -> getCurrentTime();
