@@ -97,6 +97,7 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
         placeholders.add("online");      // alias for online_players
         placeholders.add("max");         // alias for max_players
         placeholders.add("tps");         // server TPS
+        placeholders.add("bar");          // decorative progress bar
 
         LOGGER.debug("Initialized {} default placeholders", placeholders.size());
     }
@@ -173,6 +174,7 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
                 case "online", "online_players" -> getOnlinePlayerCount(player);
                 case "max", "max_players" -> getMaxPlayerCount(player);
                 case "tps" -> getTps(player);
+                case "bar" -> "\u00a78\u00a7m                              \u00a7r";
                 
                 // Time
                 case "time" -> getCurrentTime();
@@ -202,7 +204,7 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
      */
     private boolean requiresPlayer(String identifier) {
         return switch (identifier.toLowerCase()) {
-            case "server_name", "online_players", "max_players", "tps", "time", "time_24", "date", "gems_currency_name", "gems_currency_symbol" -> false;
+            case "server_name", "online_players", "max_players", "tps", "bar", "time", "time_24", "date", "gems_currency_name", "gems_currency_symbol" -> false;
             case "rankup_current_id", "rankup_current_name", "rankup_next_id", "rankup_next_name",
                  "rankup_progress_percent", "rankup_money_required", "rankup_gems_required",
                  "rankup_tasks_completed", "rankup_tasks_total" -> true;
