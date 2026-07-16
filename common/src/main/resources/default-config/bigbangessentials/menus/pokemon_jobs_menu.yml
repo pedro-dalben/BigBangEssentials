@@ -1,10 +1,10 @@
-id: "jobs_menu"
+id: "pokemon_jobs_menu"
 size: 54
-title: "<gold>Trabalhos e Profissões"
+title: "<aqua>Profissões Pokémon"
 
 pagination:
   enabled: true
-  source: "jobs.all"
+  source: "jobs.pokemon"
   content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
 
 dynamic-item-template:
@@ -17,22 +17,21 @@ dynamic-item-template:
       - "<gray>Nível: <white>{job_level}"
       - "<gray>XP: <white>{job_xp} / {job_xp_required}"
       - "{job_xp_progress_bar}"
-      - "<gray>Ganhos Hoje: <white>${job_earnings} / ${job_limit}"
       - "<gray>Categoria: <white>{job_category_label}"
       - "<gray>Rank: <white>{job_required_rank_label}"
       - "<gray>Licença: {job_license_required_label}"
       - "<gray>Status da licença: {job_license_status}"
       - "{job_license_objectives}"
       - "{job_license_progress}"
-      - "<gray>Slot Ocupado: <yellow>{job_slot_assigned}"
       - "<gray>Status: {job_status_color}{job_status}"
       - ""
-      - "<green>Clique Esquerdo: Ver detalhes / recompensas"
-      - "<yellow>Clique Direito: Entrar ou Sair da profissão"
+      - "<green>Clique Esquerdo: Ver detalhes / marcos"
+      - "<yellow>Clique Direito: Entrar na Especialização"
   actions:
     - type: "open_job_details"
       params:
         job-id: "{job_id}"
+        menu-id: "pokemon_job_details_menu"
       clicks: ["LEFT"]
     - type: "toggle_job"
       params:
@@ -46,12 +45,11 @@ pages:
       summary:
         slot: 4
         item:
-          material-id: "minecraft:book"
-          display-name: "<gold>Resumo de Profissões"
+          material-id: "minecraft:beacon"
+          display-name: "<aqua>Resumo de Especializações Pokémon"
           lore:
-            - "<gray>Trabalhos Ativos: <white>{jobs:active_count} / {jobs:max_active}"
-            - "<gray>Limite de Ganhos Hoje: <white>${jobs:total_earnings} / ${jobs:global_limit}"
-            - "<gray>Bônus VIP: <green>{jobs:vip_bonus}"
+            - "<gray>As profissões Pokémon são integradas ao Cobbleverse!"
+            - "<gray>Requerem RankUp e missões de licença."
       close_btn:
         slot: 49
         item:
@@ -59,17 +57,12 @@ pages:
           display-name: "<red>Fechar"
         actions:
           - type: "close_menu"
-      prev_btn:
+      back_btn:
         slot: 48
         item:
-          material-id: "minecraft:paper"
-          display-name: "<yellow>Página Anterior"
+          material-id: "minecraft:arrow"
+          display-name: "<yellow>Voltar a Trabalhos"
         actions:
-          - type: "previous_page"
-      next_btn:
-        slot: 50
-        item:
-          material-id: "minecraft:paper"
-          display-name: "<yellow>Próxima Página"
-        actions:
-          - type: "next_page"
+          - type: "open_menu"
+            params:
+              menu-id: "jobs_menu"

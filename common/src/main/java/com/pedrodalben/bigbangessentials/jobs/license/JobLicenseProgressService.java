@@ -5,6 +5,7 @@ import com.pedrodalben.bigbangessentials.jobs.action.JobActionListener;
 import com.pedrodalben.bigbangessentials.jobs.action.JobActionProcessedEvent;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig;
 import com.pedrodalben.bigbangessentials.jobs.pipeline.JobActionProcessor;
+import com.pedrodalben.bigbangessentials.menu.MenuSystem;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
@@ -84,6 +85,19 @@ public class JobLicenseProgressService implements JobActionListener {
                 // Update cache directly
                 JobLicenseService.getInstance().updateInProgressLicense(player.getUUID(), updatedProg);
                 progressRepo.saveInProgressLicense(player.getUUID(), updatedProg);
+                try {
+                    MenuSystem menuSystem = MenuSystem.getInstance();
+                    if (menuSystem != null && menuSystem.getMenuService() != null) {
+                        menuSystem.getMenuService().refreshCurrentPage(player);
+                        menuSystem.getMenuService().refreshSessionsUsingSource("jobs.all");
+                        menuSystem.getMenuService().refreshSessionsUsingSource("jobs.common");
+                        menuSystem.getMenuService().refreshSessionsUsingSource("jobs.pokemon");
+                        menuSystem.getMenuService().refreshSessionsUsingSource("jobs.active");
+                        menuSystem.getMenuService().refreshSessionsUsingSource("jobs.license_pending");
+                    }
+                } catch (Exception e) {
+                    LOGGER.debug("Failed to refresh job menus after license progress update for {}", player.getUUID(), e);
+                }
             }
         }
     }

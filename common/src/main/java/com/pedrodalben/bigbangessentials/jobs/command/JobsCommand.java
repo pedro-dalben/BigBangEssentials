@@ -46,7 +46,7 @@ public class JobsCommand {
     private static boolean hasPermission(CommandSourceStack source, String permNode) {
         ServerPlayer player = source.getPlayer();
         if (player == null) return true; // Console has all permissions
-        return PermissionAPI.hasPermission(player.getUUID(), permNode);
+        return com.pedrodalben.bigbangessentials.jobs.JobPermissionService.getInstance().hasPermission(player.getUUID(), permNode);
     }
 
     private static final SuggestionProvider<CommandSourceStack> SUGGEST_PROFESSIONS = (ctx, builder) -> {
@@ -826,20 +826,43 @@ public class JobsCommand {
 
     private static int executeLicenseStart(CommandContext<CommandSourceStack> ctx, String jobName) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().startLicenseQuest(player, jobName);
+        handleLicenseOperation(player, com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().startLicenseQuest(player, jobName));
         return 1;
     }
 
     private static int executeLicenseClaim(CommandContext<CommandSourceStack> ctx, String jobName) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().claimLicense(player, jobName);
+        handleLicenseOperation(player, com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().claimLicense(player, jobName));
         return 1;
     }
 
     private static int executeLicenseCancel(CommandContext<CommandSourceStack> ctx, String jobName) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().cancelLicenseQuest(player, jobName);
+        handleLicenseOperation(player, com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().cancelLicenseQuest(player, jobName));
         return 1;
+    }
+
+    private static void handleLicenseOperation(ServerPlayer player,
+                                                CompletableFuture<com.pedrodalben.bigbangessentials.jobs.license.LicenseActionResult> operation) {
+        operation.whenComplete((result, error) -> player.server.execute(() -> {
+            if (error != null) {
+                LOGGER.error("Falha ao processar operação de licença para {}", player.getGameProfile().getName(), error);
+                player.sendSystemMessage(Component.literal("§cNão foi possível concluir a operação da licença."));
+                return;
+            }
+
+            if (!result.success()) {
+                player.sendSystemMessage(Component.literal("§c" + result.message()));
+                return;
+            }
+
+            com.pedrodalben.bigbangessentials.menu.MenuSystem menuSystem =
+                    com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance();
+            String[] sources = {"jobs.all", "jobs.common", "jobs.pokemon", "jobs.active", "jobs.license_pending"};
+            for (String source : sources) {
+                menuSystem.getMenuService().refreshSessionsUsingSource(source);
+            }
+        }));
     }
 
     private static int executeSlotList(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {

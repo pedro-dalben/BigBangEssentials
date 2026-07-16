@@ -1,14 +1,21 @@
 package com.pedrodalben.bigbangessentials.jobs;
 
+import com.pedrodalben.bigbangessentials.api.rankup.RankDefinition;
+import com.pedrodalben.bigbangessentials.api.rankup.RankProgressionApi;
+import com.pedrodalben.bigbangessentials.api.rankup.RankupAPI;
 import com.pedrodalben.bigbangessentials.api.EconomyAPI;
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
 import com.pedrodalben.bigbangessentials.permissions.ExternalPermissionAdapter;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.*;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfigLoader;
+import com.pedrodalben.bigbangessentials.jobs.config.UnlockRequirements;
 import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository;
 import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository.JobProgress;
+import com.pedrodalben.bigbangessentials.jobs.license.InProgressLicense;
 import com.pedrodalben.bigbangessentials.jobs.license.JobLicenseObjective;
+import com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService;
+import com.pedrodalben.bigbangessentials.menu.integration.jobs.JobsMenuSupport;
 import net.minecraft.server.level.ServerPlayer;
 import org.junit.jupiter.api.*;
 import org.mockito.MockedStatic;
@@ -68,6 +75,8 @@ class JobsSystemTest {
 
         mockPermAdapter = mock(ExternalPermissionAdapter.class);
         PermissionAPI.setExternalAdapter(mockPermAdapter);
+        RankupAPI.setProvider(null);
+        JobLicenseService.getInstance().shutdown();
 
         mockRepo = mock(JobsRepository.class);
         when(mockRepo.savePlayerJob(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -87,6 +96,8 @@ class JobsSystemTest {
     @AfterEach
     void tearDown() throws Exception {
         PermissionAPI.setExternalAdapter(null);
+        RankupAPI.setProvider(null);
+        JobLicenseService.getInstance().shutdown();
         JobsManager.getInstance().getPlayerDataCache().clear();
         JobsManager.setGlobalDebugMode(false);
 
@@ -129,6 +140,67 @@ class JobsSystemTest {
                 .actions(actions)
                 .skills(skills)
                 .build();
+    }
+
+    private JobDefinition createPokemonResearcherJob() {
+        List<JobLicenseObjective> objectives = List.of(
+            new JobLicenseObjective(
+                "capture_20",
+                "CAPTURE_POKEMON",
+                20,
+                20,
+                Optional.of(System.currentTimeMillis()),
+                List.of(),
+                List.of(),
+                false,
+                false,
+                "Capturar 20 Pokémon"
+            ),
+            new JobLicenseObjective(
+                "dex_10",
+                "DEX_ENTRY_ADDED",
+                10,
+                6,
+                Optional.empty(),
+                List.of(),
+                List.of(),
+                false,
+                false,
+                "Registrar 10 novas espécies na Pokédex"
+            ),
+            new JobLicenseObjective(
+                "rare_1",
+                "CAPTURE_POKEMON",
+                1,
+                0,
+                Optional.empty(),
+                List.of(),
+                List.of(),
+                false,
+                false,
+                "Capturar 1 Pokémon raro"
+            )
+        );
+
+        return JobDefinition.builder("pokemon_researcher")
+            .enabled(true)
+            .displayName("Pesquisador Pokémon")
+            .shortDescription("Especialização de pesquisa")
+            .description("Capture Pokémon e registre novas espécies na Pokédex.")
+            .icon("minecraft:knowledge_book")
+            .category("POKEMON_SPECIALIZATION")
+            .permission("bigbangessentials.jobs.profession.pokemon_researcher")
+            .unlockedByDefault(false)
+            .licenseRequired(true)
+            .licenseObjectives(objectives)
+            .unlockRequirements(new UnlockRequirements(false, "champion", 0, null))
+            .maxLevel(100)
+            .maxDailyEarnings(1500.0)
+            .moneyBonusPerLevel(0.5)
+            .maxLevelMoneyBonus(50.0)
+            .skillPointsEvery(2)
+            .resetProgressOnLeave(false)
+            .build();
     }
 
     @Test
@@ -273,5 +345,153 @@ class JobsSystemTest {
         assertEquals(100.0, curve.computeRequiredXp(1), 0.01);
         assertEquals(150.0, curve.computeRequiredXp(2), 0.01);
         assertEquals(300.0, curve.computeRequiredXp(5), 0.01);
+    }
+
+    @Test
+    void testPokemonJobLicensePlaceholders() throws Exception {
+        JobDefinition researcher = createPokemonResearcherJob();
+        JobsConfig config = JobsConfig.builder()
+            .global(GlobalConfig.builder().build())
+            .addProfession(researcher)
+            .build();
+        injectConfig(config);
+
+        when(mockPermAdapter.hasPermission(eq(playerId), eq("bigbangessentials.jobs.profession.pokemon_researcher"))).thenReturn(true);
+
+        RankProgressionApi rankApi = mock(RankProgressionApi.class);
+        when(rankApi.isAtOrAbove(playerId, "champion")).thenReturn(true);
+        when(rankApi.getRankDefinition("champion")).thenReturn(Optional.of(new RankDefinition("champion", "Campeão", 5)));
+        RankupAPI.setProvider(rankApi);
+
+        JobLicenseService.getInstance().updateInProgressLicense(
+            playerId,
+            new InProgressLicense(
+                "pokemon_researcher",
+                System.currentTimeMillis(),
+                "IN_PROGRESS",
+                System.currentTimeMillis(),
+                List.of(
+                    new JobLicenseObjective(
+                        "capture_20",
+                        "CAPTURE_POKEMON",
+                        20,
+                        20,
+                        Optional.of(System.currentTimeMillis()),
+                        List.of(),
+                        List.of(),
+                        false,
+                        false,
+                        "Capturar 20 Pokémon"
+                    ),
+                    new JobLicenseObjective(
+                        "dex_10",
+                        "DEX_ENTRY_ADDED",
+                        10,
+                        6,
+                        Optional.empty(),
+                        List.of(),
+                        List.of(),
+                        false,
+                        false,
+                        "Registrar 10 novas espécies na Pokédex"
+                    ),
+                    new JobLicenseObjective(
+                        "rare_1",
+                        "CAPTURE_POKEMON",
+                        1,
+                        0,
+                        Optional.empty(),
+                        List.of(),
+                        List.of(),
+                        false,
+                        false,
+                        "Capturar 1 Pokémon raro"
+                    )
+                )
+            )
+        );
+
+        Map<String, Object> placeholders = JobsMenuSupport.buildJobLicensePlaceholders(mockPlayer, researcher);
+
+        assertEquals("<white>Campeão", placeholders.get("job_required_rank_label"));
+        assertEquals("champion", placeholders.get("job_required_rank_id"));
+        assertEquals("<red>Obrigatória", placeholders.get("job_license_required_label"));
+        assertEquals("true", placeholders.get("job_license_required"));
+        assertEquals("<yellow>Em andamento", placeholders.get("job_license_status"));
+        assertEquals("in_progress", placeholders.get("job_license_status_key"));
+        assertEquals("3", placeholders.get("job_license_objectives_count"));
+        assertEquals("1", placeholders.get("job_license_objectives_completed"));
+
+        String objectives = (String) placeholders.get("job_license_objectives");
+        String progress = (String) placeholders.get("job_license_progress");
+        assertNotNull(objectives);
+        assertNotNull(progress);
+        assertTrue(objectives.contains("Missão da licença"));
+        assertTrue(objectives.contains("Capturar 20 Pokémon"));
+        assertTrue(objectives.contains("Registrar 10 novas espécies na Pokédex"));
+        assertTrue(objectives.contains("Capturar 1 Pokémon raro"));
+        assertTrue(progress.contains("Progresso da licença"));
+        assertTrue(progress.contains("20/20"));
+        assertTrue(progress.contains("6/10"));
+        assertTrue(progress.contains("0/1"));
+    }
+
+    @Test
+    void testNonLicenseJobHidesLicenseBlocks() throws Exception {
+        JobDefinition miner = createDummyJob("miner", true, 0.5);
+        JobsConfig config = JobsConfig.builder()
+            .global(GlobalConfig.builder().build())
+            .addProfession(miner)
+            .build();
+        injectConfig(config);
+
+        Map<String, Object> placeholders = JobsMenuSupport.buildJobLicensePlaceholders(mockPlayer, miner);
+
+        assertEquals("<green>Não necessária", placeholders.get("job_license_required_label"));
+        assertEquals("false", placeholders.get("job_license_required"));
+        assertEquals("<green>Não requer licença", placeholders.get("job_license_status"));
+        assertEquals("", placeholders.get("job_license_objectives"));
+        assertEquals("", placeholders.get("job_license_progress"));
+        assertEquals("0", placeholders.get("job_license_objectives_count"));
+        assertEquals("0", placeholders.get("job_license_objectives_completed"));
+    }
+
+    @Test
+    void testJobPermissionServiceAliasing() {
+        customConfig = JobsConfig.builder()
+                .global(GlobalConfig.builder()
+                        .permissionPrefix("bigbangessentials.jobs")
+                        .legacyPermissionAlias("jobs.command.jobs", "bigbangessentials.jobs.command.menu")
+                        .build())
+                .build();
+        try {
+            injectConfig(customConfig);
+        } catch (Exception e) {
+            fail(e);
+        }
+
+        // Case 1: Player has canonical permission 'bigbangessentials.jobs.command.menu',
+        // and we query legacy 'jobs.command.jobs' (maps to 'bigbangessentials.jobs.command.menu').
+        reset(mockPermAdapter);
+        when(mockPermAdapter.hasPermission(playerId, "bigbangessentials.jobs.command.menu")).thenReturn(true);
+        assertTrue(JobPermissionService.getInstance().hasPermission(playerId, "jobs.command.jobs"));
+
+        // Case 2: Player has legacy permission 'jobs.command.jobs',
+        // and we query canonical 'bigbangessentials.jobs.command.menu' (canonical-to-legacy alias mapping).
+        reset(mockPermAdapter);
+        when(mockPermAdapter.hasPermission(playerId, "jobs.command.jobs")).thenReturn(true);
+        assertTrue(JobPermissionService.getInstance().hasPermission(playerId, "bigbangessentials.jobs.command.menu"));
+
+        // Case 3: Player has legacy naming-based permission 'jobs.use',
+        // and we query canonical 'bigbangessentials.jobs.use' (naming-based fallback).
+        reset(mockPermAdapter);
+        when(mockPermAdapter.hasPermission(playerId, "jobs.use")).thenReturn(true);
+        assertTrue(JobPermissionService.getInstance().hasPermission(playerId, "bigbangessentials.jobs.use"));
+
+        // Case 4: Player has canonical naming-based permission 'bigbangessentials.jobs.join',
+        // and we query legacy 'jobs.join' (naming-based fallback).
+        reset(mockPermAdapter);
+        when(mockPermAdapter.hasPermission(playerId, "bigbangessentials.jobs.join")).thenReturn(true);
+        assertTrue(JobPermissionService.getInstance().hasPermission(playerId, "jobs.join"));
     }
 }

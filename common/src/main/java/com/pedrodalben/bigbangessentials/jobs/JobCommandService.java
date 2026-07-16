@@ -46,11 +46,11 @@ public class JobCommandService {
         if (job == null) return JoinResult.NOT_FOUND;
         if (!job.enabled) return JoinResult.JOB_DISABLED;
 
-        if (!PermissionAPI.hasPermission(player.getUUID(), job.permission))
+        if (!JobPermissionService.getInstance().hasPermission(player.getUUID(), job.permission))
             return JoinResult.MISSING_PERMISSION;
 
         if (job.unlockRequirements.hasPermissionRequirement()
-                && !PermissionAPI.hasPermission(player.getUUID(), job.unlockRequirements.permission())) {
+                && !JobPermissionService.getInstance().hasPermission(player.getUUID(), job.unlockRequirements.permission())) {
             return JoinResult.MISSING_PERMISSION;
         }
 
@@ -66,12 +66,14 @@ public class JobCommandService {
             case LOCKED_BY_RANK:
                 return JoinResult.LOCKED_BY_RANK;
             case ELIGIBLE:
-                JobLicenseService.getInstance().startLicenseQuest(player, job.id);
+                JobLicenseService.getInstance().startLicenseQuest(player, job.id)
+                        .whenComplete((result, error) -> refreshLicenseMenus(player, result, error));
                 return JoinResult.LICENSE_AVAILABLE;
             case IN_PROGRESS:
                 return JoinResult.LICENSE_IN_PROGRESS;
             case READY_TO_CLAIM:
-                JobLicenseService.getInstance().claimLicense(player, job.id);
+                JobLicenseService.getInstance().claimLicense(player, job.id)
+                        .whenComplete((result, error) -> refreshLicenseMenus(player, result, error));
                 return JoinResult.LICENSE_READY_TO_CLAIM;
             case LICENSED:
                 break;
@@ -98,6 +100,27 @@ public class JobCommandService {
         JobSlotService.getInstance().assignJobToSlot(player, slot.slotType(), job.id);
         JobProgressService.getInstance().joinJob(player, data, job);
         return JoinResult.SUCCESS;
+    }
+
+    private void refreshLicenseMenus(ServerPlayer player, LicenseActionResult result, Throwable error) {
+        player.server.execute(() -> {
+            if (error != null) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cNão foi possível concluir a operação da licença."));
+                return;
+            }
+            if (result != null && !result.success()) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§c" + result.message()));
+                return;
+            }
+
+            com.pedrodalben.bigbangessentials.menu.MenuSystem menuSystem =
+                    com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance();
+            String[] sources = {"jobs.all", "jobs.common", "jobs.pokemon", "jobs.active", "jobs.license_pending"};
+            for (String source : sources) {
+                menuSystem.getMenuService().refreshSessionsUsingSource(source);
+            }
+            menuSystem.getMenuService().refreshCurrentPage(player);
+        });
     }
 
     public enum LeaveResult {

@@ -1,5 +1,7 @@
 package com.pedrodalben.bigbangessentials.menu.integration.jobs;
 
+import com.pedrodalben.bigbangessentials.api.rankup.RankDefinition;
+import com.pedrodalben.bigbangessentials.api.rankup.RankupAPI;
 import com.pedrodalben.bigbangessentials.jobs.JobsManager;
 import com.pedrodalben.bigbangessentials.jobs.PlayerJobsData;
 import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityResult;
@@ -7,10 +9,15 @@ import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityServic
 import com.pedrodalben.bigbangessentials.jobs.availability.JobAvailabilityStatus;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.JobDefinition;
+import com.pedrodalben.bigbangessentials.jobs.config.UnlockRequirements;
 import com.pedrodalben.bigbangessentials.jobs.favorite.JobFavoriteService;
 import com.pedrodalben.bigbangessentials.jobs.menu.JobMenuViewModel;
 import com.pedrodalben.bigbangessentials.jobs.menu.JobMenuViewModelFactory;
 import com.pedrodalben.bigbangessentials.jobs.progressbar.ProgressBarComponent;
+import com.pedrodalben.bigbangessentials.jobs.license.InProgressLicense;
+import com.pedrodalben.bigbangessentials.jobs.license.JobLicenseObjective;
+import com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService;
+import com.pedrodalben.bigbangessentials.jobs.license.JobLicenseStatus;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,25 +58,220 @@ public final class JobsMenuSupport {
         return ProgressBarComponent.getInstance().render(current, max, width).getString();
     }
 
+    private static String normalizeJobId(String jobId) {
+        return jobId != null ? jobId.toLowerCase(Locale.ROOT) : "";
+    }
+
+    private static List<JobLicenseObjective> resolveLicenseObjectives(JobDefinition job, InProgressLicense progress) {
+        if (job == null) {
+            return List.of();
+        }
+
+        Map<String, JobLicenseObjective> progressById = new LinkedHashMap<>();
+        if (progress != null && progress.objectives() != null) {
+            for (JobLicenseObjective objective : progress.objectives()) {
+                if (objective != null) {
+                    progressById.put(normalizeJobId(objective.objectiveId()), objective);
+                }
+            }
+        }
+
+        List<JobLicenseObjective> resolved = new ArrayList<>();
+        for (JobLicenseObjective objective : job.licenseObjectives) {
+            if (objective == null) {
+                continue;
+            }
+            JobLicenseObjective current = progressById.remove(normalizeJobId(objective.objectiveId()));
+            if (current != null) {
+                resolved.add(objective.withProgress(current.currentAmount(), current.completedAt()));
+            } else {
+                resolved.add(objective);
+            }
+        }
+
+        if (!progressById.isEmpty()) {
+            resolved.addAll(progressById.values());
+        }
+
+        return resolved;
+    }
+
+    private static String objectiveLabel(JobLicenseObjective objective) {
+        if (objective == null) {
+            return "Objetivo desconhecido";
+        }
+
+        String label = objective.progressMessage();
+        if (label == null || label.isBlank()) {
+            label = objective.objectiveId();
+        }
+        if (label == null || label.isBlank()) {
+            label = objective.actionType();
+        }
+        if (label == null || label.isBlank()) {
+            label = "Objetivo desconhecido";
+        }
+        return label;
+    }
+
+    private static String formatRequiredRankLabel(JobDefinition job) {
+        if (job == null || job.unlockRequirements == null || !job.unlockRequirements.hasRankRequirement()) {
+            return "<green>Não necessário";
+        }
+
+        UnlockRequirements req = job.unlockRequirements;
+        String rankLabel = null;
+        if (req.requiredRankId() != null && !req.requiredRankId().isBlank()) {
+            try {
+                rankLabel = RankupAPI.get().getRankDefinition(req.requiredRankId())
+                    .map(RankDefinition::displayName)
+                    .filter(s -> s != null && !s.isBlank())
+                    .orElse(req.requiredRankId());
+            } catch (Exception ignored) {
+                rankLabel = req.requiredRankId();
+            }
+        } else if (req.requiredRankOrder() > 0) {
+            rankLabel = "Ordem " + req.requiredRankOrder();
+        }
+
+        if (rankLabel == null || rankLabel.isBlank()) {
+            rankLabel = "Não necessário";
+        }
+
+        return "<white>" + rankLabel;
+    }
+
+    private static String formatLicenseRequiredLabel(JobDefinition job) {
+        if (job == null || !job.licenseRequired) {
+            return "<green>Não necessária";
+        }
+        return "<red>Obrigatória";
+    }
+
+    private static String formatLicenseStatusLabel(JobDefinition job, JobLicenseStatus status) {
+        if (job == null) {
+            return "<gray>Indisponível";
+        }
+        if (!job.licenseRequired) {
+            return "<green>Não requer licença";
+        }
+
+        return switch (status != null ? status : JobLicenseStatus.LOCKED_BY_RANK) {
+            case LICENSED -> "<green>Licença permanente";
+            case READY_TO_CLAIM -> "<gold>Pronta para resgatar";
+            case IN_PROGRESS -> "<yellow>Em andamento";
+            case ELIGIBLE -> "<aqua>Disponível para iniciar";
+            case LOCKED_BY_RANK -> "<red>Bloqueada por rank";
+        };
+    }
+
+    private static String buildLicenseObjectivesBlock(JobDefinition job, List<JobLicenseObjective> objectives) {
+        if (job == null || !job.licenseRequired) {
+            return "";
+        }
+        if (objectives == null || objectives.isEmpty()) {
+            return "<red>Sem objetivos configurados.";
+        }
+
+        List<String> lines = new ArrayList<>();
+        lines.add("<yellow>Missão da licença:");
+        for (JobLicenseObjective objective : objectives) {
+            lines.add("<gray>- <white>" + objectiveLabel(objective));
+        }
+        return String.join("\n", lines);
+    }
+
+    private static String buildLicenseProgressBlock(JobDefinition job, JobLicenseStatus status, List<JobLicenseObjective> objectives) {
+        if (job == null || !job.licenseRequired) {
+            return "";
+        }
+
+        if (status == JobLicenseStatus.LICENSED) {
+            return "<green>Licença permanente obtida.";
+        }
+
+        if (status != JobLicenseStatus.IN_PROGRESS && status != JobLicenseStatus.READY_TO_CLAIM) {
+            return "";
+        }
+
+        if (objectives == null || objectives.isEmpty()) {
+            return "<red>Sem progresso disponível.";
+        }
+
+        List<String> lines = new ArrayList<>();
+        lines.add("<yellow>Progresso da licença:");
+        for (JobLicenseObjective objective : objectives) {
+            String progressColor = objective != null && objective.isCompleted() ? "<green>" : "<yellow>";
+            String progress = objective != null
+                ? objective.currentAmount() + "/" + objective.requiredAmount()
+                : "0/0";
+            lines.add("<gray>- <white>" + objectiveLabel(objective) + ": " + progressColor + progress);
+        }
+        return String.join("\n", lines);
+    }
+
+    public static Map<String, Object> buildJobLicensePlaceholders(ServerPlayer player, JobDefinition job) {
+        Map<String, Object> values = new LinkedHashMap<>();
+
+        JobLicenseStatus licenseStatus = JobLicenseStatus.LOCKED_BY_RANK;
+        InProgressLicense inProgressLicense = null;
+        if (player != null && job != null) {
+            try {
+                licenseStatus = JobLicenseService.getInstance().getLicenseStatus(player.getUUID(), job.id);
+                inProgressLicense = JobLicenseService.getInstance().getInProgressLicenses(player.getUUID()).get(normalizeJobId(job.id));
+            } catch (Exception e) {
+                LOGGER.warn("Failed to resolve license status for job '{}' and player {}: {}",
+                    job.id, player.getUUID(), e.getMessage());
+            }
+        } else if (job != null && !job.licenseRequired) {
+            licenseStatus = JobLicenseStatus.LICENSED;
+        }
+
+        List<JobLicenseObjective> resolvedObjectives = resolveLicenseObjectives(job, inProgressLicense);
+        int licenseObjectivesCount = resolvedObjectives.size();
+        int completedLicenseObjectives = (int) resolvedObjectives.stream().filter(JobLicenseObjective::isCompleted).count();
+
+        String requiredRankLabel = formatRequiredRankLabel(job);
+        String licenseRequiredLabel = formatLicenseRequiredLabel(job);
+        String licenseStatusLabel = formatLicenseStatusLabel(job, licenseStatus);
+        String licenseObjectivesBlock = buildLicenseObjectivesBlock(job, resolvedObjectives);
+        String licenseProgressBlock = buildLicenseProgressBlock(job, licenseStatus, resolvedObjectives);
+
+        values.put("job_required_rank_label", requiredRankLabel);
+        values.put("job_required_rank_id", job != null && job.unlockRequirements != null && job.unlockRequirements.requiredRankId() != null
+            ? job.unlockRequirements.requiredRankId()
+            : "");
+        values.put("job_license_required_label", licenseRequiredLabel);
+        values.put("job_license_required", String.valueOf(job != null && job.licenseRequired));
+        values.put("job_license_status", licenseStatusLabel);
+        values.put("job_license_status_key", licenseStatus.name().toLowerCase(Locale.ROOT));
+        values.put("job_license_objectives", licenseObjectivesBlock);
+        values.put("job_license_progress", licenseProgressBlock);
+        values.put("job_license_objectives_count", String.valueOf(licenseObjectivesCount));
+        values.put("job_license_objectives_completed", String.valueOf(completedLicenseObjectives));
+
+        return values;
+    }
+
     public static Map<String, Object> buildJobPlaceholders(ServerPlayer player, JobDefinition job) {
         JobAvailabilityResult avail;
         try {
             avail = JobAvailabilityService.getInstance().evaluate(player, job);
         } catch (Exception e) {
-            avail = JobAvailabilityResult.builder(job.id)
+            avail = JobAvailabilityResult.builder(job != null ? job.id : "unknown")
                 .status(JobAvailabilityStatus.CONFIGURATION_ERROR)
                 .visible(true).canOpenDetails(false)
                 .primaryReason("Error: " + e.getMessage())
                 .build();
         }
         LOGGER.debug("buildJobPlaceholders() jobId={} availStatus={} availVisible={} availPrimaryReason={}",
-                job.id, avail.status(), avail.visible(), avail.primaryReason());
+                job != null ? job.id : "unknown", avail.status(), avail.visible(), avail.primaryReason());
         JobMenuViewModel viewModel;
         try {
             viewModel = JobMenuViewModelFactory.getInstance().create(player, job);
         } catch (Exception e) {
             viewModel = new JobMenuViewModel(
-                job.id, null, null, JobAvailabilityStatus.CONFIGURATION_ERROR, null,
+                job != null ? job.id : "unknown", null, null, JobAvailabilityStatus.CONFIGURATION_ERROR, null,
                 1, 0, 100, 0.0, null, null,
                 false, false, false, false, false, List.of(), null
             );
@@ -142,6 +344,7 @@ public final class JobsMenuSupport {
         values.put("job_status_color", statusColor);
         values.put("job_status_key", statusKey);
         values.put("job_license_label", licLabel);
+        values.putAll(buildJobLicensePlaceholders(player, job));
         values.put("job_slot_assigned", assignedSlot);
         values.put("job_category_label", categoryLabel);
         values.put("job_icon", job.icon != null && !job.icon.isBlank() ? job.icon : "minecraft:book");
@@ -173,12 +376,6 @@ public final class JobsMenuSupport {
                 }
             }
         }
-
-        // License objectives
-        if (job.licenseRequired && !job.licenseObjectives.isEmpty()) {
-            values.put("job_license_objectives_count", String.valueOf(job.licenseObjectives.size()));
-        }
-
         // Required integration
         if (job.requiredIntegration != null && !job.requiredIntegration.isBlank()) {
             values.put("job_required_integration", job.requiredIntegration);
