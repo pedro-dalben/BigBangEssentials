@@ -58,6 +58,14 @@ public class NeoForgeEvents {
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
         BigBangEssentials.GameEvents.onServerStopping(event.getServer());
+        com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerStop(event.getServer());
+    }
+
+    @SubscribeEvent
+    public static void onPlayerChangedDimension(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerChangedDimensionEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            com.pedrodalben.bigbangessentials.tablist.integration.WorldTabIntegration.onWorldChange(player);
+        }
     }
 
     @SubscribeEvent
@@ -66,6 +74,7 @@ public class NeoForgeEvents {
             BigBangEssentials.GameEvents.onPlayerLoggedIn(player);
             JobsEventListener.onPlayerLoggedIn(player);
             RankupEventListener.onPlayerLoggedIn(player);
+            com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onPlayerJoin(player, event.getEntity().getServer());
         }
     }
 
@@ -75,6 +84,7 @@ public class NeoForgeEvents {
             BigBangEssentials.GameEvents.onPlayerLoggedOut(player);
             JobsEventListener.onPlayerLoggedOut(player);
             RankupEventListener.onPlayerLoggedOut(player);
+            com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onPlayerQuit(player, event.getEntity().getServer());
         }
     }
 
@@ -85,9 +95,10 @@ public class NeoForgeEvents {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(event.getServer());
-        com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
         var server = event.getServer();
+        com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(server);
+        com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
+        com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerTick(server);
         if (server != null) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 RankupEventListener.onPlayerTick(player);

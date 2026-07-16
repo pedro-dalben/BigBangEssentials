@@ -3,6 +3,7 @@ package com.pedrodalben.bigbangessentials.fabric.listener;
 import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
 import com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener;
 import com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
@@ -20,10 +21,11 @@ import net.minecraft.world.level.block.state.BlockState;
 public class FabricEvents {
 
     public static void register() {
-        // Server Tick Event (Task Scheduler + Kit Menu Refresh + RankUp Playtime)
+        // Server Tick Event (Task Scheduler + Kit Menu Refresh + RankUp Playtime + Tablist)
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(server);
             com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
+            com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerTick(server);
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 RankupEventListener.onPlayerTick(player);
                 JobsEventListener.onPlayerTick(player);
@@ -45,11 +47,12 @@ public class FabricEvents {
             return allow[0];
         });
 
-        // Player Logged In Event - includes JobsEventListener for data loading
+        // Player Logged In Event - includes JobsEventListener + Tablist for data loading
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             com.pedrodalben.bigbangessentials.BigBangEssentials.GameEvents.onPlayerLoggedIn(handler.getPlayer());
             JobsEventListener.onPlayerLoggedIn(handler.getPlayer());
             RankupEventListener.onPlayerLoggedIn(handler.getPlayer());
+            com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onPlayerJoin(handler.getPlayer(), server);
         });
 
         // Player Logged Out Event
@@ -57,6 +60,14 @@ public class FabricEvents {
             com.pedrodalben.bigbangessentials.BigBangEssentials.GameEvents.onPlayerLoggedOut(handler.getPlayer());
             JobsEventListener.onPlayerLoggedOut(handler.getPlayer());
             RankupEventListener.onPlayerLoggedOut(handler.getPlayer());
+            com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onPlayerQuit(handler.getPlayer(), server);
+        });
+
+        // Player Dimension Change Event (for tablist conditional designs)
+        ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> {
+            if (player instanceof ServerPlayer serverPlayer) {
+                com.pedrodalben.bigbangessentials.tablist.integration.WorldTabIntegration.onWorldChange(serverPlayer);
+            }
         });
 
         // Chunk Load Event

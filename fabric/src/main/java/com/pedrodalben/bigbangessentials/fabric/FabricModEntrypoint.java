@@ -8,7 +8,6 @@ import com.pedrodalben.bigbangessentials.util.Platform;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
 public class FabricModEntrypoint implements ModInitializer {
 
@@ -38,13 +37,8 @@ public class FabricModEntrypoint implements ModInitializer {
 
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
             BigBangEssentials.GameEvents.onServerStopping(server);
+            com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerStop(server);
             FabricPlatformProvider.setServer(null);
-        });
-
-        // Register Player Join event
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            BigBangEssentials.GameEvents.onPlayerLoggedIn(handler.getPlayer());
-            com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener.onPlayerLoggedIn(handler.getPlayer());
         });
 
         // Register Command Registration event
