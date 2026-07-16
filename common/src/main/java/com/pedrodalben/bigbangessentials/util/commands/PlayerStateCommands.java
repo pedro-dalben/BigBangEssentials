@@ -12,6 +12,8 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
@@ -60,6 +62,7 @@ public class PlayerStateCommands {
         registerExp(dispatcher);
         registerSudo(dispatcher);
         registerPlaytime(dispatcher);
+        registerNightVision(dispatcher);
     }
 
     // ── /fly [player] [on|off] ────────────────────────────────────────────────
@@ -649,6 +652,67 @@ public class PlayerStateCommands {
         if (h > 0) return h + "h " + (m % 60) + "m " + (s % 60) + "s";
         if (m > 0) return m + "m " + (s % 60) + "s";
         return s + "s";
+    }
+
+    // ── /nightvision [on|off] [player] ─────────────────────────────────────────
+    private static void registerNightVision(CommandDispatcher<CommandSourceStack> d) {
+        d.register(Commands.literal("nightvision")
+            .requires(src -> {
+                var p = src.getPlayer();
+                return p == null || PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.nightvision");
+            })
+            .executes(ctx -> executeNightVision(ctx, null, null))
+            .then(Commands.argument("target", StringArgumentType.word())
+                .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.nightvision.others"))
+                .executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), null))
+                .then(Commands.literal("on").executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), true)))
+                .then(Commands.literal("off").executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), false)))
+            )
+            .then(Commands.literal("on").executes(ctx -> executeNightVision(ctx, null, true)))
+            .then(Commands.literal("off").executes(ctx -> executeNightVision(ctx, null, false)))
+        );
+
+        d.register(Commands.literal("nv")
+            .requires(src -> {
+                var p = src.getPlayer();
+                return p == null || PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.nightvision");
+            })
+            .executes(ctx -> executeNightVision(ctx, null, null))
+            .then(Commands.argument("target", StringArgumentType.word())
+                .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.nightvision.others"))
+                .executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), null))
+                .then(Commands.literal("on").executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), true)))
+                .then(Commands.literal("off").executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), false)))
+            )
+            .then(Commands.literal("on").executes(ctx -> executeNightVision(ctx, null, true)))
+            .then(Commands.literal("off").executes(ctx -> executeNightVision(ctx, null, false)))
+        );
+    }
+
+    private static int executeNightVision(CommandContext<CommandSourceStack> ctx, String targetName, Boolean enable) {
+        var src = ctx.getSource();
+        ServerPlayer target = resolveTarget(src, targetName);
+        if (target == null) return 0;
+
+        boolean newState = enable != null ? enable : !target.hasEffect(MobEffects.NIGHT_VISION);
+        if (newState) {
+            // Apply night vision effect with long duration (20000000 ticks) and amplifier 0
+            target.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 20000000, 0, false, false));
+        } else {
+            target.removeEffect(MobEffects.NIGHT_VISION);
+        }
+
+        String state = newState ? "§aenabled" : "§cdisabled";
+        if (isOtherTarget(src, target)) {
+            src.sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.nightvision.other", target.getName().getString(), state), true);
+            target.sendSystemMessage(MessageUtil.info("commands.bigbangessentials.nightvision.self", state));
+        } else {
+            src.sendSuccess(() -> MessageUtil.success("commands.bigbangessentials.nightvision.self", state), false);
+        }
+        LOGGER.info("{} set nightvision={} for {}", senderName(src), newState, target.getName().getString());
+        return 1;
     }
 }
 

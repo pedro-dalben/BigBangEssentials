@@ -753,6 +753,8 @@
   "_comment_player_state": "=== Player State / Admin Tool Commands ===",
   "commands.bigbangessentials.fly.self": "§eFlight §f{0}§e.",
   "commands.bigbangessentials.fly.other": "§eSet flight §f{1}§e for §f{0}§e.",
+  "commands.bigbangessentials.nightvision.self": "§eNight vision §f{0}§e.",
+  "commands.bigbangessentials.nightvision.other": "§eSet night vision §f{1}§e for §f{0}§e.",
   "commands.bigbangessentials.god.self": "§eGod mode §f{0}§e.",
   "commands.bigbangessentials.god.other": "§eSet god mode §f{1}§e for §f{0}§e.",
   "commands.bigbangessentials.heal.self": "§aYou have been healed.",

@@ -12,6 +12,7 @@ import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.network.chat.Component;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
+import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import com.pedrodalben.bigbangessentials.util.PermissionValidator;
 
@@ -73,14 +74,18 @@ public class AnvilCommand {
                     @Override
                     protected boolean mayPickup(Player player, boolean hasStack) {
                         // Allow pickup if player can afford the experience cost
-                        return hasStack && player.experienceLevel >= this.repairItemCountCost;
+                        return hasStack && player.experienceLevel >= this.getCost();
                     }
                     
                     @Override
                     protected void onTake(Player player, net.minecraft.world.item.ItemStack stack) {
+                        if (player instanceof ServerPlayer serverPlayer) {
+                            JobsEventListener.onAnvilRepair(serverPlayer, stack);
+                        }
+
                         // Handle experience cost and durability damage (anvils normally take damage)
                         if (!player.getAbilities().instabuild) {
-                            player.giveExperienceLevels(-this.repairItemCountCost);
+                            player.giveExperienceLevels(-this.getCost());
                         }
                         
                         // Clear the input slots
@@ -88,7 +93,6 @@ public class AnvilCommand {
                         this.inputSlots.setItem(1, net.minecraft.world.item.ItemStack.EMPTY);
                         
                         // Since this is virtual, we don't damage a physical anvil
-                        this.repairItemCountCost = 0;
                         this.access.execute((level, pos) -> {
                             level.levelEvent(1030, pos, 0);
                         });

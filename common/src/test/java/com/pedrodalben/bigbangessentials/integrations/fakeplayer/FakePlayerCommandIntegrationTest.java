@@ -10,6 +10,8 @@ import com.pedrodalben.bigbangessentials.util.commands.SeenCommand;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.players.PlayerList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -179,5 +181,66 @@ class FakePlayerCommandIntegrationTest {
         assertNotNull(snap.serverName());
         assertNotNull(snap.connectedAt());
         assertEquals(42, snap.ping());
+    }
+
+    @Test
+    void tpaCommand_fallbackExecutionWithFakePlayer() throws Exception {
+        PermissionAPI.setExternalAdapter(new com.pedrodalben.bigbangessentials.permissions.ExternalPermissionAdapter() {
+            @Override public boolean hasPermission(UUID uuid, String permission) { return true; }
+            @Override public String getPrefix(UUID uuid) { return ""; }
+            @Override public String getSuffix(UUID uuid) { return ""; }
+            @Override public void reload() {}
+            @Override public String getName() { return "Mock"; }
+            @Override public boolean isAvailable() { return true; }
+        });
+
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        TeleportRequestCommands.register(dispatcher);
+
+        ServerPlayer requester = mock(ServerPlayer.class);
+        when(requester.getUUID()).thenReturn(UUID.randomUUID());
+        when(requester.getName()).thenReturn(net.minecraft.network.chat.Component.literal("RealPlayer"));
+        when(requester.hasDisconnected()).thenReturn(false);
+
+        CommandSourceStack source = mock(CommandSourceStack.class);
+        when(source.getEntity()).thenReturn(requester);
+        when(source.getPlayerOrException()).thenReturn(requester);
+        when(source.getServer()).thenReturn(null);
+
+        // Before the fix, executing this would throw IllegalArgumentException:
+        // "Argument 'player' is defined as EntitySelector, not class java.lang.String"
+        // After the fix, it executes successfully (calls executeTpaFakeFallback and returns 1).
+        int result = dispatcher.execute("tpa Vinzin", source);
+        assertEquals(1, result);
+    }
+
+    @Test
+    void msgCommand_fallbackExecutionWithFakePlayer() throws Exception {
+        PermissionAPI.setExternalAdapter(new com.pedrodalben.bigbangessentials.permissions.ExternalPermissionAdapter() {
+            @Override public boolean hasPermission(UUID uuid, String permission) { return true; }
+            @Override public String getPrefix(UUID uuid) { return ""; }
+            @Override public String getSuffix(UUID uuid) { return ""; }
+            @Override public void reload() {}
+            @Override public String getName() { return "Mock"; }
+            @Override public boolean isAvailable() { return true; }
+        });
+
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        MsgCommand.register(dispatcher);
+
+        ServerPlayer sender = mock(ServerPlayer.class);
+        when(sender.getUUID()).thenReturn(UUID.randomUUID());
+        when(sender.getName()).thenReturn(net.minecraft.network.chat.Component.literal("RealPlayer"));
+        when(sender.getServer()).thenReturn(null);
+
+        CommandSourceStack source = mock(CommandSourceStack.class);
+        when(source.getEntity()).thenReturn(sender);
+        when(source.getPlayer()).thenReturn(sender);
+
+        // Before the fix, executing this would throw IllegalArgumentException:
+        // "Argument 'target' is defined as EntitySelector, not class java.lang.String"
+        // After the fix, it executes successfully (calls handleFakePlayerMsg and returns 1).
+        int result = dispatcher.execute("msg Vinzin hello there", source);
+        assertEquals(1, result);
     }
 }

@@ -16,6 +16,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,7 +76,7 @@ public class TeleportRequestCommands {
                         .then(Commands.argument("player", EntityArgument.player())
                             .executes(context -> executeTpa(context))
                         )
-                        .then(Commands.argument("player", StringArgumentType.word())
+                        .then(Commands.argument("playername", StringArgumentType.word())
                             .suggests(FAKE_PLAYER_SUGGESTIONS)
                             .executes(context -> executeTpaFakeFallback(context))
                         )
@@ -96,7 +97,7 @@ public class TeleportRequestCommands {
                         .then(Commands.argument("player", EntityArgument.player())
                             .executes(context -> executeTpaHere(context))
                         )
-                        .then(Commands.argument("player", StringArgumentType.word())
+                        .then(Commands.argument("playername", StringArgumentType.word())
                             .suggests(FAKE_PLAYER_SUGGESTIONS)
                             .executes(context -> executeTpaHereFakeFallback(context))
                         )
@@ -145,7 +146,36 @@ public class TeleportRequestCommands {
     private static int executeTpa(CommandContext<CommandSourceStack> context) {
         try {
             ServerPlayer requester = context.getSource().getPlayerOrException();
-            ServerPlayer target = EntityArgument.getPlayer(context, "player");
+            ServerPlayer target;
+            try {
+                target = EntityArgument.getPlayer(context, "player");
+            } catch (CommandSyntaxException | NullPointerException e) {
+                String targetName = null;
+                for (com.mojang.brigadier.context.ParsedCommandNode<?> node : context.getNodes()) {
+                    if (node.getNode().getName().equals("player")) {
+                        targetName = node.getRange().get(context.getInput());
+                        break;
+                    }
+                }
+                if (targetName != null) {
+                    if (requester.getName().getString().equalsIgnoreCase(targetName)) {
+                        requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.self"));
+                        return 0;
+                    }
+                    Optional<FakePlayerSnapshot> fakeOpt = FakePlayerIntegration.getInstance().findActiveFakePlayer(targetName);
+                    if (fakeOpt.isPresent()) {
+                        if (!ConfigManager.getInstance().isFakeCommandTpaEnabled()) {
+                            requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.fakeplayer.not_available", targetName));
+                            return 0;
+                        }
+                        FakePlayerSnapshot fakePlayer = fakeOpt.get();
+                        FakeTpaManager.getInstance().scheduleFakeTpa(requester, fakePlayer.username(), 30, 60);
+                        return 1;
+                    }
+                }
+                LOGGER.error("Command syntax error in /tpa", e);
+                return 0;
+            }
 
             if (requester.getUUID().equals(target.getUUID())) {
                 requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.self"));
@@ -155,9 +185,6 @@ public class TeleportRequestCommands {
             TeleportRequestManager manager = TeleportRequestManager.getInstance();
             return manager.sendTeleportRequest(requester, target, TeleportRequestType.TPA) ? 1 : 0;
 
-        } catch (CommandSyntaxException e) {
-            LOGGER.error("Command syntax error in /tpa", e);
-            return 0;
         } catch (Exception e) {
             LOGGER.error("Error executing /tpa command", e);
             return 0;
@@ -167,14 +194,18 @@ public class TeleportRequestCommands {
     private static int executeTpaFakeFallback(CommandContext<CommandSourceStack> context) {
         try {
             ServerPlayer requester = context.getSource().getPlayerOrException();
-            String targetName = StringArgumentType.getString(context, "player");
+            String targetName = StringArgumentType.getString(context, "playername");
 
             if (requester.getName().getString().equalsIgnoreCase(targetName)) {
                 requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.self"));
                 return 0;
             }
 
-            ServerPlayer realTarget = context.getSource().getServer().getPlayerList().getPlayerByName(targetName);
+            ServerPlayer realTarget = null;
+            MinecraftServer server = context.getSource().getServer();
+            if (server != null) {
+                realTarget = server.getPlayerList().getPlayerByName(targetName);
+            }
             if (realTarget != null) {
                 return 0;
             }
@@ -211,7 +242,36 @@ public class TeleportRequestCommands {
     private static int executeTpaHere(CommandContext<CommandSourceStack> context) {
         try {
             ServerPlayer requester = context.getSource().getPlayerOrException();
-            ServerPlayer target = EntityArgument.getPlayer(context, "player");
+            ServerPlayer target;
+            try {
+                target = EntityArgument.getPlayer(context, "player");
+            } catch (CommandSyntaxException | NullPointerException e) {
+                String targetName = null;
+                for (com.mojang.brigadier.context.ParsedCommandNode<?> node : context.getNodes()) {
+                    if (node.getNode().getName().equals("player")) {
+                        targetName = node.getRange().get(context.getInput());
+                        break;
+                    }
+                }
+                if (targetName != null) {
+                    if (requester.getName().getString().equalsIgnoreCase(targetName)) {
+                        requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.self"));
+                        return 0;
+                    }
+                    Optional<FakePlayerSnapshot> fakeOpt = FakePlayerIntegration.getInstance().findActiveFakePlayer(targetName);
+                    if (fakeOpt.isPresent()) {
+                        if (!ConfigManager.getInstance().isFakeCommandTpaEnabled()) {
+                            requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.fakeplayer.not_available", targetName));
+                            return 0;
+                        }
+                        FakePlayerSnapshot fakePlayer = fakeOpt.get();
+                        FakeTpaManager.getInstance().scheduleFakeTpa(requester, fakePlayer.username(), 30, 60);
+                        return 1;
+                    }
+                }
+                LOGGER.error("Command syntax error in /tpahere", e);
+                return 0;
+            }
 
             if (requester.getUUID().equals(target.getUUID())) {
                 requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.self"));
@@ -221,9 +281,6 @@ public class TeleportRequestCommands {
             TeleportRequestManager manager = TeleportRequestManager.getInstance();
             return manager.sendTeleportRequest(requester, target, TeleportRequestType.TPAHERE) ? 1 : 0;
 
-        } catch (CommandSyntaxException e) {
-            LOGGER.error("Command syntax error in /tpahere", e);
-            return 0;
         } catch (Exception e) {
             LOGGER.error("Error executing /tpahere command", e);
             return 0;
@@ -233,14 +290,18 @@ public class TeleportRequestCommands {
     private static int executeTpaHereFakeFallback(CommandContext<CommandSourceStack> context) {
         try {
             ServerPlayer requester = context.getSource().getPlayerOrException();
-            String targetName = StringArgumentType.getString(context, "player");
+            String targetName = StringArgumentType.getString(context, "playername");
 
             if (requester.getName().getString().equalsIgnoreCase(targetName)) {
                 requester.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.request.self"));
                 return 0;
             }
 
-            ServerPlayer realTarget = context.getSource().getServer().getPlayerList().getPlayerByName(targetName);
+            ServerPlayer realTarget = null;
+            MinecraftServer server = context.getSource().getServer();
+            if (server != null) {
+                realTarget = server.getPlayerList().getPlayerByName(targetName);
+            }
             if (realTarget != null) {
                 return 0;
             }

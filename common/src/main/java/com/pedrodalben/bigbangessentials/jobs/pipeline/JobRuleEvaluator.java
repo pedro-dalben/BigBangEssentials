@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.Map;
 import java.util.Optional;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 /**
  * Evaluates whether a job definition defines a reward rule for the given action.
@@ -69,12 +70,37 @@ public class JobRuleEvaluator {
 
     private Optional<EvaluatedRule> findExactMatch(JobDefinition jobDef, JobAction action, String targetId) {
         for (String configKey : action.type().getConfigKeys()) {
-            ActionReward reward = jobDef.getReward(configKey, targetId);
-            if (reward != null) {
-                return Optional.of(new EvaluatedRule(reward, configKey, targetId));
+            for (String candidateTarget : exactTargetCandidates(action, targetId)) {
+                ActionReward reward = jobDef.getReward(configKey, candidateTarget);
+                if (reward != null) {
+                    return Optional.of(new EvaluatedRule(reward, configKey, candidateTarget));
+                }
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Keep semantic magic targets compatible with the pre-refactor config keys.
+     * The exact current target always wins; aliases are only considered when it
+     * is absent from the configured allowlist.
+     */
+    private List<String> exactTargetCandidates(JobAction action, String targetId) {
+        if (action.type() != com.pedrodalben.bigbangessentials.jobs.JobActionType.USE_MAGIC) {
+            return java.util.Collections.singletonList(targetId);
+        }
+
+        return switch (targetId) {
+            case "minecraft:enchant" -> java.util.List.of(
+                    "minecraft:enchant", "minecraft:enchanting_table", "minecraft:use_enchanting_table");
+            case "minecraft:use_enchanting_table" -> java.util.List.of(
+                    "minecraft:use_enchanting_table", "minecraft:enchanting_table");
+            case "minecraft:brew_potion" -> java.util.List.of(
+                    "minecraft:brew_potion", "minecraft:brewing_stand", "minecraft:use_brewing_stand");
+            case "minecraft:use_brewing_stand" -> java.util.List.of(
+                    "minecraft:use_brewing_stand", "minecraft:brewing_stand");
+            default -> java.util.Collections.singletonList(targetId);
+        };
     }
 
     private Optional<EvaluatedRule> findTagMatch(JobDefinition jobDef, JobAction action) {

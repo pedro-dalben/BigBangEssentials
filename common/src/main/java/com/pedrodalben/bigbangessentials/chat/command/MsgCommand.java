@@ -50,8 +50,31 @@ public class MsgCommand {
                         ServerPlayer target;
                         try {
                             target = EntityArgument.getPlayer(ctx, "target");
-                        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
-                            source.sendFailure(MessageUtil.error("commands.bigbangessentials.msg.not_found", "Unknown"));
+                        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException | NullPointerException e) {
+                            String targetName = null;
+                            for (com.mojang.brigadier.context.ParsedCommandNode<?> node : ctx.getNodes()) {
+                                if (node.getNode().getName().equals("target")) {
+                                    targetName = node.getRange().get(ctx.getInput());
+                                    break;
+                                }
+                            }
+                            if (targetName != null) {
+                                ServerPlayer sender = source.getPlayer();
+                                if (sender != null) {
+                                    if (sender.getName().getString().equalsIgnoreCase(targetName)) {
+                                        source.sendFailure(MessageUtil.error("commands.bigbangessentials.msg.self"));
+                                        return 0;
+                                    }
+                                    Optional<FakePlayerSnapshot> fakeOpt = FakePlayerIntegration.getInstance().findActiveFakePlayer(targetName);
+                                    if (fakeOpt.isPresent()) {
+                                        String message = StringArgumentType.getString(ctx, "message");
+                                        return handleFakePlayerMsg(sender, fakeOpt.get(), message, source);
+                                    }
+                                }
+                                source.sendFailure(MessageUtil.error("commands.bigbangessentials.msg.not_found", targetName));
+                            } else {
+                                source.sendFailure(MessageUtil.error("commands.bigbangessentials.msg.not_found", "Unknown"));
+                            }
                             return 0;
                         }
                         String message = StringArgumentType.getString(ctx, "message");
@@ -151,13 +174,13 @@ public class MsgCommand {
                     })
                 )
             )
-            .then(Commands.argument("target", StringArgumentType.word())
+            .then(Commands.argument("targetname", StringArgumentType.word())
                 .suggests(FAKE_PLAYER_SUGGESTIONS)
                 .then(Commands.argument("message", StringArgumentType.greedyString())
                     .executes(ctx -> {
                         ChatDebugUtil.debug("MsgCommand - Fake player fallback path");
                         CommandSourceStack source = ctx.getSource();
-                        String targetName = StringArgumentType.getString(ctx, "target");
+                        String targetName = StringArgumentType.getString(ctx, "targetname");
                         String message = StringArgumentType.getString(ctx, "message");
 
                         ServerPlayer sender = source.getPlayer();
@@ -167,17 +190,15 @@ public class MsgCommand {
                         }
 
                         MinecraftServer server = sender.getServer();
-                        if (server == null) {
-                            source.sendFailure(MessageUtil.error("bigbangessentials.error.no_server"));
-                            return 0;
-                        }
-
                         if (sender.getName().getString().equalsIgnoreCase(targetName)) {
                             source.sendFailure(MessageUtil.error("commands.bigbangessentials.msg.self"));
                             return 0;
                         }
 
-                        ServerPlayer realTarget = server.getPlayerList().getPlayerByName(targetName);
+                        ServerPlayer realTarget = null;
+                        if (server != null) {
+                            realTarget = server.getPlayerList().getPlayerByName(targetName);
+                        }
                         if (realTarget != null) {
                             return 0;
                         }

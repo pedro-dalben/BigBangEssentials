@@ -259,6 +259,20 @@ class JobsXpRefactorTest {
     }
 
     @Test
+    void farmerProvenanceBypassOnlyAppliesToCultivatedPlants() {
+        var crops = CropHarvestValidationService.getInstance();
+        var cultivatedBlock = mock(net.minecraft.world.level.block.CropBlock.class);
+        var cultivatedState = mock(net.minecraft.world.level.block.state.BlockState.class);
+        when(cultivatedState.getBlock()).thenReturn(cultivatedBlock);
+        var decorativeBlock = mock(net.minecraft.world.level.block.Block.class);
+        var decorativeState = mock(net.minecraft.world.level.block.state.BlockState.class);
+        when(decorativeState.getBlock()).thenReturn(decorativeBlock);
+
+        assertTrue(crops.isPlayerCultivatedCrop(cultivatedState));
+        assertFalse(crops.isPlayerCultivatedCrop(decorativeState));
+    }
+
+    @Test
     void farmerPlayerPlantedMatureAllowed() {
         JobActionContext context = JobActionContext.builder()
                 .playerPlacedBlock(true).cropMature(true).blockId("minecraft:wheat").build();
@@ -266,6 +280,44 @@ class JobsXpRefactorTest {
 
         var result = JobActionValidator.getInstance().validate(mockPlayer, action);
         assertTrue(result.isValid(), "Cultivo plantado e maduro deve ser permitido");
+    }
+
+    @Test
+    void magicianAnvilTargetIsRewardable() throws Exception {
+        Map<String, Map<String, ActionReward>> actions = new LinkedHashMap<>();
+        Map<String, ActionReward> magic = new LinkedHashMap<>();
+        magic.put("minecraft:enchant", new ActionReward(15, 25));
+        actions.put("USE-MAGIC", magic);
+
+        JobDefinition magician = JobDefinition.builder("magician").enabled(true)
+                .displayName("Magician").category("COMMON").actions(actions).build();
+        injectConfig(buildTestConfig(List.of(magician)));
+
+        var result = JobRuleEvaluator.getInstance().evaluate(magician,
+                JobAction.create(playerId, JobActionType.USE_MAGIC, "TEST",
+                        "minecraft:enchant", JobActionContext.empty()));
+
+        assertTrue(result.isMatch(), "Encantamento concluido na bigorna deve ter regra de recompensa");
+        assertEquals(25.0, result.rule().reward().xp);
+    }
+
+    @Test
+    void magicianAnvilUsesLegacyEnchantingTableRuleWhenNeeded() throws Exception {
+        Map<String, Map<String, ActionReward>> actions = new LinkedHashMap<>();
+        Map<String, ActionReward> magic = new LinkedHashMap<>();
+        magic.put("minecraft:enchanting_table", new ActionReward(10, 20));
+        actions.put("USE-MAGIC", magic);
+
+        JobDefinition magician = JobDefinition.builder("magician").enabled(true)
+                .displayName("Magician").category("COMMON").actions(actions).build();
+        injectConfig(buildTestConfig(List.of(magician)));
+
+        var result = JobRuleEvaluator.getInstance().evaluate(magician,
+                JobAction.create(playerId, JobActionType.USE_MAGIC, "TEST",
+                        "minecraft:enchant", JobActionContext.empty()));
+
+        assertTrue(result.isMatch(), "Configuracoes antigas devem continuar recompensando a bigorna");
+        assertEquals(20.0, result.rule().reward().xp);
     }
 
     @Test
