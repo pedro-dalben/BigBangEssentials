@@ -930,14 +930,7 @@ public class ConfigManager {
      * Check if teleportation module is enabled (modules.teleportationEnabled)
      */
     public boolean isTeleportationEnabled() {
-        JsonObject config = getConfig(MAIN_CONFIG);
-        if (config.has("modules")) {
-            JsonObject modules = config.getAsJsonObject("modules");
-            if (modules.has("teleportationEnabled")) {
-                return modules.get("teleportationEnabled").getAsBoolean();
-            }
-        }
-        return true; // Default to enabled
+        return isModuleEnabled("teleportation");
     }
 
     /**
@@ -1271,6 +1264,7 @@ public class ConfigManager {
     public static final String DISCORD_AUTH_CONFIG = "discord_auth.json";
     public static final String TABLIST_CONFIG = "tablist.json";
     public static final String CUSTOM_COMMANDS_CONFIG = "custom_commands.json";
+    public static final String MODULES_CONFIG = "modules.json";
 
     // Config version tracking - increment when structure changes
     private static final String CONFIG_VERSION_KEY = "_configVersion";
@@ -1283,6 +1277,7 @@ public class ConfigManager {
         put(KITS_CONFIG, 2);
         put(DISCORD_AUTH_CONFIG, 6);
         put(TABLIST_CONFIG, 1);
+        put(MODULES_CONFIG, 1);
     }};
 
     private ConfigManager() {
@@ -1301,7 +1296,7 @@ public class ConfigManager {
         ResourceUtil.ensureConfigDirectory();
 
         String[] requiredConfigs = new String[] {
-            MAIN_CONFIG, ECONOMY_CONFIG, PERMISSIONS_CONFIG, KITS_CONFIG, DISCORD_AUTH_CONFIG, TABLIST_CONFIG
+            MAIN_CONFIG, ECONOMY_CONFIG, PERMISSIONS_CONFIG, KITS_CONFIG, DISCORD_AUTH_CONFIG, TABLIST_CONFIG, MODULES_CONFIG
         };
 
         // Check if split configs are enabled
@@ -1599,12 +1594,22 @@ public class ConfigManager {
      * Defaults to true if not set.
      */
     public static boolean isEconomyEnabled() {
+        return isModuleEnabled("economy");
+    }
+
+    /** Returns a top-level module flag. Missing flags preserve legacy behavior. */
+    public static boolean isModuleEnabled(String module) {
         JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("modules")) {
-            JsonObject modules = config.getAsJsonObject("modules");
-            if (modules.has("economyEnabled")) {
-                return modules.get("economyEnabled").getAsBoolean();
-            }
+        JsonObject modules = config.has("modules") && config.get("modules").isJsonObject()
+            ? config.getAsJsonObject("modules")
+            : getInstance().getConfig(MODULES_CONFIG);
+        if (modules != null && modules.isJsonObject()) {
+            String key = switch (module) {
+                case "customcommands" -> "customCommandsEnabled";
+                case "webdashboard" -> "webDashboardEnabled";
+                default -> module.endsWith("Enabled") ? module : module + "Enabled";
+            };
+            if (modules.has(key)) return modules.get(key).getAsBoolean();
         }
         return true;
     }
@@ -1803,14 +1808,7 @@ public class ConfigManager {
      * Defaults to true if not set.
      */
     public static boolean isChatEnabled() {
-        JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("modules")) {
-            JsonObject modules = config.getAsJsonObject("modules");
-            if (modules.has("chatEnabled")) {
-                return modules.get("chatEnabled").getAsBoolean();
-            }
-        }
-        return true;
+        return isModuleEnabled("chat");
     }
 
     /**
@@ -1818,14 +1816,7 @@ public class ConfigManager {
      * Defaults to true if not set.
      */
     public boolean isCustomCommandsEnabled() {
-        JsonObject config = getConfig(MAIN_CONFIG);
-        if (config.has("modules")) {
-            JsonObject modules = config.getAsJsonObject("modules");
-            if (modules.has("customCommandsEnabled")) {
-                return modules.get("customCommandsEnabled").getAsBoolean();
-            }
-        }
-        return true;
+        return isModuleEnabled("customcommands");
     }
 
     /**
@@ -1834,14 +1825,7 @@ public class ConfigManager {
      */
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public static boolean isModerationEnabled() {
-        JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("modules")) {
-            JsonObject modules = config.getAsJsonObject("modules");
-            if (modules.has("moderationEnabled")) {
-                return modules.get("moderationEnabled").getAsBoolean();
-            }
-        }
-        return true;
+        return isModuleEnabled("moderation");
     }
 
     /**
@@ -1864,14 +1848,7 @@ public class ConfigManager {
      * Defaults to true if not set.
      */
     public static boolean isWebDashboardModuleEnabled() {
-        JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("modules")) {
-            JsonObject modules = config.getAsJsonObject("modules");
-            if (modules.has("webDashboardEnabled")) {
-                return modules.get("webDashboardEnabled").getAsBoolean();
-            }
-        }
-        return true;
+        return isModuleEnabled("webdashboard");
     }
 
     /**
@@ -1960,14 +1937,7 @@ public class ConfigManager {
      * Defaults to true if not set.
      */
     public static boolean isKitModuleEnabled() {
-        JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("modules")) {
-            JsonObject modules = config.getAsJsonObject("modules");
-            if (modules.has("kitsEnabled")) {
-                return modules.get("kitsEnabled").getAsBoolean();
-            }
-        }
-        return true;
+        return isModuleEnabled("kits");
     }
 
     /**

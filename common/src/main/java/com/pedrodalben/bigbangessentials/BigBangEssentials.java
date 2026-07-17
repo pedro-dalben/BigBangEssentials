@@ -2,6 +2,7 @@ package com.pedrodalben.bigbangessentials;
 import com.pedrodalben.bigbangessentials.commands.CommandRegistry;
 import com.pedrodalben.bigbangessentials.config.ConfigSplitter;
 import com.pedrodalben.bigbangessentials.core.ManagerRegistry;
+import com.pedrodalben.bigbangessentials.core.ModuleManager;
 import com.pedrodalben.bigbangessentials.permissions.PermissionSystem;
 import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import com.mojang.brigadier.CommandDispatcher;
@@ -63,6 +64,7 @@ public class BigBangEssentials {
         
         // Register all managers with the ManagerRegistry
         try {
+            registerModules();
             LOGGER.info("⚙ Registering system managers...");
             registerAllManagers();
             LOGGER.info("✓ Registered {} managers across {} categories", 
@@ -185,13 +187,11 @@ public class BigBangEssentials {
 
         // Jobs Manager
         registry.registerManager("JobsManager", "jobs",
-            com.pedrodalben.bigbangessentials.jobs.JobsManager.class,
-            com.pedrodalben.bigbangessentials.jobs.JobsManager::getInstance);
+            com.pedrodalben.bigbangessentials.jobs.JobsManager.class);
 
         // Crates Manager
         registry.registerManager("CrateManager", "crates",
-            com.pedrodalben.bigbangessentials.crates.CrateManager.class,
-            com.pedrodalben.bigbangessentials.crates.CrateManager::getInstance);
+            com.pedrodalben.bigbangessentials.crates.CrateManager.class);
 
         registry.registerManager("BigBangHologramsManager", "holograms",
             com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.class,
@@ -199,10 +199,27 @@ public class BigBangEssentials {
 
         // RankUp Manager
         registry.registerManager("RankupManager", "rankup",
-            com.pedrodalben.bigbangessentials.rankup.RankupManager.class,
-            com.pedrodalben.bigbangessentials.rankup.RankupManager::getInstance);
+            com.pedrodalben.bigbangessentials.rankup.RankupManager.class);
         
         LOGGER.debug("Manager registration complete - {} managers registered", registry.getManagerCount());
+    }
+
+    private void registerModules() {
+        ModuleManager modules = ModuleManager.getInstance();
+        modules.register("database", () -> true);
+        modules.register("economy", com.pedrodalben.bigbangessentials.config.ConfigManager::isEconomyEnabled, "database");
+        modules.register("chat", com.pedrodalben.bigbangessentials.config.ConfigManager::isChatEnabled);
+        modules.register("moderation", com.pedrodalben.bigbangessentials.config.ConfigManager::isModerationEnabled);
+        modules.register("teleportation", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isTeleportationEnabled());
+        modules.register("kits", com.pedrodalben.bigbangessentials.config.ConfigManager::isKitModuleEnabled);
+        modules.register("customcommands", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isCustomCommandsEnabled());
+        modules.register("webdashboard", com.pedrodalben.bigbangessentials.config.ConfigManager::isWebDashboardModuleEnabled);
+        modules.register("jobs", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("jobs"), "economy", "database");
+        modules.register("rankup", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("rankup"), "economy", "database");
+        modules.register("crates", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("crates"), "database");
+        modules.register("holograms", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("holograms"));
+        modules.register("shop", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("shop"), "economy", "database");
+        modules.register("tablist", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("tablist"));
     }
     
     public static class GameEvents {
@@ -235,14 +252,27 @@ public class BigBangEssentials {
                 LOGGER.info("⚙ Initializing Database Manager...");
                 com.pedrodalben.bigbangessentials.database.DatabaseManager.getInstance().initialize();
                 ManagerRegistry.getInstance().markInitialized("DatabaseManager");
+                ModuleManager.getInstance().started("database", 0);
                 LOGGER.info("✓ Database Manager initialized successfully");
             } catch (Exception e) {
                 LOGGER.error("✗ CRITICAL: Database Manager failed to initialize!", e);
                 ManagerRegistry.getInstance().markFailed("DatabaseManager", e.getMessage());
+                ModuleManager.getInstance().failed("database", e);
                 // If required, fail server startup
                 var mgr = com.pedrodalben.bigbangessentials.database.DatabaseManager.getInstance();
                 if (mgr.getConfig() != null && mgr.getConfig().isRequired()) {
                     throw new RuntimeException("Database is required but failed to initialize: " + e.getMessage(), e);
+                }
+            }
+
+            if (ModuleManager.getInstance().prepare("economy")) {
+                long moduleStart = System.currentTimeMillis();
+                try {
+                    com.pedrodalben.bigbangessentials.economy.managers.EconomyManager.getInstance();
+                    ModuleManager.getInstance().started("economy", System.currentTimeMillis() - moduleStart);
+                } catch (Throwable e) {
+                    ModuleManager.getInstance().failed("economy", e);
+                    LOGGER.error("✗ Economy module failed to initialize: {}", e.getMessage(), e);
                 }
             }
 
@@ -265,17 +295,32 @@ public class BigBangEssentials {
             }
 
             // Initialize ChestShop system
-            try {
+            if (ModuleManager.getInstance().prepare("shop")) try {
                 LOGGER.info("⚙ Initializing ChestShop system...");
                 com.pedrodalben.bigbangessentials.shop.ShopManager.getInstance().initialize();
                 LOGGER.info("✓ ChestShop system initialized ({} shop(s) loaded)",
                     com.pedrodalben.bigbangessentials.shop.ShopManager.getInstance().getShopCount());
+                ModuleManager.getInstance().started("shop", 0);
             } catch (Exception e) {
                 LOGGER.error("✗ ChestShop system failed to initialize: {}", e.getMessage(), e);
+                ModuleManager.getInstance().failed("shop", e);
+            }
+
+            if (ModuleManager.getInstance().prepare("jobs")) {
+                long moduleStart = System.currentTimeMillis();
+                try {
+                    com.pedrodalben.bigbangessentials.jobs.JobsManager.getInstance();
+                    ManagerRegistry.getInstance().markInitialized("JobsManager");
+                    ModuleManager.getInstance().started("jobs", System.currentTimeMillis() - moduleStart);
+                } catch (Throwable e) {
+                    ManagerRegistry.getInstance().markFailed("JobsManager", e.getMessage());
+                    ModuleManager.getInstance().failed("jobs", e);
+                    LOGGER.error("✗ Jobs module failed to initialize: {}", e.getMessage(), e);
+                }
             }
 
             // Initialize custom language system
-            try {
+            if (ModuleManager.getInstance().prepare("customcommands")) try {
                 LOGGER.info("⚙ Initializing custom language system...");
                 com.pedrodalben.bigbangessentials.i18n.CustomLanguageManager.getInstance().initialize();
                 LOGGER.info("✓ Custom language system initialized successfully");
@@ -304,36 +349,42 @@ public class BigBangEssentials {
             }
 
             // Initialize Custom Commands system
-            try {
+            if (ModuleManager.getInstance().prepare("customcommands")) try {
                 LOGGER.info("⚙ Initializing Custom Commands system...");
                 com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.getInstance().initialize();
                 ManagerRegistry.getInstance().markInitialized("CustomCommandManager");
+                ModuleManager.getInstance().started("customcommands", 0);
                 LOGGER.info("✓ Custom Commands system initialized ({} command(s) loaded)",
                     com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.getInstance().getCommandCount());
             } catch (Exception e) {
                 LOGGER.error("✗ Custom Commands system failed to initialize: {}", e.getMessage(), e);
                 ManagerRegistry.getInstance().markFailed("CustomCommandManager", e.getMessage());
+                ModuleManager.getInstance().failed("customcommands", e);
             }
 
             // Initialize Crates system
-            try {
+            if (ModuleManager.getInstance().prepare("crates")) try {
                 LOGGER.info("⚙ Initializing Crates system...");
                 com.pedrodalben.bigbangessentials.crates.CrateManager.getInstance().initialize();
                 ManagerRegistry.getInstance().markInitialized("CrateManager");
+                ModuleManager.getInstance().started("crates", 0);
                 LOGGER.info("✓ Crates system initialized successfully");
             } catch (Exception e) {
                 LOGGER.error("✗ Crates system failed to initialize: {}", e.getMessage(), e);
                 ManagerRegistry.getInstance().markFailed("CrateManager", e.getMessage());
+                ModuleManager.getInstance().failed("crates", e);
             }
 
-            try {
+            if (ModuleManager.getInstance().prepare("holograms")) try {
                 LOGGER.info("⚙ Initializing BigBangHolograms...");
                 com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().initialize();
                 ManagerRegistry.getInstance().markInitialized("BigBangHologramsManager");
+                ModuleManager.getInstance().started("holograms", 0);
                 LOGGER.info("✓ BigBangHolograms initialized successfully");
             } catch (Exception e) {
                 LOGGER.error("✗ BigBangHolograms failed to initialize: {}", e.getMessage(), e);
                 ManagerRegistry.getInstance().markFailed("BigBangHologramsManager", e.getMessage());
+                ModuleManager.getInstance().failed("holograms", e);
             }
 
             // Initialize FakePlayerIntegration
@@ -346,14 +397,16 @@ public class BigBangEssentials {
             }
 
             // Initialize RankUp system
-            try {
+            if (ModuleManager.getInstance().prepare("rankup")) try {
                 LOGGER.info("⚙ Initializing RankUp system...");
                 com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().reload();
                 ManagerRegistry.getInstance().markInitialized("RankupManager");
+                ModuleManager.getInstance().started("rankup", 0);
                 LOGGER.info("✓ RankUp system initialized successfully");
             } catch (Throwable e) {
                 LOGGER.error("✗ RankUp system failed to initialize: {}", e.getMessage(), e);
                 ManagerRegistry.getInstance().markFailed("RankupManager", e.getMessage());
+                ModuleManager.getInstance().failed("rankup", e);
             }
 
             // Display manager registry diagnostics
@@ -437,23 +490,25 @@ public class BigBangEssentials {
             }
 
             // Initialize Tablist system
-            try {
+            if (ModuleManager.getInstance().prepare("tablist")) try {
                 com.pedrodalben.bigbangessentials.tablist.TablistModule tablist = new com.pedrodalben.bigbangessentials.tablist.TablistModule();
                 tablist.onEnable(server);
+                ModuleManager.getInstance().started("tablist", 0);
                 LOGGER.info("TablistModule initialized successfully");
             } catch (Exception e) {
                 LOGGER.error("Failed to initialize TablistModule: {}", e.getMessage());
+                ModuleManager.getInstance().failed("tablist", e);
             }
 
             // Initialize Jobs RankUp integration
-            try {
+            if (ModuleManager.getInstance().isActive("jobs") && ModuleManager.getInstance().isActive("rankup")) try {
                 com.pedrodalben.bigbangessentials.jobs.progression.JobRankMilestoneService.getInstance().initListener();
             } catch (Exception e) {
                 LOGGER.error("Failed to initialize Jobs RankUp integration listener: {}", e.getMessage());
             }
 
             // Ensure utility crates and job progression keys exist
-            try {
+            if (ModuleManager.getInstance().isActive("jobs") && ModuleManager.getInstance().isActive("crates")) try {
                 com.pedrodalben.bigbangessentials.jobs.crates.DefaultCrateRewardGateway.getInstance().ensureUtilityCratesExist();
             } catch (Exception e) {
                 LOGGER.error("Failed to ensure utility crates exist: {}", e.getMessage());
@@ -463,7 +518,9 @@ public class BigBangEssentials {
         public static void onPlayerLoggedIn(net.minecraft.server.level.ServerPlayer player) {
             try {
                 com.pedrodalben.bigbangessentials.BigBangEssentialsManager.getInstance().loadPlayerData(player.getUUID());
-                com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().onPlayerLogin(player.getUUID());
+                if (ModuleManager.getInstance().isActive("rankup")) {
+                    com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().onPlayerLogin(player.getUUID());
+                }
                 com.pedrodalben.bigbangessentials.util.commands.NickCommand.refreshNicknameFromDatabase(player);
                 com.pedrodalben.bigbangessentials.chat.MsgToggleManager.refreshFromDatabase(player);
                 com.pedrodalben.bigbangessentials.chat.SocialSpyManager.refreshFromDatabase(player);
@@ -521,7 +578,9 @@ public class BigBangEssentials {
         public static void onPlayerLoggedOut(net.minecraft.server.level.ServerPlayer player) {
             try {
                 com.pedrodalben.bigbangessentials.BigBangEssentialsManager.getInstance().savePlayerData(player.getUUID());
-                com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().onPlayerLogout(player.getUUID());
+                if (ModuleManager.getInstance().isActive("rankup")) {
+                    com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().onPlayerLogout(player.getUUID());
+                }
                 com.pedrodalben.bigbangessentials.chat.MsgToggleManager.clearPlayer(player);
                 com.pedrodalben.bigbangessentials.chat.SocialSpyManager.clearPlayer(player);
                 com.pedrodalben.bigbangessentials.integrations.fakeplayer.FakeTpaManager.getInstance()
@@ -544,7 +603,7 @@ public class BigBangEssentials {
                 LOGGER.error("Failed to save permissions on shutdown", e);
             }
 
-            try {
+            if (ModuleManager.getInstance().isActive("economy")) try {
                 LOGGER.info("Shutting down Economy Manager...");
                 com.pedrodalben.bigbangessentials.economy.managers.EconomyManager.getInstance().shutdown();
             } catch (Exception e) {
@@ -580,7 +639,7 @@ public class BigBangEssentials {
             }
 
             // Shutdown ChestShop system
-            try {
+            if (ModuleManager.getInstance().isActive("shop")) try {
                 com.pedrodalben.bigbangessentials.shop.ShopManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown ChestShop system", e);
@@ -618,7 +677,7 @@ public class BigBangEssentials {
             }
 
             // Shutdown Jobs Manager
-            try {
+            if (ModuleManager.getInstance().isActive("jobs")) try {
                 LOGGER.info("Shutting down Jobs Manager...");
                 com.pedrodalben.bigbangessentials.jobs.JobsManager.getInstance().shutdown();
             } catch (Exception e) {
@@ -626,14 +685,14 @@ public class BigBangEssentials {
             }
 
             // Shutdown Crates Manager
-            try {
+            if (ModuleManager.getInstance().isActive("crates")) try {
                 LOGGER.info("Shutting down Crates Manager...");
                 com.pedrodalben.bigbangessentials.crates.CrateManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown Crates Manager", e);
             }
 
-            try {
+            if (ModuleManager.getInstance().isActive("holograms")) try {
                 LOGGER.info("Shutting down BigBangHolograms...");
                 com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().shutdown();
             } catch (Exception e) {
@@ -649,7 +708,7 @@ public class BigBangEssentials {
             }
 
             // Shutdown RankUp Manager
-            try {
+            if (ModuleManager.getInstance().isActive("rankup")) try {
                 LOGGER.info("Shutting down RankUp Manager...");
                 com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().shutdown();
             } catch (Exception e) {
@@ -721,8 +780,10 @@ public class BigBangEssentials {
         com.pedrodalben.bigbangessentials.commands.ModRootCommand.register(dispatcher);
         
         // Register Gems commands
-        registry.registerCommand("gems", "Gems wallet system command", "gemas");
-        com.pedrodalben.bigbangessentials.economy.gems.command.GemsCommand.register(dispatcher);
+        if (ModuleManager.getInstance().isActive("economy")) {
+            registry.registerCommand("gems", "Gems wallet system command", "gemas");
+            com.pedrodalben.bigbangessentials.economy.gems.command.GemsCommand.register(dispatcher);
+        }
         
         // ========== TELEPORTATION COMMANDS ==========
         // Register warp commands
@@ -789,15 +850,17 @@ public class BigBangEssentials {
         com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuCommands.register(dispatcher);
 
         // ========== ECONOMY COMMANDS ==========
-        registry.registerCommand("pay", "Send money to another player");
-        registry.registerCommand("balance", "Check your balance");
-        registry.registerCommand("bal", "Check your balance (alias)");
-        registry.registerCommand("baltop", "View top balances");
-        registry.registerCommand("balancetop", "View top balances (alias)");
-        registry.registerCommand("eco", "Admin economy commands");
-        registry.registerCommand("paytoggle", "Toggle receiving payments");
-        registry.registerCommand("pt", "Toggle receiving payments (alias)");
-        com.pedrodalben.bigbangessentials.economy.commands.EconomyCommands.register(dispatcher);
+        if (ModuleManager.getInstance().isActive("economy")) {
+            registry.registerCommand("pay", "Send money to another player");
+            registry.registerCommand("balance", "Check your balance");
+            registry.registerCommand("bal", "Check your balance (alias)");
+            registry.registerCommand("baltop", "View top balances");
+            registry.registerCommand("balancetop", "View top balances (alias)");
+            registry.registerCommand("eco", "Admin economy commands");
+            registry.registerCommand("paytoggle", "Toggle receiving payments");
+            registry.registerCommand("pt", "Toggle receiving payments (alias)");
+            com.pedrodalben.bigbangessentials.economy.commands.EconomyCommands.register(dispatcher);
+        }
 
         // ========== MODERATION COMMANDS ==========
         registry.registerCommand("ban", "Ban a player");
@@ -1003,12 +1066,14 @@ public class BigBangEssentials {
         com.pedrodalben.bigbangessentials.items.commands.MiscItemCommands.register(dispatcher);
 
         // ========== WORTH / SELL COMMANDS ==========
-        registry.registerCommand("worth", "Check the sell value of an item");
-        registry.registerCommand("sell", "Sell items for money");
-        registry.registerCommand("setworth", "Set the sell price of an item");
-        com.pedrodalben.bigbangessentials.economy.worth.WorthManager.getInstance().initialize();
-        com.pedrodalben.bigbangessentials.economy.worth.WorthCommand.register(dispatcher);
-        com.pedrodalben.bigbangessentials.economy.worth.SellCommand.register(dispatcher);
+        if (ModuleManager.getInstance().isActive("economy")) {
+            registry.registerCommand("worth", "Check the sell value of an item");
+            registry.registerCommand("sell", "Sell items for money");
+            registry.registerCommand("setworth", "Set the sell price of an item");
+            com.pedrodalben.bigbangessentials.economy.worth.WorthManager.getInstance().initialize();
+            com.pedrodalben.bigbangessentials.economy.worth.WorthCommand.register(dispatcher);
+            com.pedrodalben.bigbangessentials.economy.worth.SellCommand.register(dispatcher);
+        }
 
         // ========== PLAYER STATE / ADMIN TOOL COMMANDS ==========
         registry.registerCommand("fly", "Toggle flight mode");
@@ -1132,47 +1197,61 @@ public class BigBangEssentials {
         com.pedrodalben.bigbangessentials.vault.command.VaultCommand.register(dispatcher);
 
         // ========== CHEST SHOP COMMANDS ==========
-        registry.registerCommand("chestshop", "Sign-based chest shop system");
-        registry.registerCommand("cshop", "Sign-based chest shop (alias)");
-        com.pedrodalben.bigbangessentials.shop.commands.ShopCommand.register(dispatcher);
+        if (ModuleManager.getInstance().isActive("shop")) {
+            registry.registerCommand("chestshop", "Sign-based chest shop system");
+            registry.registerCommand("cshop", "Sign-based chest shop (alias)");
+            com.pedrodalben.bigbangessentials.shop.commands.ShopCommand.register(dispatcher);
+        }
 
         // ========== CUSTOM COMMANDS ==========
         registry.registerCommand("customcmd", "Manage custom command aliases");
         com.pedrodalben.bigbangessentials.customcommands.command.CustomCommandCommands.register(dispatcher);
 
         // ========== JOBS MODULE ==========
-        registry.registerCommand("jobs", "Jobs and professions command");
-        registry.registerCommand("jobsadmin", "Jobs administrator commands");
-        com.pedrodalben.bigbangessentials.jobs.command.JobsCommand.register(dispatcher);
-        com.pedrodalben.bigbangessentials.jobs.command.JobsAdminCommand.register(dispatcher);
+        if (ModuleManager.getInstance().isActive("jobs")) {
+            registry.registerCommand("jobs", "Jobs and professions command");
+            registry.registerCommand("jobsadmin", "Jobs administrator commands");
+            com.pedrodalben.bigbangessentials.jobs.command.JobsCommand.register(dispatcher);
+            com.pedrodalben.bigbangessentials.jobs.command.JobsAdminCommand.register(dispatcher);
+        }
 
         // ========== RANKUP MODULE ==========
-        registry.registerCommand("rankup", "RankUp progression command");
-        registry.registerCommand("rankupadmin", "RankUp administrator commands");
-        com.pedrodalben.bigbangessentials.rankup.command.RankupCommand.register(dispatcher);
-        com.pedrodalben.bigbangessentials.rankup.command.RankupAdminCommand.register(dispatcher);
+        if (ModuleManager.getInstance().isActive("rankup")) {
+            registry.registerCommand("rankup", "RankUp progression command");
+            registry.registerCommand("rankupadmin", "RankUp administrator commands");
+            com.pedrodalben.bigbangessentials.rankup.command.RankupCommand.register(dispatcher);
+            com.pedrodalben.bigbangessentials.rankup.command.RankupAdminCommand.register(dispatcher);
+        }
 
         // Register all user-defined custom commands from custom_commands.json
-        try {
-            com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.getInstance().registerAllCommands(dispatcher);
-        } catch (Exception e) {
-            LOGGER.error("Failed to register custom commands: {}", e.getMessage(), e);
+        if (ModuleManager.getInstance().isActive("customcommands")) {
+            try {
+                com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.getInstance().registerAllCommands(dispatcher);
+            } catch (Exception e) {
+                LOGGER.error("Failed to register custom commands: {}", e.getMessage(), e);
+            }
         }
 
         // ========== CRATES MODULE ==========
-        registry.registerCommand("crates", "Manage crates and keys", "crate");
-        registry.registerCommand("givekey", "Give a key to a player");
-        registry.registerCommand("keygive", "Give a key to a player (alias)");
-        com.pedrodalben.bigbangessentials.crates.command.CrateCommand.register(dispatcher);
-        com.pedrodalben.bigbangessentials.crates.command.GiveKeyCommand.register(dispatcher);
-        com.pedrodalben.bigbangessentials.crates.command.KeyGiveCommand.register(dispatcher);
+        if (ModuleManager.getInstance().isActive("crates")) {
+            registry.registerCommand("crates", "Manage crates and keys", "crate");
+            registry.registerCommand("givekey", "Give a key to a player");
+            registry.registerCommand("keygive", "Give a key to a player (alias)");
+            com.pedrodalben.bigbangessentials.crates.command.CrateCommand.register(dispatcher);
+            com.pedrodalben.bigbangessentials.crates.command.GiveKeyCommand.register(dispatcher);
+            com.pedrodalben.bigbangessentials.crates.command.KeyGiveCommand.register(dispatcher);
+        }
 
-        registry.registerCommand("hologram", "Manage holograms", "holograms");
-        com.pedrodalben.bigbangessentials.holograms.command.HologramCommand.register(dispatcher);
+        if (ModuleManager.getInstance().isActive("holograms")) {
+            registry.registerCommand("hologram", "Manage holograms", "holograms");
+            com.pedrodalben.bigbangessentials.holograms.command.HologramCommand.register(dispatcher);
+        }
 
         // ========== TABLIST MODULE ==========
-        registry.registerCommand("tablist", "Manage tablist configuration, reload, debug");
-        com.pedrodalben.bigbangessentials.tablist.TablistCommand.register(dispatcher);
+        if (ModuleManager.getInstance().isActive("tablist")) {
+            registry.registerCommand("tablist", "Manage tablist configuration, reload, debug");
+            com.pedrodalben.bigbangessentials.tablist.TablistCommand.register(dispatcher);
+        }
     }
         /*
          * All command registration and related logic that was previously outside of methods has been moved here as a block comment.
