@@ -26,6 +26,7 @@ public class FabricEvents {
             com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(server);
             com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
             com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerTick(server);
+            com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().tick();
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 RankupEventListener.onPlayerTick(player);
                 JobsEventListener.onPlayerTick(player);

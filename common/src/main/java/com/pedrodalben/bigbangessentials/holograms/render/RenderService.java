@@ -94,16 +94,35 @@ public final class RenderService {
     public RenderSnapshot buildSnapshot(HologramRegistry.ManagedHologram hologram, ServerPlayer player, long animationTick) {
         int page = Math.min(Math.max(hologram.activePage(), 0), hologram.definition().pages().size() - 1);
 
-        PlaceholderEngine.ResolvedContent resolved = placeholderEngine.resolve(hologram.definition(), page, player);
-        Component text = resolved.component();
+        Integer override = viewerService.getCurrentPage(player, hologram.definition().id());
+        if (override != null) {
+            page = Math.min(Math.max(override, 0), hologram.definition().pages().size() - 1);
+        }
+
+        HologramDefinition def = hologram.definition();
+        boolean disablePlaceholders = def.flags().contains(HologramFlag.DISABLE_PLACEHOLDERS) || def.flags().contains(HologramFlag.STATIC_CONTENT);
+        boolean disableAnimations = def.flags().contains(HologramFlag.DISABLE_ANIMATIONS) || def.flags().contains(HologramFlag.STATIC_CONTENT);
+
+        Component text;
+        if (disablePlaceholders) {
+            HologramPage pageData = def.pages().get(page);
+            StringBuilder raw = new StringBuilder();
+            for (int i = 0; i < pageData.lines().size(); i++) {
+                if (i > 0) raw.append('\n');
+                raw.append(pageData.lines().get(i).text() != null ? pageData.lines().get(i).text() : "");
+            }
+            text = com.pedrodalben.bigbangessentials.util.ChatComponentUtil.parseColorCodes(raw.toString());
+        } else {
+            PlaceholderEngine.ResolvedContent resolved = placeholderEngine.resolve(def, page, player);
+            text = resolved.component();
+        }
 
         String rawText = text.getString();
-        if (animationEngine.hasAnimation(rawText)) {
+        if (!disableAnimations && animationEngine.hasAnimation(rawText)) {
             rawText = animationEngine.processAnimation(rawText, (int) animationTick, player.getUUID());
             text = Component.literal(rawText);
         }
 
-        HologramDefinition def = hologram.definition();
         return new RenderSnapshot(
             hologram.entityId(),
             hologram.entityUuid(),
@@ -124,7 +143,7 @@ public final class RenderService {
 
     private static byte textFlags(HologramDefinition definition) {
         byte flags = 0;
-        if (definition.shadow()) {
+        if (definition.shadow() && !definition.flags().contains(HologramFlag.DISABLE_SHADOW)) {
             flags |= TEXT_FLAG_SHADOW;
         }
         if (definition.seeThrough()) {

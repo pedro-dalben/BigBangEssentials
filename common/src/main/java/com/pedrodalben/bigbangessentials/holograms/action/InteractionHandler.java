@@ -41,17 +41,23 @@ public final class InteractionHandler {
             return false;
         }
 
-        long gameTime = player.level().getGameTime();
-        if (gameTime - context.lastClickTick < cooldownTicks) {
-            return false;
-        }
-
         Optional<HologramDefinition> optDef = BigBangHolograms.getApi().findDefinition(context.hologramId);
         if (optDef.isEmpty()) {
             return false;
         }
 
         HologramDefinition definition = optDef.get();
+
+        // ponytail: per-account cooldowns if throughput matters
+        long gameTime = player.level().getGameTime();
+        if (gameTime - context.lastClickTick < cooldownTicks) {
+            return false;
+        }
+
+        if (definition.flags().contains(com.pedrodalben.bigbangessentials.holograms.api.HologramFlag.DISABLE_ACTIONS)) {
+            return false;
+        }
+
         HologramPage page = getPage(definition, context.pageIndex);
         if (page == null) {
             return false;

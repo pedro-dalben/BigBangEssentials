@@ -101,12 +101,12 @@ public final class ViewerService {
         return false;
     }
 
-    public int getCurrentPage(ServerPlayer player, String hologramId) {
+    public Integer getCurrentPage(ServerPlayer player, String hologramId) {
         ViewerSession session = sessions.get(player.getUUID());
         if (session != null) {
-            return session.currentPages.getOrDefault(hologramId, 0);
+            return session.currentPages.get(hologramId);
         }
-        return 0;
+        return null;
     }
 
     public void setCurrentPage(ServerPlayer player, String hologramId, int page) {

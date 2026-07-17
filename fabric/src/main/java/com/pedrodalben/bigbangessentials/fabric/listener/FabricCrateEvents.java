@@ -7,11 +7,13 @@ import com.pedrodalben.bigbangessentials.crates.domain.CrateLocation;
 import com.pedrodalben.bigbangessentials.crates.hologram.CrateHologramManager;
 import com.pedrodalben.bigbangessentials.crates.particle.CrateParticleManager;
 import com.pedrodalben.bigbangessentials.crates.service.CrateService;
+import com.pedrodalben.bigbangessentials.holograms.api.HologramActionTrigger;
 import com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
@@ -97,6 +99,16 @@ public class FabricCrateEvents {
             }
 
             return !CrateInteractionHandler.handleBlockBreak(sp, (Level) world, pos);
+        });
+
+        UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (world.isClientSide() || !(player instanceof ServerPlayer sp) || hand != InteractionHand.MAIN_HAND) {
+                return InteractionResult.PASS;
+            }
+            if (BigBangHologramsManager.getInstance().getInteractionHandler().handleClick(sp, entity.getId(), HologramActionTrigger.RIGHT_CLICK)) {
+                return InteractionResult.SUCCESS;
+            }
+            return InteractionResult.PASS;
         });
     }
 

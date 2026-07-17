@@ -99,6 +99,7 @@ public class NeoForgeEvents {
         com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(server);
         com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
         com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerTick(server);
+        com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().tick();
         if (server != null) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 RankupEventListener.onPlayerTick(player);
@@ -118,6 +119,17 @@ public class NeoForgeEvents {
     public static void onChunkUnload(ChunkEvent.Unload event) {
         if (event.getChunk() instanceof LevelChunk chunk) {
             JobsEventListener.onChunkUnload(chunk);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onEntityInteract(PlayerInteractEvent.EntityInteractSpecific event) {
+        if (event.getEntity() instanceof ServerPlayer player && !event.isCanceled()) {
+            if (com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance()
+                .getInteractionHandler().handleClick(player, event.getTarget().getId(),
+                    com.pedrodalben.bigbangessentials.holograms.api.HologramActionTrigger.RIGHT_CLICK)) {
+                event.setCanceled(true);
+            }
         }
     }
 

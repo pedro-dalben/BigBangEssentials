@@ -250,7 +250,7 @@ public final class HologramCommand {
     }
 
     private static boolean checkSystemManaged(CommandSourceStack source, HologramDefinition def) {
-        if (def.ownerId() != null && def.ownerId().contains("crate")) {
+        if (def.persistenceMode() == com.pedrodalben.bigbangessentials.holograms.api.HologramPersistenceMode.SYSTEM_MANAGED) {
             ServerPlayer player = source.getPlayer();
             if (player == null) return source.hasPermission(4);
             if (!source.hasPermission(4) && !PermissionAPI.hasPermission(player.getUUID(), HologramPermissions.ADMIN)
@@ -568,16 +568,39 @@ public final class HologramCommand {
                 .executes(ctx -> deleteHologram(ctx.getSource(), StringArgumentType.getString(ctx, "id"))));
     }
 
+    private static final java.util.Map<java.util.UUID, java.util.Map<String, Long>> PENDING_DELETES = new java.util.concurrent.ConcurrentHashMap<>();
+
     private static int deleteHologram(CommandSourceStack source, String id) {
         Optional<HologramDefinition> opt = findHologram(id);
         if (opt.isEmpty()) { sendError(source, "Holograma nao encontrado: " + id); return 0; }
         if (checkSystemManaged(source, opt.get())) return 0;
-        sendSuccess(source, "Confirme: use /bbholo delete " + id + " novamente para confirmar.");
-        if (!BigBangHolograms.getApi().delete(id)) {
-            sendError(source, "Falha ao remover holograma: " + id);
-            return 0;
+
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            if (!BigBangHolograms.getApi().delete(id)) {
+                sendError(source, "Falha ao remover holograma: " + id);
+                return 0;
+            }
+            sendSuccess(source, "Holograma removido: " + id);
+            return 1;
         }
-        sendSuccess(source, "Holograma removido: " + id);
+
+        java.util.Map<String, Long> playerPending = PENDING_DELETES.computeIfAbsent(player.getUUID(), k -> new java.util.HashMap<>());
+        long now = System.currentTimeMillis();
+        Long lastRequest = playerPending.get(id);
+
+        if (lastRequest != null && (now - lastRequest) < 10000) {
+            if (!BigBangHolograms.getApi().delete(id)) {
+                sendError(source, "Falha ao remover holograma: " + id);
+                return 0;
+            }
+            playerPending.remove(id);
+            sendSuccess(source, "Holograma removido: " + id);
+            return 1;
+        }
+
+        playerPending.put(id, now);
+        sendSuccess(source, "Confirme: use /bbholo delete " + id + " novamente em ate 10 segundos para confirmar.");
         return 1;
     }
 

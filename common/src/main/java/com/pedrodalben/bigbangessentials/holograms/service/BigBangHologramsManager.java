@@ -112,6 +112,7 @@ public final class BigBangHologramsManager implements HologramService {
             HologramRegistry.ManagedHologram hologram = registry.get(hologramId);
             if (hologram != null) {
                 renderService.hideHologram(player, hologram.entityId());
+                interactionHandler.unregister(hologram.entityId());
                 lifecycleListeners.forEach(listener -> listener.onHidden(hologram.definition(), player));
             }
         }
@@ -123,6 +124,7 @@ public final class BigBangHologramsManager implements HologramService {
             HologramRegistry.ManagedHologram hologram = registry.get(hologramId);
             if (hologram != null) {
                 renderService.hideHologram(player, hologram.entityId());
+                interactionHandler.unregister(hologram.entityId());
                 lifecycleListeners.forEach(listener -> listener.onHidden(hologram.definition(), player));
                 HologramEventBus.get().post(new HologramHideEvent(hologram.definition(), player));
             }
@@ -183,7 +185,6 @@ public final class BigBangHologramsManager implements HologramService {
             return;
         }
         viewerService.setCurrentPage(player, hologramId, pageIndex);
-        hologram.setActivePage(pageIndex);
         viewerService.invalidate(player);
         syncViewer(player);
     }
@@ -248,6 +249,7 @@ public final class BigBangHologramsManager implements HologramService {
             ViewerService.ViewerSession session = viewerService.getSession(player);
             if (session.visibleIds().remove(normalized)) {
                 renderService.hideHologram(player, removed.entityId());
+                interactionHandler.unregister(removed.entityId());
                 lifecycleListeners.forEach(listener -> listener.onHidden(removed.definition(), player));
             }
             session.forcedShown().remove(normalized);
@@ -299,6 +301,7 @@ public final class BigBangHologramsManager implements HologramService {
         HologramRegistry.ManagedHologram hologram = registry.get(normalized);
         if (hologram != null && session.visibleIds().remove(normalized)) {
             renderService.hideHologram(player, hologram.entityId());
+            interactionHandler.unregister(hologram.entityId());
             lifecycleListeners.forEach(listener -> listener.onHidden(hologram.definition(), player));
         }
     }
@@ -408,6 +411,14 @@ public final class BigBangHologramsManager implements HologramService {
             persistenceService.save(sanitized);
         }
         for (ServerPlayer player : onlinePlayers()) {
+            ViewerService.ViewerSession session = viewerService.getSession(player);
+            if (session != null && session.visibleIds().contains(sanitized.id())) {
+                // Force re-render for already-visible viewers instead of skipping them
+                hologram.setGlobalCache(null);
+                hologram.viewerCache().clear();
+                session.fingerprints().remove(sanitized.id());
+                renderService.updateHologram(player, hologram, tickCounter);
+            }
             syncViewer(player);
         }
         if (isNew) {
@@ -435,6 +446,9 @@ public final class BigBangHologramsManager implements HologramService {
     }
 
     private boolean isDynamic(HologramRegistry.ManagedHologram hologram) {
+        if (hologram.definition().flags().contains(HologramFlag.DISABLE_UPDATING)) {
+            return false;
+        }
         return hologram.definition().updatePolicy() == HologramUpdatePolicy.DYNAMIC
             || hologram.definition().pageSwitchIntervalTicks() > 0
             || hologram.hasAnyPlaceholders();
@@ -504,6 +518,7 @@ public final class BigBangHologramsManager implements HologramService {
                 HologramRegistry.ManagedHologram hologram = registry.get(id);
                 if (hologram != null) {
                     renderService.hideHologram(player, hologram.entityId());
+                    interactionHandler.unregister(hologram.entityId());
                     lifecycleListeners.forEach(listener -> listener.onHidden(hologram.definition(), player));
                 }
                 session.visibleIds().remove(id);
@@ -516,6 +531,7 @@ public final class BigBangHologramsManager implements HologramService {
                 continue;
             }
             renderService.showHologram(player, hologram);
+            interactionHandler.register(hologram.entityId(), hologram.definition().id(), hologram.activePage());
             session.visibleIds().add(id);
         }
     }
@@ -529,13 +545,16 @@ public final class BigBangHologramsManager implements HologramService {
         if (session.forcedHidden().contains(def.id())) {
             return false;
         }
+        if (def.flags().contains(HologramFlag.MANUAL_VISIBILITY)) {
+            return session.forcedShown().contains(def.id());
+        }
         if (!player.serverLevel().dimension().equals(def.location().dimension())) {
             return false;
         }
-        if (def.hideInSpectator() && player.isSpectator()) {
+        if ((def.hideInSpectator() || def.flags().contains(HologramFlag.IGNORE_SPECTATORS)) && player.isSpectator()) {
             return false;
         }
-        if (!def.requiredPermission().isBlank() && !player.hasPermissions(2)) {
+        if (!def.requiredPermission().isBlank() && !player.hasPermissions(2) && !com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), def.requiredPermission())) {
             return false;
         }
         int displayDistance = def.displayDistance() > 0 ? def.displayDistance() : def.viewDistance();
@@ -557,6 +576,10 @@ public final class BigBangHologramsManager implements HologramService {
             scheduledUpdates.poll();
             HologramRegistry.ManagedHologram hologram = registry.get(scheduled.hologramId());
             if (hologram == null || hologram.nextUpdateTick() != scheduled.tick()) {
+                continue;
+            }
+            if (hologram.definition().flags().contains(HologramFlag.DISABLE_UPDATING)) {
+                scheduleIfDynamic(hologram);
                 continue;
             }
 
