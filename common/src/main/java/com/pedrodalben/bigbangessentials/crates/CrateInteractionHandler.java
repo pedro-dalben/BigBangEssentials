@@ -26,8 +26,10 @@ import java.util.UUID;
 
 public class CrateInteractionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(CrateInteractionHandler.class);
+    private static boolean active() { return com.pedrodalben.bigbangessentials.core.ModuleManager.getInstance().isActive("crates"); }
 
     public static boolean handleRightClickBlock(ServerPlayer player, Level level, BlockPos pos, InteractionHand hand) {
+        if (!active()) return false;
         if (hand != InteractionHand.MAIN_HAND) return false;
 
         CrateService crateService = CrateService.getInstance();
@@ -150,6 +152,7 @@ public class CrateInteractionHandler {
     }
 
     public static boolean handleLeftClickBlock(ServerPlayer player, Level level, BlockPos pos) {
+        if (!active()) return false;
         CrateService crateService = CrateService.getInstance();
         if (crateService == null) return false;
 
@@ -167,6 +170,7 @@ public class CrateInteractionHandler {
     }
 
     public static boolean handleBlockBreak(ServerPlayer player, Level level, BlockPos pos) {
+        if (!active()) return false;
         CrateService crateService = CrateService.getInstance();
         if (crateService == null) return false;
 
@@ -190,6 +194,7 @@ public class CrateInteractionHandler {
     }
 
     public static boolean handleUseItem(ServerPlayer player, ItemStack heldItem) {
+        if (!active()) return false;
         CrateKeyService keyService = CrateKeyService.getInstance();
         if (keyService == null) return false;
 

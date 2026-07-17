@@ -69,6 +69,7 @@ public class ModRootCommand {
                     return result;
                 })
                 .then(com.pedrodalben.bigbangessentials.database.command.DatabaseCommands.register())
+                .then(moduleCommands())
                 .then(Commands.argument("command", StringArgumentType.greedyString())
                     .suggests(ModRootCommand::suggestModCommands)
                     .executes(ModRootCommand::dispatchToModCommand)
@@ -83,12 +84,15 @@ public class ModRootCommand {
                     return result;
                 })
                 .then(com.pedrodalben.bigbangessentials.database.command.DatabaseCommands.register())
+                .then(moduleCommands())
                 .then(Commands.argument("command", StringArgumentType.greedyString())
                     .suggests(ModRootCommand::suggestModCommands)
                     .executes(ModRootCommand::dispatchToModCommand)
                 )
                 .executes(ModRootCommand::showAvailableCommands) // Show help when no args
         );
+        dispatcher.register(Commands.literal("bigbang")
+            .redirect(dispatcher.getRoot().getChild("bigbangessentials")));
     }
     
     /**
@@ -131,6 +135,64 @@ public class ModRootCommand {
             getVisibleModCommands(ctx.getSource()),
             builder
         );
+    }
+
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> moduleCommands() {
+        return Commands.literal("modules")
+            .executes(ctx -> {
+                ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                    com.pedrodalben.bigbangessentials.core.ModuleManager.getInstance().formatHealth()), false);
+                return 1;
+            })
+            .then(Commands.literal("health").executes(ctx -> showModuleHealth(ctx)))
+            .then(Commands.literal("debug")
+                .then(Commands.argument("module", StringArgumentType.word())
+                    .executes(ctx -> showModuleDebug(ctx))))
+            .then(Commands.literal("reload")
+                .then(Commands.argument("module", StringArgumentType.word())
+                    .executes(ctx -> reloadModule(ctx))));
+    }
+
+    private static int showModuleHealth(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+            com.pedrodalben.bigbangessentials.core.ModuleManager.getInstance().formatHealth()), false);
+        return 1;
+    }
+
+    private static int showModuleDebug(CommandContext<CommandSourceStack> ctx) {
+        String id = StringArgumentType.getString(ctx, "module");
+        var health = com.pedrodalben.bigbangessentials.core.ModuleManager.getInstance().health(id);
+        ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+            id + ": " + health.state() + " — " + health.message() + " — startup=" + health.startupMillis() + "ms"), false);
+        return 1;
+    }
+
+    private static int reloadModule(CommandContext<CommandSourceStack> ctx) {
+        if (!hasAdminPermission(ctx.getSource())) {
+            ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                "Você não tem permissão administrativa para recarregar módulos."));
+            return 0;
+        }
+        String id = StringArgumentType.getString(ctx, "module");
+        if (!com.pedrodalben.bigbangessentials.core.ModuleManager.getInstance().isActive(id)) {
+            ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                "Módulo " + id + " não está ativo; alterações de ativação exigem restart."));
+            return 0;
+        }
+        if ("jobs".equals(id)) {
+            com.pedrodalben.bigbangessentials.jobs.JobsManager.getInstance().reload();
+        } else if ("rankup".equals(id)) {
+            com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().reload();
+        } else if ("crates".equals(id)) {
+            com.pedrodalben.bigbangessentials.crates.CrateManager.getInstance().reload();
+        } else {
+            ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                "Módulo " + id + " não possui reload isolado."));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+            "Módulo " + id + " recarregado."), false);
+        return 1;
     }
     
     private static int reloadConfiguration(CommandContext<CommandSourceStack> ctx) {

@@ -40,8 +40,10 @@ public class JobsEventListener {
 
     private static final ConcurrentHashMap<String, Long> placeCooldowns = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<UUID, Integer> lastAnvilCompletionTicks = new ConcurrentHashMap<>();
+    private static boolean active() { return com.pedrodalben.bigbangessentials.core.ModuleManager.getInstance().isActive("jobs"); }
 
     public static void onPlayerLoggedIn(ServerPlayer player) {
+        if (!active()) return;
         JobsManager.getInstance().loadPlayerData(player.getUUID()).thenAccept(data -> {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Loaded jobs data for player: {}", player.getName().getString());
@@ -57,6 +59,7 @@ public class JobsEventListener {
     }
 
     public static void onPlayerLoggedOut(ServerPlayer player) {
+        if (!active()) return;
         UUID uuid = player.getUUID();
         lastAnvilCompletionTicks.remove(uuid);
         JobsManager.getInstance().savePlayerData(uuid).thenAccept(v -> {
@@ -73,10 +76,12 @@ public class JobsEventListener {
     }
 
     public static void onChunkLoad(LevelChunk chunk) {
+        if (!active()) return;
         BlockProtectionManager.getInstance().handleChunkLoad(chunk);
     }
 
     public static void onChunkUnload(LevelChunk chunk) {
+        if (!active()) return;
         BlockProtectionManager.getInstance().handleChunkUnload(chunk);
     }
 
@@ -87,6 +92,7 @@ public class JobsEventListener {
      * Never publishes both for the same physical event.
      */
     public static void onBlockBreak(ServerPlayer player, BlockPos pos, BlockState state) {
+        if (!active()) return;
         String dimension = player.level().dimension().location().toString();
         String registryId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
 
@@ -160,6 +166,7 @@ public class JobsEventListener {
     }
 
     public static void onBlockPlace(ServerPlayer player, BlockPos pos, BlockState state) {
+        if (!active()) return;
         String dimension = player.level().dimension().location().toString();
         String registryId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
 
@@ -199,6 +206,7 @@ public class JobsEventListener {
     }
 
     public static void onFinalizeSpawn(net.minecraft.world.entity.LivingEntity entity, MobSpawnType spawnType) {
+        if (!active()) return;
         if (spawnType == MobSpawnType.SPAWNER) {
             com.pedrodalben.bigbangessentials.util.Platform.getPersistentData(entity)
                     .putBoolean("bbe_spawner_spawned", true);
@@ -206,6 +214,7 @@ public class JobsEventListener {
     }
 
     public static void onLivingDeath(net.minecraft.world.entity.LivingEntity victim, ServerPlayer player) {
+        if (!active()) return;
         PlayerJobsData data = JobsManager.getInstance().getPlayerData(player.getUUID());
         if (data == null) return;
 
@@ -234,6 +243,7 @@ public class JobsEventListener {
     }
 
     public static void onItemFished(ServerPlayer player, List<ItemStack> drops) {
+        if (!active()) return;
         if (drops == null || drops.isEmpty()) return;
 
         String dimension = player.level().dimension().location().toString();
@@ -263,6 +273,7 @@ public class JobsEventListener {
      * CRITICAL: Discovery must NOT be consumed before job validation succeeds.
      */
     public static void onPlayerTick(ServerPlayer player) {
+        if (!active()) return;
         if (player == null || player.isSpectator() || player.level() == null) return;
 
         // Track XP for enchanting completion detection
@@ -359,6 +370,7 @@ public class JobsEventListener {
     }
 
     public static void onItemCrafted(ServerPlayer player, ItemStack stack, int amount) {
+        if (!active()) return;
         if (player == null || stack == null || stack.isEmpty() || amount <= 0) return;
 
         // Fabric's result-slot hook is the authoritative successful-take signal
@@ -395,6 +407,7 @@ public class JobsEventListener {
 
     public static void onItemSmelted(ServerPlayer player, ItemStack stack, int amount,
                                       String stationType, BlockPos pos) {
+        if (!active()) return;
         if (player == null || stack == null || stack.isEmpty() || amount <= 0) return;
         String registryId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
 
@@ -440,6 +453,7 @@ public class JobsEventListener {
      * For brewing: marks session; reward fires on PlayerBrewedPotionEvent (NeoForge) or tick check (Fabric)
      */
     public static void onMagicInteraction(ServerPlayer player, BlockPos pos, BlockState state) {
+        if (!active()) return;
         if (player == null || state == null) return;
         String registryId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         MagicType type = state.is(Blocks.ENCHANTING_TABLE) ? MagicType.ENCHANTING : MagicType.BREWING;
@@ -464,6 +478,7 @@ public class JobsEventListener {
      * Or when brewing potion is taken (NeoForge PlayerBrewedPotionEvent).
      */
     public static void onMagicCompleted(ServerPlayer player, String blockId) {
+        if (!active()) return;
         if (player == null || blockId == null) return;
         String rewardTarget = switch (blockId) {
             case "minecraft:enchanting_table" -> "minecraft:use_enchanting_table";
@@ -489,6 +504,7 @@ public class JobsEventListener {
      * Called when a player picks up a brewed potion (NeoForge event).
      */
     public static void onBrewPotionTaken(ServerPlayer player) {
+        if (!active()) return;
         MagicSession session = activeMagicSessions.get(player.getUUID());
         if (session == null || session.type() != MagicType.BREWING || session.isExpired()) return;
         activeMagicSessions.remove(player.getUUID(), session);
@@ -497,6 +513,7 @@ public class JobsEventListener {
 
     /** Called when an anvil result is actually taken, not while its preview changes. */
     public static void onAnvilRepair(ServerPlayer player, ItemStack output) {
+        if (!active()) return;
         if (player == null || output == null || output.isEmpty()) return;
 
         // ResultSlot and the loader-specific anvil event can observe the same
@@ -511,6 +528,7 @@ public class JobsEventListener {
      * Tracks experience level changes to detect enchanting completion.
      */
     public static void trackExperienceLevels(ServerPlayer player) {
+        if (!active()) return;
         if (player == null) return;
         UUID uuid = player.getUUID();
         int currentLevel = player.experienceLevel;
@@ -584,6 +602,7 @@ public class JobsEventListener {
 
     /** Water bottles are inputs, not brewed potion results. */
     public static boolean isRewardablePotion(ItemStack stack) {
+        if (!active()) return false;
         if (stack == null || stack.isEmpty()
                 || (stack.getItem() != Items.POTION
                 && stack.getItem() != Items.SPLASH_POTION
