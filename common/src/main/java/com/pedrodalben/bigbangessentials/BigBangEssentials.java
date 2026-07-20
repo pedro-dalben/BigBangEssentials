@@ -179,6 +179,10 @@ public class BigBangEssentials {
         registry.registerManager("DatabaseManager", "database",
             com.pedrodalben.bigbangessentials.database.DatabaseManager.class,
             com.pedrodalben.bigbangessentials.database.DatabaseManager::getInstance);
+
+        registry.registerManager("AdminShopManager", "adminshop",
+            com.pedrodalben.bigbangessentials.adminshop.AdminShopManager.class,
+            com.pedrodalben.bigbangessentials.adminshop.AdminShopManager::getInstance);
         
         // Custom Commands Manager
         registry.registerManager("CustomCommandManager", "customcommands",
@@ -219,6 +223,7 @@ public class BigBangEssentials {
         modules.register("crates", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("crates"), "database");
         modules.register("holograms", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("holograms"));
         modules.register("shop", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("shop"), "economy", "database");
+        modules.register("adminshop", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("adminshop"), "economy", "database");
         modules.register("tablist", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("tablist"));
     }
     
@@ -304,6 +309,15 @@ public class BigBangEssentials {
             } catch (Exception e) {
                 LOGGER.error("✗ ChestShop system failed to initialize: {}", e.getMessage(), e);
                 ModuleManager.getInstance().failed("shop", e);
+            }
+
+            if (ModuleManager.getInstance().prepare("adminshop")) try {
+                com.pedrodalben.bigbangessentials.adminshop.AdminShopManager.getInstance().initialize();
+                ManagerRegistry.getInstance().markInitialized("AdminShopManager");
+                ModuleManager.getInstance().started("adminshop", 0);
+            } catch (Exception e) {
+                LOGGER.error("✗ AdminShop system failed to initialize: {}", e.getMessage(), e);
+                ModuleManager.getInstance().failed("adminshop", e);
             }
 
             if (ModuleManager.getInstance().prepare("jobs")) {
@@ -1200,6 +1214,14 @@ public class BigBangEssentials {
             registry.registerCommand("chestshop", "Sign-based chest shop system");
             registry.registerCommand("cshop", "Sign-based chest shop (alias)");
             com.pedrodalben.bigbangessentials.shop.commands.ShopCommand.register(dispatcher);
+        }
+
+        if (ModuleManager.getInstance().isActive("adminshop")) {
+            registry.registerCommand("shop", "Open the administrative money shop");
+            registry.registerCommand("cash", "Open the administrative gems shop");
+            registry.registerCommand("gemas", "Open the gems shop alias");
+            registry.registerCommand("adminshop", "Manage the administrative shop");
+            com.pedrodalben.bigbangessentials.adminshop.AdminShopCommand.register(dispatcher);
         }
 
         // ========== CUSTOM COMMANDS ==========

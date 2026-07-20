@@ -1,0 +1,32 @@
+id: "adminshop_money_menu"
+size: 54
+title: "<green>Admin Shop"
+pagination:
+  enabled: true
+  source: "adminshop.money"
+  content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34,37,38,39,40,41,42,43]
+dynamic-item-template:
+  item:
+    material-id: "{display_item}"
+    display-name: "<green>{product_name}"
+    lore:
+      - "<yellow>Comprar: <white>{buy_price} money"
+      - "<yellow>Vender: <white>{sell_price} money"
+      - "<gray>Estoque: <white>{stock}"
+      - ""
+      - "<green>Clique esquerdo: comprar"
+      - "<red>Clique direito: vender"
+  actions:
+    - type: "adminshop_buy"
+      params: { product-id: "{product_id}" }
+      clicks: ["LEFT"]
+    - type: "adminshop_sell"
+      params: { product-id: "{product_id}" }
+      clicks: ["RIGHT"]
+pages:
+  main:
+    default-page: true
+    items:
+      prev: { slot: 48, item: { material-id: "minecraft:paper", display-name: "<yellow>Anterior" }, actions: [{ type: "previous_page" }] }
+      next: { slot: 50, item: { material-id: "minecraft:paper", display-name: "<yellow>Próxima" }, actions: [{ type: "next_page" }] }
+      close: { slot: 49, item: { material-id: "minecraft:barrier", display-name: "<red>Fechar" }, actions: [{ type: "close_menu" }] }

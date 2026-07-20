@@ -86,6 +86,9 @@ public class MenuSystem {
         com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.getInstance().register(configDir);
         com.pedrodalben.bigbangessentials.menu.integration.jobs.JobsMenuIntegration.getInstance().register(configDir);
         com.pedrodalben.bigbangessentials.menu.integration.rankup.RankupMenuIntegration.getInstance().register(configDir);
+        if (com.pedrodalben.bigbangessentials.core.ModuleManager.getInstance().isActive("adminshop")) {
+            com.pedrodalben.bigbangessentials.adminshop.AdminShopMenu.register();
+        }
 
         // Load all menus
         persistenceService.loadAllMenus();
