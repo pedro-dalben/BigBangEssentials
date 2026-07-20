@@ -76,6 +76,7 @@ public class CustomCommandManager {
     public void initialize() {
         ensureConfigFile();
         loadCommands();
+        registeredInDispatcher.clear();
         LOGGER.info("CustomCommandManager initialized with {} command(s)", commands.size());
     }
 

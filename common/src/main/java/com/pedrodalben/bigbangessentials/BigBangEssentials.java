@@ -351,7 +351,6 @@ public class BigBangEssentials {
             // Initialize Custom Commands system
             if (ModuleManager.getInstance().prepare("customcommands")) try {
                 LOGGER.info("⚙ Initializing Custom Commands system...");
-                com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.getInstance().initialize();
                 ManagerRegistry.getInstance().markInitialized("CustomCommandManager");
                 ModuleManager.getInstance().started("customcommands", 0);
                 LOGGER.info("✓ Custom Commands system initialized ({} command(s) loaded)",
@@ -1226,7 +1225,9 @@ public class BigBangEssentials {
         // Register all user-defined custom commands from custom_commands.json
         if (ModuleManager.getInstance().isActive("customcommands")) {
             try {
-                com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.getInstance().registerAllCommands(dispatcher);
+                var customCommands = com.pedrodalben.bigbangessentials.customcommands.CustomCommandManager.getInstance();
+                customCommands.initialize();
+                customCommands.registerAllCommands(dispatcher);
             } catch (Exception e) {
                 LOGGER.error("Failed to register custom commands: {}", e.getMessage(), e);
             }
