@@ -214,6 +214,7 @@ class JobsXpRefactorTest {
         harvests.put("minecraft:wheat", new ActionReward(3, 5));
         harvests.put("minecraft:potatoes", new ActionReward(3, 6));
         harvests.put("minecraft:sugar_cane", new ActionReward(2, 3));
+        harvests.put("cobblemon:qualot_berry", new ActionReward(0.2, 3));
         actions.put("HARVEST-CROP", harvests);
 
         JobDefinition farmer = JobDefinition.builder("farmer").enabled(true)
@@ -232,6 +233,11 @@ class JobsXpRefactorTest {
         var sugarCane = JobRuleEvaluator.getInstance().evaluate(farmerCfg,
                 JobAction.create(playerId, JobActionType.HARVEST_CROP, "TEST", "minecraft:sugar_cane", JobActionContext.empty()));
         assertTrue(sugarCane.isMatch(), "Cana-de-acucar configurada deve corresponder");
+
+        var cobblemonBerry = JobRuleEvaluator.getInstance().evaluate(farmerCfg,
+                JobAction.create(playerId, JobActionType.HARVEST_CROP,
+                        "COBBLEMON_BERRY_HARVEST", "cobblemon:qualot_berry", JobActionContext.empty()));
+        assertTrue(cobblemonBerry.isMatch(), "Berry do Cobblemon configurada deve corresponder");
 
         var unconfig = JobRuleEvaluator.getInstance().evaluate(farmerCfg,
                 JobAction.create(playerId, JobActionType.HARVEST_CROP, "TEST", "minecraft:sweet_berry_bush", JobActionContext.empty()));

@@ -1,8 +1,16 @@
 package com.pedrodalben.bigbangessentials.jobs.compat;
 
+import com.pedrodalben.bigbangessentials.jobs.JobAction;
+import com.pedrodalben.bigbangessentials.jobs.JobActionContext;
+import com.pedrodalben.bigbangessentials.jobs.JobActionType;
+import com.pedrodalben.bigbangessentials.jobs.pipeline.JobActionPublisher;
 import com.pedrodalben.bigbangessentials.jobs.researcher.CaptureCorrelationService;
 import com.pedrodalben.bigbangessentials.util.Platform;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +28,10 @@ public class CobblemonJobsBridge implements OptionalJobsIntegration {
     private IntegrationStatus status;
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private volatile Object subscriptionHandle;
+    private volatile Object berrySubscriptionHandle;
     private volatile Object eventBusRef;
+    private volatile Consumer<Object> captureHandler;
+    private volatile Consumer<Object> berryHandler;
 
     @Override
     public String integrationId() { return "cobblemon_base"; }
@@ -30,7 +41,7 @@ public class CobblemonJobsBridge implements OptionalJobsIntegration {
 
     @Override
     public String[] supportedActionTypes() {
-        return new String[]{"POKEMON_CAPTURED", "DEX_ENTRY_ADDED"};
+        return new String[]{"POKEMON_CAPTURED", "DEX_ENTRY_ADDED", "HARVEST_CROP"};
     }
 
     @Override
@@ -38,27 +49,28 @@ public class CobblemonJobsBridge implements OptionalJobsIntegration {
         if (!isModAvailable()) {
             status = IntegrationStatus.quick(integrationId(), IntegrationState.MOD_NOT_INSTALLED, MOD_ID,
                     "Cobblemon mod not found in runtime environment",
-                    List.of(), List.of("POKEMON_CAPTURED", "DEX_ENTRY_ADDED"));
+                    List.of(), List.of("POKEMON_CAPTURED", "DEX_ENTRY_ADDED", "HARVEST_CROP"));
             return status;
         }
 
         try {
             String modVersion = Platform.getModVersion(MOD_ID);
             Class<?> eventClass = Class.forName("com.cobblemon.mod.common.api.events.pokemon.PokemonCapturedEvent");
+            Class.forName("com.cobblemon.mod.common.api.events.berry.BerryHarvestEvent");
             status = new IntegrationStatus(
                     integrationId(), IntegrationState.API_FOUND, MOD_ID,
                     modVersion != null ? modVersion : "1.5+",
                     "1.5.x - 1.7.x",
-                    "Cobblemon detected. PokemonCapturedEvent found. Awaiting event subscription.",
-                    List.of("POKEMON_CAPTURED", "DEX_ENTRY_ADDED"), List.of(),
+                    "Cobblemon detected. PokemonCapturedEvent and BerryHarvestEvent found. Awaiting event subscription.",
+                    List.of("POKEMON_CAPTURED", "DEX_ENTRY_ADDED", "HARVEST_CROP"), List.of(),
                     eventClass.getName(), "unknown", "NOT_SUBSCRIBED", "REFLECTIVE",
                     0L, 0L, 0L, 0L, 0L, null, 0L, null, true
             );
         } catch (ClassNotFoundException e) {
             status = new IntegrationStatus(
                     integrationId(), IntegrationState.API_CLASS_NOT_FOUND, MOD_ID, "unknown", "1.5.x - 1.7.x",
-                    "PokemonCapturedEvent class not found in Cobblemon API",
-                    List.of(), List.of("POKEMON_CAPTURED", "DEX_ENTRY_ADDED"),
+                    "Required Cobblemon event class not found in Cobblemon API",
+                    List.of(), List.of("POKEMON_CAPTURED", "DEX_ENTRY_ADDED", "HARVEST_CROP"),
                     "com.cobblemon.mod.common.api.events.pokemon.PokemonCapturedEvent", "N/A",
                     "FAILED", "NONE", 0L, 0L, 0L, 0L, 0L, null, 0L, null, false
             );
@@ -87,29 +99,45 @@ public class CobblemonJobsBridge implements OptionalJobsIntegration {
 
         try {
             Class<?> eventClass = Class.forName("com.cobblemon.mod.common.api.events.pokemon.PokemonCapturedEvent");
-            Consumer<Object> handler = this::handleCaptureEvent;
+            Class<?> berryEventClass = Class.forName("com.cobblemon.mod.common.api.events.berry.BerryHarvestEvent");
+            captureHandler = this::handleCaptureEvent;
+            berryHandler = this::handleBerryHarvestEvent;
 
-            SubscriptionResult result = reflectiveSubscribe(eventClass, handler);
-            if (result.success() && result.listenerRegistered()) {
+            SubscriptionResult result = reflectiveSubscribe(eventClass, captureHandler);
+            SubscriptionResult berryResult = result.success()
+                    ? reflectiveSubscribe(berryEventClass, berryHandler)
+                    : result;
+            if (result.success() && berryResult.success()
+                    && result.listenerRegistered() && berryResult.listenerRegistered()) {
                 subscriptionHandle = result.subscriptionHandle();
+                berrySubscriptionHandle = berryResult.subscriptionHandle();
                 initialized.set(true);
-                status = status.withSubscriptionResult(result);
-                LOGGER.info("[Jobs Compat] Successfully subscribed to Cobblemon PokemonCapturedEvent for Jobs.");
+                status = status.withSubscriptionResult(berryResult);
+                LOGGER.info("[Jobs Compat] Subscribed to Cobblemon PokemonCapturedEvent and BerryHarvestEvent for Jobs.");
             } else {
+                SubscriptionResult failedResult = result.success() ? berryResult : result;
                 status = new IntegrationStatus(
                         integrationId(), IntegrationState.ERROR, MOD_ID,
                         status.detectedVersion(), "1.5.x - 1.7.x",
-                        "Failed to subscribe: " + result.technicalMessage(),
-                        List.of(), List.of("POKEMON_CAPTURED", "DEX_ENTRY_ADDED"),
-                        eventClass.getName(), result.eventBusName(),
-                        "FAILED", result.adapterStrategy(),
+                        "Failed to subscribe: " + failedResult.technicalMessage(),
+                        List.of(), List.of("POKEMON_CAPTURED", "DEX_ENTRY_ADDED", "HARVEST_CROP"),
+                        eventClass.getName(), failedResult.eventBusName(),
+                        "FAILED", failedResult.adapterStrategy(),
                         0L, 0L, 0L, 0L, 0L,
-                        result.technicalMessage(), System.currentTimeMillis(),
-                        result.technicalMessage(), false
+                        failedResult.technicalMessage(), System.currentTimeMillis(),
+                        failedResult.technicalMessage(), false
                 );
-                LOGGER.error("[Jobs Compat] Failed to subscribe to Cobblemon PokemonCapturedEvent: {}", result.technicalMessage());
+                if (result.success()) {
+                    tryUnsubscribe(result.subscriptionHandle(), eventBusRef,
+                            eventClass.getName(), captureHandler);
+                }
+                subscriptionHandle = null;
+                berrySubscriptionHandle = null;
+                captureHandler = null;
+                berryHandler = null;
+                LOGGER.error("[Jobs Compat] Failed to subscribe to Cobblemon events: {}", failedResult.technicalMessage());
             }
-            return result;
+            return result.success() ? berryResult : result;
         } catch (Exception e) {
             status = status.withHandlerError("Subscription exception: " + e.getMessage());
             return SubscriptionResult.failed("PokemonCapturedEvent", "Exception during subscription: " + e.getMessage(), e);
@@ -160,15 +188,64 @@ public class CobblemonJobsBridge implements OptionalJobsIntegration {
         }
     }
 
+    private void handleBerryHarvestEvent(Object event) {
+        try {
+            Object playerEntity = event.getClass().getMethod("getPlayer").invoke(event);
+            Object berry = event.getClass().getMethod("getBerry").invoke(event);
+            Object worldObject = event.getClass().getMethod("getWorld").invoke(event);
+            Object posObject = event.getClass().getMethod("getPos").invoke(event);
+            Object stateObject = event.getClass().getMethod("getState").invoke(event);
+
+            if (!(playerEntity instanceof ServerPlayer player)
+                    || !(worldObject instanceof Level world)
+                    || !(posObject instanceof BlockPos pos)
+                    || !(stateObject instanceof BlockState state)
+                    || berry == null) {
+                if (status != null) status = status.withHandlerError("Invalid BerryHarvestEvent payload");
+                return;
+            }
+
+            Object identifier = berry.getClass().getMethod("getIdentifier").invoke(berry);
+            if (identifier == null || identifier.toString().isBlank()) return;
+
+            String targetId = identifier.toString();
+            String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+            JobActionContext context = JobActionContext.builder()
+                    .dimension(world.dimension().location().toString())
+                    .position(pos.getX() + "," + pos.getY() + "," + pos.getZ())
+                    .blockId(blockId)
+                    .blockStateString(state.toString())
+                    .cropMature(true)
+                    .eventSource("COBBLEMON_BERRY_HARVEST")
+                    .build();
+
+            JobAction action = JobAction.create(player.getUUID(), JobActionType.HARVEST_CROP,
+                    "COBBLEMON_BERRY_HARVEST", targetId, context);
+            JobActionPublisher.getInstance().publish(player, action);
+            status = status.withEventReceived(true);
+        } catch (Exception ex) {
+            LOGGER.error("[Jobs Compat] Error handling Cobblemon BerryHarvestEvent", ex);
+            if (status != null) status = status.withHandlerError("Berry harvest handler exception: " + ex.getMessage());
+        }
+    }
+
     @Override
     public void shutdown() {
         try {
             if (initialized.compareAndSet(true, false)) {
                 if (subscriptionHandle != null && eventBusRef != null) {
-                    tryUnsubscribe(subscriptionHandle, eventBusRef);
+                    tryUnsubscribe(subscriptionHandle, eventBusRef,
+                            "com.cobblemon.mod.common.api.events.pokemon.PokemonCapturedEvent", captureHandler);
+                }
+                if (berrySubscriptionHandle != null && eventBusRef != null) {
+                    tryUnsubscribe(berrySubscriptionHandle, eventBusRef,
+                            "com.cobblemon.mod.common.api.events.berry.BerryHarvestEvent", berryHandler);
                 }
                 subscriptionHandle = null;
+                berrySubscriptionHandle = null;
                 eventBusRef = null;
+                captureHandler = null;
+                berryHandler = null;
                 status = (status != null) ? status.withState(IntegrationState.SHUTDOWN) : null;
             }
         } catch (Exception e) {
@@ -199,7 +276,6 @@ public class CobblemonJobsBridge implements OptionalJobsIntegration {
 
             Method subscribeMethod = eventBus.getClass().getMethod("subscribe", Class.class, Consumer.class);
             Object handle = subscribeMethod.invoke(eventBus, eventClass, handler);
-            subscriptionHandle = handle;
 
             boolean supportsUnsubscribe = hasUnsubscribeMethod(eventBus.getClass());
 
@@ -239,13 +315,11 @@ public class CobblemonJobsBridge implements OptionalJobsIntegration {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private void tryUnsubscribe(Object handle, Object bus) {
+    private void tryUnsubscribe(Object handle, Object bus, String eventClassName, Consumer<Object> handler) {
         try {
-            if (handle instanceof Consumer) {
-                Consumer<Object> handler = (Consumer<Object>) handle;
+            if (handler != null) {
                 Method unsub = bus.getClass().getMethod("unsubscribe", Class.class, Consumer.class);
-                unsub.invoke(bus, Class.forName("com.cobblemon.mod.common.api.events.pokemon.PokemonCapturedEvent"), handler);
+                unsub.invoke(bus, Class.forName(eventClassName), handler);
             }
         } catch (Exception e) {
             LOGGER.debug("[Jobs Compat] Could not unsubscribe listener (may not be supported by bus)", e);
