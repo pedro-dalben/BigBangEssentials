@@ -154,7 +154,7 @@ public abstract class AbstractCrateMenu extends AbstractContainerMenu {
     public static String translateColorCodes(String text) {
         if (text == null) return "";
         String result = text.replace('&', '\u00a7');
-        return result.replaceAll("§#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])", "§x§$1§$2§$3§$4§$5§$6");
+        return result.replaceAll("(?:§)?#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])", "§x§$1§$2§$3§$4§$5§$6");
     }
 
     protected static ItemStack glassPane(int colorIndex) {

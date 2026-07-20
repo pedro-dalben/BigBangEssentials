@@ -126,7 +126,7 @@ public class CratePreviewMenu extends AbstractCrateMenu {
         double chance = crate.calculateRewardChance(reward.getId());
         String chanceStr = String.format("%.2f%%", chance);
 
-        String rarityColor = rarity != null && rarity.getColor() != null ? rarity.getColor() : "§f";
+        String rarityColor = translateColorCodes(rarity != null && rarity.getColor() != null ? rarity.getColor() : "§f");
         String rarityName = rarity != null ? rarity.getName() : reward.getRarityId();
 
         String displayName = rarityColor + translateColorCodes(reward.getName());
