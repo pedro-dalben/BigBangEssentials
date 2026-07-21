@@ -144,6 +144,17 @@ public final class PokeMarketTradeService {
                 s.setString(1, op.buyer().toString()); s.setLong(2, System.currentTimeMillis()); s.setString(3, op.listingId().toString()); s.setLong(4, System.currentTimeMillis());
                 if (s.executeUpdate() != 1) { updateTradeStatus(c, op.id(), TradeOperationStatus.FAILED, "Listing unavailable"); return false; }
             }
+            // Escrow the offered Pokemon BEFORE removal so recovery can create a claim if the JVM dies
+            try (var s = c.prepareStatement("INSERT OR REPLACE INTO bbe_pokemarket_escrow (pokemon_uuid,listing_id,pokemon_data,created_at,status) VALUES (?,?,?,?,?)")) {
+                s.setString(1, op.offeredPokemonUuid().toString()); s.setString(2, op.listingId().toString());
+                s.setBytes(3, op.offeredPokemonData()); s.setLong(4, System.currentTimeMillis()); s.setString(5, "ACTIVE");
+                s.executeUpdate();
+            } catch (java.sql.SQLException e) {
+                // Escrow insert failed (dup key etc.) — release listing, fail trade
+                try (var rs = c.prepareStatement("UPDATE bbe_pokemarket_listings SET status='ACTIVE',reserved_by_uuid=NULL,reserved_at=NULL,version=version+1 WHERE id=?")) { rs.setString(1, op.listingId().toString()); rs.executeUpdate(); }
+                updateTradeStatus(c, op.id(), TradeOperationStatus.FAILED, "Offered Pokemon escrow conflict");
+                return false;
+            }
             return true;
         });
     }
@@ -258,8 +269,12 @@ public final class PokeMarketTradeService {
             });
         }
         if (op.status() == TradeOperationStatus.LISTING_RESERVED) {
-            // Removal may have happened immediately before a crash; do not release or create a claim blindly.
-            return markReviewTrade(op, "Recovery: offer removal is ambiguous; manual reconciliation required");
+            // The offered Pokemon escrow row was inserted in prepareTrade.
+            // If the escrow row exists, the removal was authorized — create a claim.
+            return database.getExecutor().queryOne("trade.recovery.escrow", "SELECT 1 FROM bbe_pokemarket_escrow WHERE listing_id=? AND pokemon_uuid=? AND status='ACTIVE'", s -> { s.setString(1, op.listingId().toString()); s.setString(2, op.offeredPokemonUuid().toString()); }, r -> true).thenApply(o -> o.orElse(false)).thenCompose(hasEscrow -> {
+                if (hasEscrow) return completeTradeClaims(op);
+                return markReviewTrade(op, "Recovery: offer removal is ambiguous; manual reconciliation required");
+            });
         }
         if (op.status() == TradeOperationStatus.OFFER_ESCROW_PENDING || op.status() == TradeOperationStatus.OFFER_IN_ESCROW) {
             return completeTradeClaims(op);
