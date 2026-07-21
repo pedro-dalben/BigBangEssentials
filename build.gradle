@@ -18,6 +18,47 @@ buildNumberFile.text = buildNumber.toString()
 version = "${mod_version}+build.${buildNumber}"
 group = mod_group_id
 
+tasks.register('verifyCobblemonDependencies') {
+    notCompatibleWithConfigurationCache('dependency verification inspects resolved artifacts')
+    dependsOn ':common:compileJava', ':fabric:compileJava', ':neoforge:compileJava'
+    doLast {
+        def versionIds = [
+            project.property('cobblemon_fabric_version_id'),
+            project.property('cobblemon_neoforge_version_id')
+        ]
+        if (versionIds.any { it == null || it.toString().isEmpty() })
+            throw new GradleException('Cobblemon version ID properties not configured: cobblemon_fabric_version_id, cobblemon_neoforge_version_id')
+
+        def jarGlob = fileTree(rootProject.projectDir).matching { include 'libs/Cobblemon-*.jar' }
+        if (!jarGlob.files.isEmpty())
+            throw new GradleException("Local Cobblemon JARs detected in libs/ — delete them before building: ${jarGlob.files.collect { it.name }}")
+
+        def gitTracked = 'git ls-files -- libs/Cobblemon-*.jar'.execute([], rootProject.projectDir)
+        gitTracked.waitFor()
+        if (gitTracked.exitValue() == 0 && !gitTracked.text.trim().isEmpty())
+            throw new GradleException('Cobblemon JARs are tracked by Git — remove them from the index before building')
+
+        logger.lifecycle('Cobblemon compile API: resolved from Maven (Modrinth); runtime remains server-supplied.')
+    }
+}
+tasks.named('build') { dependsOn tasks.named('verifyCobblemonDependencies') }
+tasks.register('verifyNoBundledCobblemon') {
+    notCompatibleWithConfigurationCache('artifact inspection uses Gradle archive helpers')
+    dependsOn ':fabric:remapJar', ':neoforge:jar'
+    doLast {
+        [file('fabric/build/libs'), file('neoforge/build/libs')].each { outputDir ->
+            def artifact = fileTree(outputDir).matching { include '*.jar' }.files.max { it.lastModified() }
+            if (artifact == null) throw new GradleException("No loader artifact found in ${outputDir}")
+            def names = zipTree(artifact).files.collect { it.path.replace('\\', '/') }
+            if (names.any { it.contains('/com/cobblemon/') || it.endsWith('/cobblemon.mod.json') || (it.toLowerCase().contains('/cobblemon') && it.endsWith('.jar')) })
+                throw new GradleException("Cobblemon content bundled in ${artifact.name}")
+        }
+    }
+}
+['mysqlIntegrationTest', 'pokeMarketConcurrencyTest', 'pokeMarketFaultInjectionTest', 'runPokeMarketIntegrationTest', 'runWithoutCobblemonTest'].each { taskName ->
+    tasks.register(taskName) { dependsOn ":common:${taskName}" }
+}
+
 println "=========================================="
 println "Building ${mod_name} v${version}"
 println "Build #${buildNumber}"
@@ -52,6 +93,21 @@ subprojects {
         maven {
             name = "LuckPerms"
             url = "https://maven.luckperms.net/"
+        }
+        maven {
+            name = "Cobblemon"
+            url = "https://artefacts.cobblemon.com/releases/"
+        }
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "Modrinth"
+                    url = uri("https://api.modrinth.com/maven")
+                }
+            }
+            filter {
+                includeGroup("maven.modrinth")
+            }
         }
     }
 

@@ -84,6 +84,7 @@ dependencies {
     
     // Optional integration APIs
     compileOnly name: 'yawp-1.21.1-neoforge-0.6.2-beta1'
+    compileOnly "maven.modrinth:cobblemon:${cobblemon_neoforge_version_id}"
 }
 
 // Copy build_number.txt to resources

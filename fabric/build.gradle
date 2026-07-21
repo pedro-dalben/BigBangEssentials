@@ -39,6 +39,7 @@ dependencies {
     // APIs
     modCompileOnly 'net.luckperms:api:5.4'
     modCompileOnly 'curse.maven:architectury-api-419699:5786327' // Architectury API Fabric
+    modCompileOnly "maven.modrinth:cobblemon:${cobblemon_fabric_version_id}"
 }
 
 // Copy build_number.txt to resources

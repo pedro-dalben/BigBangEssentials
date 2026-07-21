@@ -81,3 +81,6 @@ session-*.md
 
 # Job config backups (auto-generated)
 common/config/bigbangessentials/jobs_backup_*/
+
+# External Cobblemon build artifacts must be resolved by Gradle
+/libs/Cobblemon-*.jar

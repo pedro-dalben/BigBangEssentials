@@ -30,6 +30,7 @@ dependencies {
     compileOnly 'com.zaxxer:HikariCP:5.1.0'
     compileOnly 'org.xerial:sqlite-jdbc:3.46.0.0'
     compileOnly 'com.mysql:mysql-connector-j:9.1.0'
+    compileOnly 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20'
 
     // APIs
     compileOnly 'net.luckperms:api:5.4'
@@ -39,11 +40,14 @@ dependencies {
     
     // Optional integration APIs
     compileOnly name: 'yawp-1.21.1-neoforge-0.6.2-beta1'
+    // Cobblemon resolved from Maven; server supplies runtime.
+    compileOnly "maven.modrinth:cobblemon:${cobblemon_neoforge_version_id}"
 
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testImplementation 'org.mockito:mockito-core:5.11.0'
     testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+    testImplementation 'org.testcontainers:testcontainers-mysql:2.0.5'
     testCompileOnly files(sourceSets.main.compileClasspath)
     testRuntimeOnly files(sourceSets.main.runtimeClasspath)
 
@@ -61,4 +65,39 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+def focusedTest = { String name, String pattern ->
+    tasks.register(name, Test) {
+        description = "Runs ${pattern}"
+        group = "verification"
+        dependsOn testClasses
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform()
+        include pattern
+    }
+}
+focusedTest('pokeMarketConcurrencyTest', '**/PokeMarketConcurrencyTest.class')
+focusedTest('pokeMarketFaultInjectionTest', '**/PokeMarketFaultInjectionTest.class')
+focusedTest('mysqlIntegrationTest', '**/MySqlIntegrationTest.class')
+focusedTest('runWithoutCobblemonTest', '**/CobblemonOptionalStartupTest.class')
+tasks.named('mysqlIntegrationTest') {
+    onlyIf {
+        def configured = ['BBE_TEST_MYSQL_HOST', 'BBE_TEST_MYSQL_PORT', 'BBE_TEST_MYSQL_DATABASE', 'BBE_TEST_MYSQL_USER', 'BBE_TEST_MYSQL_PASSWORD']
+            .every { key -> System.getenv(key) != null }
+        def docker = false
+        try { def process = ['docker', 'info'].execute(); process.waitFor(); docker = process.exitValue() == 0 } catch (Exception ignored) { }
+        configured || docker
+    }
+    doFirst {
+        logger.lifecycle(System.getenv('BBE_TEST_MYSQL_HOST') ? 'MySQL integration: using the configured external MySQL runtime.' : 'MySQL integration: using a disposable Testcontainers runtime.')
+    }
+}
+tasks.register('runPokeMarketIntegrationTest') {
+    group = 'verification'
+    description = 'Documents the external Cobblemon runtime gate; execute the staging server runner when configured.'
+    doLast {
+        throw new GradleException('Cobblemon runtime integration is BLOCKED: no reproducible GameTest/server runner is configured in this workspace. Use docs/modules/pokemarket/STAGING_UAT.md.')
+    }
 }
