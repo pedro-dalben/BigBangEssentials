@@ -23,7 +23,7 @@ public class BigBangEssentials {
     private static final Logger LOGGER = LoggerFactory.getLogger(BigBangEssentials.class);
     
     // Build and version information
-    private static final String MOD_VERSION = "1.0.2.5";
+    private static final String MOD_VERSION = "1.0.2.6";
     private static final String MOD_NAME = "BigBangEssentials";
     private static final String BUILD_NUMBER = readBuildNumber();
     private static final String MINECRAFT_VERSION = "1.21.1-1.21.10";

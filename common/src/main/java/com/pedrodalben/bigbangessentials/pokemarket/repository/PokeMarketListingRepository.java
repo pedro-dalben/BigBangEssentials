@@ -2,6 +2,7 @@ package com.pedrodalben.bigbangessentials.pokemarket.repository;
 
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import com.pedrodalben.bigbangessentials.pokemarket.model.*;
+import com.pedrodalben.bigbangessentials.pokemarket.service.ListingStateMachine;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.util.List;
@@ -45,6 +46,7 @@ public final class PokeMarketListingRepository {
     }
 
     public CompletableFuture<Boolean> transition(UUID id, ListingStatus from, ListingStatus to) {
+        ListingStateMachine.transition(from, to); // validates transition is allowed
         return database.getExecutor().executeUpdate("pokemarket.listing.transition", "UPDATE bbe_pokemarket_listings SET status=?,version=version+1 WHERE id=? AND status=?", s -> { s.setString(1, to.name()); s.setString(2, id.toString()); s.setString(3, from.name()); }).thenApply(rows -> rows == 1);
     }
 

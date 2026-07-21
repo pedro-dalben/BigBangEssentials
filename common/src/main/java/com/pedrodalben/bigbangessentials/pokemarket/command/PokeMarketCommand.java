@@ -385,8 +385,8 @@ public final class PokeMarketCommand {
     }
 
     private static int adminCancel(CommandSourceStack source, String rawId, String reason) {
-        try { UUID id = UUID.fromString(rawId); } catch (Exception e) { source.sendFailure(Component.literal("§cID inválido")); return 0; }
-        UUID id = UUID.fromString(rawId); ServerPlayer admin = player(source);
+        UUID id; try { id = UUID.fromString(rawId); } catch (Exception e) { source.sendFailure(Component.literal("§cID inválido")); return 0; }
+        ServerPlayer admin = player(source);
         PokeMarketManager.getInstance().listingService().cancelAsAdmin(admin, id, reason).whenComplete((ok, err) -> {
             var msg = Boolean.TRUE.equals(ok) ? "§aListagem cancelada por admin: " + reason : "§cNão foi possível cancelar listagem";
             admin.getServer().execute(() -> admin.sendSystemMessage(Component.literal(msg)));
