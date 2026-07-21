@@ -635,9 +635,7 @@ Atualmente não há releases publicados oficialmente no GitHub. Para usar o mod:
 
 ## Licença
 
-O arquivo `LICENSE` neste repositório contém a licença **MIT**, com Copyright (c) 2025 ZeroG Network.
-
-> **Nota:** Os metadados do mod (`gradle.properties`, `fabric.mod.json`) declararam historicamente "All Rights Reserved". Verifique o arquivo `LICENSE` para a licença vigente. Em caso de dúvida, consulte o mantenedor.
+Licença **MIT**. Copyright (c) 2025 ZeroG Network. Veja o arquivo [`LICENSE`](LICENSE).
 
 ---
 

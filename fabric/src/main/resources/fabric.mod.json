@@ -10,7 +10,7 @@
   "contact": {
     "homepage": "https://github.com/pedro-dalben/BigBangEssentials"
   },
-  "license": "All Rights Reserved",
+  "license": "MIT",
   "environment": "*",
   "entrypoints": {
     "main": [
