@@ -41,9 +41,28 @@ public final class PokeMarketClaimService {
                             claims.markClaimed(id).thenAccept(done -> result.complete(done ? "success" : "recovery_required"));
                         });
                     } else {
+                        // Idempotency guard: if the Pokemon already exists in the player's storage
+                        // (e.g. after a crash between delivery and markClaimed), skip re-delivery.
+                        var alreadyOwned = bridge.findOwnedPokemon(player, claim.pokemonUuid());
+                        if (alreadyOwned.isPresent()) {
+                            claims.markClaimed(id).thenAccept(done -> result.complete(done ? "success" : "recovery_required"));
+                            return;
+                        }
                         DeliveryResult delivered = bridge.deliverPokemon(player, new SerializedPokemon(claim.pokemonUuid(), claim.payload(), "COBBLEMON_NBT_GZIP", "1", Cobblemon173MarketBridge.COBBLEMON_VERSION, checksum(claim.payload()), null));
                         if (!delivered.success()) { claims.markAvailable(id); result.complete("storage_full"); return; }
-                        claims.markClaimed(id).thenAccept(done -> result.complete(done ? "success" : "recovery_required"));
+                        claims.markClaimed(id).thenAccept(done -> {
+                            if (!done) {
+                                // markClaimed failed — verify the Pokemon actually landed via a storage re-check
+                                var recheck = bridge.findOwnedPokemon(player, claim.pokemonUuid());
+                                if (recheck.isPresent()) {
+                                    // Pokémon is there, claim was effectively delivered despite DB hiccup
+                                    result.complete("success");
+                                } else {
+                                    claims.markAvailable(id);
+                                    result.complete("recovery_required");
+                                }
+                            } else result.complete("success");
+                        });
                     }
                 });
                 return result;
