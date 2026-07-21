@@ -395,18 +395,28 @@ public final class PokeMarketCommand {
     }
 
     private static int adminClaims(CommandSourceStack source, String rawPlayer) {
+        UUID targetUuid = resolvePlayerUuid(source, rawPlayer);
+        if (targetUuid == null) { source.sendFailure(Component.literal("§cJogador não encontrado: " + rawPlayer)); return 0; }
         var db = DatabaseManager.getInstance();
-        db.getExecutor().queryList("admin.claims", "SELECT id,owner_uuid,claim_type,money_amount,status,created_at FROM bbe_pokemarket_claims WHERE owner_uuid=? ORDER BY created_at DESC LIMIT 20", s -> s.setString(1, rawPlayer), r -> {
+        db.getExecutor().queryList("admin.claims", "SELECT id,owner_uuid,claim_type,money_amount,status,created_at FROM bbe_pokemarket_claims WHERE owner_uuid=? ORDER BY created_at DESC LIMIT 20", s -> s.setString(1, targetUuid.toString()), r -> {
             return " §e" + r.getString("id").substring(0, 8) + " §f" + r.getString("claim_type") + " " + (r.getBigDecimal("money_amount") == null ? "" : "$" + r.getBigDecimal("money_amount")) + " " + r.getString("status");
         }).whenComplete((rows, err) -> source.sendSuccess(() -> Component.literal("§6Claims de " + rawPlayer + ":\n" + (err != null ? "§cErro" : String.join("\n", rows))), false));
         return 1;
     }
 
     private static int adminHistory(CommandSourceStack source, String rawPlayer) {
+        UUID targetUuid = resolvePlayerUuid(source, rawPlayer);
+        if (targetUuid == null) { source.sendFailure(Component.literal("§cJogador não encontrado: " + rawPlayer)); return 0; }
         var db = DatabaseManager.getInstance();
-        db.getExecutor().queryList("admin.history", "SELECT id,listing_id,actor_uuid,action,old_status,new_status,created_at FROM bbe_pokemarket_audit_log WHERE actor_uuid=? ORDER BY created_at DESC LIMIT 20", s -> s.setString(1, rawPlayer), r -> {
+        db.getExecutor().queryList("admin.history", "SELECT id,listing_id,actor_uuid,action,old_status,new_status,created_at FROM bbe_pokemarket_audit_log WHERE actor_uuid=? ORDER BY created_at DESC LIMIT 20", s -> s.setString(1, targetUuid.toString()), r -> {
             return " §e" + r.getString("id").substring(0, 8) + " §f" + r.getString("action") + " " + r.getString("old_status") + " → " + r.getString("new_status") + " §7" + r.getLong("created_at");
         }).whenComplete((rows, err) -> source.sendSuccess(() -> Component.literal("§6Auditoria de " + rawPlayer + ":\n" + (err != null ? "§cErro" : String.join("\n", rows))), false));
         return 1;
+    }
+
+    private static UUID resolvePlayerUuid(CommandSourceStack source, String nameOrUuid) {
+        try { return UUID.fromString(nameOrUuid); } catch (IllegalArgumentException ignored) {}
+        ServerPlayer target = source.getServer().getPlayerList().getPlayerByName(nameOrUuid);
+        return target != null ? target.getUUID() : null;
     }
 }
