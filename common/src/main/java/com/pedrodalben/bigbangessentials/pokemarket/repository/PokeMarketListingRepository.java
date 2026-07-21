@@ -17,7 +17,7 @@ public final class PokeMarketListingRepository {
     }
 
     public CompletableFuture<Integer> releaseEscrow(UUID listing) {
-        return database.getExecutor().executeUpdate("pokemarket.escrow.release", "UPDATE bbe_pokemarket_escrow SET status='RELEASED',released_at=? WHERE listing_id=? AND status='ACTIVE'", s -> { s.setLong(1, System.currentTimeMillis()); s.setString(2, listing.toString()); });
+        return database.getExecutor().executeUpdate("pokemarket.escrow.release", "DELETE FROM bbe_pokemarket_escrow WHERE listing_id=?", s -> { s.setString(1, listing.toString()); });
     }
 
     public CompletableFuture<Integer> createPreparing(ListingRecord listing, String idempotencyKey) {
