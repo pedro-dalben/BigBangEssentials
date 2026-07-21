@@ -90,6 +90,10 @@ public class MenuSystem {
             com.pedrodalben.bigbangessentials.adminshop.AdminShopMenu.register();
         }
 
+        // Register PokéMarket menu types before YAML validation; the provider remains inert without Cobblemon.
+        com.pedrodalben.bigbangessentials.pokemarket.menu.PokeMarketMenuIntegration.prepare(configDir);
+        com.pedrodalben.bigbangessentials.pokemarket.menu.PokeMarketMenuIntegration.register();
+
         // Load all menus
         persistenceService.loadAllMenus();
 

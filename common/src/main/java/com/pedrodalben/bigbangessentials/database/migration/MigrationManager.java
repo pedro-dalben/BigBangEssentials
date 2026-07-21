@@ -46,6 +46,18 @@ public class MigrationManager {
         registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V013CreateJobRewardsAndContractsTables());
         registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V014AlterRankupTransactionsIdempotencyAndMoney());
         registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V015CreateAdminShopTables());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V016CreatePokeMarketTables());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V017CreatePokeMarketEscrowTable());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V018CreateEconomyOperationsTable());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V019CreatePokeMarketPurchaseOperationsTable());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V020CreateEconomyAccounts());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V021CreateTradeOperationsTable());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V022CreatePokeMarketNotificationsTable());
+    }
+
+    /** Snapshot used by diagnostics and migration tests; callers cannot mutate registration order. */
+    public List<DatabaseMigration> getRegisteredMigrations() {
+        return List.copyOf(registeredMigrations);
     }
 
     /**

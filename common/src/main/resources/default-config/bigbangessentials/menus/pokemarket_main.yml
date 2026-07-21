@@ -1,0 +1,102 @@
+id: pokemarket_main
+schema-version: 1
+size: 27
+title: "&6&lPokéMarket"
+flags:
+  cache-rendered-items: false
+  close-on-world-change: true
+  prevent-item-take: true
+pages:
+  main:
+    default-page: true
+    items:
+      browse:
+        slot: 10
+        item:
+          material-id: "minecraft:compass"
+          display-name: "&eExplorar anúncios"
+        actions:
+          - type: "run_player_command"
+            params: { command: "pokemarket browse" }
+      party:
+        slot: 12
+        item:
+          material-id: "minecraft:player_head"
+          display-name: "&aAnunciar da party"
+          lore: ["&7Escolha o Pokémon e confirme o preço"]
+        actions:
+          - type: "open_menu"
+            params: { menu-id: "pokemarket_party" }
+      pc:
+        slot: 14
+        item:
+          material-id: "minecraft:chest"
+          display-name: "&bAnunciar do PC"
+          lore: ["&7Escolha a caixa, o Pokémon e confirme o preço"]
+        actions:
+          - type: "open_menu"
+            params: { menu-id: "pokemarket_pc" }
+      trade_party:
+        slot: 13
+        item: { material-id: "minecraft:emerald", display-name: "&aAnunciar troca" }
+        actions:
+          - type: "send_message"
+            params: { message: "&7Use /pokemarket trade party <slot> <requisitos JSON>" }
+      browse_history:
+        slot: 15
+        item: { material-id: "minecraft:book", display-name: "&fHistórico" }
+        actions:
+          - type: "run_player_command"
+            params: { command: "pokemarket history" }
+      my_listings:
+        slot: 17
+        item: { material-id: "minecraft:map", display-name: "&bMeus anúncios" }
+        actions:
+          - type: "run_player_command"
+            params: { command: "pokemarket listings" }
+      purchases:
+        slot: 18
+        item: { material-id: "minecraft:emerald", display-name: "&aMinhas compras" }
+        actions:
+          - type: "run_player_command"
+            params: { command: "pokemarket purchases" }
+      sales:
+        slot: 19
+        item: { material-id: "minecraft:gold_ingot", display-name: "&6Minhas vendas" }
+        actions:
+          - type: "run_player_command"
+            params: { command: "pokemarket sales" }
+      notifications:
+        slot: 20
+        item: { material-id: "minecraft:bell", display-name: "&6Notificações" }
+        actions:
+          - type: "run_player_command"
+            params: { command: "pokemarket notifications" }
+      help:
+        slot: 21
+        item: { material-id: "minecraft:paper", display-name: "&eAjuda" }
+        actions:
+          - type: "run_player_command"
+            params: { command: "pokemarket" }
+      claims:
+        slot: 16
+        item:
+          material-id: "minecraft:hopper"
+          display-name: "&dMinhas retiradas"
+          lore: ["&7Use: /pokemarket claim <id>"]
+        actions:
+          - type: "run_player_command"
+            params: { command: "pokemarket claims" }
+      trades:
+        slot: 23
+        item: { material-id: "minecraft:amethyst_shard", display-name: "&dMinhas trocas" }
+        actions:
+          - type: "run_player_command"
+            params: { command: "pokemarket trades" }
+      close:
+        slot: 22
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "&cFechar"
+        actions:
+          - type: "close_menu"

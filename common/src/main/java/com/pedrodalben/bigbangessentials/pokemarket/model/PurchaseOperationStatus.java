@@ -1,0 +1,3 @@
+package com.pedrodalben.bigbangessentials.pokemarket.model;
+
+public enum PurchaseOperationStatus { CREATED, LISTING_RESERVED, DEBIT_PENDING, DEBIT_CONFIRMED, CLAIMS_PENDING, CLAIMS_CREATED, COMPLETED, REFUND_PENDING, REFUNDED, RECONCILIATION_REQUIRED, FAILED }

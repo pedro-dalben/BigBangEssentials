@@ -13,5 +13,6 @@
   "cratesEnabled": true,
   "hologramsEnabled": true,
   "shopEnabled": true,
+  "pokemarketEnabled": true,
   "tablistEnabled": true
 }

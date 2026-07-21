@@ -183,6 +183,10 @@ public class BigBangEssentials {
         registry.registerManager("AdminShopManager", "adminshop",
             com.pedrodalben.bigbangessentials.adminshop.AdminShopManager.class,
             com.pedrodalben.bigbangessentials.adminshop.AdminShopManager::getInstance);
+
+        registry.registerManager("PokeMarketManager", "pokemarket",
+            com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager.class,
+            com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager::getInstance);
         
         // Custom Commands Manager
         registry.registerManager("CustomCommandManager", "customcommands",
@@ -224,6 +228,8 @@ public class BigBangEssentials {
         modules.register("holograms", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("holograms"));
         modules.register("shop", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("shop"), "economy", "database");
         modules.register("adminshop", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("adminshop"), "economy", "database");
+        modules.register("cobblemon", com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager::isCobblemonPresent);
+        modules.register("pokemarket", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("pokemarket"), "database", "economy", "cobblemon");
         modules.register("tablist", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("tablist"));
     }
     
@@ -318,6 +324,21 @@ public class BigBangEssentials {
             } catch (Exception e) {
                 LOGGER.error("✗ AdminShop system failed to initialize: {}", e.getMessage(), e);
                 ModuleManager.getInstance().failed("adminshop", e);
+            }
+
+            if (com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager.isCobblemonPresent()) {
+                ModuleManager.getInstance().started("cobblemon", 0);
+            } else {
+                ModuleManager.getInstance().failed("cobblemon", new IllegalStateException("Cobblemon API not installed"));
+            }
+            if (ModuleManager.getInstance().prepare("pokemarket")) try {
+                com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager.getInstance().initialize();
+                ManagerRegistry.getInstance().markInitialized("PokeMarketManager");
+                ModuleManager.getInstance().started("pokemarket", 0);
+            } catch (Exception e) {
+                LOGGER.error("[PokeMarket] initialization failed: {}", e.getMessage(), e);
+                ManagerRegistry.getInstance().markFailed("PokeMarketManager", e.getMessage());
+                ModuleManager.getInstance().failed("pokemarket", e);
             }
 
             if (ModuleManager.getInstance().prepare("jobs")) {
@@ -538,6 +559,12 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.chat.MsgToggleManager.refreshFromDatabase(player);
                 com.pedrodalben.bigbangessentials.chat.SocialSpyManager.refreshFromDatabase(player);
                 com.pedrodalben.bigbangessentials.tags.TagManager.getInstance().loadSelectedTagNameAsync(player.getUUID());
+                if (ModuleManager.getInstance().isActive("pokemarket") && com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager.getInstance().isInitialized()) {
+                    var notifications = com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager.getInstance().notificationRepository();
+                    notifications.markDelivered(player.getUUID()).thenCompose(ignored -> notifications.unread(player.getUUID())).thenAccept(count -> {
+                        if (count > 0) player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§6PokéMarket: §e" + count + " §fnotificação(ões) pendente(s). Use /pokemarket notifications."));
+                    });
+                }
             } catch (Exception e) {
                 LOGGER.debug("Failed to refresh database-backed player state for {}: {}", player.getName().getString(), e.getMessage(), e);
             }
@@ -621,6 +648,12 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.economy.managers.EconomyManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown Economy Manager", e);
+            }
+
+            if (ModuleManager.getInstance().isActive("pokemarket")) try {
+                com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager.getInstance().shutdown();
+            } catch (Exception e) {
+                LOGGER.error("[PokeMarket] shutdown failed", e);
             }
 
             try {
@@ -873,6 +906,11 @@ public class BigBangEssentials {
             registry.registerCommand("paytoggle", "Toggle receiving payments");
             registry.registerCommand("pt", "Toggle receiving payments (alias)");
             com.pedrodalben.bigbangessentials.economy.commands.EconomyCommands.register(dispatcher);
+        }
+
+        if (ModuleManager.getInstance().isActive("pokemarket")) {
+            registry.registerCommand("pokemarket", "Virtual Pokémon marketplace", "gts", "pm");
+            com.pedrodalben.bigbangessentials.pokemarket.command.PokeMarketCommand.register(dispatcher);
         }
 
         // ========== MODERATION COMMANDS ==========
