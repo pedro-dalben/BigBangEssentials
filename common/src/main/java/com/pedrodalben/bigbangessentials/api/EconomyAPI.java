@@ -4,6 +4,7 @@ import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.economy.managers.EconomyManager;
 import com.pedrodalben.bigbangessentials.economy.managers.PayToggleManager;
 import com.pedrodalben.bigbangessentials.economy.managers.TransactionHistoryManager;
+import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -72,12 +73,13 @@ public class EconomyAPI {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) return false; // No negative or zero payments
         
         EconomyManager manager = EconomyManager.getInstance();
-        
-        // Calculate tax upfront
-        double taxPercent = ConfigManager.getTaxPercentage();
-        BigDecimal fee = amount.multiply(BigDecimal.valueOf(taxPercent / 100.0));
+        BigDecimal fee = amount.multiply(BigDecimal.valueOf(ConfigManager.getTaxPercentage()).movePointLeft(2));
         BigDecimal netAmount = amount.subtract(fee);
         if (netAmount.compareTo(BigDecimal.ZERO) <= 0) return false; // Fee too high for amount
+
+        if (com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI.getEconomyService() instanceof DatabaseEconomyService db) {
+            return db.transfer(sender, receiver, amount, fee, "pay:" + sender + ":" + receiver + ":" + UUID.randomUUID()).join();
+        }
         
         // ATOMIC operation: subtract from sender (will fail if insufficient funds)
         boolean senderSuccess = manager.subtractBalance(sender, amount);

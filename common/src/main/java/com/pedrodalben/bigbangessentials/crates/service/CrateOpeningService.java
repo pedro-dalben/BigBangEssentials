@@ -127,7 +127,7 @@ public class CrateOpeningService {
             }
 
             if (crate.getRequirements().hasCostRequirement()) {
-                costPaid = economyIntegration.withdraw(player.getUUID(), crate.getCost(), "Crate opening: " + crate.getKey());
+                costPaid = economyIntegration.withdraw(player.getUUID(), crate.getCost(), "Crate opening: " + crate.getKey(), "crate:purchase:" + idempotencyKey);
                 if (!costPaid) {
                     audit.setFailureReason("Insufficient funds");
                     rollback(player.getUUID(), crate, keyConsumed, false, false, null, audit);
@@ -205,7 +205,7 @@ public class CrateOpeningService {
 
         try {
             if (costPaid) {
-                economyIntegration.deposit(playerId, crate.getCost(), "Rollback: crate opening failed");
+                economyIntegration.deposit(playerId, crate.getCost(), "Rollback: crate opening failed", "crate:refund:" + audit.getIdempotencyKey());
                 LOGGER.info("Rollback: restored cost of {} for player {}", crate.getCost(), playerId);
             }
         } catch (Exception e) {

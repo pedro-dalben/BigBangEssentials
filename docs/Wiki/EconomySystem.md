@@ -122,7 +122,11 @@ Use `/vault` to check provider status in-game.
 
 | File | Contents |
 |---|---|
-| `bigbangessentials/balances.json` | Player UUID → balance |
+| `bigbangessentials/balances.json` | Legado somente para migração/rollback administrativo; não é fonte de verdade em `backend: DATABASE` |
+
+## Economia transacional
+
+O backend padrão é `DATABASE`. Saldos ficam em `bbe_economy_accounts.balance_minor` (`BIGINT`, escala 2); receipts e idempotência ficam em `bbe_economy_operations`. Use `/bbe economy migrate-json --dry-run` para validar o legado e `/bbe economy migrate-json --execute --confirm` para importar com backup e reconciliação. O banco não faz fallback silencioso para JSON.
 | `bigbangessentials/transactions.json` | Transaction history log |
 | `bigbangessentials/worth.json` | Item ID → sell price |
 | `bigbangessentials/shops.json` | ChestShop data |

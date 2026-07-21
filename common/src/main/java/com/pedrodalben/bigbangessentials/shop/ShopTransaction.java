@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Executes buy/sell transactions for ChestShop.
@@ -58,6 +60,10 @@ public final class ShopTransaction {
      * Items flow:  owner's chest → buyer's inventory.
      */
     public static TransactionResult executeBuy(ServerPlayer buyer, ShopData shop, ServerLevel level) {
+        return executeBuy(buyer, shop, level, UUID.randomUUID().toString());
+    }
+
+    public static TransactionResult executeBuy(ServerPlayer buyer, ShopData shop, ServerLevel level, String transactionId) {
         if (!shop.canBuy()) return fail(ResultType.SHOP_DISABLED);
 
         EconomyManager eco = EconomyManager.getInstance();
@@ -85,15 +91,15 @@ public final class ShopTransaction {
 
         // ── Execute ───────────────────────────────────────────────────────────
         // 1. Deduct money from buyer
-        boolean deducted = eco.subtractBalance(buyer.getUUID(), price);
+        boolean deducted = eco.subtractBalance(buyer.getUUID(), price, "chestshop:buy:debit:" + transactionId, "ChestShop purchase", Map.of("source", "chestshop", "reference", transactionId));
         if (!deducted) return fail(ResultType.NOT_ENOUGH_MONEY);
 
         // 2. Remove items from chest (skip for admin shops)
         if (!shop.isAdminShop()) {
             ChestBlockEntity chest = getChest(shop, level);
-            if (chest == null) { eco.addBalance(buyer.getUUID(), price); return fail(ResultType.NO_CHEST); }
+            if (chest == null) { eco.addBalance(buyer.getUUID(), price, "chestshop:buy:refund:" + transactionId, "ChestShop purchase refund", Map.of("source", "chestshop", "reference", transactionId)); return fail(ResultType.NO_CHEST); }
             if (!removeItems(chest, template, shop.quantity)) {
-                eco.addBalance(buyer.getUUID(), price); // rollback
+                eco.addBalance(buyer.getUUID(), price, "chestshop:buy:refund:" + transactionId, "ChestShop purchase refund", Map.of("source", "chestshop", "reference", transactionId));
                 return fail(ResultType.NOT_ENOUGH_STOCK);
             }
         }
@@ -102,8 +108,11 @@ public final class ShopTransaction {
         giveItems(buyer, item);
 
         // 4. Pay shop owner (skip for admin shops — money is voided)
-        if (!shop.isAdminShop() && shop.ownerUUID != null) {
-            eco.addBalance(shop.ownerUUID, price);
+        if (!shop.isAdminShop() && shop.ownerUUID != null && !eco.addBalance(shop.ownerUUID, price, "chestshop:buy:credit:" + transactionId, "ChestShop sale", Map.of("source", "chestshop", "reference", transactionId))) {
+            removeItems(buyer.getInventory(), item, shop.quantity);
+            if (!shop.isAdminShop()) addItems(getChest(shop, level), template, shop.quantity);
+            eco.addBalance(buyer.getUUID(), price, "chestshop:buy:refund:" + transactionId, "ChestShop purchase refund", Map.of("source", "chestshop", "reference", transactionId));
+            return fail(ResultType.ERROR);
         }
 
         LOGGER.debug("[ChestShop] BUY: {} bought {}x {} for {} from {}",
@@ -119,6 +128,10 @@ public final class ShopTransaction {
      * Items flow:  seller's inventory → owner's chest.
      */
     public static TransactionResult executeSell(ServerPlayer seller, ShopData shop, ServerLevel level) {
+        return executeSell(seller, shop, level, UUID.randomUUID().toString());
+    }
+
+    public static TransactionResult executeSell(ServerPlayer seller, ShopData shop, ServerLevel level, String transactionId) {
         if (!shop.canSell()) return fail(ResultType.SHOP_DISABLED);
 
         EconomyManager eco = EconomyManager.getInstance();
@@ -152,7 +165,7 @@ public final class ShopTransaction {
 
         // 2. Deduct money from owner (skip for admin shops)
         if (!shop.isAdminShop() && shop.ownerUUID != null) {
-            boolean deducted = eco.subtractBalance(shop.ownerUUID, price);
+            boolean deducted = eco.subtractBalance(shop.ownerUUID, price, "chestshop:sell:debit:" + transactionId, "ChestShop purchase", Map.of("source", "chestshop", "reference", transactionId));
             if (!deducted) {
                 giveItems(seller, item); // rollback items
                 return fail(ResultType.NOT_ENOUGH_MONEY);
@@ -166,7 +179,12 @@ public final class ShopTransaction {
         }
 
         // 4. Pay seller
-        eco.addBalance(seller.getUUID(), price);
+        if (!eco.addBalance(seller.getUUID(), price, "chestshop:sell:credit:" + transactionId, "ChestShop sale", Map.of("source", "chestshop", "reference", transactionId))) {
+            if (!shop.isAdminShop()) removeItems(getChest(shop, level), template, shop.quantity);
+            giveItems(seller, item);
+            if (!shop.isAdminShop() && shop.ownerUUID != null) eco.addBalance(shop.ownerUUID, price, "chestshop:sell:rollback:" + transactionId, "ChestShop sale rollback", Map.of("source", "chestshop", "reference", transactionId));
+            return fail(ResultType.ERROR);
+        }
 
         LOGGER.debug("[ChestShop] SELL: {} sold {}x {} for {} to {}",
             seller.getName().getString(), shop.quantity, shop.itemId, price, shop.ownerName);
@@ -281,5 +299,3 @@ public final class ShopTransaction {
         return hasSpaceInContainer(inv, item, item.getCount());
     }
 }
-
-

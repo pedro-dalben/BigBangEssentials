@@ -319,7 +319,16 @@ public class DatabaseManagerTest {
             // Test health check
             DatabaseHealth health = manager.getHealth();
             assertTrue(health.connected());
-            assertEquals(14L, health.schemaVersion());
+            var migrations = manager.getRegisteredMigrations();
+            assertFalse(migrations.isEmpty());
+            assertEquals(migrations.size(), migrations.stream().map(com.pedrodalben.bigbangessentials.database.migration.DatabaseMigration::version).distinct().count());
+            for (int i = 1; i < migrations.size(); i++) {
+                assertTrue(migrations.get(i - 1).version() < migrations.get(i).version(), "Migrations must be strictly ordered");
+            }
+            for (int i = 0; i < migrations.size(); i++) {
+                assertEquals(i + 1L, migrations.get(i).version(), "Unexpected migration gap");
+            }
+            assertEquals(migrations.get(migrations.size() - 1).version(), health.schemaVersion());
             assertEquals(DatabaseState.READY, health.state());
 
             // Test metrics snapshot

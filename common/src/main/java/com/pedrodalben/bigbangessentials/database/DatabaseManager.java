@@ -223,6 +223,10 @@ public class DatabaseManager {
         return metrics;
     }
 
+    public List<com.pedrodalben.bigbangessentials.database.migration.DatabaseMigration> getRegisteredMigrations() {
+        return migrationManager.getRegisteredMigrations();
+    }
+
     /**
      * Returns a snapshot of performance metrics.
      */

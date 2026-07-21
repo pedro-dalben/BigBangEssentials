@@ -95,7 +95,7 @@ public class ShopInteractHandler {
             return;
         }
 
-        TransactionResult result = ShopTransaction.executeBuy(player, shop, level);
+        TransactionResult result = ShopTransaction.executeBuy(player, shop, level, java.util.UUID.randomUUID().toString());
         sendTransactionResult(player, result, shop, true);
     }
 
@@ -134,7 +134,7 @@ public class ShopInteractHandler {
         }
 
         event.setCanceled(true);
-        TransactionResult result = ShopTransaction.executeSell(player, shop, level);
+        TransactionResult result = ShopTransaction.executeSell(player, shop, level, java.util.UUID.randomUUID().toString());
         sendTransactionResult(player, result, shop, false);
     }
 
@@ -231,4 +231,3 @@ public class ShopInteractHandler {
         }
     }
 }
-

@@ -1,0 +1,16 @@
+{
+  "_configVersion": 3,
+  "backend": "DATABASE",
+  "currency": { "scale": 2, "rounding-mode": "HALF_UP" },
+  "startingBalance": 100.0,
+  "currencySymbol": "$",
+  "maxBalance": 999999999.99,
+  "taxPercentage": 0.0,
+  "allowNegativeBalances": false,
+  "cleanupInactiveAccounts": false,
+  "inactiveAccountCleanupDays": 30,
+  "maxTransferAmount": 10000.0,
+  "paytoggleDefault": true,
+  "cacheMaximumSize": 10000,
+  "cacheExpireAfterAccessMinutes": 30
+}

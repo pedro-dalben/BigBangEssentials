@@ -4,6 +4,8 @@ package com.pedrodalben.bigbangessentials.economy.managers;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.config.EconomyConfig;
 import com.pedrodalben.bigbangessentials.economy.EconomyTransactionLogger;
+import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
@@ -44,6 +46,8 @@ public class EconomyManager {
 
     // Use ConcurrentHashMap for balances
     private ConcurrentHashMap<UUID, BigDecimal> balancesCache;
+    private final DatabaseEconomyService databaseBackend;
+    private final boolean databaseMode;
     // Store balances in root/bigbangessentials/balances.json
     private final File balancesFile = com.pedrodalben.bigbangessentials.util.ResourceUtil.getDataFile("balances.json");
     private final Gson gson = new Gson();
@@ -231,6 +235,13 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
     }
 
     private EconomyManager() {
+        databaseMode = "DATABASE".equals(ConfigManager.getEconomyBackend());
+        databaseBackend = databaseMode && DatabaseManager.getInstance().isReady() ? new DatabaseEconomyService() : null;
+        balancesCache = new ConcurrentHashMap<>();
+        if (databaseMode) {
+            if (databaseBackend == null) LOGGER.error("Economy backend DATABASE selected but database is unavailable; economy is unavailable");
+            return;
+        }
         // Check global config for module enable
         if (!ConfigManager.isEconomyEnabled()) {
             // Economy is globally disabled, do not load balances or settings
@@ -238,7 +249,6 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
         }
         // Configuration is loaded automatically by ConfigManager
         // Initialize ConcurrentHashMap for balances
-        balancesCache = new ConcurrentHashMap<>();
         loadBalances();
         loadLastActivity();
         // Schedule periodic batch save every 5 minutes
@@ -252,11 +262,16 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
     }
 
     public BigDecimal getBalance(UUID player) {
+        if (databaseMode) return databaseBackend == null ? BigDecimal.ZERO : databaseBackend.getBalanceDecimal(player);
         return balancesCache.computeIfAbsent(player, 
             uuid -> BigDecimal.valueOf(ConfigManager.getEconomyStartingBalance()));
     }
 
-    public void setBalance(UUID player, BigDecimal amount) {
+    public synchronized void setBalance(UUID player, BigDecimal amount) {
+        if (databaseMode) {
+            if (databaseBackend != null) databaseBackend.setBalance(player, amount, "manager:set:" + UUID.randomUUID(), "SERVER", "Set balance", Map.of("source", "economy-manager" )).join();
+            return;
+        }
         if (shuttingDown.get()) {
             LOGGER.warn("Attempted to modify balance during shutdown for player {}", player);
             return;
@@ -276,7 +291,8 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
             "Set balance (was: " + (oldAmount != null ? oldAmount.toPlainString() : "new account") + ")");
     }
 
-    public boolean addBalance(UUID player, BigDecimal amount) {
+    public synchronized boolean addBalance(UUID player, BigDecimal amount) {
+        if (databaseMode) return databaseBackend != null && databaseBackend.credit(player, amount, "manager:credit:" + UUID.randomUUID(), "Credit", Map.of("source", "economy-manager")).join().status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED;
         if (shuttingDown.get()) {
             LOGGER.warn("Attempted to modify balance during shutdown for player {}", player);
             return false;
@@ -321,7 +337,14 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
         return true;
     }
 
-    public boolean subtractBalance(UUID player, BigDecimal amount) {
+    /** Idempotent credit for transactional consumers; JSON mode keeps its legacy atomic path. */
+    public boolean addBalance(UUID player, BigDecimal amount, String operationKey, String reason, Map<String, String> metadata) {
+        if (databaseMode) return databaseBackend != null && databaseBackend.credit(player, amount, operationKey, reason, metadata).join().status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED;
+        return addBalance(player, amount);
+    }
+
+    public synchronized boolean subtractBalance(UUID player, BigDecimal amount) {
+        if (databaseMode) return databaseBackend != null && databaseBackend.debit(player, amount, "manager:debit:" + UUID.randomUUID(), "Debit", Map.of("source", "economy-manager")).join().status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED;
         if (shuttingDown.get()) {
             LOGGER.warn("Attempted to modify balance during shutdown for player {}", player);
             return false;
@@ -361,7 +384,14 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
         return true;
     }
 
+    /** Idempotent debit for transactional consumers; JSON mode keeps its legacy atomic path. */
+    public boolean subtractBalance(UUID player, BigDecimal amount, String operationKey, String reason, Map<String, String> metadata) {
+        if (databaseMode) return databaseBackend != null && databaseBackend.debit(player, amount, operationKey, reason, metadata).join().status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED;
+        return subtractBalance(player, amount);
+    }
+
     public Map<UUID, BigDecimal> getAllBalances() {
+        if (databaseMode) return databaseBackend == null ? Map.of() : databaseBackend.getAllBalances();
         return new ConcurrentHashMap<>(balancesCache);
     }
 
@@ -374,7 +404,7 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
     }
 
     public boolean isEnabled() {
-        return ConfigManager.isEconomyEnabled();
+        return ConfigManager.isEconomyEnabled() && (!databaseMode || databaseBackend != null);
     }
 
     public String getCurrencySymbol() {
@@ -416,6 +446,10 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
         
         // Set shutdown flag to prevent new operations
         shuttingDown.set(true);
+        if (databaseMode) {
+            EconomyTransactionLogger.shutdown();
+            return;
+        }
         
         // Wait a moment for any in-flight operations to complete
         try {
@@ -444,6 +478,12 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
         EconomyTransactionLogger.shutdown();
         
         LOGGER.info("EconomyManager shutdown complete.");
+    }
+
+    /** Durability barrier for journaled operations. */
+    public synchronized void flush() {
+        if (databaseMode) return;
+        saveBalancesAtomic();
     }
     
     /**

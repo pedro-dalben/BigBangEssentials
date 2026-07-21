@@ -377,7 +377,9 @@ public class RankupPromotionService {
             return CompletableFuture.completedFuture(tx);
         }
         logStage(execution, PromotionStage.MONEY_DEBIT_STARTED, "start", null);
-        return CompletableFuture.supplyAsync(() -> EconomyAPI.withdraw(tx.playerUuid(), tx.moneyAmount()))
+        return CompletableFuture.supplyAsync(() -> com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI.getEconomyService() instanceof com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService db
+                ? db.debit(tx.playerUuid(), tx.moneyAmount(), "rankup:charge:" + tx.idempotencyKey(), "Rankup charge", java.util.Map.of("source", "rankup", "reference", tx.transactionId().toString())).join().status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED
+                : EconomyAPI.withdraw(tx.playerUuid(), tx.moneyAmount()))
                 .orTimeout(databaseTimeoutSeconds(), TimeUnit.SECONDS)
                 .thenCompose(ok -> {
                     if (!ok) {
@@ -406,7 +408,8 @@ public class RankupPromotionService {
                     if (!gemResult.success()) {
                         if (tx.moneyDebited() && tx.moneyAmount().compareTo(BigDecimal.ZERO) > 0) {
                             try {
-                                EconomyAPI.deposit(tx.playerUuid(), tx.moneyAmount());
+                                if (com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI.getEconomyService() instanceof com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService db) db.credit(tx.playerUuid(), tx.moneyAmount(), "rankup:refund:" + tx.idempotencyKey(), "Rankup refund", java.util.Map.of("source", "rankup", "reference", tx.transactionId().toString())).join();
+                                else EconomyAPI.deposit(tx.playerUuid(), tx.moneyAmount());
                             } catch (Exception ignored) {}
                         }
                         RankupTransaction failedTx = tx.withCompensated(true).withStatus(RankupTransactionStatus.FAILED).withErrorMessage("Failed to debit gems");

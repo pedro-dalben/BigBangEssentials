@@ -59,7 +59,7 @@ public final class AdminShopTransactionService {
                     reservation = reserve.reservationId();
                     if (!gems.capture(new GemCaptureRequest(reservation, "adminshop", "buy:" + productId, player.getUUID(), tx, tx, Map.of())).success()) throw new IllegalStateException("gem capture failed");
                     gemsCaptured = true; currencyChanged = true;
-                } else if (!EconomyManager.getInstance().subtractBalance(player.getUUID(), price)) return fail("§cSaldo insuficiente.");
+                } else if (!EconomyManager.getInstance().subtractBalance(player.getUUID(), price, "adminshop:buy:" + tx, "AdminShop purchase", Map.of("source", "adminshop", "reference", tx))) return fail("§cSaldo insuficiente.");
                 else currencyChanged = true;
                 if (p.isCommand()) player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack().withPermission(4), p.command.replace("{player}", player.getName().getString()));
                 else if (!player.getInventory().add(stack.copy())) throw new IllegalStateException("inventory full");
@@ -67,7 +67,7 @@ public final class AdminShopTransactionService {
             } else {
                 remove(player, stack, p.quantity);
                 if (currency.equals("gems")) { if (!gems.credit(new GemCreditRequest(player.getUUID(), price.longValueExact(), "adminshop", "sell:" + productId, player.getUUID(), tx, tx, Map.of())).success()) throw new IllegalStateException("credit failed"); }
-                else if (!EconomyManager.getInstance().addBalance(player.getUUID(), price)) throw new IllegalStateException("credit failed");
+                else if (!EconomyManager.getInstance().addBalance(player.getUUID(), price, "adminshop:sell:" + tx, "AdminShop sale", Map.of("source", "adminshop", "reference", tx))) throw new IllegalStateException("credit failed");
                 currencyChanged = true;
             }
             manager.state.limits.put(playerProduct, used + p.quantity);
@@ -83,7 +83,8 @@ public final class AdminShopTransactionService {
                 if (currency.equals("gems")) {
                     gems.setBalance(new GemSetBalanceRequest(player.getUUID(), oldGems, "adminshop", "rollback", player.getUUID(), "transaction rollback", Map.of()));
                 } else {
-                    EconomyManager.getInstance().setBalance(player.getUUID(), oldMoney);
+                    if (buy) EconomyManager.getInstance().addBalance(player.getUUID(), price, "adminshop:refund:" + tx, "AdminShop purchase refund", Map.of("source", "adminshop", "reference", tx));
+                    else EconomyManager.getInstance().subtractBalance(player.getUUID(), price, "adminshop:rollback:" + tx, "AdminShop sale rollback", Map.of("source", "adminshop", "reference", tx));
                 }
             }
             if (reservation != null && !gemsCaptured) gems.release(new GemReleaseRequest(reservation, "adminshop", "rollback", player.getUUID(), e.getMessage(), UUID.randomUUID().toString(), tx, Map.of()));

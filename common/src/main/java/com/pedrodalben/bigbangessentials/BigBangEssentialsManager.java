@@ -2,6 +2,7 @@ package com.pedrodalben.bigbangessentials;
 
 import com.pedrodalben.bigbangessentials.api.economy.EconomyService;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyServiceImpl;
+import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import com.pedrodalben.bigbangessentials.database.api.PlayerPreferencesStorage;
 import com.pedrodalben.bigbangessentials.database.repository.JdbcPlayerPreferencesStorage;
@@ -42,9 +43,9 @@ public class BigBangEssentialsManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private BigBangEssentialsManager() {
-        this.economyService = new EconomyServiceImpl(
-            com.pedrodalben.bigbangessentials.util.ResourceUtil.getDataPath("balances.json")
-        );
+        this.economyService = "DATABASE".equals(com.pedrodalben.bigbangessentials.config.ConfigManager.getEconomyBackend())
+                ? new DatabaseEconomyService()
+                : new EconomyServiceImpl(com.pedrodalben.bigbangessentials.util.ResourceUtil.getDataPath("balances.json"));
         if (DatabaseManager.getInstance().isReady()) {
             this.preferencesStorage = new JdbcPlayerPreferencesStorage();
         }

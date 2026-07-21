@@ -1,6 +1,9 @@
 package com.pedrodalben.bigbangessentials.jobs.pipeline;
 
 import com.pedrodalben.bigbangessentials.api.EconomyAPI;
+import com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI;
+import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus;
 import com.pedrodalben.bigbangessentials.jobs.*;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.JobDefinition;
@@ -42,7 +45,8 @@ public class JobRewardApplier {
         // 1. Apply Money
         boolean moneyApplied = true;
         if (allowedPayout > 0.0) {
-            moneyApplied = EconomyAPI.deposit(playerId, BigDecimal.valueOf(allowedPayout));
+            var db = BigBangEssentialsAPI.getEconomyService() instanceof DatabaseEconomyService service ? service : null;
+            moneyApplied = db == null ? EconomyAPI.deposit(playerId, BigDecimal.valueOf(allowedPayout)) : db.credit(playerId, BigDecimal.valueOf(allowedPayout), "jobs:reward:" + action.actionId(), "Jobs reward", java.util.Map.of("source", "jobs", "reference", action.actionId().toString())).join().status() == EconomyOperationStatus.COMPLETED;
             if (moneyApplied) {
                 double currentEarnings = data.getDailyEarnings(jobId);
                 double newEarnings = currentEarnings + allowedPayout;

@@ -1272,7 +1272,7 @@ public class ConfigManager {
     // Expected versions for each config file (must match the version in JAR resources)
     private static final java.util.Map<String, Integer> EXPECTED_CONFIG_VERSIONS = new java.util.HashMap<>() {{
         put(MAIN_CONFIG, 22);
-        put(ECONOMY_CONFIG, 2);
+        put(ECONOMY_CONFIG, 3);
         put(PERMISSIONS_CONFIG, 5);
         put(KITS_CONFIG, 2);
         put(DISCORD_AUTH_CONFIG, 6);
@@ -1626,6 +1626,33 @@ public class ConfigManager {
             } catch (Exception ignored) {}
         }
         return 100.0;
+    }
+
+    public static String getEconomyBackend() {
+        JsonObject config = getInstance().getConfig(ECONOMY_CONFIG);
+        if (config.has("backend")) {
+            String backend = config.get("backend").getAsString().trim().toUpperCase(Locale.ROOT);
+            if (backend.equals("JSON") || backend.equals("DATABASE")) return backend;
+        }
+        return "DATABASE";
+    }
+
+    public static int getEconomyCurrencyScale() {
+        JsonObject config = getInstance().getConfig(ECONOMY_CONFIG);
+        if (config.has("currency") && config.getAsJsonObject("currency").has("scale")) {
+            int scale = config.getAsJsonObject("currency").get("scale").getAsInt();
+            if (scale >= 0 && scale <= 18) return scale;
+        }
+        return 2;
+    }
+
+    public static java.math.RoundingMode getEconomyRoundingMode() {
+        JsonObject config = getInstance().getConfig(ECONOMY_CONFIG);
+        try {
+            String value = config.has("currency") && config.getAsJsonObject("currency").has("rounding-mode")
+                    ? config.getAsJsonObject("currency").get("rounding-mode").getAsString() : "HALF_UP";
+            return java.math.RoundingMode.valueOf(value.toUpperCase(Locale.ROOT).replace('-', '_'));
+        } catch (Exception ignored) { return java.math.RoundingMode.HALF_UP; }
     }
 
     /**

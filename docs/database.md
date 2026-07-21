@@ -10,6 +10,10 @@ O objetivo deste módulo é prover uma infraestrutura de persistência de dados 
 
 Nesta fase, a camada JDBC já está sendo usada de forma real para **preferências de jogador, nicknames, tags, lista de ignore e alguns toggles de interface/chat**. Economia, homes, warps, kits e boa parte da moderação continuam utilizando seus respectivos arquivos JSON locais. Ou seja: o banco não é mais apenas infraestrutura, mas ainda não é o armazenamento de todo o mod.
 
+### Teste da economia
+
+SQLite é coberto por `./gradlew :common:test`. MySQL não é iniciado implicitamente: o perfil de homologação deve fornecer `type=MYSQL` e `mysql.host`, `mysql.port`, `mysql.database`, `mysql.username` e `mysql.password` ao `DatabaseConfigLoader`. O repositório ainda não possui a task `mysqlIntegrationTest`; a validação MySQL/Testcontainers permanece pendente.
+
 ---
 
 ## 2. Localização dos Arquivos
@@ -188,3 +192,6 @@ Os seguintes subcomandos estão disponíveis sob a árvore `/bigbangessentials d
 Para bancos SQLite locais, o arquivo de banco de dados fica no diretório `bigbangessentials/database/bigbangessentials.db`.
 *   O arquivo pode ser copiado livremente com o servidor desligado.
 *   Com o servidor ligado em modo **WAL (Write-Ahead Logging)**, garanta que os arquivos `-wal` e `-shm` sejam copiados juntos com o arquivo `.db` principal para evitar corrupção de dados.
+# Economy integration testing
+
+SQLite is covered by the regular `./gradlew :common:test` suite. MySQL is not started implicitly: run the same economy tests against a disposable MySQL instance by supplying the database configuration used by `DatabaseConfigLoader` (`type=MYSQL`, `mysql.host`, `mysql.port`, `mysql.database`, `mysql.username`, `mysql.password`) before adding the CI/Testcontainers profile. The repository currently has no `mysqlIntegrationTest` task, so MySQL validation is a remaining homologation item.

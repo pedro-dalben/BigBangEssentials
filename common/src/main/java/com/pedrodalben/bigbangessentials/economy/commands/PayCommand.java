@@ -165,8 +165,7 @@ public class PayCommand {
         java.math.BigDecimal amount = amountValidation.getValue(java.math.BigDecimal.class);
 
         // Calculate tax
-        double taxPercent = com.pedrodalben.bigbangessentials.config.ConfigManager.getEconomyTaxPercentage();
-        java.math.BigDecimal fee = amount.multiply(java.math.BigDecimal.valueOf(taxPercent / 100.0));
+        java.math.BigDecimal fee = amount.multiply(java.math.BigDecimal.valueOf(com.pedrodalben.bigbangessentials.config.ConfigManager.getEconomyTaxPercentage()).movePointLeft(2));
         java.math.BigDecimal netAmount = amount.subtract(fee);
 
         boolean success = com.pedrodalben.bigbangessentials.api.EconomyAPI.payPlayer(
