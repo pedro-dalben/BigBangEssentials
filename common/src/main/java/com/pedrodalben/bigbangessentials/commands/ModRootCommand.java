@@ -69,6 +69,7 @@ public class ModRootCommand {
                     return result;
                 })
                 .then(com.pedrodalben.bigbangessentials.database.command.DatabaseCommands.register())
+                .then(com.pedrodalben.bigbangessentials.economy.commands.EconomyAdminCommands.register())
                 .then(moduleCommands())
                 .then(Commands.argument("command", StringArgumentType.greedyString())
                     .suggests(ModRootCommand::suggestModCommands)
@@ -84,6 +85,7 @@ public class ModRootCommand {
                     return result;
                 })
                 .then(com.pedrodalben.bigbangessentials.database.command.DatabaseCommands.register())
+                .then(com.pedrodalben.bigbangessentials.economy.commands.EconomyAdminCommands.register())
                 .then(moduleCommands())
                 .then(Commands.argument("command", StringArgumentType.greedyString())
                     .suggests(ModRootCommand::suggestModCommands)
@@ -92,6 +94,8 @@ public class ModRootCommand {
                 .executes(ModRootCommand::showAvailableCommands) // Show help when no args
         );
         dispatcher.register(Commands.literal("bigbang")
+            .redirect(dispatcher.getRoot().getChild("bigbangessentials")));
+        dispatcher.register(Commands.literal("bbe")
             .redirect(dispatcher.getRoot().getChild("bigbangessentials")));
     }
     
