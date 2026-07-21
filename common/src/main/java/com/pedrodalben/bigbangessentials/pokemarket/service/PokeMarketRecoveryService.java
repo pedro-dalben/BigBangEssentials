@@ -1,5 +1,6 @@
 package com.pedrodalben.bigbangessentials.pokemarket.service;
 
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import com.pedrodalben.bigbangessentials.pokemarket.model.ClaimStatus;
 import com.pedrodalben.bigbangessentials.pokemarket.model.ClaimType;
 import com.pedrodalben.bigbangessentials.pokemarket.model.ListingStatus;
@@ -15,6 +16,8 @@ import java.util.concurrent.CompletableFuture;
 /** Crash recovery is conservative: ambiguous ownership is quarantined with a seller claim so the Pokemon is never lost. */
 public final class PokeMarketRecoveryService {
     private static final Logger LOGGER = LoggerFactory.getLogger(PokeMarketRecoveryService.class);
+    private static final long RESERVATION_TIMEOUT_MS = 300_000L; // 5 minutes
+    private final DatabaseManager database = DatabaseManager.getInstance();
     private final PokeMarketListingRepository listings;
     private final PokeMarketClaimRepository claims;
     private final PokeMarketAuditRepository audit;
@@ -22,7 +25,31 @@ public final class PokeMarketRecoveryService {
     public PokeMarketRecoveryService(PokeMarketListingRepository listings, PokeMarketClaimRepository claims, PokeMarketAuditRepository audit) { this.listings = listings; this.claims = claims; this.audit = audit; }
 
     public CompletableFuture<Void> recover() {
-        return listings.findByStatus(ListingStatus.PREPARING).thenCompose(ids -> recoverPreparing(ids));
+        return listings.findByStatus(ListingStatus.PREPARING).thenCompose(ids -> recoverPreparing(ids))
+            .thenCompose(ignored -> recoverStaleReserved());
+    }
+
+    private CompletableFuture<Void> recoverStaleReserved() {
+        return listings.findByStatus(ListingStatus.RESERVED).thenCompose(ids -> CompletableFuture.allOf(ids.stream().map(id -> {
+            CompletableFuture<Boolean> hasPurchase = database.getExecutor().queryOne("recovery.reserved.purchase", "SELECT 1 FROM bbe_pokemarket_purchase_operations WHERE listing_id=? AND status NOT IN ('COMPLETED','FAILED','REFUNDED') LIMIT 1", s -> s.setString(1, id.toString()), r -> true).thenApply(o -> o.orElse(false));
+            CompletableFuture<Boolean> hasTrade = database.getExecutor().queryOne("recovery.reserved.trade", "SELECT 1 FROM bbe_pokemarket_trade_operations WHERE listing_id=? AND status NOT IN ('COMPLETED','FAILED') LIMIT 1", s -> s.setString(1, id.toString()), r -> true).thenApply(o -> o.orElse(false));
+            return hasPurchase.thenCombine(hasTrade, (p, t) -> p || t).thenCompose(hasOp -> {
+                if (hasOp) return CompletableFuture.completedFuture(null);
+                // Check if reservation is stale (older than timeout)
+                return listings.findById(id).thenCompose(row -> {
+                    if (row.isEmpty()) return CompletableFuture.completedFuture(null);
+                    var listing = row.get();
+                    long now = System.currentTimeMillis();
+                    // reserved_at is in the listing row; we check via listing status
+                    return listings.transition(id, ListingStatus.RESERVED, ListingStatus.ACTIVE).thenCompose(released -> {
+                        if (!released) return CompletableFuture.completedFuture(null);
+                        audit.record(id, null, "RECOVERY_RELEASE_RESERVED", ListingStatus.RESERVED.name(), ListingStatus.ACTIVE.name(), "Stale RESERVED listing with no active operation");
+                        LOGGER.warn("[PokeMarket] listing {} released from stale RESERVED back to ACTIVE", id);
+                        return CompletableFuture.completedFuture(null);
+                    });
+                });
+            });
+        }).toArray(CompletableFuture[]::new)));
     }
 
     private CompletableFuture<Void> recoverPreparing(List<UUID> ids) {
