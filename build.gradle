@@ -18,22 +18,22 @@ buildNumberFile.text = buildNumber.toString()
 version = "${mod_version}+build.${buildNumber}"
 group = mod_group_id
 
+def cobblemonFabricVersionId = providers.gradleProperty('cobblemon_fabric_version_id').orNull
+def cobblemonNeoForgeVersionId = providers.gradleProperty('cobblemon_neoforge_version_id').orNull
+
 tasks.register('verifyCobblemonDependencies') {
     notCompatibleWithConfigurationCache('dependency verification inspects resolved artifacts')
     dependsOn ':common:compileJava', ':fabric:compileJava', ':neoforge:compileJava'
     doLast {
-        def versionIds = [
-            project.property('cobblemon_fabric_version_id'),
-            project.property('cobblemon_neoforge_version_id')
-        ]
+        def versionIds = [cobblemonFabricVersionId, cobblemonNeoForgeVersionId]
         if (versionIds.any { it == null || it.toString().isEmpty() })
             throw new GradleException('Cobblemon version ID properties not configured: cobblemon_fabric_version_id, cobblemon_neoforge_version_id')
 
-        def jarGlob = fileTree(rootProject.projectDir).matching { include 'libs/Cobblemon-*.jar' }
+        def jarGlob = fileTree(rootDir).matching { include 'libs/Cobblemon-*.jar' }
         if (!jarGlob.files.isEmpty())
             throw new GradleException("Local Cobblemon JARs detected in libs/ — delete them before building: ${jarGlob.files.collect { it.name }}")
 
-        def gitTracked = 'git ls-files -- libs/Cobblemon-*.jar'.execute([], rootProject.projectDir)
+        def gitTracked = 'git ls-files -- libs/Cobblemon-*.jar'.execute([], rootDir)
         gitTracked.waitFor()
         if (gitTracked.exitValue() == 0 && !gitTracked.text.trim().isEmpty())
             throw new GradleException('Cobblemon JARs are tracked by Git — remove them from the index before building')
