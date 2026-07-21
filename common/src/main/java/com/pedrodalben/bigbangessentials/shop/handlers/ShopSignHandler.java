@@ -219,30 +219,11 @@ public class ShopSignHandler {
 
     /** Read raw plain text from all 4 front-face lines of a sign. */
     public static String[] readSignLines(SignBlockEntity sign) {
-        String[] lines = new String[4];
-        var signText = sign.getFrontText();
-        for (int i = 0; i < 4; i++) {
-            Component msg = signText.getMessage(i, false);
-            lines[i] = msg.getString();
-        }
-        return lines;
+        return ShopSignText.read(sign);
     }
 
     /** Write formatted text back to a sign's 4 lines and sync to clients. */
     public static void writeSignLines(ServerLevel level, BlockPos pos, String[] lines) {
-        BlockEntity be = level.getBlockEntity(pos);
-        if (!(be instanceof SignBlockEntity sign)) return;
-        for (int i = 0; i < 4 && i < lines.length; i++) {
-            final String text = lines[i] != null ? lines[i] : "";
-            Component component = net.minecraft.network.chat.Component.literal(text);
-            final int capturedI = i;
-            var currentText = sign.getFrontText();
-            var newText = currentText.setMessage(capturedI, component);
-            sign.updateText(s -> newText, true);
-        }
-        sign.setChanged();
-        BlockState state = level.getBlockState(pos);
-        level.sendBlockUpdated(pos, state, state, 3);
+        ShopSignText.write(level, pos, lines);
     }
 }
-

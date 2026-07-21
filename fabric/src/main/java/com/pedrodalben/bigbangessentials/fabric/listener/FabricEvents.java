@@ -94,6 +94,7 @@ public class FabricEvents {
         });
 
         FabricCrateEvents.register();
+        FabricShopEvents.register();
 
         // USE-MAGIC session tracking: marks player session for enchanting/brewing completion detection
         UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
