@@ -31,8 +31,8 @@ public final class PokeMarketRecoveryService {
 
     private CompletableFuture<Void> recoverStaleReserved() {
         return listings.findByStatus(ListingStatus.RESERVED).thenCompose(ids -> CompletableFuture.allOf(ids.stream().map(id -> {
-            CompletableFuture<Boolean> hasPurchase = database.getExecutor().queryOne("recovery.reserved.purchase", "SELECT 1 FROM bbe_pokemarket_purchase_operations WHERE listing_id=? AND status NOT IN ('COMPLETED','FAILED','REFUNDED') LIMIT 1", s -> s.setString(1, id.toString()), r -> true).thenApply(o -> o.orElse(false));
-            CompletableFuture<Boolean> hasTrade = database.getExecutor().queryOne("recovery.reserved.trade", "SELECT 1 FROM bbe_pokemarket_trade_operations WHERE listing_id=? AND status NOT IN ('COMPLETED','FAILED') LIMIT 1", s -> s.setString(1, id.toString()), r -> true).thenApply(o -> o.orElse(false));
+            CompletableFuture<Boolean> hasPurchase = database.getExecutor().queryOne("recovery.reserved.purchase", "SELECT 1 FROM bbe_pokemarket_purchase_operations WHERE listing_id=? AND status NOT IN ('COMPLETED','FAILED','REFUNDED') LIMIT 1", s -> s.setString(1, id.toString()), r -> true).thenApply(v -> v != null);
+            CompletableFuture<Boolean> hasTrade = database.getExecutor().queryOne("recovery.reserved.trade", "SELECT 1 FROM bbe_pokemarket_trade_operations WHERE listing_id=? AND status NOT IN ('COMPLETED','FAILED') LIMIT 1", s -> s.setString(1, id.toString()), r -> true).thenApply(v -> v != null);
             return hasPurchase.thenCombine(hasTrade, (p, t) -> p || t).thenCompose(hasOp -> {
                 if (hasOp) return CompletableFuture.completedFuture(null);
                 // Check if reservation is stale (older than timeout)
