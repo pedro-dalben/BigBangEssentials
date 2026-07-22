@@ -14,6 +14,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
+import com.pedrodalben.bigbangessentials.integrations.BigBangRegionsPwarpBridge;
 import com.pedrodalben.bigbangessentials.teleportation.TeleportLocation;
 import com.pedrodalben.bigbangessentials.teleportation.TeleportUtil;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
@@ -83,6 +84,7 @@ public class WarpManager {
     
     private final Map<String, TeleportLocation> warps = new ConcurrentHashMap<>();
     private final Gson gson = new Gson();
+    private final BigBangRegionsPwarpBridge bigBangRegionsPwarpBridge = BigBangRegionsPwarpBridge.create();
     
     // Configuration
     private int teleportDelay = 0; // Instant for warps by default
@@ -264,8 +266,18 @@ public class WarpManager {
             player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.playerwarps_disabled"));
             return false;
         }
+        if (location == null) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.no_per_warp_permission", warpName));
+            return false;
+        }
         if (!allowCrossDimensionWarps && !isOverworld(location)) {
             player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.cross_dimension_disabled"));
+            return false;
+        }
+        if (bigBangRegionsPwarpBridge != null
+                && !bigBangRegionsPwarpBridge.canCreate(player.getUUID(), location.getWorldName(),
+                floor(location.getX()), floor(location.getY()), floor(location.getZ()))) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.no_per_warp_permission", warpName));
             return false;
         }
         
@@ -390,7 +402,15 @@ public class WarpManager {
             admin.sendSystemMessage(MessageUtil.error("Warp not found for target player."));
             return false;
         }
-        TeleportUtil.teleportPlayer(admin, location);
+        if (!canUsePlayerWarp(targetPlayerId, location)) {
+            admin.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.no_per_warp_permission", warpName));
+            return false;
+        }
+        TeleportUtil.teleportPlayer(admin, location).thenAccept(result -> {
+            if (result.isSuccess()) {
+                recordPwarpArrival(admin, targetPlayerId);
+            }
+        });
         admin.sendSystemMessage(MessageUtil.success("Teleported to target player's warp."));
         return true;
     }
@@ -405,6 +425,10 @@ public class WarpManager {
             player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.not_found", warpName));
             return;
         }
+        if (!canUsePlayerWarp(ownerUuid, location)) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.no_per_warp_permission", warpName));
+            return;
+        }
 
         // Save current location for /back command
         com.pedrodalben.bigbangessentials.teleportation.Misc.MiscTeleportManager.getInstance().saveBackLocation(player);
@@ -413,6 +437,7 @@ public class WarpManager {
         String finalWarpName = warpName;
         TeleportUtil.teleportPlayer(player, location, delayTicks, true).thenAccept(result -> {
             if (result.isSuccess()) {
+                recordPwarpArrival(player, ownerUuid);
                 if (countVisit) {
                     recordPlayerWarpVisit(ownerUuid, finalWarpName);
                 }
@@ -424,6 +449,22 @@ public class WarpManager {
                     player.getName().getString(), finalWarpName, result.getMessage());
             }
         });
+    }
+
+    private boolean canUsePlayerWarp(UUID ownerUuid, TeleportLocation location) {
+        return bigBangRegionsPwarpBridge == null || bigBangRegionsPwarpBridge.canUse(
+            ownerUuid, location.getWorldName(), floor(location.getX()), floor(location.getY()), floor(location.getZ()));
+    }
+
+    private void recordPwarpArrival(ServerPlayer player, UUID ownerUuid) {
+        if (bigBangRegionsPwarpBridge != null) {
+            bigBangRegionsPwarpBridge.recordArrival(player.getUUID(), ownerUuid,
+                player.level().dimension().location().toString(), floor(player.getX()), floor(player.getY()), floor(player.getZ()));
+        }
+    }
+
+    private static int floor(double value) {
+        return (int) Math.floor(value);
     }
 
     /**
