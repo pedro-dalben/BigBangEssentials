@@ -5,6 +5,8 @@ import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.config.EconomyConfig;
 import com.pedrodalben.bigbangessentials.economy.EconomyTransactionLogger;
 import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationReceipt;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus;
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import java.math.BigDecimal;
 import java.util.Map;
@@ -46,6 +48,7 @@ public class EconomyManager {
 
     // Use ConcurrentHashMap for balances
     private ConcurrentHashMap<UUID, BigDecimal> balancesCache;
+    private final ConcurrentHashMap<String, EconomyOperationReceipt> localOperations = new ConcurrentHashMap<>();
     private final DatabaseEconomyService databaseBackend;
     private final boolean databaseMode;
     // Store balances in root/bigbangessentials/balances.json
@@ -292,102 +295,74 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
     }
 
     public synchronized boolean addBalance(UUID player, BigDecimal amount) {
-        if (databaseMode) return databaseBackend != null && databaseBackend.credit(player, amount, "manager:credit:" + UUID.randomUUID(), "Credit", Map.of("source", "economy-manager")).join().status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED;
-        if (shuttingDown.get()) {
-            LOGGER.warn("Attempted to modify balance during shutdown for player {}", player);
-            return false;
-        }
-        
-        BigDecimal maxBalance = BigDecimal.valueOf(ConfigManager.getMaxBalance());
-        boolean allowNegative = ConfigManager.allowNegativeBalances();
-        
-        // Atomic read-modify-write using compute()
-        BigDecimal[] result = new BigDecimal[1];
-        balancesCache.compute(player, (uuid, current) -> {
-            if (current == null) {
-                current = BigDecimal.valueOf(ConfigManager.getEconomyStartingBalance());
-            }
-            
-            BigDecimal newAmount = current.add(amount);
-            
-            // Validate constraints
-            if (!allowNegative && newAmount.compareTo(BigDecimal.ZERO) < 0) {
-                result[0] = null; // Signal failure
-                return current; // Don't modify
-            }
-            
-            if (newAmount.compareTo(maxBalance) > 0) {
-                newAmount = maxBalance;
-            }
-            
-            result[0] = newAmount; // Signal success
-            return newAmount;
-        });
-        
-        if (result[0] == null) {
-            return false; // Operation failed validation
-        }
-        
-        lastActivityMap.put(player, System.currentTimeMillis());
-        queueAsyncSave();
-        queueAsyncSaveActivity();
-        
-        // Log transaction
-        EconomyTransactionLogger.log("ADD", "SERVER", player.toString(), amount.toPlainString(), "Add to balance");
-        return true;
+        return credit(player, amount, "manager:credit:" + UUID.randomUUID(), "Credit", Map.of("source", "economy-manager")).status() == EconomyOperationStatus.COMPLETED;
+    }
+
+    static BigDecimal updatedBalance(BigDecimal current, BigDecimal amount, BigDecimal maxBalance, boolean allowNegative) {
+        BigDecimal updated = current.add(amount);
+        return (!allowNegative && updated.signum() < 0) || updated.compareTo(maxBalance) > 0 ? null : updated;
     }
 
     /** Idempotent credit for transactional consumers; JSON mode keeps its legacy atomic path. */
     public boolean addBalance(UUID player, BigDecimal amount, String operationKey, String reason, Map<String, String> metadata) {
-        if (databaseMode) return databaseBackend != null && databaseBackend.credit(player, amount, operationKey, reason, metadata).join().status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED;
-        return addBalance(player, amount);
+        return credit(player, amount, operationKey, reason, metadata).status() == EconomyOperationStatus.COMPLETED;
     }
 
     public synchronized boolean subtractBalance(UUID player, BigDecimal amount) {
-        if (databaseMode) return databaseBackend != null && databaseBackend.debit(player, amount, "manager:debit:" + UUID.randomUUID(), "Debit", Map.of("source", "economy-manager")).join().status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED;
-        if (shuttingDown.get()) {
-            LOGGER.warn("Attempted to modify balance during shutdown for player {}", player);
-            return false;
-        }
-        
-        boolean allowNegative = ConfigManager.allowNegativeBalances();
-        
-        // Atomic read-modify-write using compute()
-        BigDecimal[] result = new BigDecimal[1];
-        balancesCache.compute(player, (uuid, current) -> {
-            if (current == null) {
-                current = BigDecimal.valueOf(ConfigManager.getEconomyStartingBalance());
-            }
-            
-            BigDecimal newAmount = current.subtract(amount);
-            
-            // Validate constraints
-            if (!allowNegative && newAmount.compareTo(BigDecimal.ZERO) < 0) {
-                result[0] = null; // Signal failure
-                return current; // Don't modify
-            }
-            
-            result[0] = newAmount; // Signal success
-            return newAmount;
-        });
-        
-        if (result[0] == null) {
-            return false; // Insufficient funds
-        }
-        
-        lastActivityMap.put(player, System.currentTimeMillis());
-        queueAsyncSave();
-        queueAsyncSaveActivity();
-        
-        // Log transaction
-        EconomyTransactionLogger.log("SUBTRACT", player.toString(), "SERVER", amount.toPlainString(), "Subtract from balance");
-        return true;
+        return debit(player, amount, "manager:debit:" + UUID.randomUUID(), "Debit", Map.of("source", "economy-manager")).status() == EconomyOperationStatus.COMPLETED;
     }
 
     /** Idempotent debit for transactional consumers; JSON mode keeps its legacy atomic path. */
     public boolean subtractBalance(UUID player, BigDecimal amount, String operationKey, String reason, Map<String, String> metadata) {
-        if (databaseMode) return databaseBackend != null && databaseBackend.debit(player, amount, operationKey, reason, metadata).join().status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED;
-        return subtractBalance(player, amount);
+        return debit(player, amount, operationKey, reason, metadata).status() == EconomyOperationStatus.COMPLETED;
+    }
+
+    /** Structured, idempotent credit; boolean methods above remain source-compatible. */
+    public EconomyOperationReceipt credit(UUID player, BigDecimal amount, String operationKey, String reason, Map<String, String> metadata) {
+        if (databaseMode) {
+            if (databaseBackend == null) return failedReceipt(player, amount, operationKey);
+            try { return databaseBackend.credit(player, amount, operationKey, reason, metadata).join(); }
+            catch (RuntimeException e) { LOGGER.error("Economy credit failed for {}", player, e); return failedReceipt(player, amount, operationKey); }
+        }
+        return mutateLocal(player, amount, operationKey, true, reason);
+    }
+
+    /** Structured, idempotent debit; boolean methods above remain source-compatible. */
+    public EconomyOperationReceipt debit(UUID player, BigDecimal amount, String operationKey, String reason, Map<String, String> metadata) {
+        if (databaseMode) {
+            if (databaseBackend == null) return failedReceipt(player, amount, operationKey);
+            try { return databaseBackend.debit(player, amount, operationKey, reason, metadata).join(); }
+            catch (RuntimeException e) { LOGGER.error("Economy debit failed for {}", player, e); return failedReceipt(player, amount, operationKey); }
+        }
+        return mutateLocal(player, amount, operationKey, false, reason);
+    }
+
+    private synchronized EconomyOperationReceipt mutateLocal(UUID player, BigDecimal amount, String key, boolean credit, String reason) {
+        if (key == null || key.isBlank() || amount == null || amount.signum() <= 0) return failedReceipt(player, amount, key);
+        EconomyOperationReceipt existing = localOperations.get(key);
+        if (existing != null) return existing;
+        BigDecimal before = getBalance(player);
+        BigDecimal after = credit ? updatedBalance(before, amount, BigDecimal.valueOf(ConfigManager.getMaxBalance()), ConfigManager.allowNegativeBalances()) : before.subtract(amount);
+        boolean allowed = after != null && (ConfigManager.allowNegativeBalances() || after.signum() >= 0) && !shuttingDown.get();
+        if (!allowed) {
+            EconomyOperationReceipt rejected = new EconomyOperationReceipt(UUID.randomUUID(), player, amount, shuttingDown.get() ? EconomyOperationStatus.FAILED : EconomyOperationStatus.REJECTED, before, before, key);
+            localOperations.put(key, rejected);
+            return rejected;
+        }
+        balancesCache.put(player, after);
+        lastActivityMap.put(player, System.currentTimeMillis());
+        queueAsyncSave();
+        queueAsyncSaveActivity();
+        EconomyTransactionLogger.log(credit ? "ADD" : "SUBTRACT", credit ? "SERVER" : player.toString(), credit ? player.toString() : "SERVER", amount.toPlainString(), reason);
+        EconomyOperationReceipt receipt = new EconomyOperationReceipt(UUID.randomUUID(), player, amount, EconomyOperationStatus.COMPLETED, before, after, key);
+        localOperations.put(key, receipt);
+        return receipt;
+    }
+
+    private EconomyOperationReceipt failedReceipt(UUID player, BigDecimal amount, String key) {
+        BigDecimal balance;
+        try { balance = getBalance(player); } catch (RuntimeException ignored) { balance = BigDecimal.ZERO; }
+        return new EconomyOperationReceipt(UUID.randomUUID(), player, amount, EconomyOperationStatus.FAILED, balance, balance, key);
     }
 
     public Map<UUID, BigDecimal> getAllBalances() {

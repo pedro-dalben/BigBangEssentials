@@ -97,7 +97,7 @@ public class GemsPersistence {
                 config = loaded;
                 gemsEnabled = config.enabled;
             } else {
-                LOGGER.error("Gems configuration validation failed! Errors: {}", result.errors);
+                LOGGER.error("Gems configuration validation failed for {}! Errors: {}", file.getAbsolutePath(), result.errors);
                 LOGGER.error("Using secure fallback configuration. gems.json remains unchanged.");
                 config = new GemConfig(); // Fallback config
                 gemsEnabled = false; // Disable writing API or functionality
