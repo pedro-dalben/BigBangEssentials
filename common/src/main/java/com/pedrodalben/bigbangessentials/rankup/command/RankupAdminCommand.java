@@ -21,7 +21,14 @@ public class RankupAdminCommand {
     private static boolean hasPermission(CommandSourceStack source, String perm) {
         ServerPlayer player = source.getPlayer();
         if (player == null) return true;
-        return PermissionAPI.hasPermission(player.getUUID(), perm);
+        return hasAdminPermission(player.getUUID(), perm);
+    }
+
+    static boolean hasAdminPermission(UUID uuid, String perm) {
+        return PermissionAPI.hasExactPermission(uuid, perm)
+                || PermissionAPI.hasExactPermission(uuid, "bigbangessentials.rankup.admin")
+                || PermissionAPI.hasExactPermission(uuid, "bigbangessentials.rankup.admin.*")
+                || PermissionAPI.hasExactPermission(uuid, "bigbangessentials.*");
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {

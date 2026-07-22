@@ -226,6 +226,9 @@ public class PermissionRegistry {
         register("bigbangessentials.economy.admin.take", "Take money from players", PermissionCategory.ECONOMY, false);
         register("bigbangessentials.economy.eco", "Run /eco admin commands (give/take/set/reset)", PermissionCategory.ECONOMY, false);
         register("bigbangessentials.economy.admin.set", "Set player balance", PermissionCategory.ECONOMY, false);
+        register("bigbangessentials.shop.use", "Buy or sell at ChestShop signs", PermissionCategory.ECONOMY, true);
+        register("bigbangessentials.adminshop.money", "Use the AdminShop money store", PermissionCategory.ECONOMY, false);
+        register("bigbangessentials.adminshop.gems", "Use the AdminShop gems store", PermissionCategory.ECONOMY, false);
         // Worth / Sell
         register("bigbangessentials.worth", "Check the sell value of an item (/worth)", PermissionCategory.ECONOMY, true);
         register("bigbangessentials.sell", "Use the /sell command", PermissionCategory.ECONOMY, true);

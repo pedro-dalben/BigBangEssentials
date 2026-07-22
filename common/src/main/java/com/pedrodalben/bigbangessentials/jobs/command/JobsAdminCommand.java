@@ -61,8 +61,20 @@ public class JobsAdminCommand {
         ServerPlayer player = source.getPlayer();
         if (player == null)
             return true; // Console has all permissions
-        return com.pedrodalben.bigbangessentials.jobs.JobPermissionService.getInstance().hasPermission(player.getUUID(), permNode)
-                || com.pedrodalben.bigbangessentials.jobs.JobPermissionService.getInstance().hasPermission(player.getUUID(), "jobs.admin.*");
+
+        return hasAdminPermission(player.getUUID(), permNode);
+    }
+
+    static boolean hasAdminPermission(UUID uuid, String permNode) {
+        String canonicalNode = permNode.startsWith("jobs.")
+                ? "bigbangessentials." + permNode
+                : permNode;
+        return PermissionAPI.hasExactPermission(uuid, canonicalNode)
+                || PermissionAPI.hasExactPermission(uuid, "bigbangessentials.jobs.admin")
+                || PermissionAPI.hasExactPermission(uuid, "bigbangessentials.jobs.admin.*")
+                || PermissionAPI.hasExactPermission(uuid, "bigbangessentials.*")
+                || PermissionAPI.hasExactPermission(uuid, permNode)
+                || PermissionAPI.hasExactPermission(uuid, "jobs.admin.*");
     }
 
     private static final SuggestionProvider<CommandSourceStack> SUGGEST_PLAYERS = (ctx, builder) -> {

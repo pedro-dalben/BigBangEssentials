@@ -1,6 +1,7 @@
 
 package com.pedrodalben.bigbangessentials.permissions;
 
+import com.pedrodalben.bigbangessentials.api.permissions.PermissionRegistry;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -173,7 +174,8 @@ public class PermissionManager {
         }
         
         // Check group permissions (with inheritance and wildcards)
-        boolean result = hasGroupPermission(groupName, permission, new HashSet<>());
+        boolean result = hasGroupPermission(groupName, permission, new HashSet<>())
+                || PermissionRegistry.getInstance().getDefaultPermissionValue(permission);
         LOGGER.debug("  -> Group permission check result: {}", result);
         return result;
     }
