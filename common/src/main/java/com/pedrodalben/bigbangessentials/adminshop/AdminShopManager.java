@@ -25,6 +25,7 @@ public final class AdminShopManager {
     public synchronized void initialize() { reload(); }
     public synchronized void reload() { config = AdminShopConfig.load(); loadState(); if (!sql.load(state)) sql.save(state); }
     public AdminShopConfig config() { return config; }
+    public java.util.List<String> reconcile() { return sql.reconcile(); }
     public Path statePath() { return ResourceUtil.getDataPath("adminshop_state.json"); }
     synchronized void saveState() {
         try {

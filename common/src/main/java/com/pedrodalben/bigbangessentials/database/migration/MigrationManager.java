@@ -53,6 +53,7 @@ public class MigrationManager {
         registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V020CreateEconomyAccounts());
         registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V021CreateTradeOperationsTable());
         registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V022CreatePokeMarketNotificationsTable());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V023CreateAdminShopAuditTable());
     }
 
     /** Snapshot used by diagnostics and migration tests; callers cannot mutate registration order. */

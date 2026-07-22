@@ -28,6 +28,9 @@ public class EcoCommand {
         dispatcher.register(
             net.minecraft.commands.Commands.literal(commandName)
                 .requires(src -> src.hasPermission(2) || com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(src.getPlayer() != null ? src.getPlayer().getUUID() : null, "bigbangessentials.economy.eco"))
+                .then(net.minecraft.commands.Commands.literal("reconcile")
+                    .requires(src -> src.hasPermission(2))
+                    .then(net.minecraft.commands.Commands.literal("adminshop").executes(EcoCommand::reconcileAdminShop)))
                 .then(net.minecraft.commands.Commands.literal("give")
                     .then(net.minecraft.commands.Commands.argument("player", StringArgumentType.word())
                         .suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
@@ -244,5 +247,12 @@ public class EcoCommand {
             }
         }
         return 1;
+    }
+
+    private static int reconcileAdminShop(CommandContext<CommandSourceStack> ctx) {
+        var findings = com.pedrodalben.bigbangessentials.adminshop.AdminShopManager.getInstance().reconcile();
+        ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("§6Reconciliação AdminShop (somente leitura)"), false);
+        findings.forEach(line -> ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("§7" + line), false));
+        return findings.size() == 1 && "OK".equals(findings.getFirst()) ? 1 : 0;
     }
 }

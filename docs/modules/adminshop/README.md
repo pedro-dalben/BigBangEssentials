@@ -12,8 +12,9 @@ Loja virtual administrativa independente do ChestShop físico de jogadores.
 | `/adminshop reload` | Recarrega configuração | administração |
 
 `/adminshop reload` exige nível 2 do Minecraft. O módulo pode ser desativado
-com `modules.adminshopEnabled: false`; isso não remove configuração, estado ou
-tabelas SQL.
+com `modules.json > adminshopEnabled: false` e passa a valer no próximo
+reinício; isso remove os comandos do AdminShop, sem afetar o ChestShop nem
+remover configuração, estado ou tabelas SQL.
 
 ## Arquivos
 
@@ -111,13 +112,20 @@ JSON existente é importado para as tabelas.
 
 ## Permissões
 
-O campo `permission` é verificado por `PermissionAPI.hasPermission`, funcionando
-com o sistema interno, LuckPerms, FTB Ranks e adaptadores configurados. Produtos
-sem esse campo são públicos.
+As permissões da moeda são obrigatórias tanto para abrir quanto para transacionar
+(inclusive em menus já abertos):
+
+| Permissão | Acesso |
+|---|---|
+| `bigbangessentials.adminshop.money` | `/shop` e produtos de money |
+| `bigbangessentials.adminshop.gems` | `/cash`, `/gemas shop` e produtos de gems |
+
+O campo opcional `permission` do produto continua sendo uma restrição adicional.
+Todas são verificadas por `PermissionAPI.hasPermission`, funcionando com o sistema
+interno, LuckPerms, FTB Ranks e adaptadores configurados.
 
 ## Limites do v1
 
 Não há editor gráfico, leilão, venda rápida, sincronização entre servidores ou
 preços baseados em jogadores online. Esses recursos devem permanecer separados
 do motor de transação e do ChestShop.
-
