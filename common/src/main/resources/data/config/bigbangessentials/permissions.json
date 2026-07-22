@@ -1,0 +1,85 @@
+{
+  "_configVersion": 5,
+  "_configVersion_comment": "DO NOT MODIFY: This field is used by BigBangEssentials for automatic config updates. Changing this may cause config corruption.",
+  "defaultGroup": "default",
+  "groups": [
+    {
+      "name": "default",
+      "prefix": "&7",
+      "suffix": "",
+      "permissions": [
+        "bigbangessentials.economy.balance",
+        "bigbangessentials.economy.pay",
+        "bigbangessentials.economy.pay.toggle",
+        "bigbangessentials.economy.baltop",
+        "bigbangessentials.item.repair",
+        "bigbangessentials.item.dispose",
+        "bigbangessentials.item.powertool",
+        "bigbangessentials.chat.msg",
+        "bigbangessentials.chat.reply",
+        "bigbangessentials.chat.ignore",
+        "bigbangessentials.chat.unignore",
+        "bigbangessentials.chat.msgtoggle",
+        "bigbangessentials.afk",
+        "bigbangessentials.kits.use",
+        "bigbangessentials.kits.list",
+        "bigbangessentials.teleport.home",
+        "bigbangessentials.teleport.home.set",
+        "bigbangessentials.teleport.home.delete",
+        "bigbangessentials.teleport.home.list",
+        "bigbangessentials.teleport.spawn",
+        "bigbangessentials.teleport.warp",
+        "bigbangessentials.teleport.warp.list",
+        "bigbangessentials.teleport.request.tpa",
+        "bigbangessentials.teleport.request.tpahere",
+        "bigbangessentials.teleport.request.accept",
+        "bigbangessentials.teleport.request.deny",
+        "bigbangessentials.teleport.request.cancel",
+        "bigbangessentials.teleport.back",
+        "bigbangessentials.teleport.top",
+        "bigbangessentials.info"
+      ],
+      "inherits": []
+    },
+    {
+      "name": "moderator",
+      "prefix": "&2[Mod] ",
+      "suffix": "",
+      "permissions": [
+        "bigbangessentials.economy.balance.others",
+        "bigbangessentials.economy.admin",
+        "bigbangessentials.item.*",
+        "bigbangessentials.chat.mute",
+        "bigbangessentials.chat.unmute",
+        "bigbangessentials.chat.mutelist",
+        "bigbangessentials.chat.socialspy",
+        "bigbangessentials.afk.exempt",
+        "bigbangessentials.permissions.reload",
+        "bigbangessentials.permissions.list",
+        "bigbangessentials.kits.admin.create",
+        "bigbangessentials.kits.admin.delete",
+        "bigbangessentials.kits.admin.list",
+        "bigbangessentials.teleport.admin.tp",
+        "bigbangessentials.teleport.admin.tphere",
+        "bigbangessentials.teleport.admin.tppos",
+        "bigbangessentials.teleport.home.others",
+        "bigbangessentials.teleport.warp.create",
+        "bigbangessentials.teleport.warp.delete",
+        "bigbangessentials.teleport.spawn.set",
+        "bigbangessentials.teleport.jump",
+        "bigbangessentials.teleport.jumpto",
+        "bigbangessentials.teleport.tpr"
+      ],
+      "inherits": ["default"]
+    },
+    {
+      "name": "admin",
+      "prefix": "&c[Admin] ",
+      "suffix": "",
+      "permissions": [
+        "bigbangessentials.*"
+      ],
+      "inherits": ["moderator"]
+    }
+  ]
+}
