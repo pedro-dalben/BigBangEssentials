@@ -66,7 +66,6 @@ public class JobsConfigLoader {
         Path legacy = Path.of(LEGACY_DIR);
         try {
             ensureDirectories();
-            migrateNewerFlatOverrides(Path.of(CANONICAL_DIR));
             if (canonicalConfigsAlreadyExist()) return;
 
             Path source = findMigrationSource(legacy);
@@ -93,22 +92,12 @@ public class JobsConfigLoader {
         if (hasJsonFiles(professionsDir)) return professionsDir;
         Path canonicalFlat = canonicalDir;
         if (hasProfessionFiles(canonicalFlat)) return canonicalFlat;
+        Path pending = Path.of(CANONICAL_DIR + ".new");
+        if (hasJsonFiles(pending.resolve("professions"))) return pending.resolve("professions");
+        if (hasProfessionFiles(pending)) return pending;
         if (hasJsonFiles(legacy.resolve("professions"))) return legacy.resolve("professions");
         if (hasProfessionFiles(legacy)) return legacy;
         return null;
-    }
-
-    private static void migrateNewerFlatOverrides(Path dir) throws IOException {
-        if (!Files.isDirectory(dir)) return;
-        for (String professionId : PROFESSION_IDS) {
-            Path flat = dir.resolve(professionId + ".json");
-            Path nested = professionsDir.resolve(professionId + ".json");
-            if (Files.isRegularFile(flat) && Files.isRegularFile(nested)
-                    && Files.getLastModifiedTime(flat).compareTo(Files.getLastModifiedTime(nested)) > 0) {
-                Files.copy(flat, nested, StandardCopyOption.REPLACE_EXISTING);
-                LOGGER.info("Migrated newer flat profession config {} to {}", flat, nested);
-            }
-        }
     }
 
     private static void copyProfessionFiles(Path source) throws IOException {
@@ -118,7 +107,10 @@ public class JobsConfigLoader {
                 String id = file.getFileName().toString();
                 String professionId = id.substring(0, id.length() - ".json".length()).toLowerCase(Locale.ROOT);
                 if (!PROFESSION_IDS.contains(professionId)) continue;
-                Files.copy(file, professionsDir.resolve(id), StandardCopyOption.REPLACE_EXISTING);
+                Path target = professionsDir.resolve(id);
+                if (!Files.exists(target)) {
+                    Files.copy(file, target);
+                }
             }
         }
     }
