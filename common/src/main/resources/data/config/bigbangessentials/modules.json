@@ -1,5 +1,5 @@
 {
-  "_configVersion": 1,
+  "_configVersion": 2,
   "economyEnabled": true,
   "chatEnabled": true,
   "moderationEnabled": true,
@@ -13,6 +13,7 @@
   "cratesEnabled": true,
   "hologramsEnabled": true,
   "shopEnabled": true,
+  "adminshopEnabled": true,
   "pokemarketEnabled": true,
   "tablistEnabled": true
 }

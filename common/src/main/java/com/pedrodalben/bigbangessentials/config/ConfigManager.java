@@ -1191,7 +1191,7 @@ public class ConfigManager {
      */
     public JsonObject getChatConfig() {
         JsonObject config = getConfig(MAIN_CONFIG);
-        if (config.has("chat") && config.get("chat").isJsonObject()) {
+        if (config != null && config.has("chat") && config.get("chat").isJsonObject()) {
             return config.getAsJsonObject("chat");
         }
         return new JsonObject();
@@ -1277,7 +1277,7 @@ public class ConfigManager {
         put(KITS_CONFIG, 2);
         put(DISCORD_AUTH_CONFIG, 6);
         put(TABLIST_CONFIG, 1);
-        put(MODULES_CONFIG, 1);
+        put(MODULES_CONFIG, 2);
     }};
 
     private ConfigManager() {
@@ -1302,14 +1302,17 @@ public class ConfigManager {
         // Check if split configs are enabled
         boolean splitConfigsEnabled = ConfigSplitter.isSplittingEnabled();
         boolean externalPermsEnabled = false;
-        try {
-            externalPermsEnabled = isExternalPermissionsEnabled();
-        } catch (Exception ignored) {}
 
         if (splitConfigsEnabled) {
             // Always ensure split configs are up to date
             LOGGER.info("Split configs enabled - ensuring all split config files are up to date");
             ConfigSplitter.ensureSplitConfigsUpToDate();
+
+            // Read this only after split files exist, otherwise the first boot
+            // can cache an empty merged config and disable the external adapter.
+            try {
+                externalPermsEnabled = isExternalPermissionsEnabled();
+            } catch (Exception ignored) {}
 
             // Only check other standalone configs (economy, permissions, kits, discord_auth)
             for (String configName : requiredConfigs) {
@@ -1409,8 +1412,6 @@ public class ConfigManager {
                 configCache.remove(configName);
                 LOGGER.info("Config file {} merged to version {} ({} new key(s) added).",
                     configName, expectedVersion, changed ? "some" : "no");
-
-                com.pedrodalben.bigbangessentials.util.MessageUtil.ensureLanguageFileUpToDate();
 
             } else if (currentVersion > expectedVersion) {
                 LOGGER.warn("Config file {} has a newer version ({}) than expected ({}). This may indicate a downgrade.",
@@ -1600,9 +1601,13 @@ public class ConfigManager {
     /** Returns a top-level module flag. Missing flags preserve legacy behavior. */
     public static boolean isModuleEnabled(String module) {
         JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        JsonObject modules = config.has("modules") && config.get("modules").isJsonObject()
-            ? config.getAsJsonObject("modules")
-            : getInstance().getConfig(MODULES_CONFIG);
+        // modules.json is authoritative in split mode. The nested object in
+        // config.json remains for monolithic installations and migration.
+        JsonObject modules = ConfigSplitter.isSplittingEnabled()
+            ? getInstance().getConfig(MODULES_CONFIG)
+            : (config.has("modules") && config.get("modules").isJsonObject()
+                ? config.getAsJsonObject("modules")
+                : getInstance().getConfig(MODULES_CONFIG));
         if (modules != null && modules.isJsonObject()) {
             String key = switch (module) {
                 case "customcommands" -> "customCommandsEnabled";
@@ -2549,14 +2554,7 @@ public class ConfigManager {
      * Check if jail system is enabled (modules.jailEnabled)
      */
     public static boolean isJailSystemEnabled() {
-        JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("modules")) {
-            JsonObject modules = config.getAsJsonObject("modules");
-            if (modules.has("jailEnabled")) {
-                return modules.get("jailEnabled").getAsBoolean();
-            }
-        }
-        return true; // Default to enabled
+        return isModuleEnabled("jail");
     }
 
     /**
@@ -2599,14 +2597,7 @@ public class ConfigManager {
      * Check if permissions module is enabled (modules.permissionsEnabled)
      */
     public static boolean isPermissionsEnabled() {
-        JsonObject config = getInstance().getConfig(MAIN_CONFIG);
-        if (config.has("modules")) {
-            JsonObject modules = config.getAsJsonObject("modules");
-            if (modules.has("permissionsEnabled")) {
-                return modules.get("permissionsEnabled").getAsBoolean();
-            }
-        }
-        return true; // Default to enabled
+        return isModuleEnabled("permissions");
     }
 
     /**

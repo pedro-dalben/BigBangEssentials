@@ -54,7 +54,7 @@ public class ConfigSplitter {
         put("items.json", 1);
         put("afk.json", 1);
         put("security.json", 1);
-        put("modules.json", 1);
+        put("modules.json", 2);
         put("tablist.json", 1);
     }};
 
@@ -81,6 +81,10 @@ public class ConfigSplitter {
             return;
         }
 
+        // A split installation can have the marker and only a subset of files.
+        // Recreate missing files from the backup or bundled monolithic template.
+        splitter.ensureMissingSplitConfigs(configFile);
+
         LOGGER.debug("Checking split config file versions...");
 
         // Check if config.json is newer than any split file (by last modified time)
@@ -97,10 +101,7 @@ public class ConfigSplitter {
         }
 
         if (needsResplit) {
-            LOGGER.info("config.json is newer than split configs or split file missing. Re-splitting config.json into split files...");
-            migrateToSplitConfigs();
-            // After migration, return to avoid double update
-            return;
+            LOGGER.info("config.json is newer than split configs; merging new keys while preserving split files...");
         }
 
         // Normal version check/update for each split file
@@ -111,38 +112,7 @@ public class ConfigSplitter {
             File splitFile = ResourceUtil.getConfigFile(fileName);
 
             if (!splitFile.exists()) {
-                // Always try to extract from config.json first
-                File unifiedConfig = ResourceUtil.getConfigFile("config.json");
-                boolean generated = false;
-                if (unifiedConfig.exists()) {
-                    try (FileReader reader = new FileReader(unifiedConfig, StandardCharsets.UTF_8)) {
-                        JsonObject config = GSON.fromJson(reader, JsonObject.class);
-                        // Find the section name for this file
-                        String sectionName = null;
-                        for (Map.Entry<String, String> mapEntry : CONFIG_FILE_MAP.entrySet()) {
-                            if (mapEntry.getValue().equals(fileName)) {
-                                sectionName = mapEntry.getKey();
-                                break;
-                            }
-                        }
-                        if (sectionName != null && config.has(sectionName)) {
-                            JsonObject section = extractSection(config, sectionName, fileName);
-                            try (FileWriter writer = new FileWriter(splitFile, StandardCharsets.UTF_8)) {
-                                GSON.toJson(section, writer);
-                                LOGGER.info("  ✓ Generated {} from unified config.json", fileName);
-                                generated = true;
-                            }
-                        } else {
-                            LOGGER.warn("Section '{}' not found in config.json for split config {}", sectionName, fileName);
-                        }
-                    } catch (Exception e) {
-                        LOGGER.error("Failed to generate split config {}: {}", fileName, e.getMessage());
-                    }
-                }
-                // If still missing, do not fallback to JAR, just warn
-                if (!splitFile.exists() && !generated) {
-                    LOGGER.warn("Split config file {} could not be generated from config.json and will remain missing.", fileName);
-                }
+                LOGGER.warn("Split config file {} could not be generated and will remain missing.", fileName);
             } else {
                 // Check version
                 checkSplitConfigVersion(fileName, splitFile, expectedVersion);
@@ -206,8 +176,9 @@ public class ConfigSplitter {
                     JsonObject section = extractSection(config, sectionName, fileName);
                     File targetFile = ResourceUtil.getConfigFile(fileName);
 
-                    // Don't overwrite existing split configs
-                    if (!targetFile.exists() || sectionName.equals("modules") || sectionName.equals("logging") || sectionName.equals("permissions")) {
+                    // Do not overwrite existing split configs. modules.json is
+                    // the only exception because it is the canonical module file.
+                    if (!targetFile.exists() || (targetFile.getName().equals("modules.json") && sectionName.equals("modules"))) {
                         try (FileWriter writer = new FileWriter(targetFile, StandardCharsets.UTF_8)) {
                             GSON.toJson(section, writer);
                             filesCreated++;
@@ -256,11 +227,16 @@ public class ConfigSplitter {
                 "DO NOT MODIFY: This field is used by BigBangEssentials for automatic config updates.");
         }
 
-        // Handle special case: main.json contains multiple sections
-        if (targetFile.equals("main.json")) {
-            if (mainConfig.has("modules")) {
-                result.add("modules", mainConfig.get("modules"));
+        // modules.json is intentionally flat; config.json stores the same
+        // values under the nested "modules" section.
+        if (targetFile.equals("modules.json")) {
+            if (mainConfig.has("modules") && mainConfig.get("modules").isJsonObject()) {
+                for (Map.Entry<String, com.google.gson.JsonElement> entry : mainConfig.getAsJsonObject("modules").entrySet()) {
+                    result.add(entry.getKey(), entry.getValue());
+                }
             }
+        // Handle special case: main.json contains core settings only.
+        } else if (targetFile.equals("main.json")) {
             if (mainConfig.has("logging")) {
                 result.add("logging", mainConfig.get("logging"));
             }
@@ -298,11 +274,22 @@ public class ConfigSplitter {
                 try (FileReader reader = new FileReader(configFile, StandardCharsets.UTF_8)) {
                     JsonObject fileConfig = JsonParser.parseReader(reader).getAsJsonObject();
 
-                    // Handle main.json which contains multiple sections
-                    if (fileName.equals("main.json")) {
-                        if (fileConfig.has("modules")) {
-                            merged.add("modules", fileConfig.get("modules"));
+                    // modules.json is flat on disk but exposed as the
+                    // historical nested "modules" object to callers.
+                    if (fileName.equals("modules.json")) {
+                        JsonObject modules = fileConfig.has("modules") && fileConfig.get("modules").isJsonObject()
+                            ? fileConfig.getAsJsonObject("modules")
+                            : new JsonObject();
+                        if (modules.isEmpty()) {
+                            for (Map.Entry<String, com.google.gson.JsonElement> moduleEntry : fileConfig.entrySet()) {
+                                if (!moduleEntry.getKey().startsWith("_")) {
+                                    modules.add(moduleEntry.getKey(), moduleEntry.getValue());
+                                }
+                            }
                         }
+                        merged.add("modules", modules);
+                    // Handle main.json which contains core settings only
+                    } else if (fileName.equals("main.json")) {
                         if (fileConfig.has("logging")) {
                             merged.add("logging", fileConfig.get("logging"));
                         }
@@ -495,7 +482,8 @@ public class ConfigSplitter {
 
         // Create a helpful guide object
         JsonObject guide = new JsonObject();
-        guide.addProperty("main.json", "Core settings: modules, logging, permissions");
+        guide.addProperty("main.json", "Core settings: logging and permissions");
+        guide.addProperty("modules.json", "Module enable/disable flags");
         guide.addProperty("commands.json", "Command settings and toggles");
         guide.addProperty("chat.json", "Chat formatting, channels, badges, anti-spam");
         guide.addProperty("teleportation.json", "Teleport settings, homes, warps, spawn");
@@ -526,8 +514,11 @@ public class ConfigSplitter {
         try (FileReader reader = new FileReader(splitFile, StandardCharsets.UTF_8)) {
             JsonObject splitConfig = JsonParser.parseReader(reader).getAsJsonObject();
             boolean changed = false;
+            // modules.json is flat on disk.
+            if (fileName.equals("modules.json")) {
+                changed |= mergeJsonObjects(splitConfig, unifiedSection);
             // For main.json, handle multiple sections
-            if (fileName.equals("main.json")) {
+            } else if (fileName.equals("main.json")) {
                 if (!splitConfig.has(sectionName)) {
                     splitConfig.add(sectionName, unifiedSection);
                     changed = true;
@@ -706,5 +697,61 @@ public class ConfigSplitter {
             LOGGER.error("Failed to generate config.json from JAR default", e);
             return false;
         }
+    }
+
+    /** Create only missing split files, preserving every existing file. */
+    private void ensureMissingSplitConfigs(File configFile) {
+        JsonObject source = readUnifiedSource(configFile);
+        if (source == null) return;
+
+        for (String fileName : SPLIT_CONFIG_VERSIONS.keySet()) {
+            File target = ResourceUtil.getConfigFile(fileName);
+            if (target.exists()) continue;
+
+            String sectionName = sectionNameForFile(fileName);
+            if (sectionName == null || !source.has(sectionName)) continue;
+
+            JsonObject extracted = extractSection(source, sectionName, fileName);
+            try (FileWriter writer = new FileWriter(target, StandardCharsets.UTF_8)) {
+                GSON.toJson(extracted, writer);
+                LOGGER.info("Generated missing split config {}", fileName);
+            } catch (IOException e) {
+                LOGGER.error("Failed to generate missing split config {}: {}", fileName, e.getMessage());
+            }
+        }
+    }
+
+    private static String sectionNameForFile(String fileName) {
+        if ("main.json".equals(fileName)) return "logging";
+        for (Map.Entry<String, String> entry : CONFIG_FILE_MAP.entrySet()) {
+            if (entry.getValue().equals(fileName)) return entry.getKey();
+        }
+        return null;
+    }
+
+    private static JsonObject readUnifiedSource(File configFile) {
+        List<File> candidates = new ArrayList<>();
+        candidates.add(configFile);
+        candidates.add(new File(configFile.getParentFile(), "config.json.backup"));
+
+        for (File candidate : candidates) {
+            if (!candidate.exists()) continue;
+            try (FileReader reader = new FileReader(candidate, StandardCharsets.UTF_8)) {
+                JsonObject object = JsonParser.parseReader(reader).getAsJsonObject();
+                if (!object.has("_split_config_files")) return object;
+            } catch (Exception e) {
+                LOGGER.warn("Could not read unified config source {}: {}", candidate.getName(), e.getMessage());
+            }
+        }
+
+        try (InputStream in = ConfigSplitter.class.getClassLoader()
+                .getResourceAsStream("data/config/bigbangessentials/config.json")) {
+            if (in != null) {
+                return JsonParser.parseReader(new java.io.InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Could not read bundled unified config: {}", e.getMessage());
+        }
+        return null;
     }
 }
