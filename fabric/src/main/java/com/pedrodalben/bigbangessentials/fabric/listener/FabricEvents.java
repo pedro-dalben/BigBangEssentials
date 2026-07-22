@@ -2,6 +2,7 @@ package com.pedrodalben.bigbangessentials.fabric.listener;
 
 import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
 import com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener;
+import com.pedrodalben.bigbangessentials.shop.handlers.ShopSignRegistrationService;
 import com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
@@ -27,6 +28,7 @@ public class FabricEvents {
             com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
             com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerTick(server);
             com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().tick();
+            ShopSignRegistrationService.tick();
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 RankupEventListener.onPlayerTick(player);
                 JobsEventListener.onPlayerTick(player);

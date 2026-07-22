@@ -1,8 +1,10 @@
 package com.pedrodalben.bigbangessentials.fabric.mixin;
 
 import com.pedrodalben.bigbangessentials.jobs.listeners.JobsEventListener;
+import com.pedrodalben.bigbangessentials.shop.handlers.ShopSignRegistrationService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -22,6 +24,9 @@ public class BlockItemMixin {
                 BlockState state = context.getLevel().getBlockState(pos);
                 JobsEventListener.onBlockPlace(player, pos, state);
                 com.pedrodalben.bigbangessentials.rankup.listener.RankupEventListener.onBlockPlace(player, pos, state, false);
+                if (context.getLevel() instanceof ServerLevel level) {
+                    ShopSignRegistrationService.trackPlacement(player, level, pos, state);
+                }
             }
         }
 

@@ -1,25 +1,13 @@
 package com.pedrodalben.bigbangessentials.shop.handlers;
 
-import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
-import com.pedrodalben.bigbangessentials.shop.ShopManager;
-import com.pedrodalben.bigbangessentials.shop.ShopParser;
-import com.pedrodalben.bigbangessentials.shop.model.ShopData;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.SignBlock;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
-
-import java.util.*;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Listens for sign placement and subsequent text finalization to register new ChestShop signs.
@@ -36,17 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * the {@code ServerboundSignUpdatePacket} is processed server-side before any NeoForge event fires.
  */
 @EventBusSubscriber(modid = "bigbangessentials")
-public class ShopSignHandler {
-
-    // ── Pending sign queue ────────────────────────────────────────────────────
-
-    private record PendingSign(UUID playerUUID, String dimension, long placedAt) {}
-
-    /** sign position key → pending entry */
-    private static final Map<String, PendingSign> pending = new ConcurrentHashMap<>();
-    private static final long TIMEOUT_MS = 30_000L; // 30 seconds
-    private static final int CHECK_INTERVAL_TICKS = 5; // check every 5 ticks
-    private static int tickCounter = 0;
+public final class ShopSignHandler {
 
     // ── Sign placed ───────────────────────────────────────────────────────────
 
@@ -55,85 +33,14 @@ public class ShopSignHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (!(event.getLevel() instanceof ServerLevel level)) return;
 
-        BlockState state = event.getState();
-        if (!(state.getBlock() instanceof SignBlock)) return;
-
-        BlockPos pos = event.getPos();
-        String dimension = level.dimension().location().toString();
-        String key = dimension + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
-        pending.put(key, new PendingSign(player.getUUID(), dimension, System.currentTimeMillis()));
+        ShopSignRegistrationService.trackPlacement(player, level, event.getPos(), event.getState());
     }
 
     // ── Tick check ────────────────────────────────────────────────────────────
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        if (++tickCounter % CHECK_INTERVAL_TICKS != 0) return;
-
-        long now = System.currentTimeMillis();
-        Iterator<Map.Entry<String, PendingSign>> iter = pending.entrySet().iterator();
-
-        while (iter.hasNext()) {
-            Map.Entry<String, PendingSign> entry = iter.next();
-            PendingSign ps = entry.getValue();
-
-            // Time out stale entries
-            if (now - ps.placedAt() > TIMEOUT_MS) {
-                iter.remove();
-                continue;
-            }
-
-            // Parse the key back to pos/dimension
-            String key = entry.getKey();
-            String[] atSplit = key.split("@", 2);
-            if (atSplit.length < 2) { iter.remove(); continue; }
-            String[] xyzParts = atSplit[1].split(",");
-            if (xyzParts.length < 3) { iter.remove(); continue; }
-            try {
-                int x = Integer.parseInt(xyzParts[0]);
-                int y = Integer.parseInt(xyzParts[1]);
-                int z = Integer.parseInt(xyzParts[2]);
-                BlockPos pos = new BlockPos(x, y, z);
-
-                // Get the level via the server
-                var server = com.pedrodalben.bigbangessentials.util.Platform.getCurrentServer();
-                if (server == null) continue;
-                ServerLevel level = server.getAllLevels().iterator().next(); // fallback
-                for (ServerLevel sl : server.getAllLevels()) {
-                    if (sl.dimension().location().toString().equals(ps.dimension())) {
-                        level = sl; break;
-                    }
-                }
-
-                BlockEntity be = level.getBlockEntity(pos);
-                if (!(be instanceof SignBlockEntity sign)) { iter.remove(); continue; }
-
-                // Read text from the sign
-                String[] lines = readSignLines(sign);
-
-                // Price line must have B or S to be a shop sign — skip silently if not
-                String priceLine = lines[ShopData.PRICE_LINE].toUpperCase().trim();
-                if (!priceLine.contains("B") && !priceLine.contains("S")) {
-                    // Not a shop sign — don't process yet, but also don't time out immediately
-                    // Wait for the timeout to clean it up
-                    continue;
-                }
-
-                // Quantity line must be non-empty before we can proceed
-                if (lines[ShopData.QUANTITY_LINE].isBlank()) continue;
-
-                iter.remove(); // done processing this pending entry
-
-                // Get the player
-                ServerPlayer player = server.getPlayerList().getPlayer(ps.playerUUID());
-                if (player == null) continue; // player left
-
-                tryRegisterShop(player, lines, pos, ps.dimension(), level);
-
-            } catch (Exception e) {
-                iter.remove();
-            }
-        }
+        ShopSignRegistrationService.tick();
     }
 
     // ── Shop registration ─────────────────────────────────────────────────────
@@ -150,69 +57,7 @@ public class ShopSignHandler {
      */
     public static void tryRegisterShop(ServerPlayer player, String[] lines,
                                        BlockPos pos, String dimension, ServerLevel level) {
-        // Strip colour codes from line 0 before permission/admin check
-        String ownerLine = lines[ShopData.NAME_LINE].replaceAll("§[0-9a-fA-FkKlLmMnNoOrRiI]", "").trim();
-
-        // Blank line 0 → auto-assign this player
-        if (ownerLine.isEmpty()) {
-            ownerLine = player.getName().getString();
-            lines[ShopData.NAME_LINE] = ownerLine;
-        }
-
-        boolean wantsAdmin = ShopData.ADMIN_SHOP_NAME.equalsIgnoreCase(ownerLine);
-
-        if (wantsAdmin && !PermissionAPI.hasPermission(player.getUUID(), "bigbangessentials.shop.create.admin")) {
-            player.sendSystemMessage(Component.literal("§cYou don't have permission to create admin shops."));
-            return;
-        }
-        if (!wantsAdmin && !PermissionAPI.hasPermission(player.getUUID(), "bigbangessentials.shop.create")) {
-            player.sendSystemMessage(Component.literal("§cYou don't have permission to create shops."));
-            return;
-        }
-
-        // Check for duplicate sign position before parsing
-        ShopData existing = ShopManager.getInstance().getShopBySign(dimension, pos);
-        if (existing != null) {
-            player.sendSystemMessage(Component.literal("§cA shop already exists at this sign."));
-            return;
-        }
-
-        Optional<ShopData> parsed = ShopParser.parse(
-            lines, pos, dimension, level, player.getUUID(), player.getName().getString());
-
-        if (parsed.isEmpty()) {
-            if (!wantsAdmin && ShopParser.findAdjacentChest(pos, level) == null) {
-                player.sendSystemMessage(Component.literal(
-                    "§cNo chest found next to this sign. Place a chest first."));
-            } else {
-                player.sendSystemMessage(Component.literal(
-                    "§cInvalid shop sign format.  Lines: [name or blank] / [qty] / [B x:S y] / [item or ?]"));
-            }
-            return;
-        }
-
-        ShopData shop = parsed.get();
-        ShopManager.getInstance().registerShop(shop);
-
-        // Rewrite sign lines with colour formatting
-        writeSignLines(level, pos, ShopParser.formatSignLines(shop));
-
-        if (shop.itemPending) {
-            // Shop is registered but non-functional — item still needed
-            player.sendSystemMessage(Component.literal(
-                "§aShop frame created! §eRight-click this sign while holding the item you want to sell/buy."));
-        } else {
-            player.sendSystemMessage(Component.literal("§aShop created successfully!"));
-            String currency = com.pedrodalben.bigbangessentials.economy.managers.EconomyManager.getInstance().getCurrencySymbol();
-            if (!shop.isAdminShop()) {
-                if (shop.buyPrice  != null) player.sendSystemMessage(Component.literal(
-                    "§eBuy price:  §f" + currency + shop.buyPrice.toPlainString()));
-                if (shop.sellPrice != null) player.sendSystemMessage(Component.literal(
-                    "§eSell price: §f" + currency + shop.sellPrice.toPlainString()));
-            } else {
-                player.sendSystemMessage(Component.literal("§2[Admin Shop] Unlimited stock."));
-            }
-        }
+        ShopSignRegistrationService.tryRegisterShop(player, lines, pos, dimension, level);
     }
 
     // ── Sign text helpers ─────────────────────────────────────────────────────
