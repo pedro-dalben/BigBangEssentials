@@ -274,8 +274,8 @@ public class CobblemonJobsBridge implements OptionalJobsIntegration {
             eventBusRef = eventBus;
             String eventBusName = eventBus.getClass().getName();
 
-            Method subscribeMethod = eventBus.getClass().getMethod("subscribe", Class.class, Consumer.class);
-            Object handle = subscribeMethod.invoke(eventBus, eventClass, handler);
+            Method subscribeMethod = eventBus.getClass().getMethod("subscribe", Consumer.class);
+            Object handle = subscribeMethod.invoke(eventBus, handler);
 
             boolean supportsUnsubscribe = hasUnsubscribeMethod(eventBus.getClass());
 

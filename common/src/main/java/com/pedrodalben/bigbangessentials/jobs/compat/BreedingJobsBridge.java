@@ -19,6 +19,7 @@ public class BreedingJobsBridge implements OptionalJobsIntegration {
     private static final String COBBREEDING_ID = "cobbreeding";
 
     private static final String[] HATCH_EVENT_CANDIDATES = {
+        "com.cobblemon.mod.common.api.events.pokemon.HatchEggEvent$Post",
         "com.cobblemon.mod.common.api.events.pokemon.EggHatchEvent",
         "com.cobblemon.mod.common.api.events.pokemon.PokemonHatchedEvent",
         "com.cobblemon.mod.common.api.events.PokemonHatchedEvent",
@@ -287,8 +288,8 @@ public class BreedingJobsBridge implements OptionalJobsIntegration {
                 return SubscriptionResult.failed(eventClass.getName(), "Event bus field is null", null);
             }
 
-            Method subscribeMethod = eventBus.getClass().getMethod("subscribe", Class.class, Consumer.class);
-            Object handle = subscribeMethod.invoke(eventBus, eventClass, handler);
+            Method subscribeMethod = eventBus.getClass().getMethod("subscribe", Consumer.class);
+            Object handle = subscribeMethod.invoke(eventBus, handler);
 
             if (label.equals("hatch")) hatchEventBusRef = eventBus;
             else createEventBusRef = eventBus;

@@ -77,7 +77,7 @@ public class ReflectionCobblemonBridge implements CobblemonBridge {
 
 
     private void registerHatchListener() throws Exception {
-        Class<?> eventClass = Class.forName("com.cobblemon.mod.common.api.events.pokemon.EggHatchEvent");
+        Class<?> eventClass = Class.forName("com.cobblemon.mod.common.api.events.pokemon.HatchEggEvent$Post");
         Consumer<Object> handler = event -> {
             try {
                 Object pokemon = eventClass.getMethod("getPokemon").invoke(event);
@@ -146,8 +146,8 @@ public class ReflectionCobblemonBridge implements CobblemonBridge {
         }
         Object eventBus = eventField.get(null);
         if (eventBus == null) return;
-        Method subscribeMethod = eventBus.getClass().getMethod("subscribe", Class.class, java.util.function.Consumer.class);
-        subscribeMethod.invoke(eventBus, eventClass, handler);
+        Method subscribeMethod = eventBus.getClass().getMethod("subscribe", java.util.function.Consumer.class);
+        subscribeMethod.invoke(eventBus, handler);
     }
 
     private java.lang.reflect.Field findEventField(Class<?> eventBusClass, Class<?> eventClass) {

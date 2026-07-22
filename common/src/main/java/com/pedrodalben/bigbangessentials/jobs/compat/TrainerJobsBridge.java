@@ -292,8 +292,8 @@ public class TrainerJobsBridge implements OptionalJobsIntegration {
             if (eventBus == null) return SubscriptionResult.failed(eventClass.getName(), "Event bus field is null", null);
 
             eventBusRef = eventBus;
-            Method subscribeMethod = eventBus.getClass().getMethod("subscribe", Class.class, Consumer.class);
-            Object handle = subscribeMethod.invoke(eventBus, eventClass, handler);
+            Method subscribeMethod = eventBus.getClass().getMethod("subscribe", Consumer.class);
+            Object handle = subscribeMethod.invoke(eventBus, handler);
 
             return SubscriptionResult.success(eventClass.getName(), eventBus.getClass().getName(),
                     "REFLECTIVE_COBBLEMON_EVENTS", false, handle);
