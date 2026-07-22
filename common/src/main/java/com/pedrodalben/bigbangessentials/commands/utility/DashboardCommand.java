@@ -88,7 +88,7 @@ public class DashboardCommand {
         
         if (!ConfigManager.isWebDashboardEnabled()) {
             source.sendSuccess(() -> Component.literal("§c§lERROR: §cDashboard is disabled in configuration!"), false);
-            source.sendSuccess(() -> Component.literal("§7Enable it in §econfig/bigbangessentials.toml"), false);
+            source.sendSuccess(() -> Component.literal("§7Enable it in §eworld/serverconfig/bigbangessentials/"), false);
             return 0;
         }
         

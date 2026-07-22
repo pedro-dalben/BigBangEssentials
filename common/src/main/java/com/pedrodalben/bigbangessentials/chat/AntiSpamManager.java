@@ -106,6 +106,7 @@ public class AntiSpamManager {
 
         try {
             var config = getSpamFilterConfig();
+            if (config == null) return new FilterResult(true, message, null);
             int maxMessages = config.get("messagesPerPeriod").getAsInt();
             int periodSeconds = config.get("periodSeconds").getAsInt();
 
@@ -148,6 +149,7 @@ public class AntiSpamManager {
 
             if (lastMessage != null && lastMessage.equals(message)) {
                 var config = getRepeatFilterConfig();
+                if (config == null) return new FilterResult(true, message, null);
                 int cooldown = config.get("cooldownSeconds").getAsInt();
                 long currentTime = System.currentTimeMillis();
 
@@ -238,6 +240,7 @@ public class AntiSpamManager {
 
         try {
             var config = getCapsFilterConfig();
+            if (config == null) return new FilterResult(true, message, null);
             int minLength = config.get("minimumLength").getAsInt();
 
             // Don't check short messages
@@ -440,4 +443,3 @@ public class AntiSpamManager {
         }
     }
 }
-

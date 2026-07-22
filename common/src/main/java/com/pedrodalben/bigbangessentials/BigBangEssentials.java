@@ -76,6 +76,7 @@ public class BigBangEssentials {
         
         // Ensure custom language file is present
         MessageUtil.ensureCustomLanguageFile();
+        MessageUtil.ensureLanguageFileUpToDate();
 
         long duration = System.currentTimeMillis() - startTime;
         LOGGER.info("");
@@ -115,8 +116,7 @@ public class BigBangEssentials {
         
         // Economy Managers
         registry.registerManager("EconomyManager", "economy", 
-            com.pedrodalben.bigbangessentials.economy.managers.EconomyManager.class,
-            com.pedrodalben.bigbangessentials.economy.managers.EconomyManager::getInstance);
+            com.pedrodalben.bigbangessentials.economy.managers.EconomyManager.class);
         
         // Chat Managers (only singleton managers)
         registry.registerManager("AfkManager", "chat",
@@ -280,6 +280,7 @@ public class BigBangEssentials {
                 long moduleStart = System.currentTimeMillis();
                 try {
                     com.pedrodalben.bigbangessentials.economy.managers.EconomyManager.getInstance();
+                    ManagerRegistry.getInstance().markInitialized("EconomyManager");
                     ModuleManager.getInstance().started("economy", System.currentTimeMillis() - moduleStart);
                 } catch (Throwable e) {
                     ModuleManager.getInstance().failed("economy", e);
