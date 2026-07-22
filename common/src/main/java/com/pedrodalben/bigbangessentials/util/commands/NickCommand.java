@@ -11,6 +11,7 @@ import com.pedrodalben.bigbangessentials.database.api.PlayerPreferencesStorage;
 import com.pedrodalben.bigbangessentials.util.CommandSourceHelper;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import com.pedrodalben.bigbangessentials.util.PermissionValidator;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -27,7 +28,7 @@ import java.util.regex.Pattern;
 
 public class NickCommand {
     private static final Map<UUID, String> NICKNAMES = new ConcurrentHashMap<>();
-    private static final Path NICK_DATA_FILE = Paths.get("config", "bigbangessentials", "nickname_data.json");
+    private static final Path NICK_DATA_FILE = ResourceUtil.getMigratedDataPath("nickname_data.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Pattern VALID_NICK_PATTERN = Pattern.compile("^[a-zA-Z0-9_&\u00a7#]{1,32}$");
     private static final Pattern COLOR_CODE_PATTERN = Pattern.compile("&[0-9a-fk-or]|&#[0-9a-fA-F]{6}");

@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +24,7 @@ public class DiscordAuthConfig {
     @SuppressWarnings("unused") // Reserved for future JSON serialization features
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     @SuppressWarnings("unused") // Reserved for future file-based config loading
-    private static final Path CONFIG_FILE = Paths.get("config", "bigbangessentials", "discord_auth.json");
+    private static final Path CONFIG_FILE = ResourceUtil.getConfigPath("discord_auth.json");
     public static final String CONFIG_NAME = "discord_auth.json";
     
     private boolean enabled;

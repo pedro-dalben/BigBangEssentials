@@ -13,6 +13,7 @@ import net.minecraft.network.chat.MutableComponent;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import com.pedrodalben.bigbangessentials.util.PermissionValidator;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -34,7 +35,7 @@ import java.nio.file.Paths;
 public class RulesCommand {
     private static final Logger LOGGER = LoggerFactory.getLogger(RulesCommand.class);
     private static List<String> serverRules = new ArrayList<>();
-    private static final Path RULES_DATA_FILE = Paths.get("config", "bigbangessentials", "rules_data.json");
+    private static final Path RULES_DATA_FILE = ResourceUtil.getMigratedDataPath("rules_data.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final int RULES_PER_PAGE = 10;
     

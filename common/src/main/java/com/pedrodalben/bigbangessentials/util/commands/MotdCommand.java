@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import com.pedrodalben.bigbangessentials.util.PermissionValidator;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -31,7 +32,7 @@ public class MotdCommand {
     private static String currentMotd = "";
     private static String motdAuthor = "Server";
     private static String motdTimestamp = "";
-    private static final Path MOTD_DATA_FILE = Paths.get("config", "bigbangessentials", "motd_data.json");
+    private static final Path MOTD_DATA_FILE = ResourceUtil.getMigratedDataPath("motd_data.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm");
     

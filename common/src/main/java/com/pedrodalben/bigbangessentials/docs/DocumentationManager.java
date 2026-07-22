@@ -1,5 +1,6 @@
 package com.pedrodalben.bigbangessentials.docs;
 
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.slf4j.Logger;
@@ -30,7 +31,7 @@ public class DocumentationManager {
     private final List<VideoTutorial> videoTutorials = new ArrayList<>();
     
     // Documentation directory
-    private final Path docsDir = Paths.get("config", "bigbangessentials", "webdashboard", "docs");
+    private final Path docsDir = ResourceUtil.getConfigPath("webdashboard/docs");
     
     private DocumentationManager() {}
     

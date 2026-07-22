@@ -8,6 +8,7 @@ import com.pedrodalben.bigbangessentials.chat.MuteManager;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.util.CommandSourceHelper;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import com.pedrodalben.bigbangessentials.util.PermissionValidator;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -65,8 +66,7 @@ public class MailCommand {
 
     // ── Storage ──────────────────────────────────────────────────────────────
     private static final Map<UUID, List<MailMessage>> MAIL_BOX = new ConcurrentHashMap<>();
-    private static final Path MAIL_DATA_FILE =
-        Paths.get("config", "bigbangessentials", "mail_data.json");
+    private static final Path MAIL_DATA_FILE = ResourceUtil.getMigratedDataPath("mail_data.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final DateTimeFormatter TIME_FORMAT =
         DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm");

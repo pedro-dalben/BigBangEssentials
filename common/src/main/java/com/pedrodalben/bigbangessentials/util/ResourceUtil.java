@@ -41,6 +41,28 @@ public class ResourceUtil {
     public static File getDataFile(String filename) {
         return new File(DATA_DIR + filename);
     }
+
+    /**
+     * Returns the canonical data path and copies a legacy config-side data file
+     * once, preserving existing servers during the path cleanup.
+     */
+    public static Path getMigratedDataPath(String filename) {
+        Path target = getDataPath(filename);
+        Path legacy = getLegacyConfigDirectoryPath().resolve(filename);
+        Path migratedConfig = getConfigPath(filename);
+        try {
+            if (!Files.exists(target)) {
+                if (!Files.exists(legacy)) legacy = migratedConfig;
+                if (!Files.exists(legacy)) return target;
+                Path parent = target.getParent();
+                if (parent != null) Files.createDirectories(parent);
+                Files.copy(legacy, target, StandardCopyOption.COPY_ATTRIBUTES);
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to migrate legacy data file " + legacy + ": " + e.getMessage());
+        }
+        return target;
+    }
     
     /**
      * Get a Path for configuration files

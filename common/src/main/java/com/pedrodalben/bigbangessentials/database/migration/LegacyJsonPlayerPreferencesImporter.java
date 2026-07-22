@@ -30,7 +30,7 @@ public class LegacyJsonPlayerPreferencesImporter {
     private static final Logger LOGGER = LoggerFactory.getLogger(LegacyJsonPlayerPreferencesImporter.class);
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path NICK_DATA_FILE = Paths.get("config", "bigbangessentials", "nickname_data.json");
+    private static final Path NICK_DATA_FILE = ResourceUtil.getMigratedDataPath("nickname_data.json");
 
     private final PlayerPreferencesStorage storage;
 

@@ -10,6 +10,7 @@ import com.pedrodalben.bigbangessentials.integrations.fakeplayer.FakePlayerInteg
 import com.pedrodalben.bigbangessentials.integrations.fakeplayer.FakePlayerSnapshot;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import com.pedrodalben.bigbangessentials.util.PermissionValidator;
+import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -32,7 +33,7 @@ public class SeenCommand {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Map<UUID, PlayerActivity> PLAYER_ACTIVITY = new ConcurrentHashMap<>();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path SEEN_DATA_FILE = Paths.get("config", "bigbangessentials", "seen_data.json");
+    private static final Path SEEN_DATA_FILE = ResourceUtil.getMigratedDataPath("seen_data.json");
 
     private static class PlayerActivity {
         String playerName;
