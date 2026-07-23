@@ -15,6 +15,7 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import java.util.UUID;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus;
 
 /**
  * BigBangEssentials built-in {@link VaultEconomy} implementation.
@@ -73,8 +74,7 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
             if (hasAccount(playerId)) return true;
             // Initialise with the configured starting balance — same as EconomyServiceImpl.createAccount()
             BigDecimal start = BigDecimal.valueOf(ConfigManager.getEconomyStartingBalance());
-            EconomyManager.getInstance().setBalance(playerId, start);
-            return true;
+            return EconomyManager.getInstance().setBalanceChecked(playerId, start);
         } catch (Exception e) {
             LOGGER.error("VaultEconomy: createPlayerAccount error for {}: {}", playerId, e.getMessage());
             return false;
@@ -95,7 +95,7 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
 
     @Override
     public boolean has(UUID playerId, double amount) {
-        return getBalance(playerId) >= amount;
+        return Double.isFinite(amount) && amount >= 0 && getBalance(playerId) >= amount;
     }
 
     // ── Transactions ──────────────────────────────────────────────────────────
@@ -106,12 +106,12 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
      */
     @Override
     public EconomyResponse withdrawPlayer(UUID playerId, double amount) {
-        if (amount < 0)
+        if (!Double.isFinite(amount) || amount <= 0)
             return fail(amount, playerId, "Cannot withdraw a negative amount");
         try {
-            BigDecimal amt = BigDecimal.valueOf(amount).setScale(2, RoundingMode.HALF_UP);
-            boolean ok = EconomyManager.getInstance().subtractBalance(playerId, amt);
-            if (!ok)
+            BigDecimal amt = BigDecimal.valueOf(amount).setScale(ConfigManager.getEconomyCurrencyScale(), RoundingMode.UNNECESSARY);
+            var receipt = EconomyManager.getInstance().debit(playerId, amt, "vault:withdraw:" + UUID.randomUUID(), "Vault withdrawal", java.util.Map.of("source", "vault"));
+            if (receipt.status() != EconomyOperationStatus.COMPLETED)
                 return fail(amount, playerId, "Insufficient funds");
             // Fire the same event the rest of the mod uses
             com.pedrodalben.bigbangessentials.util.Platform.postEvent(new EconomyWithdrawEvent(playerId, amount));
@@ -128,13 +128,13 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
      */
     @Override
     public EconomyResponse depositPlayer(UUID playerId, double amount) {
-        if (amount < 0)
+        if (!Double.isFinite(amount) || amount <= 0)
             return fail(amount, playerId, "Cannot deposit a negative amount");
         try {
             if (!hasAccount(playerId)) createPlayerAccount(playerId);
-            BigDecimal amt = BigDecimal.valueOf(amount).setScale(2, RoundingMode.HALF_UP);
-            boolean ok = EconomyManager.getInstance().addBalance(playerId, amt);
-            if (!ok)
+            BigDecimal amt = BigDecimal.valueOf(amount).setScale(ConfigManager.getEconomyCurrencyScale(), RoundingMode.UNNECESSARY);
+            var receipt = EconomyManager.getInstance().credit(playerId, amt, "vault:deposit:" + UUID.randomUUID(), "Vault deposit", java.util.Map.of("source", "vault"));
+            if (receipt.status() != EconomyOperationStatus.COMPLETED)
                 return fail(amount, playerId, "Deposit rejected (max balance reached?)");
             // Fire the same event the rest of the mod uses
             com.pedrodalben.bigbangessentials.util.Platform.postEvent(new EconomyDepositEvent(playerId, amount));

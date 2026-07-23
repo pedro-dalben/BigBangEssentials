@@ -33,7 +33,9 @@ public class PayCommand {
                         builder
                     ))
                     .then(net.minecraft.commands.Commands.argument("amount", DoubleArgumentType.doubleArg(0.01))
-                        .executes(ctx -> execute(ctx))))
+                        .executes(ctx -> execute(ctx))
+                        .then(net.minecraft.commands.Commands.argument("request-id", StringArgumentType.word())
+                            .executes(ctx -> execute(ctx)))))
         );
         
         // Register alias
@@ -48,7 +50,9 @@ public class PayCommand {
                         builder
                     ))
                     .then(net.minecraft.commands.Commands.argument("amount", DoubleArgumentType.doubleArg(0.01))
-                        .executes(ctx -> execute(ctx))))
+                        .executes(ctx -> execute(ctx))
+                        .then(net.minecraft.commands.Commands.argument("request-id", StringArgumentType.word())
+                            .executes(ctx -> execute(ctx)))))
         );
     }
 
@@ -62,20 +66,6 @@ public class PayCommand {
         }
         
         ServerPlayer sender = permResult.getPlayer();
-        
-        // Check cooldown atomically to prevent bypass
-        long now = System.currentTimeMillis();
-        long cooldownMs = getPayCooldownMs();
-        Long lastPay = payCooldowns.putIfAbsent(sender.getUUID(), now);
-        if (lastPay != null) {
-            long timeSince = now - lastPay;
-            if (timeSince < cooldownMs) {
-                ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.pay.cooldown"));
-                return 0;
-            }
-            // Update cooldown time
-            payCooldowns.put(sender.getUUID(), now);
-        }
         
         // Check if economy is enabled
         if (!EconomyManager.getInstance().isEnabled()) {
@@ -163,13 +153,31 @@ public class PayCommand {
 
         // Use validated amount
         java.math.BigDecimal amount = amountValidation.getValue(java.math.BigDecimal.class);
+        String requestId;
+        try { requestId = StringArgumentType.getString(ctx, "request-id"); }
+        catch (IllegalArgumentException ignored) { requestId = null; }
 
         // Calculate tax
-        java.math.BigDecimal fee = amount.multiply(java.math.BigDecimal.valueOf(com.pedrodalben.bigbangessentials.config.ConfigManager.getEconomyTaxPercentage()).movePointLeft(2));
+        java.math.BigDecimal fee = amount.multiply(java.math.BigDecimal.valueOf(com.pedrodalben.bigbangessentials.config.ConfigManager.getEconomyTaxPercentage()).movePointLeft(2))
+                .setScale(com.pedrodalben.bigbangessentials.config.ConfigManager.getEconomyCurrencyScale(), com.pedrodalben.bigbangessentials.config.ConfigManager.getEconomyRoundingMode());
         java.math.BigDecimal netAmount = amount.subtract(fee);
 
+        String operationKey = "pay:" + sender.getUUID() + ":" + finalRecipientUUID + ":"
+                + (requestId == null || requestId.isBlank() ? UUID.randomUUID() : requestId);
+        boolean replay = requestId != null && !requestId.isBlank()
+                && EconomyManager.getInstance().findOperation(operationKey).isPresent();
+        if (!replay) {
+            long now = System.currentTimeMillis();
+            long cooldownMs = getPayCooldownMs();
+            Long lastPay = payCooldowns.putIfAbsent(sender.getUUID(), now);
+            if (lastPay != null && now - lastPay < cooldownMs) {
+                ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.pay.cooldown"));
+                return 0;
+            }
+            payCooldowns.put(sender.getUUID(), now);
+        }
         boolean success = com.pedrodalben.bigbangessentials.api.EconomyAPI.payPlayer(
-            sender.getUUID(), finalRecipientUUID, amount);
+            sender.getUUID(), finalRecipientUUID, amount, operationKey);
         if (!success) {
             ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.pay.insufficient_funds"));
             return 0;
@@ -181,25 +189,27 @@ public class PayCommand {
             finalRecipientName, amount, fee, netAmount, currency), false);
 
         // Notify recipient if online
-        if (onlineRecipient != null) {
+        if (onlineRecipient != null && !replay) {
             onlineRecipient.sendSystemMessage(MessageUtil.info(
                 "commands.bigbangessentials.pay.received_fee",
                 sender.getGameProfile().getName(), netAmount, fee, currency));
         }
 
-        com.pedrodalben.bigbangessentials.economy.managers.TransactionHistoryManager.getInstance()
-            .addTransaction(sender.getUUID(), MessageUtil.localize(
-                "commands.bigbangessentials.transaction.paid", finalRecipientName, amount, fee));
-        com.pedrodalben.bigbangessentials.economy.managers.TransactionHistoryManager.getInstance()
-            .addTransaction(finalRecipientUUID, MessageUtil.localize(
-                "commands.bigbangessentials.transaction.received", netAmount,
-                sender.getGameProfile().getName(), fee));
+        if (!replay) {
+            com.pedrodalben.bigbangessentials.economy.managers.TransactionHistoryManager.getInstance()
+                .addTransaction(sender.getUUID(), MessageUtil.localize(
+                    "commands.bigbangessentials.transaction.paid", finalRecipientName, amount, fee));
+            com.pedrodalben.bigbangessentials.economy.managers.TransactionHistoryManager.getInstance()
+                .addTransaction(finalRecipientUUID, MessageUtil.localize(
+                    "commands.bigbangessentials.transaction.received", netAmount,
+                    sender.getGameProfile().getName(), fee));
 
-        com.pedrodalben.bigbangessentials.util.Platform.postEvent(
-            new com.pedrodalben.bigbangessentials.economy.events.EconomyTransactionEvent(
-                com.pedrodalben.bigbangessentials.economy.events.EconomyTransactionEvent.Type.PAY,
-                sender.getUUID(), finalRecipientUUID, netAmount,
-                MessageUtil.localize("commands.bigbangessentials.transaction.pay_description", fee)));
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(
+                new com.pedrodalben.bigbangessentials.economy.events.EconomyTransactionEvent(
+                    com.pedrodalben.bigbangessentials.economy.events.EconomyTransactionEvent.Type.PAY,
+                    sender.getUUID(), finalRecipientUUID, netAmount,
+                    MessageUtil.localize("commands.bigbangessentials.transaction.pay_description", fee)));
+        }
 
         BaltopCommand.invalidateCache();
         return 1;

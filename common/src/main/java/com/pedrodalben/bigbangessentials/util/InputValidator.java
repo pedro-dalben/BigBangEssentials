@@ -65,9 +65,6 @@ public class InputValidator {
      * Validates an economic amount for transactions.
      */
     public static ValidationResult validateEconomyAmount(double amount) {
-        if (!com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isInputValidationEnabled()) {
-            return ValidationResult.success(amount);
-        }
         if (Double.isNaN(amount) || Double.isInfinite(amount)) {
             return ValidationResult.failure("Invalid amount: not a valid number");
         }
@@ -75,13 +72,15 @@ public class InputValidator {
             return ValidationResult.failure("Amount must be positive");
         }
         BigDecimal bd = BigDecimal.valueOf(amount);
-        BigDecimal maxAmount = getMaxEconomyAmount();
-        BigDecimal minAmount = getMinEconomyAmount();
-        if (bd.compareTo(maxAmount) > 0) {
-            return ValidationResult.failure("Amount too large (max " + maxAmount + ")");
-        }
-        if (bd.compareTo(minAmount) < 0) {
-            return ValidationResult.failure("Amount too small (min " + minAmount + ")");
+        if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isInputValidationEnabled()) {
+            BigDecimal maxAmount = getMaxEconomyAmount();
+            BigDecimal minAmount = getMinEconomyAmount();
+            if (bd.compareTo(maxAmount) > 0) {
+                return ValidationResult.failure("Amount too large (max " + maxAmount + ")");
+            }
+            if (bd.compareTo(minAmount) < 0) {
+                return ValidationResult.failure("Amount too small (min " + minAmount + ")");
+            }
         }
         return ValidationResult.success(bd);
     }
