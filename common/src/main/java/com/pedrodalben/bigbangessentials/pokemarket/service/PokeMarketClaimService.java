@@ -1,9 +1,9 @@
 package com.pedrodalben.bigbangessentials.pokemarket.service;
 
-import com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI;
-import com.pedrodalben.bigbangessentials.api.economy.EconomyService;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyServiceImpl;
 import com.pedrodalben.bigbangessentials.api.economy.IdempotentEconomyService;
 import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
+import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import com.pedrodalben.bigbangessentials.pokemarket.cobblemon.*;
 import com.pedrodalben.bigbangessentials.pokemarket.model.*;
@@ -15,9 +15,18 @@ import java.util.concurrent.CompletableFuture;
 public final class PokeMarketClaimService {
     private final CobblemonMarketBridge bridge;
     private final PokeMarketClaimRepository claims;
-    private final IdempotentEconomyService economy = BigBangEssentialsAPI.getEconomyService() instanceof IdempotentEconomyService idempotent ? idempotent : null;
-    private final DatabaseEconomyService databaseEconomy = BigBangEssentialsAPI.getEconomyService() instanceof DatabaseEconomyService db ? db : null;
-    public PokeMarketClaimService(CobblemonMarketBridge bridge, PokeMarketClaimRepository claims) { this.bridge = bridge; this.claims = claims; }
+    private final IdempotentEconomyService economy;
+    private final DatabaseEconomyService databaseEconomy;
+    public PokeMarketClaimService(CobblemonMarketBridge bridge, PokeMarketClaimRepository claims) {
+        this.bridge = bridge; this.claims = claims;
+        if ("DATABASE".equals(ConfigManager.getEconomyBackend()) && DatabaseManager.getInstance().isReady()) {
+            DatabaseEconomyService db = new DatabaseEconomyService(DatabaseManager.getInstance());
+            this.databaseEconomy = db; this.economy = db;
+        } else {
+            this.databaseEconomy = null;
+            this.economy = new EconomyServiceImpl(com.pedrodalben.bigbangessentials.util.ResourceUtil.getDataPath("balances.json"));
+        }
+    }
 
     public CompletableFuture<String> claim(ServerPlayer player, UUID id) {
         return claims.findById(id).thenCompose(row -> {
@@ -31,12 +40,17 @@ public final class PokeMarketClaimService {
                         if (databaseEconomy != null) {
                             DatabaseManager.getInstance().getExecutor().transaction("pokemarket.claim.money", c -> {
                                 var receipt = databaseEconomy.credit(c, player.getUUID(), claim.money(), "pokemarket:claim-money:" + id, "PokéMarket money claim", java.util.Map.of("source", "pokemarket", "reference", id.toString()));
+                                if (receipt.status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.IDEMPOTENCY_CONFLICT) {
+                                    try (var s = c.prepareStatement("UPDATE bbe_pokemarket_claims SET status='ADMIN_LOCKED' WHERE id=? AND status='PROCESSING'")) { s.setString(1, id.toString()); s.executeUpdate(); }
+                                    return "recovery_required";
+                                }
                                 if (receipt.status() != com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED) throw new java.sql.SQLException("Credit " + receipt.status());
                                 try (var s = c.prepareStatement("UPDATE bbe_pokemarket_claims SET status='CLAIMED',claimed_at=? WHERE id=? AND status='PROCESSING'")) { s.setLong(1, System.currentTimeMillis()); s.setString(2, id.toString()); if (s.executeUpdate() != 1) throw new java.sql.SQLException("Claim state changed"); }
-                                return true;
-                            }).thenAccept(done -> result.complete("success")).exceptionally(error -> { claims.markAvailable(id); result.complete("deposit_failed"); return null; });
+                                return "success";
+                            }).thenAccept(result::complete).exceptionally(error -> { claims.markAvailable(id); result.complete("deposit_failed"); return null; });
                         } else if (economy == null) { result.complete("economy_unavailable"); return; }
                         else economy.credit(player.getUUID(), claim.money(), "pokemarket:claim-money:" + id, "PokéMarket money claim", java.util.Map.of("claim", id.toString())).thenAccept(receipt -> {
+                            if (receipt.status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.IDEMPOTENCY_CONFLICT) { claims.markAdminLocked(id); result.complete("recovery_required"); return; }
                             if (receipt.status() != com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED) { claims.markAvailable(id); result.complete("deposit_failed"); return; }
                             claims.markClaimed(id).thenAccept(done -> result.complete(done ? "success" : "recovery_required"));
                         });

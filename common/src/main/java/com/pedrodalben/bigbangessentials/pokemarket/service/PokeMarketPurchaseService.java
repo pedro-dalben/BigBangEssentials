@@ -1,7 +1,7 @@
 package com.pedrodalben.bigbangessentials.pokemarket.service;
 
-import com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI;
 import com.pedrodalben.bigbangessentials.api.economy.*;
+import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import com.pedrodalben.bigbangessentials.pokemarket.cobblemon.Cobblemon173MarketBridge;
 import com.pedrodalben.bigbangessentials.pokemarket.cobblemon.SerializedPokemon;
@@ -37,9 +37,14 @@ public final class PokeMarketPurchaseService {
     public PokeMarketPurchaseService(PokeMarketListingRepository listings, PokeMarketClaimRepository claims, PokeMarketTransactionRepository transactions, PokeMarketAuditRepository audit, PokeMarketFailureInjector failureInjector) {
         this.listings = listings; this.claims = claims; this.transactions = transactions; this.audit = audit;
         this.failureInjector = failureInjector;
-        EconomyService service = BigBangEssentialsAPI.getEconomyService();
-        this.economy = service instanceof IdempotentEconomyService idempotent ? idempotent : null;
-        this.jdbcEconomy = service instanceof DatabaseEconomyService db ? db : null;
+        if ("DATABASE".equals(ConfigManager.getEconomyBackend()) && database.isReady()) {
+            DatabaseEconomyService db = new DatabaseEconomyService(database);
+            this.economy = db;
+            this.jdbcEconomy = db;
+        } else {
+            this.economy = new EconomyServiceImpl(com.pedrodalben.bigbangessentials.util.ResourceUtil.getDataPath("balances.json"));
+            this.jdbcEconomy = null;
+        }
     }
 
     public CompletableFuture<String> buy(ServerPlayer buyer, UUID listingId) {

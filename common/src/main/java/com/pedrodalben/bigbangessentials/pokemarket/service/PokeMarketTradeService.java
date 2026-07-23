@@ -2,13 +2,13 @@ package com.pedrodalben.bigbangessentials.pokemarket.service;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI;
 import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationReceipt;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyService;
 import com.pedrodalben.bigbangessentials.api.economy.IdempotentEconomyService;
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.pokemarket.cobblemon.Cobblemon173MarketBridge;
 import com.pedrodalben.bigbangessentials.pokemarket.cobblemon.CobblemonMarketBridge;
 import com.pedrodalben.bigbangessentials.pokemarket.cobblemon.OwnedPokemonReference;
@@ -46,8 +46,8 @@ public final class PokeMarketTradeService {
     public PokeMarketTradeService(PokeMarketListingRepository listings, PokeMarketClaimRepository claims, PokeMarketAuditRepository audit, PokeMarketFailureInjector failureInjector) {
         this.listings = listings; this.claims = claims; this.audit = audit;
         this.failureInjector = failureInjector;
-        EconomyService svc = BigBangEssentialsAPI.getEconomyService();
-        this.jdbcEconomy = svc instanceof DatabaseEconomyService db ? db : null;
+        this.jdbcEconomy = "DATABASE".equals(ConfigManager.getEconomyBackend()) && database.isReady()
+                ? new DatabaseEconomyService(database) : null;
     }
 
     /** Create a POKEMON_TRADE listing. Requirements encoded in requested_pokemon_json. */

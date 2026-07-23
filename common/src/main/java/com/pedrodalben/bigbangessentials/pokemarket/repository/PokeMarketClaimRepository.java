@@ -34,6 +34,9 @@ public final class PokeMarketClaimRepository {
     public CompletableFuture<Boolean> markAvailable(UUID claim) {
         return database.getExecutor().executeUpdate("pokemarket.claim.available", "UPDATE bbe_pokemarket_claims SET status=? WHERE id=? AND status=?", s -> { s.setString(1, ClaimStatus.AVAILABLE.name()); s.setString(2, claim.toString()); s.setString(3, ClaimStatus.PROCESSING.name()); }).thenApply(rows -> rows == 1);
     }
+    public CompletableFuture<Boolean> markAdminLocked(UUID claim) {
+        return database.getExecutor().executeUpdate("pokemarket.claim.recovery", "UPDATE bbe_pokemarket_claims SET status=? WHERE id=? AND status=?", s -> { s.setString(1, ClaimStatus.ADMIN_LOCKED.name()); s.setString(2, claim.toString()); s.setString(3, ClaimStatus.PROCESSING.name()); }).thenApply(rows -> rows == 1);
+    }
 
     public CompletableFuture<java.util.List<com.pedrodalben.bigbangessentials.pokemarket.model.ClaimRecord>> findAvailableByOwner(UUID owner, ClaimType type) {
         String sql = type == null ? "SELECT * FROM bbe_pokemarket_claims WHERE owner_uuid=? AND status=? ORDER BY created_at" : "SELECT * FROM bbe_pokemarket_claims WHERE owner_uuid=? AND status=? AND claim_type=? ORDER BY created_at";
