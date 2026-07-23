@@ -74,7 +74,7 @@ public final class ShopParser {
             ownerLine = ownerName;
         }
 
-        if (ShopData.ADMIN_SHOP_NAME.equalsIgnoreCase(ownerLine)) {
+        if (ShopData.ADMIN_SHOP_NAME.equals(ownerLine)) {
             shop.ownerUUID = null; // admin shop
         } else {
             shop.ownerUUID = ownerUUID;
@@ -367,6 +367,5 @@ public final class ShopParser {
         return display;
     }
 }
-
 
 

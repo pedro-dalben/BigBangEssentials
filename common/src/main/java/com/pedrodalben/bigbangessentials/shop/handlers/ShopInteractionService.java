@@ -13,9 +13,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Loader-neutral ChestShop interaction logic. */
 public final class ShopInteractionService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ShopInteractionService.class);
+
     private ShopInteractionService() {}
 
     public static boolean handleRightClick(ServerPlayer player, ServerLevel level,
@@ -28,6 +32,7 @@ public final class ShopInteractionService {
         ShopData shop = ShopManager.getInstance().getShopBySign(
                 level.dimension().location().toString(), pos);
         if (shop == null) return false;
+        if (blockLegacyShop(player, shop)) return true;
 
         if (shop.itemPending) {
             if (shop.ownerUUID != null && shop.ownerUUID.equals(player.getUUID())) {
@@ -80,6 +85,7 @@ public final class ShopInteractionService {
         ShopData shop = ShopManager.getInstance().getShopBySign(
                 level.dimension().location().toString(), pos);
         if (shop == null) return false;
+        if (blockLegacyShop(player, shop)) return true;
 
         if (shop.ownerUUID != null && shop.ownerUUID.equals(player.getUUID())) {
             sendShopInfo(player, shop);
@@ -148,8 +154,21 @@ public final class ShopInteractionService {
             case SHOP_DISABLED -> player.sendSystemMessage(Component.literal(buying
                     ? "§cThis shop doesn't sell items."
                     : "§cThis shop doesn't buy items."));
+            case LEGACY_UNOWNED -> player.sendSystemMessage(Component.literal(
+                    "§cThis legacy shop has no owner UUID. Ask an admin to recreate it."));
+            case RECOVERY_REQUIRED -> player.sendSystemMessage(Component.literal(
+                    "§cThis transaction requires administrative recovery. Do not retry it."));
             default -> player.sendSystemMessage(Component.literal("§cTransaction failed (internal error)."));
         }
+    }
+
+    private static boolean blockLegacyShop(ServerPlayer player, ShopData shop) {
+        if (!shop.isLegacyUnownedShop()) return false;
+        LOGGER.warn(
+                "[ChestShop] Blocked legacy shop without owner UUID at {} for {}", shop.toKey(), player.getUUID());
+        player.sendSystemMessage(Component.literal(
+                "§cThis legacy shop has no owner UUID. Ask an admin to recreate it."));
+        return true;
     }
 
     private static void sendShopInfo(ServerPlayer player, ShopData shop) {

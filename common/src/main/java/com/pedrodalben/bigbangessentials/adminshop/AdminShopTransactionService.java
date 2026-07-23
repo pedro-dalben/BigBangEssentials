@@ -13,11 +13,11 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
-/** Single synchronized saga boundary. ponytail: global lock; shard by product if throughput matters. */
+/** Product-scoped saga boundary. */
 public final class AdminShopTransactionService {
     public enum Operation { BUY, SELL }
     public record Result(boolean success, String message) {}
@@ -26,12 +26,20 @@ public final class AdminShopTransactionService {
     private static final AdminShopTransactionService INSTANCE = new AdminShopTransactionService();
     private final AdminShopManager manager = AdminShopManager.getInstance();
     private final GemsServiceImpl gems = new GemsServiceImpl();
-    private final Map<String, Long> recentClicks = new HashMap<>();
+    private final Map<String, Object> productLocks = new ConcurrentHashMap<>();
 
     public static AdminShopTransactionService getInstance() { return INSTANCE; }
     static String currencyPermission(String currency) { return "bigbangessentials.adminshop." + currency; }
 
-    public synchronized Result execute(ServerPlayer player, String productId, Operation operation) {
+    public Result execute(ServerPlayer player, String productId, Operation operation) {
+        if (productId == null) return fail("§cProduto indisponível.");
+        Object lock = productLocks.computeIfAbsent(productId, ignored -> new Object());
+        synchronized (lock) {
+            return executeLocked(player, productId, operation);
+        }
+    }
+
+    private Result executeLocked(ServerPlayer player, String productId, Operation operation) {
         AdminShopConfig.Product product = manager.config().product(productId);
         if (player == null || product == null) return fail("§cProduto indisponível.");
         boolean buy = operation == Operation.BUY;
@@ -44,12 +52,6 @@ public final class AdminShopTransactionService {
             return fail("§cVocê não possui permissão.");
         }
 
-        String clickKey = player.getUUID() + ":" + productId + ":" + operation;
-        long now = System.currentTimeMillis();
-        if (recentClicks.size() > 10_000) recentClicks.entrySet().removeIf(e -> now - e.getValue() > 1_000);
-        if (now - recentClicks.getOrDefault(clickKey, 0L) < 400) return fail("§7Aguarde a conclusão da transação.");
-        recentClicks.put(clickKey, now);
-
         long used = manager.state.limits.getOrDefault(player.getUUID() + ":" + productId, 0L);
         if (product.limit >= 0 && (used > product.limit || product.quantity > product.limit - used)) return fail("§cLimite individual atingido.");
         long remaining = manager.state.remaining.getOrDefault(productId, product.stock);
@@ -61,6 +63,9 @@ public final class AdminShopTransactionService {
 
         String tx = UUID.randomUUID().toString();
         String economicKey = "adminshop:" + (buy ? "buy:" : "sell:") + tx;
+        if (product.isCommand() && !product.command.contains("{transaction}")) {
+            return fail("§cEste produto não possui contrato transacional.");
+        }
         if (!manager.sql.startAudit(tx, player.getUUID(), productId, operation.name(), currency, product.quantity, price, economicKey,
             buy && product.stock >= 0 ? "CHECKED" : "NOT_APPLICABLE", "CHECKED")) {
             LOGGER.error("AdminShop transaction {} blocked: audit could not be started", tx);
@@ -79,6 +84,7 @@ public final class AdminShopTransactionService {
         boolean gemsCaptured = false;
         boolean itemApplied = false;
         boolean commandAttempted = false;
+        boolean statePersisted = false;
         int itemsRemoved = 0;
         String itemStage = "PENDING";
         String stockStage = buy && product.stock >= 0 ? "CHECKED" : "NOT_APPLICABLE";
@@ -104,8 +110,12 @@ public final class AdminShopTransactionService {
                 updateAudit(tx, AdminShopAuditStatus.MONEY_APPLIED, receipt, itemStage, stockStage, limitStage, demandStage, null);
                 if (product.isCommand()) {
                     commandAttempted = true;
-                    player.getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack().withPermission(4), product.command.replace("{player}", player.getName().getString()));
-                } else if (!player.getInventory().add(stack.copy())) {
+                    String command = product.command.replace("{player}", player.getName().getString()).replace("{transaction}", tx);
+                    if (command.startsWith("/")) command = command.substring(1);
+                    int commandResult = player.getServer().getCommands().getDispatcher().execute(
+                            command, player.createCommandSourceStack().withPermission(4));
+                    if (commandResult <= 0) throw new SagaFailure("§cO comando não confirmou a entrega.");
+                } else if (addItems(player, stack) != product.quantity) {
                     throw new SagaFailure("§cO item não pôde ser entregue.");
                 }
                 itemApplied = true;
@@ -136,13 +146,21 @@ public final class AdminShopTransactionService {
             manager.state.demand.put(productId, Math.max(-1000, Math.min(1000, manager.state.demand.get(productId))));
             demandStage = "APPLIED";
             updateAudit(tx, buy ? AdminShopAuditStatus.ITEM_APPLIED : AdminShopAuditStatus.MONEY_APPLIED, receipt, itemStage, stockStage, limitStage, demandStage, null);
-            manager.saveState();
+            long nextRemaining = manager.state.remaining.getOrDefault(productId, remaining);
+            long nextUsed = manager.state.limits.getOrDefault(playerProduct, used);
+            long nextDemand = manager.state.demand.getOrDefault(productId, 0L);
+            manager.saveStateDelta(productId, remaining, nextRemaining, player.getUUID(), used, nextUsed,
+                    oldDemand, nextDemand, hadRemaining, hadLimit, hadDemand,
+                    manager.state.remaining.containsKey(productId), manager.state.limits.containsKey(playerProduct),
+                    manager.state.demand.containsKey(productId));
+            statePersisted = true;
             if (!manager.sql.log(tx, player.getUUID(), productId, operation.name(), currency, price)) throw new SagaFailure("§cO registro legado não pôde ser gravado.");
             updateAudit(tx, AdminShopAuditStatus.COMPLETED, receipt, itemStage, stockStage, limitStage, demandStage, null);
             return new Result(true, "§aTransação concluída: §f" + (product.displayName == null ? productId : product.displayName) + " §7(" + price + " " + currency + ")");
         } catch (Exception error) {
             LOGGER.error("AdminShop transaction {} failed for player {} and product {}", tx, player.getUUID(), productId, error);
-            boolean stateCompensated = restoreState(tx, playerProduct, productId, used, oldDemand, remaining, hadLimit, hadDemand, hadRemaining);
+            boolean stateCompensated = restoreState(tx, player.getUUID(), playerProduct, productId, used, oldDemand, remaining,
+                    hadLimit, hadDemand, hadRemaining, statePersisted);
             boolean itemCompensated;
             try { itemCompensated = compensateItem(player, stack, product.quantity, buy, itemApplied, commandAttempted, itemsRemoved); }
             catch (Exception ignored) { itemCompensated = false; }
@@ -172,13 +190,25 @@ public final class AdminShopTransactionService {
         return true;
     }
 
-    private boolean restoreState(String tx, String playerProduct, String productId, long used, long oldDemand, long remaining,
-                                 boolean hadLimit, boolean hadDemand, boolean hadRemaining) {
+    private boolean restoreState(String tx, UUID player, String playerProduct, String productId, long used, long oldDemand, long remaining,
+                                 boolean hadLimit, boolean hadDemand, boolean hadRemaining, boolean persisted) {
+        long currentRemaining = manager.state.remaining.getOrDefault(productId, remaining);
+        long currentUsed = manager.state.limits.getOrDefault(playerProduct, used);
+        long currentDemand = manager.state.demand.getOrDefault(productId, oldDemand);
+        boolean currentHasRemaining = manager.state.remaining.containsKey(productId);
+        boolean currentHasLimit = manager.state.limits.containsKey(playerProduct);
+        boolean currentHasDemand = manager.state.demand.containsKey(productId);
         restore(manager.state.limits, playerProduct, used, hadLimit);
         restore(manager.state.demand, productId, oldDemand, hadDemand);
         restore(manager.state.remaining, productId, remaining, hadRemaining);
         manager.state.processed.remove(tx);
-        try { manager.saveState(); return true; } catch (Exception e) { LOGGER.error("AdminShop state compensation failed for {}", tx, e); return false; }
+        if (!persisted) return true;
+        try {
+            manager.saveStateDelta(productId, currentRemaining, remaining, player, currentUsed, used,
+                    currentDemand, oldDemand, currentHasRemaining, currentHasLimit, currentHasDemand,
+                    hadRemaining, hadLimit, hadDemand);
+            return true;
+        } catch (Exception e) { LOGGER.error("AdminShop state compensation failed for {}", tx, e); return false; }
     }
 
     private boolean compensateItem(ServerPlayer player, ItemStack stack, int quantity, boolean buy, boolean itemApplied, boolean commandAttempted, int removed) {
@@ -189,7 +219,7 @@ public final class AdminShopTransactionService {
         }
         if (!itemApplied && removed == 0) return true;
         ItemStack restored = stack.copyWithCount(removed);
-        return player.getInventory().add(restored);
+        return addItems(player, restored) == removed;
     }
 
     private boolean compensateMoney(UUID player, BigDecimal price, String currency, boolean buy, String economicKey,
@@ -230,6 +260,19 @@ public final class AdminShopTransactionService {
     }
     private static boolean hasRoom(ServerPlayer player, ItemStack wanted) {
         int free = 0; for (ItemStack stack : player.getInventory().items) free += stack.isEmpty() ? wanted.getMaxStackSize() : ItemStack.isSameItemSameComponents(stack, wanted) ? Math.max(0, stack.getMaxStackSize() - stack.getCount()) : 0; return free >= wanted.getCount();
+    }
+    private static int addItems(ServerPlayer player, ItemStack wanted) {
+        ItemStack remaining = wanted.copy();
+        int before = remaining.getCount();
+        player.getInventory().add(remaining);
+        int accepted = before - remaining.getCount();
+        if (!remaining.isEmpty()) {
+            boolean pending = com.pedrodalben.bigbangessentials.crates.service.CratePendingDeliveryService.getInstance()
+                    .storePending(player.getUUID(), remaining.copy(), "adminshop");
+            if (pending) return before;
+            if (accepted > 0) remove(player, wanted, accepted);
+        }
+        return accepted;
     }
     private static int remove(ServerPlayer player, ItemStack wanted, int amount) {
         int removed = 0; for (ItemStack stack : player.getInventory().items) if (amount > 0 && ItemStack.isSameItemSameComponents(stack, wanted)) { int n = Math.min(amount, stack.getCount()); stack.shrink(n); amount -= n; removed += n; } return removed;

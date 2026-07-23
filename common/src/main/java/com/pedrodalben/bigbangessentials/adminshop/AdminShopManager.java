@@ -37,6 +37,27 @@ public final class AdminShopManager {
         }
         catch (Exception e) { throw new IllegalStateException("Could not persist admin shop state", e); }
     }
+
+    synchronized void saveStateDelta(String productId, long oldRemaining, long remaining, UUID player,
+                                      long oldUsed, long used, long oldDemand, long demand,
+                                      boolean hadRemaining, boolean hadLimit, boolean hadDemand,
+                                      boolean hasRemaining, boolean hasLimit, boolean hasDemand) {
+        try {
+            if (!sql.saveDelta(productId, oldRemaining, remaining, player, oldUsed, used, oldDemand, demand,
+                    hadRemaining, hadLimit, hadDemand, hasRemaining, hasLimit, hasDemand)) {
+                throw new IllegalStateException("Concurrent AdminShop state change");
+            }
+            Files.createDirectories(statePath().getParent());
+            Path tmp = statePath().resolveSibling("adminshop_state.json.tmp");
+            try (Writer w = Files.newBufferedWriter(tmp)) { GSON.toJson(state, w); }
+            Files.move(tmp, statePath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (Exception e) {
+            try { sql.saveDelta(productId, remaining, oldRemaining, player, used, oldUsed, demand, oldDemand,
+                    hasRemaining, hasLimit, hasDemand, hadRemaining, hadLimit, hadDemand); }
+            catch (Exception ignored) { }
+            throw new IllegalStateException("Could not persist admin shop state delta", e);
+        }
+    }
     private synchronized void loadState() {
         state.remaining.clear(); state.limits.clear(); state.demand.clear(); state.processed.clear();
         try { if (!Files.exists(statePath())) return; try (Reader r = Files.newBufferedReader(statePath())) { State loaded = GSON.fromJson(r, State.class); if (loaded != null) { if (loaded.remaining != null) state.remaining.putAll(loaded.remaining); if (loaded.limits != null) state.limits.putAll(loaded.limits); if (loaded.demand != null) state.demand.putAll(loaded.demand); if (loaded.processed != null) state.processed.addAll(loaded.processed); } } }

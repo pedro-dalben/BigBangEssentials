@@ -70,8 +70,12 @@ public class ShopData {
     public BlockPos getChestPos() { return hasChest ? new BlockPos(chestX, chestY, chestZ) : null; }
 
     public boolean isAdminShop() {
-        return ownerUUID == null ||
-               ADMIN_SHOP_NAME.equalsIgnoreCase(ownerName != null ? ownerName.trim() : "");
+        return ADMIN_SHOP_NAME.equals(ownerName != null ? ownerName.trim() : "");
+    }
+
+    /** Legacy entries without an owner are neither player nor admin shops. */
+    public boolean isLegacyUnownedShop() {
+        return ownerUUID == null && !isAdminShop();
     }
 
     public boolean canBuy()  { return buyPrice  != null; }
@@ -91,4 +95,3 @@ public class ShopData {
             itemId, toKey());
     }
 }
-

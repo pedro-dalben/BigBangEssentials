@@ -91,7 +91,7 @@ public final class ShopSignRegistrationService {
             lines[ShopData.NAME_LINE] = ownerLine;
         }
 
-        boolean wantsAdmin = ShopData.ADMIN_SHOP_NAME.equalsIgnoreCase(ownerLine);
+        boolean wantsAdmin = ShopData.ADMIN_SHOP_NAME.equals(ownerLine);
         if (wantsAdmin && !PermissionAPI.hasPermission(player.getUUID(), "bigbangessentials.shop.create.admin")) {
             player.sendSystemMessage(Component.literal("§cYou don't have permission to create admin shops."));
             return;

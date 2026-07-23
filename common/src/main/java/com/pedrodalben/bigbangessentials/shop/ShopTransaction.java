@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Executes buy/sell transactions for ChestShop.
@@ -24,13 +25,14 @@ import java.util.UUID;
 public final class ShopTransaction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ShopTransaction.class);
+    private static final Map<String, Object> SHOP_LOCKS = new ConcurrentHashMap<>();
 
     private ShopTransaction() {}
 
     // ── Result ────────────────────────────────────────────────────────────────
 
     public enum ResultType { SUCCESS, NOT_ENOUGH_MONEY, NOT_ENOUGH_STOCK, NO_SPACE,
-                             NO_CHEST, NO_ECONOMY_ACCOUNT, SHOP_DISABLED, ERROR }
+                             NO_CHEST, NO_ECONOMY_ACCOUNT, SHOP_DISABLED, LEGACY_UNOWNED, RECOVERY_REQUIRED, ERROR }
 
     public static class TransactionResult {
         public final ResultType type;
@@ -64,6 +66,15 @@ public final class ShopTransaction {
     }
 
     public static TransactionResult executeBuy(ServerPlayer buyer, ShopData shop, ServerLevel level, String transactionId) {
+        if (shop == null) return fail(ResultType.ERROR);
+        synchronized (SHOP_LOCKS.computeIfAbsent(shop.toKey(), ignored -> new Object())) {
+            return executeBuyLocked(buyer, shop, level, transactionId);
+        }
+    }
+
+    private static TransactionResult executeBuyLocked(ServerPlayer buyer, ShopData shop, ServerLevel level, String transactionId) {
+        if (shop.isLegacyUnownedShop()) return fail(ResultType.LEGACY_UNOWNED);
+        if (ChestShopTransactionJournal.getInstance().hasPending(shop.toKey(), buyer.getUUID())) return fail(ResultType.RECOVERY_REQUIRED);
         if (!shop.canBuy()) return fail(ResultType.SHOP_DISABLED);
 
         EconomyManager eco = EconomyManager.getInstance();
@@ -73,7 +84,6 @@ public final class ShopTransaction {
         ItemStack template = resolveItem(shop.itemId);
         if (template.isEmpty()) return fail(ResultType.ERROR);
         ItemStack item = template.copyWithCount(shop.quantity);
-
         // Check buyer has enough money
         BigDecimal buyerBalance = eco.getBalance(buyer.getUUID());
         if (buyerBalance.compareTo(price) < 0) return fail(ResultType.NOT_ENOUGH_MONEY);
@@ -88,35 +98,57 @@ public final class ShopTransaction {
 
         // Check buyer inventory has space
         if (!hasSpace(buyer.getInventory(), item)) return fail(ResultType.NO_SPACE);
+        if (!ChestShopTransactionJournal.getInstance().begin(transactionId, "BUY", shop, buyer.getUUID(), price, item)) {
+            return fail(ResultType.ERROR);
+        }
 
         // ── Execute ───────────────────────────────────────────────────────────
         // 1. Deduct money from buyer
         boolean deducted = eco.subtractBalance(buyer.getUUID(), price, "chestshop:buy:debit:" + transactionId, "ChestShop purchase", Map.of("source", "chestshop", "reference", transactionId));
-        if (!deducted) return fail(ResultType.NOT_ENOUGH_MONEY);
+        if (!deducted) { ChestShopTransactionJournal.getInstance().complete(transactionId); return fail(ResultType.NOT_ENOUGH_MONEY); }
 
         // 2. Remove items from chest (skip for admin shops)
         if (!shop.isAdminShop()) {
             ChestBlockEntity chest = getChest(shop, level);
-            if (chest == null) { eco.addBalance(buyer.getUUID(), price, "chestshop:buy:refund:" + transactionId, "ChestShop purchase refund", Map.of("source", "chestshop", "reference", transactionId)); return fail(ResultType.NO_CHEST); }
+            if (chest == null) {
+                boolean refunded = eco.addBalance(buyer.getUUID(), price, "chestshop:buy:refund:" + transactionId, "ChestShop purchase refund", Map.of("source", "chestshop", "reference", transactionId));
+                if (!refunded) { ChestShopTransactionJournal.getInstance().recoveryRequired(transactionId); return fail(ResultType.RECOVERY_REQUIRED); }
+                ChestShopTransactionJournal.getInstance().complete(transactionId);
+                return fail(ResultType.NO_CHEST);
+            }
             if (!removeItems(chest, template, shop.quantity)) {
-                eco.addBalance(buyer.getUUID(), price, "chestshop:buy:refund:" + transactionId, "ChestShop purchase refund", Map.of("source", "chestshop", "reference", transactionId));
+                boolean refunded = eco.addBalance(buyer.getUUID(), price, "chestshop:buy:refund:" + transactionId, "ChestShop purchase refund", Map.of("source", "chestshop", "reference", transactionId));
+                if (!refunded) { ChestShopTransactionJournal.getInstance().recoveryRequired(transactionId); return fail(ResultType.RECOVERY_REQUIRED); }
+                ChestShopTransactionJournal.getInstance().complete(transactionId);
                 return fail(ResultType.NOT_ENOUGH_STOCK);
             }
         }
 
         // 3. Give items to buyer
-        giveItems(buyer, item);
+        if (giveItems(buyer, item) != shop.quantity) {
+            ChestShopTransactionJournal.getInstance().recoveryRequired(transactionId);
+            return fail(ResultType.RECOVERY_REQUIRED);
+        }
 
         // 4. Pay shop owner (skip for admin shops — money is voided)
         if (!shop.isAdminShop() && shop.ownerUUID != null && !eco.addBalance(shop.ownerUUID, price, "chestshop:buy:credit:" + transactionId, "ChestShop sale", Map.of("source", "chestshop", "reference", transactionId))) {
-            removeItems(buyer.getInventory(), item, shop.quantity);
-            if (!shop.isAdminShop()) addItems(getChest(shop, level), template, shop.quantity);
-            eco.addBalance(buyer.getUUID(), price, "chestshop:buy:refund:" + transactionId, "ChestShop purchase refund", Map.of("source", "chestshop", "reference", transactionId));
+            boolean itemRefunded = removeItems(buyer.getInventory(), item, shop.quantity)
+                    && (shop.isAdminShop() || addItems(getChest(shop, level), template, shop.quantity) == shop.quantity);
+            boolean moneyRefunded = eco.addBalance(buyer.getUUID(), price, "chestshop:buy:refund:" + transactionId, "ChestShop purchase refund", Map.of("source", "chestshop", "reference", transactionId));
+            if (!itemRefunded || !moneyRefunded) {
+                ChestShopTransactionJournal.getInstance().recoveryRequired(transactionId);
+                return fail(ResultType.RECOVERY_REQUIRED);
+            }
+            ChestShopTransactionJournal.getInstance().complete(transactionId);
             return fail(ResultType.ERROR);
         }
 
         LOGGER.debug("[ChestShop] BUY: {} bought {}x {} for {} from {}",
             buyer.getName().getString(), shop.quantity, shop.itemId, price, shop.ownerName);
+        if (!ChestShopTransactionJournal.getInstance().complete(transactionId)) {
+            ChestShopTransactionJournal.getInstance().recoveryRequired(transactionId);
+            return fail(ResultType.RECOVERY_REQUIRED);
+        }
         return ok(price, shop.quantity);
     }
 
@@ -132,6 +164,15 @@ public final class ShopTransaction {
     }
 
     public static TransactionResult executeSell(ServerPlayer seller, ShopData shop, ServerLevel level, String transactionId) {
+        if (shop == null) return fail(ResultType.ERROR);
+        synchronized (SHOP_LOCKS.computeIfAbsent(shop.toKey(), ignored -> new Object())) {
+            return executeSellLocked(seller, shop, level, transactionId);
+        }
+    }
+
+    private static TransactionResult executeSellLocked(ServerPlayer seller, ShopData shop, ServerLevel level, String transactionId) {
+        if (shop.isLegacyUnownedShop()) return fail(ResultType.LEGACY_UNOWNED);
+        if (ChestShopTransactionJournal.getInstance().hasPending(shop.toKey(), seller.getUUID())) return fail(ResultType.RECOVERY_REQUIRED);
         if (!shop.canSell()) return fail(ResultType.SHOP_DISABLED);
 
         EconomyManager eco = EconomyManager.getInstance();
@@ -141,7 +182,6 @@ public final class ShopTransaction {
         ItemStack template = resolveItem(shop.itemId);
         if (template.isEmpty()) return fail(ResultType.ERROR);
         ItemStack item = template.copyWithCount(shop.quantity);
-
         // Check seller has the items
         int available = countItems(seller.getInventory(), template);
         if (available < shop.quantity) return fail(ResultType.NOT_ENOUGH_STOCK);
@@ -158,16 +198,23 @@ public final class ShopTransaction {
             if (chest == null) return fail(ResultType.NO_CHEST);
             if (!hasSpaceInContainer(chest, template, shop.quantity)) return fail(ResultType.NO_SPACE);
         }
+        if (!ChestShopTransactionJournal.getInstance().begin(transactionId, "SELL", shop, seller.getUUID(), price, item)) {
+            return fail(ResultType.ERROR);
+        }
 
         // ── Execute ───────────────────────────────────────────────────────────
         // 1. Remove items from seller
-        if (!removeItemsFromPlayer(seller, template, shop.quantity)) return fail(ResultType.NOT_ENOUGH_STOCK);
+        if (!removeItemsFromPlayer(seller, template, shop.quantity)) { ChestShopTransactionJournal.getInstance().complete(transactionId); return fail(ResultType.NOT_ENOUGH_STOCK); }
 
         // 2. Deduct money from owner (skip for admin shops)
         if (!shop.isAdminShop() && shop.ownerUUID != null) {
             boolean deducted = eco.subtractBalance(shop.ownerUUID, price, "chestshop:sell:debit:" + transactionId, "ChestShop purchase", Map.of("source", "chestshop", "reference", transactionId));
             if (!deducted) {
-                giveItems(seller, item); // rollback items
+                if (giveItems(seller, item) != shop.quantity) {
+                    ChestShopTransactionJournal.getInstance().recoveryRequired(transactionId);
+                    return fail(ResultType.RECOVERY_REQUIRED);
+                }
+                ChestShopTransactionJournal.getInstance().complete(transactionId);
                 return fail(ResultType.NOT_ENOUGH_MONEY);
             }
         }
@@ -175,19 +222,39 @@ public final class ShopTransaction {
         // 3. Add items to chest (skip for admin shops — voided)
         if (!shop.isAdminShop()) {
             ChestBlockEntity chest = getChest(shop, level);
-            if (chest != null) addItems(chest, template, shop.quantity);
+            if (chest == null || addItems(chest, template, shop.quantity) != shop.quantity) {
+                boolean ownerRefunded = shop.ownerUUID == null || eco.addBalance(shop.ownerUUID, price,
+                        "chestshop:sell:rollback:" + transactionId, "ChestShop sale rollback", Map.of("source", "chestshop", "reference", transactionId));
+                boolean itemRefunded = giveItems(seller, item) == shop.quantity;
+                if (!ownerRefunded || !itemRefunded) {
+                    ChestShopTransactionJournal.getInstance().recoveryRequired(transactionId);
+                    return fail(ResultType.RECOVERY_REQUIRED);
+                }
+                ChestShopTransactionJournal.getInstance().complete(transactionId);
+                return fail(ResultType.NO_SPACE);
+            }
         }
 
         // 4. Pay seller
         if (!eco.addBalance(seller.getUUID(), price, "chestshop:sell:credit:" + transactionId, "ChestShop sale", Map.of("source", "chestshop", "reference", transactionId))) {
-            if (!shop.isAdminShop()) removeItems(getChest(shop, level), template, shop.quantity);
-            giveItems(seller, item);
-            if (!shop.isAdminShop() && shop.ownerUUID != null) eco.addBalance(shop.ownerUUID, price, "chestshop:sell:rollback:" + transactionId, "ChestShop sale rollback", Map.of("source", "chestshop", "reference", transactionId));
+            boolean chestRefunded = shop.isAdminShop() || removeItems(getChest(shop, level), template, shop.quantity);
+            boolean itemRefunded = giveItems(seller, item) == shop.quantity;
+            boolean ownerRefunded = shop.isAdminShop() || shop.ownerUUID == null || eco.addBalance(shop.ownerUUID, price,
+                    "chestshop:sell:rollback:" + transactionId, "ChestShop sale rollback", Map.of("source", "chestshop", "reference", transactionId));
+            if (!chestRefunded || !itemRefunded || !ownerRefunded) {
+                ChestShopTransactionJournal.getInstance().recoveryRequired(transactionId);
+                return fail(ResultType.RECOVERY_REQUIRED);
+            }
+            ChestShopTransactionJournal.getInstance().complete(transactionId);
             return fail(ResultType.ERROR);
         }
 
         LOGGER.debug("[ChestShop] SELL: {} sold {}x {} for {} to {}",
             seller.getName().getString(), shop.quantity, shop.itemId, price, shop.ownerName);
+        if (!ChestShopTransactionJournal.getInstance().complete(transactionId)) {
+            ChestShopTransactionJournal.getInstance().recoveryRequired(transactionId);
+            return fail(ResultType.RECOVERY_REQUIRED);
+        }
         return ok(price, shop.quantity);
     }
 
@@ -223,19 +290,23 @@ public final class ShopTransaction {
 
     /** Remove exactly `amount` of matching items from a Container. Returns false if insufficient. */
     private static boolean removeItems(Container container, ItemStack target, int amount) {
+        if (container == null || target == null || amount <= 0) return false;
         int toRemove = amount;
+        int removed = 0;
         for (int i = 0; i < container.getContainerSize() && toRemove > 0; i++) {
             ItemStack slot = container.getItem(i);
             if (!slot.isEmpty() && ItemStack.isSameItemSameComponents(slot, target)) {
                 int take = Math.min(slot.getCount(), toRemove);
                 slot.shrink(take);
                 toRemove -= take;
+                removed += take;
                 container.setItem(i, slot.isEmpty() ? ItemStack.EMPTY : slot);
             }
         }
         if (container instanceof net.minecraft.world.level.block.entity.BlockEntity be) {
             be.setChanged();
         }
+        if (toRemove != 0) addItems(container, target, removed);
         return toRemove == 0;
     }
 
@@ -244,16 +315,23 @@ public final class ShopTransaction {
         return removeItems(player.getInventory(), target, amount);
     }
 
-    /** Give items to player; overflow drops at feet. */
-    private static void giveItems(ServerPlayer player, ItemStack item) {
-        ItemStack copy = item.copy();
-        if (!player.getInventory().add(copy)) {
-            player.drop(copy, false);
+    /** Give items to player; overflow is durable pending delivery, never silently dropped. */
+    private static int giveItems(ServerPlayer player, ItemStack item) {
+        ItemStack remaining = item.copy();
+        int requested = remaining.getCount();
+        player.getInventory().add(remaining);
+        int accepted = requested - remaining.getCount();
+        if (!remaining.isEmpty()) {
+            boolean pending = com.pedrodalben.bigbangessentials.crates.service.CratePendingDeliveryService.getInstance()
+                    .storePending(player.getUUID(), remaining.copy(), "chestshop");
+            if (pending) return requested;
         }
+        return accepted;
     }
 
     /** Add items to a container (chest), stacking first then filling empty slots. */
-    private static void addItems(Container container, ItemStack target, int amount) {
+    private static int addItems(Container container, ItemStack target, int amount) {
+        if (container == null || target == null || amount <= 0) return 0;
         int toAdd = amount;
         // First: stack onto existing
         for (int i = 0; i < container.getContainerSize() && toAdd > 0; i++) {
@@ -277,6 +355,7 @@ public final class ShopTransaction {
         if (container instanceof net.minecraft.world.level.block.entity.BlockEntity be) {
             be.setChanged();
         }
+        return amount - toAdd;
     }
 
     /** Check if a Container has space for `amount` more of the given item. */
