@@ -17,6 +17,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
@@ -35,7 +37,7 @@ public class EconomyManager {
     
     // Data version tracking - increment when JSON structure changes
     private static final String DATA_VERSION_KEY = "_dataVersion";
-    private static final int CURRENT_DATA_VERSION = 1;
+    private static final int CURRENT_DATA_VERSION = 2;
     
     // Thread-safe singleton using Bill Pugh Singleton Pattern
     private static class SingletonHolder {
@@ -78,31 +80,22 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
         }
         if (!balancesFile.exists()) return;
         try (FileReader reader = new FileReader(balancesFile)) {
-            Type type = new TypeToken<Map<String, Object>>(){}.getType();
-            Map<String, Object> data = gson.fromJson(reader, type);
-            if (data != null) {
-                // Read version if present
-                if (data.containsKey(DATA_VERSION_KEY)) {
-                    Object versionObj = data.get(DATA_VERSION_KEY);
-                    if (versionObj instanceof Number) {
-                        currentBalancesVersion = ((Number) versionObj).intValue();
-                    }
-                    data.remove(DATA_VERSION_KEY); // Don't process version as balance
-                }
-                
-                // Load balances
-                for (Map.Entry<String, Object> entry : data.entrySet()) {
-                    if (!entry.getKey().startsWith("_")) { // Skip metadata fields
-                        balancesCache.put(UUID.fromString(entry.getKey()), new BigDecimal(entry.getValue().toString()));
-                    }
-                }
+            JsonObject data = JsonParser.parseReader(reader).getAsJsonObject();
+            if (data.has(DATA_VERSION_KEY)) currentBalancesVersion = data.get(DATA_VERSION_KEY).getAsInt();
+            if (data.has("_operations")) {
+                Type operationType = new TypeToken<Map<String, EconomyOperationReceipt>>(){}.getType();
+                Map<String, EconomyOperationReceipt> operations = gson.fromJson(data.get("_operations"), operationType);
+                if (operations != null) localOperations.putAll(operations);
+            }
+            for (Map.Entry<String, com.google.gson.JsonElement> entry : data.entrySet()) {
+                if (!entry.getKey().startsWith("_")) balancesCache.put(UUID.fromString(entry.getKey()), new BigDecimal(entry.getValue().getAsString()));
             }
         } catch (Exception e) {
             LOGGER.error("Failed to load balances from file", e);
         }
     }
 
-    private void saveBalancesAtomic() {
+    private synchronized boolean saveBalancesAtomic() {
         if (!balancesFile.getParentFile().exists()) {
             //noinspection ResultOfMethodCallIgnored
             balancesFile.getParentFile().mkdirs();
@@ -117,7 +110,7 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
             // Write to temp file first
             File tempFile = new File(balancesFile.getAbsolutePath() + ".tmp");
             try (FileWriter writer = new FileWriter(tempFile)) {
-                Map<String, Object> data = new ConcurrentHashMap<>();
+                Map<String, Object> data = new java.util.LinkedHashMap<>();
                 
                 // Add version marker
                 data.put(DATA_VERSION_KEY, CURRENT_DATA_VERSION);
@@ -126,6 +119,7 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
                 for (Map.Entry<UUID, BigDecimal> entry : balancesCache.entrySet()) {
                     data.put(entry.getKey().toString(), entry.getValue().toPlainString());
                 }
+                data.put("_operations", new java.util.LinkedHashMap<>(localOperations));
                 gson.toJson(data, writer);
             }
             
@@ -134,8 +128,10 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
             
             // Update current version tracker
             currentBalancesVersion = CURRENT_DATA_VERSION;
-        } catch (IOException e) {
+            return true;
+        } catch (Exception e) {
             LOGGER.error("Failed to save balances to file", e);
+            return false;
         }
     }
 
@@ -163,7 +159,7 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
                 lastActivityMap.remove(uuid);
             }
         }
-        queueAsyncSave();
+            // Scheduled saves remain a durability backstop for legacy callers.
         queueAsyncSaveActivity();
     }
 
@@ -271,27 +267,40 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
     }
 
     public synchronized void setBalance(UUID player, BigDecimal amount) {
+        setBalanceChecked(player, amount);
+    }
+
+    /** Sets a balance and reports whether the durable snapshot was committed. */
+    public synchronized boolean setBalanceChecked(UUID player, BigDecimal amount) {
+        if (player == null || amount == null) return false;
         if (databaseMode) {
-            if (databaseBackend != null) databaseBackend.setBalance(player, amount, "manager:set:" + UUID.randomUUID(), "SERVER", "Set balance", Map.of("source", "economy-manager" )).join();
-            return;
+            if (databaseBackend == null) return false;
+            try { return databaseBackend.setBalance(player, amount, "manager:set:" + UUID.randomUUID(), "SERVER", "Set balance", Map.of("source", "economy-manager" )).join().status() == EconomyOperationStatus.COMPLETED; }
+            catch (RuntimeException e) { return false; }
         }
         if (shuttingDown.get()) {
             LOGGER.warn("Attempted to modify balance during shutdown for player {}", player);
-            return;
+            return false;
         }
         if (!ConfigManager.allowNegativeBalances() && amount.compareTo(BigDecimal.ZERO) < 0) amount = BigDecimal.ZERO;
         BigDecimal maxBalance = BigDecimal.valueOf(ConfigManager.getMaxBalance());
         if (amount.compareTo(maxBalance) > 0) amount = maxBalance;
 
-        BigDecimal finalAmount = amount;
+        BigDecimal finalAmount = amount.setScale(ConfigManager.getEconomyCurrencyScale(), java.math.RoundingMode.HALF_UP);
         BigDecimal oldAmount = balancesCache.put(player, finalAmount);
+        Long oldActivity = lastActivityMap.get(player);
         lastActivityMap.put(player, System.currentTimeMillis());
-        queueAsyncSave();
+        if (!saveBalancesAtomic()) {
+            if (oldAmount == null) balancesCache.remove(player); else balancesCache.put(player, oldAmount);
+            if (oldActivity == null) lastActivityMap.remove(player); else lastActivityMap.put(player, oldActivity);
+            return false;
+        }
         queueAsyncSaveActivity();
         
         // Log transaction
         EconomyTransactionLogger.log("SET", player.toString(), "SERVER", finalAmount.toPlainString(), 
             "Set balance (was: " + (oldAmount != null ? oldAmount.toPlainString() : "new account") + ")");
+        return true;
     }
 
     public synchronized boolean addBalance(UUID player, BigDecimal amount) {
@@ -324,7 +333,7 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
             try { return databaseBackend.credit(player, amount, operationKey, reason, metadata).join(); }
             catch (RuntimeException e) { LOGGER.error("Economy credit failed for {}", player, e); return failedReceipt(player, amount, operationKey); }
         }
-        return mutateLocal(player, amount, operationKey, true, reason);
+        return mutateLocal(player, amount, operationKey, true, reason, metadata);
     }
 
     /** Structured, idempotent debit; boolean methods above remain source-compatible. */
@@ -334,29 +343,113 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
             try { return databaseBackend.debit(player, amount, operationKey, reason, metadata).join(); }
             catch (RuntimeException e) { LOGGER.error("Economy debit failed for {}", player, e); return failedReceipt(player, amount, operationKey); }
         }
-        return mutateLocal(player, amount, operationKey, false, reason);
+        return mutateLocal(player, amount, operationKey, false, reason, metadata);
     }
 
-    private synchronized EconomyOperationReceipt mutateLocal(UUID player, BigDecimal amount, String key, boolean credit, String reason) {
+    /** Transfers money without leaving the sender debited when the recipient cannot be credited. */
+    public synchronized boolean transfer(UUID sender, UUID receiver, BigDecimal amount, BigDecimal fee) {
+        return transfer(sender, receiver, amount, fee, "pay:" + sender + ":" + receiver + ":" + UUID.randomUUID());
+    }
+
+    /** Idempotent transfer boundary used by payments and integrations. */
+    public synchronized boolean transfer(UUID sender, UUID receiver, BigDecimal amount, BigDecimal fee, String operationKey) {
+        if (sender == null || receiver == null || sender.equals(receiver) || amount == null || fee == null
+                || amount.signum() <= 0 || fee.signum() < 0 || operationKey == null || operationKey.isBlank()) return false;
+        BigDecimal credit = amount.subtract(fee);
+        if (credit.signum() <= 0) return false;
+
+        try {
+            amount = normalize(amount);
+            fee = normalize(fee);
+        } catch (RuntimeException e) { return false; }
+        String fingerprint = com.pedrodalben.bigbangessentials.api.economy.EconomyOperationFingerprint.of(sender,
+                "TRANSFER", amount, "money", "pay", operationKey,
+                Map.of("source", "pay", "reference", operationKey, "receiver", receiver.toString(), "fee", fee.toPlainString()));
+        if (databaseMode) {
+            if (databaseBackend == null) return false;
+            try { return databaseBackend.transfer(sender, receiver, amount, fee, operationKey).join(); }
+            catch (RuntimeException e) { LOGGER.error("Economy transfer failed from {} to {}", sender, receiver, e); return false; }
+        }
+        if (shuttingDown.get()) return false;
+
+        EconomyOperationReceipt existing = localOperations.get(operationKey);
+        if (existing != null) {
+            if (existing.fingerprint() != null && !existing.fingerprint().equals(fingerprint)) return false;
+            return existing.status() == EconomyOperationStatus.COMPLETED;
+        }
+
+        BigDecimal senderBefore = getBalance(sender);
+        BigDecimal receiverBefore = getBalance(receiver);
+        BigDecimal senderAfter = updatedBalance(senderBefore, amount.negate(), BigDecimal.valueOf(ConfigManager.getMaxBalance()), ConfigManager.allowNegativeBalances());
+        BigDecimal receiverAfter = updatedBalance(receiverBefore, credit, BigDecimal.valueOf(ConfigManager.getMaxBalance()), ConfigManager.allowNegativeBalances());
+        if (senderAfter == null || receiverAfter == null) return false;
+
+        balancesCache.put(sender, senderAfter);
+        balancesCache.put(receiver, receiverAfter);
+        long now = System.currentTimeMillis();
+        lastActivityMap.put(sender, now);
+        lastActivityMap.put(receiver, now);
+        EconomyOperationReceipt receipt = new EconomyOperationReceipt(UUID.randomUUID(), sender, amount,
+                EconomyOperationStatus.COMPLETED, senderBefore, senderAfter, operationKey, fingerprint);
+        localOperations.put(operationKey, receipt);
+        if (!saveBalancesAtomic()) {
+            balancesCache.put(sender, senderBefore);
+            balancesCache.put(receiver, receiverBefore);
+            localOperations.remove(operationKey);
+            return false;
+        }
+        queueAsyncSaveActivity();
+        EconomyTransactionLogger.log("SUBTRACT", sender.toString(), "SERVER", amount.toPlainString(), "Player payment");
+        EconomyTransactionLogger.log("ADD", "SERVER", receiver.toString(), credit.toPlainString(), "Player payment");
+        return true;
+    }
+
+    private synchronized EconomyOperationReceipt mutateLocal(UUID player, BigDecimal amount, String key, boolean credit, String reason, Map<String, String> metadata) {
         if (key == null || key.isBlank() || amount == null || amount.signum() <= 0) return failedReceipt(player, amount, key);
+        try { amount = normalize(amount); } catch (RuntimeException e) { return failedReceipt(player, amount, key); }
+        Map<String, String> safeMetadata = metadata == null ? Map.of() : metadata;
+        String type = credit ? "CREDIT" : "DEBIT";
+        String fingerprint = com.pedrodalben.bigbangessentials.api.economy.EconomyOperationFingerprint.of(player, type,
+                amount, "money", safeMetadata.getOrDefault("source", "economy"), safeMetadata.get("reference"), safeMetadata);
         EconomyOperationReceipt existing = localOperations.get(key);
-        if (existing != null) return existing;
+        if (existing != null) {
+            if (existing.fingerprint() != null && !existing.fingerprint().equals(fingerprint)) {
+                return new EconomyOperationReceipt(existing.id(), player, amount, EconomyOperationStatus.IDEMPOTENCY_CONFLICT,
+                        existing.balanceBefore(), existing.balanceAfter(), key, fingerprint);
+            }
+            return existing;
+        }
         BigDecimal before = getBalance(player);
         BigDecimal after = credit ? updatedBalance(before, amount, BigDecimal.valueOf(ConfigManager.getMaxBalance()), ConfigManager.allowNegativeBalances()) : before.subtract(amount);
         boolean allowed = after != null && (ConfigManager.allowNegativeBalances() || after.signum() >= 0) && !shuttingDown.get();
         if (!allowed) {
-            EconomyOperationReceipt rejected = new EconomyOperationReceipt(UUID.randomUUID(), player, amount, shuttingDown.get() ? EconomyOperationStatus.FAILED : EconomyOperationStatus.REJECTED, before, before, key);
+            EconomyOperationReceipt rejected = new EconomyOperationReceipt(UUID.randomUUID(), player, amount, shuttingDown.get() ? EconomyOperationStatus.FAILED : EconomyOperationStatus.REJECTED, before, before, key, fingerprint);
             localOperations.put(key, rejected);
+            saveBalancesAtomic();
             return rejected;
         }
+        BigDecimal oldBalance = before;
         balancesCache.put(player, after);
         lastActivityMap.put(player, System.currentTimeMillis());
-        queueAsyncSave();
+        EconomyOperationReceipt receipt = new EconomyOperationReceipt(UUID.randomUUID(), player, amount,
+                EconomyOperationStatus.COMPLETED, before, after, key, fingerprint);
+        localOperations.put(key, receipt);
+        if (!saveBalancesAtomic()) {
+            balancesCache.put(player, oldBalance);
+            localOperations.remove(key);
+            return failedReceipt(player, amount, key);
+        }
         queueAsyncSaveActivity();
         EconomyTransactionLogger.log(credit ? "ADD" : "SUBTRACT", credit ? "SERVER" : player.toString(), credit ? player.toString() : "SERVER", amount.toPlainString(), reason);
-        EconomyOperationReceipt receipt = new EconomyOperationReceipt(UUID.randomUUID(), player, amount, EconomyOperationStatus.COMPLETED, before, after, key);
-        localOperations.put(key, receipt);
         return receipt;
+    }
+
+    private BigDecimal normalize(BigDecimal amount) {
+        int scale = ConfigManager.getEconomyCurrencyScale();
+        if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("Invalid monetary amount");
+        BigDecimal normalized = amount.setScale(scale, java.math.RoundingMode.UNNECESSARY);
+        if (normalized.compareTo(BigDecimal.valueOf(ConfigManager.getMaxBalance())) > 0) throw new IllegalArgumentException("Amount too large");
+        return normalized;
     }
 
     private EconomyOperationReceipt failedReceipt(UUID player, BigDecimal amount, String key) {
@@ -368,6 +461,12 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
     public Map<UUID, BigDecimal> getAllBalances() {
         if (databaseMode) return databaseBackend == null ? Map.of() : databaseBackend.getAllBalances();
         return new ConcurrentHashMap<>(balancesCache);
+    }
+
+    public java.util.Optional<EconomyOperationReceipt> findOperation(String key) {
+        if (key == null || key.isBlank()) return java.util.Optional.empty();
+        if (databaseMode) return databaseBackend == null ? java.util.Optional.empty() : databaseBackend.findOperation(key).join();
+        return java.util.Optional.ofNullable(localOperations.get(key));
     }
 
     /**

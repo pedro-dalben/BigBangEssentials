@@ -4,9 +4,9 @@ import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.economy.managers.EconomyManager;
 import com.pedrodalben.bigbangessentials.economy.managers.PayToggleManager;
 import com.pedrodalben.bigbangessentials.economy.managers.TransactionHistoryManager;
-import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -42,6 +42,16 @@ public class EconomyAPI {
         return EconomyManager.getInstance().subtractBalance(player, amount);
     }
 
+    public static com.pedrodalben.bigbangessentials.api.economy.EconomyOperationReceipt deposit(
+            UUID player, BigDecimal amount, String key, String reason, Map<String, String> metadata) {
+        return EconomyManager.getInstance().credit(player, amount, key, reason, metadata);
+    }
+
+    public static com.pedrodalben.bigbangessentials.api.economy.EconomyOperationReceipt withdraw(
+            UUID player, BigDecimal amount, String key, String reason, Map<String, String> metadata) {
+        return EconomyManager.getInstance().debit(player, amount, key, reason, metadata);
+    }
+
     /**
      * Check if a player is accepting payments (paytoggle).
      */
@@ -69,32 +79,32 @@ public class EconomyAPI {
      * This operation is ATOMIC to prevent double-spending exploits.
      */
     public static boolean payPlayer(UUID sender, UUID receiver, BigDecimal amount) {
+        return payPlayer(sender, receiver, amount, "pay:" + sender + ":" + receiver + ":" + UUID.randomUUID());
+    }
+
+    /** Idempotent payment overload; the request key is part of the durable operation. */
+    public static boolean payPlayer(UUID sender, UUID receiver, BigDecimal amount, String requestKey) {
+        if (sender == null || receiver == null || amount == null || !isValidAmount(amount)) return false;
         if (sender.equals(receiver)) return false; // Prevent self-payment
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) return false; // No negative or zero payments
         
         EconomyManager manager = EconomyManager.getInstance();
-        BigDecimal fee = amount.multiply(BigDecimal.valueOf(ConfigManager.getTaxPercentage()).movePointLeft(2));
+        BigDecimal fee;
+        try {
+            fee = amount.multiply(BigDecimal.valueOf(ConfigManager.getTaxPercentage()).movePointLeft(2))
+                    .setScale(ConfigManager.getEconomyCurrencyScale(), ConfigManager.getEconomyRoundingMode());
+        } catch (ArithmeticException e) { return false; }
         BigDecimal netAmount = amount.subtract(fee);
         if (netAmount.compareTo(BigDecimal.ZERO) <= 0) return false; // Fee too high for amount
 
-        if (com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI.getEconomyService() instanceof DatabaseEconomyService db) {
-            return db.transfer(sender, receiver, amount, fee, "pay:" + sender + ":" + receiver + ":" + UUID.randomUUID()).join();
-        }
-        
-        // ATOMIC operation: subtract from sender (will fail if insufficient funds)
-        boolean senderSuccess = manager.subtractBalance(sender, amount);
-        if (!senderSuccess) {
-            return false; // Insufficient funds or negative balance not allowed
-        }
-        
-        // Add to receiver (should always succeed after sender succeeds)
-        boolean receiverSuccess = manager.addBalance(receiver, netAmount);
-        if (!receiverSuccess) {
-            // Extremely unlikely, but if it fails, refund the sender
-            manager.addBalance(sender, amount);
-            return false;
-        }
-        
-        return true;
+        return manager.transfer(sender, receiver, amount, fee, requestKey);
+    }
+
+    private static boolean isValidAmount(BigDecimal amount) {
+        try {
+            if (amount.signum() <= 0) return false;
+            int scale = ConfigManager.getEconomyCurrencyScale();
+            amount.setScale(scale, java.math.RoundingMode.UNNECESSARY);
+            return amount.compareTo(ConfigManager.getInstance().getMaxEconomyAmount()) <= 0;
+        } catch (RuntimeException e) { return false; }
     }
 }

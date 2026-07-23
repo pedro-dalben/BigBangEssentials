@@ -44,12 +44,15 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
     }
 
     @Override public boolean deposit(UUID playerId, double amount) {
+        if (!Double.isFinite(amount) || amount <= 0) return false;
         return credit(playerId, BigDecimal.valueOf(amount), "api:deposit:" + UUID.randomUUID(), "API deposit", Map.of()).join().status() == EconomyOperationStatus.COMPLETED;
     }
     @Override public boolean withdraw(UUID playerId, double amount) {
+        if (!Double.isFinite(amount) || amount <= 0) return false;
         return debit(playerId, BigDecimal.valueOf(amount), "api:withdraw:" + UUID.randomUUID(), "API withdrawal", Map.of()).join().status() == EconomyOperationStatus.COMPLETED;
     }
     @Override public boolean setBalance(UUID playerId, double amount) {
+        if (!Double.isFinite(amount) || amount < 0) return false;
         try { return setBalance(playerId, BigDecimal.valueOf(amount), UUID.randomUUID().toString(), "ADMIN", "Administrative set", Map.of()).join().status() == EconomyOperationStatus.COMPLETED; }
         catch (RuntimeException e) { return false; }
     }
@@ -80,12 +83,30 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
     public EconomyOperationReceipt credit(Connection c, UUID playerId, BigDecimal amount, String key, String reason, Map<String, String> metadata) throws SQLException { return mutate(c, "CREDIT", playerId, amount, key, reason, metadata); }
 
     public CompletableFuture<Boolean> transfer(UUID sender, UUID receiver, BigDecimal amount, BigDecimal fee, String key) {
+        if (sender == null || receiver == null || sender.equals(receiver) || amount == null || fee == null
+                || amount.signum() <= 0 || fee.signum() < 0 || amount.compareTo(fee) <= 0
+                || key == null || key.isBlank()) return CompletableFuture.completedFuture(false);
         return executor().transaction("economy.transfer", c -> {
-            EconomyOperationReceipt debit = debit(c, sender, amount, key + ":debit", "Player payment", Map.of("source", "pay", "reference", key));
-            if (debit.status() != EconomyOperationStatus.COMPLETED) return false;
-            EconomyOperationReceipt credit = credit(c, receiver, amount.subtract(fee), key + ":credit", "Player payment", Map.of("source", "pay", "reference", key));
-            return credit.status() == EconomyOperationStatus.COMPLETED;
-        });
+            Map<String, String> metadata = Map.of("source", "pay", "reference", key,
+                    "receiver", receiver.toString(), "fee", fee.toPlainString());
+            String fingerprint = EconomyOperationFingerprint.of(sender, "TRANSFER", amount, CURRENCY, "pay", key, metadata);
+            Optional<EconomyOperationReceipt> old = existing(c, key);
+            if (old.isPresent()) return old.get().fingerprint() != null && !old.get().fingerprint().equals(fingerprint)
+                    ? false : old.get().status() == EconomyOperationStatus.COMPLETED;
+
+            Account senderAccount = findAccount(c, sender).orElse(new Account(starting(), 0));
+            insertPending(c, UUID.randomUUID(), sender, "TRANSFER", amount, key, "Player payment",
+                    senderAccount.decimal(), senderAccount.decimal().subtract(amount), metadata, fingerprint);
+            EconomyOperationReceipt debit = debit(c, sender, amount, key + ":debit", "Player payment", metadata);
+            if (debit.status() != EconomyOperationStatus.COMPLETED) {
+                complete(c, key, debit.status(), "Insufficient funds", senderAccount.decimal(), senderAccount.decimal());
+                return false;
+            }
+            EconomyOperationReceipt credit = credit(c, receiver, amount.subtract(fee), key + ":credit", "Player payment", metadata);
+            if (credit.status() != EconomyOperationStatus.COMPLETED) throw new SQLException("Transfer credit rejected");
+            complete(c, key, EconomyOperationStatus.COMPLETED, null, senderAccount.decimal(), debit.balanceAfter());
+            return true;
+        }).exceptionally(error -> false);
     }
 
     public CompletableFuture<EconomyOperationReceipt> setBalance(UUID playerId, BigDecimal amount, String key, String actor, String reason, Map<String, String> metadata) {
@@ -93,11 +114,14 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
     }
     public EconomyOperationReceipt set(Connection c, UUID playerId, BigDecimal amount, String key, String reason, Map<String, String> metadata) throws SQLException {
         Money target = money(amount, false);
+        Map<String, String> safeMetadata = metadata == null ? Map.of() : metadata;
+        String fingerprint = EconomyOperationFingerprint.of(playerId, "ADMIN_SET", amount, CURRENCY,
+                safeMetadata.getOrDefault("source", "economy"), safeMetadata.get("reference"), safeMetadata);
         Optional<EconomyOperationReceipt> existing = existing(c, key);
-        if (existing.isPresent()) return existing.get();
+        if (existing.isPresent()) return compatible(existing.get(), fingerprint, playerId, amount);
         Account account = findAccount(c, playerId).orElse(new Account(starting(), 0));
         long now = System.currentTimeMillis();
-        insertPending(c, UUID.randomUUID(), playerId, "ADMIN_SET", target.decimal(), key, reason, account.decimal(), target.decimal(), metadata);
+        insertPending(c, UUID.randomUUID(), playerId, "ADMIN_SET", target.decimal(), key, reason, account.decimal(), target.decimal(), safeMetadata, fingerprint);
         if (account.balance() == starting() && findAccount(c, playerId).isEmpty()) insertAccount(c, playerId, target.minorUnits(), now);
         else updateExact(c, playerId, target.minorUnits(), account.version(), null);
         return complete(c, key, EconomyOperationStatus.COMPLETED, null, account.decimal(), target.decimal());
@@ -116,22 +140,25 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
     private EconomyOperationReceipt mutate(Connection c, String type, UUID playerId, BigDecimal amount, String key, String reason, Map<String, String> metadata) throws SQLException {
         Money value = money(amount, false);
         if (value.minorUnits() <= 0) throw new IllegalArgumentException("Amount must be positive");
+        Map<String, String> safeMetadata = metadata == null ? Map.of() : metadata;
+        String fingerprint = EconomyOperationFingerprint.of(playerId, type, value.decimal(), CURRENCY,
+                safeMetadata.getOrDefault("source", "economy"), safeMetadata.get("reference"), safeMetadata);
         Optional<EconomyOperationReceipt> old = existing(c, key);
-        if (old.isPresent()) return old.get();
+        if (old.isPresent()) return compatible(old.get(), fingerprint, playerId, value.decimal());
         Optional<Account> found = findAccount(c, playerId);
         long before = found.map(Account::balance).orElse(starting());
         if (found.isEmpty() && type.equals("DEBIT")) {
-            insertPending(c, UUID.randomUUID(), playerId, type, value.decimal(), key, reason, decimal(before), decimal(before), metadata);
+            insertPending(c, UUID.randomUUID(), playerId, type, value.decimal(), key, reason, decimal(before), decimal(before), safeMetadata, fingerprint);
             return complete(c, key, EconomyOperationStatus.REJECTED, "Account does not exist", decimal(before), decimal(before));
         }
         long after;
         if (type.equals("DEBIT")) {
             after = before - value.minorUnits();
-            insertPending(c, UUID.randomUUID(), playerId, type, value.decimal(), key, reason, decimal(before), decimal(Math.max(0, after)), metadata);
+            insertPending(c, UUID.randomUUID(), playerId, type, value.decimal(), key, reason, decimal(before), decimal(Math.max(0, after)), safeMetadata, fingerprint);
             if (after < 0 || updateAtomic(c, playerId, value.minorUnits(), true) != 1) return complete(c, key, EconomyOperationStatus.REJECTED, "Insufficient funds", decimal(before), decimal(before));
         } else {
             try { after = Math.addExact(before, value.minorUnits()); } catch (ArithmeticException e) { after = Long.MAX_VALUE; }
-            insertPending(c, UUID.randomUUID(), playerId, type, value.decimal(), key, reason, decimal(before), decimal(after), metadata);
+            insertPending(c, UUID.randomUUID(), playerId, type, value.decimal(), key, reason, decimal(before), decimal(after), safeMetadata, fingerprint);
             if (found.isEmpty()) {
                 if (after > maximum()) return complete(c, key, EconomyOperationStatus.REJECTED, "Maximum balance exceeded", decimal(before), decimal(before));
                 insertAccount(c, playerId, after, System.currentTimeMillis());
@@ -158,16 +185,21 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
     private Optional<EconomyOperationReceipt> existing(Connection c, String key) throws SQLException {
         try (var s = c.prepareStatement("SELECT * FROM bbe_economy_operations WHERE idempotency_key=?")) { s.setString(1, key); try (var r = s.executeQuery()) { return r.next() ? Optional.of(map(r)) : Optional.empty(); } }
     }
-    private void insertPending(Connection c, UUID id, UUID player, String type, BigDecimal amount, String key, String reason, BigDecimal before, BigDecimal after, Map<String, String> metadata) throws SQLException {
-        try (var s = c.prepareStatement("INSERT INTO bbe_economy_operations (id,player_uuid,operation_type,amount,currency,idempotency_key,reason,source_module,source_reference,status,balance_before,balance_after,created_at,metadata_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
-            s.setString(1, id.toString()); s.setString(2, player.toString()); s.setString(3, type); s.setBigDecimal(4, amount); s.setString(5, CURRENCY); s.setString(6, key); s.setString(7, reason); s.setString(8, metadata.getOrDefault("source", "economy")); s.setString(9, metadata.get("reference")); s.setString(10, EconomyOperationStatus.PENDING.name()); s.setBigDecimal(11, before); s.setBigDecimal(12, after); s.setLong(13, System.currentTimeMillis()); s.setString(14, gson.toJson(metadata)); s.executeUpdate();
+    private void insertPending(Connection c, UUID id, UUID player, String type, BigDecimal amount, String key, String reason, BigDecimal before, BigDecimal after, Map<String, String> metadata, String fingerprint) throws SQLException {
+        try (var s = c.prepareStatement("INSERT INTO bbe_economy_operations (id,player_uuid,operation_type,amount,currency,idempotency_key,reason,source_module,source_reference,status,balance_before,balance_after,created_at,metadata_json,fingerprint) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            s.setString(1, id.toString()); s.setString(2, player.toString()); s.setString(3, type); s.setBigDecimal(4, amount); s.setString(5, CURRENCY); s.setString(6, key); s.setString(7, reason); s.setString(8, metadata.getOrDefault("source", "economy")); s.setString(9, metadata.get("reference")); s.setString(10, EconomyOperationStatus.PENDING.name()); s.setBigDecimal(11, before); s.setBigDecimal(12, after); s.setLong(13, System.currentTimeMillis()); s.setString(14, gson.toJson(metadata)); s.setString(15, fingerprint); s.executeUpdate();
         }
     }
     private EconomyOperationReceipt complete(Connection c, String key, EconomyOperationStatus status, String error, BigDecimal before, BigDecimal after) throws SQLException {
         try (var s = c.prepareStatement("UPDATE bbe_economy_operations SET status=?,completed_at=?,last_error=?,balance_before=?,balance_after=? WHERE idempotency_key=? AND status=?")) { s.setString(1, status.name()); s.setLong(2, System.currentTimeMillis()); s.setString(3, error); s.setBigDecimal(4, before); s.setBigDecimal(5, after); s.setString(6, key); s.setString(7, EconomyOperationStatus.PENDING.name()); s.executeUpdate(); }
         return existing(c, key).orElseThrow(() -> new SQLException("Economy operation disappeared"));
     }
-    private EconomyOperationReceipt map(ResultSet r) throws SQLException { return new EconomyOperationReceipt(UUID.fromString(r.getString("id")), UUID.fromString(r.getString("player_uuid")), r.getBigDecimal("amount"), EconomyOperationStatus.valueOf(r.getString("status")), r.getBigDecimal("balance_before"), r.getBigDecimal("balance_after"), r.getString("idempotency_key")); }
+    private EconomyOperationReceipt compatible(EconomyOperationReceipt old, String fingerprint, UUID player, BigDecimal amount) {
+        if (old.fingerprint() == null || old.fingerprint().equals(fingerprint)) return old;
+        return new EconomyOperationReceipt(old.id(), player, amount, EconomyOperationStatus.IDEMPOTENCY_CONFLICT,
+                old.balanceBefore(), old.balanceAfter(), old.idempotencyKey(), fingerprint);
+    }
+    private EconomyOperationReceipt map(ResultSet r) throws SQLException { return new EconomyOperationReceipt(UUID.fromString(r.getString("id")), UUID.fromString(r.getString("player_uuid")), r.getBigDecimal("amount"), EconomyOperationStatus.valueOf(r.getString("status")), r.getBigDecimal("balance_before"), r.getBigDecimal("balance_after"), r.getString("idempotency_key"), r.getString("fingerprint")); }
     private BigDecimal decimal(long minor) { return BigDecimal.valueOf(minor, scale()); }
     private record Account(long balance, long version) { BigDecimal decimal() { return BigDecimal.valueOf(balance, ConfigManager.getEconomyCurrencyScale()); } }
     @FunctionalInterface private interface SqlWork<T> { T run(Connection connection) throws SQLException; }
