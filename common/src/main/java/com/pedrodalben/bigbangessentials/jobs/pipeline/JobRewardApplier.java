@@ -1,19 +1,19 @@
 package com.pedrodalben.bigbangessentials.jobs.pipeline;
 
-import com.pedrodalben.bigbangessentials.api.EconomyAPI;
-import com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI;
-import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus;
+import com.pedrodalben.bigbangessentials.economy.managers.EconomyManager;
 import com.pedrodalben.bigbangessentials.jobs.*;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig;
 import com.pedrodalben.bigbangessentials.jobs.config.JobsConfig.JobDefinition;
 import com.pedrodalben.bigbangessentials.jobs.database.JobsRepository;
+import com.pedrodalben.bigbangessentials.jobs.database.JobActionReceiptRepository;
 import com.pedrodalben.bigbangessentials.jobs.events.JobsEvents.*;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /**
@@ -30,8 +30,12 @@ public class JobRewardApplier {
     private JobRewardApplier() {}
 
     public void apply(ServerPlayer player, PlayerJobsData data, JobDefinition jobDef, JobAction action, JobRewardOutcome outcome, JobsRepository repository) {
+        applyResult(player, data, jobDef, action, outcome, repository);
+    }
+
+    public boolean applyResult(ServerPlayer player, PlayerJobsData data, JobDefinition jobDef, JobAction action, JobRewardOutcome outcome, JobsRepository repository) {
         if (player == null || data == null || jobDef == null || outcome == null || !outcome.success()) {
-            return;
+            return false;
         }
 
         UUID playerId = player.getUUID();
@@ -40,13 +44,19 @@ public class JobRewardApplier {
         double finalXp = outcome.experience();
 
         JobsConfig config = JobsManager.getInstance().getConfig();
-        if (config == null) return;
+        if (config == null) return false;
 
         // 1. Apply Money
         boolean moneyApplied = true;
         if (allowedPayout > 0.0) {
-            var db = BigBangEssentialsAPI.getEconomyService() instanceof DatabaseEconomyService service ? service : null;
-            moneyApplied = db == null ? EconomyAPI.deposit(playerId, BigDecimal.valueOf(allowedPayout)) : db.credit(playerId, BigDecimal.valueOf(allowedPayout), "jobs:reward:" + action.actionId(), "Jobs reward", java.util.Map.of("source", "jobs", "reference", action.actionId().toString())).join().status() == EconomyOperationStatus.COMPLETED;
+            if (!Double.isFinite(allowedPayout)) return false;
+            BigDecimal payout;
+            try { payout = BigDecimal.valueOf(allowedPayout); }
+            catch (RuntimeException e) { return false; }
+            var receipt = EconomyManager.getInstance().credit(playerId, payout,
+                    "jobs:reward:" + action.actionId() + ":" + jobId, "Jobs reward",
+                    java.util.Map.of("source", "jobs", "reference", action.actionId().toString(), "job", jobId));
+            moneyApplied = receipt != null && receipt.status() == EconomyOperationStatus.COMPLETED;
             if (moneyApplied) {
                 double currentEarnings = data.getDailyEarnings(jobId);
                 double newEarnings = currentEarnings + allowedPayout;
@@ -65,7 +75,17 @@ public class JobRewardApplier {
                 }
             } else {
                 LOGGER.error("Failed to deposit jobs reward of {} for player {}", allowedPayout, player.getName().getString());
+                cancelDiscoveryIfPending(playerId, action);
+                return false;
             }
+        }
+
+        if (repository != null) {
+            UUID rewardReceiptId = UUID.nameUUIDFromBytes(("job-reward:" + action.actionId() + ":" + jobId)
+                    .getBytes(StandardCharsets.UTF_8));
+            JobActionReceiptRepository.getInstance().recordReceipt(rewardReceiptId, playerId, jobId,
+                    action.type().name(), action.targetId(), JobRewardOutcome.success(finalXp, allowedPayout),
+                    action.context() == null ? "{}" : action.context().getMetadataJson());
         }
 
         // 2. Apply XP
@@ -124,6 +144,7 @@ public class JobRewardApplier {
                             action.type().name(), action.targetId(), jobDef.displayName, finalXp, allowedPayout)
             ));
         }
+        return true;
     }
 
     private String determineDiscoveryType(JobAction action) {
@@ -136,5 +157,15 @@ public class JobRewardApplier {
         if (src.equals("EXPLORATION_DIMENSION")) return "DIMENSION";
         if (action.context().getBiome() != null && !action.context().getBiome().isEmpty()) return "BIOME";
         return "";
+    }
+
+    private void cancelDiscoveryIfPending(UUID playerId, JobAction action) {
+        if (action.type() == JobActionType.EXPLORE && action.context() != null && action.context().isFirstDiscovery()) {
+            String type = determineDiscoveryType(action);
+            if (!type.isEmpty() && action.targetId() != null && !action.targetId().isEmpty()) {
+                com.pedrodalben.bigbangessentials.jobs.antiexploit.ExplorationDiscoveryService.getInstance()
+                        .cancelDiscovery(playerId, type, action.targetId());
+            }
+        }
     }
 }

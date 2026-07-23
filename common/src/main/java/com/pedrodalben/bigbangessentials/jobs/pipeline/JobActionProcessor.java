@@ -135,12 +135,14 @@ public class JobActionProcessor {
                         player, job.data(), job.jobDef(), job.progress(), action, rule.reward(), rule.matchedActionKey());
 
                 if (outcome.success()) {
-                    JobRewardApplier.getInstance().apply(player, job.data(), job.jobDef(), action, outcome,
+                    boolean applied = JobRewardApplier.getInstance().applyResult(player, job.data(), job.jobDef(), action, outcome,
                             JobsManager.getInstance().getRepository());
-                    totalXp += outcome.experience();
-                    totalCoins += outcome.coins();
-                    lastJobId = job.jobDef().id;
-                    anySuccess = true;
+                    if (applied) {
+                        totalXp += outcome.experience();
+                        totalCoins += outcome.coins();
+                        lastJobId = job.jobDef().id;
+                        anySuccess = true;
+                    }
                 }
             }
         }

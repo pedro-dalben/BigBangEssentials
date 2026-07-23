@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.jobs.contracts;
 
-import com.pedrodalben.bigbangessentials.api.EconomyAPI;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus;
+import com.pedrodalben.bigbangessentials.economy.managers.EconomyManager;
 import com.pedrodalben.bigbangessentials.jobs.JobAction;
 import com.pedrodalben.bigbangessentials.jobs.JobExperienceService;
 import com.pedrodalben.bigbangessentials.jobs.JobMessageService;
@@ -88,6 +89,21 @@ public class JobContractService {
                     return false;
                 }
 
+                ContractReward reward = contract.parseReward();
+                if (reward.coins() > 0) {
+                    var receipt = EconomyManager.getInstance().credit(
+                        playerUuid,
+                        BigDecimal.valueOf(reward.coins()),
+                        "jobs:contract:" + contractId,
+                        "Job contract reward",
+                        Map.of("source", "jobs-contract", "reference", contractId)
+                    );
+                    if (receipt.status() != EconomyOperationStatus.COMPLETED) {
+                        LOGGER.warn("Contract {} reward was not credited: {}", contractId, receipt.status());
+                        return false;
+                    }
+                }
+
                 long now = System.currentTimeMillis();
                 JobContract claimed = new JobContract(
                     contract.contractId(), contract.playerUuid(), contract.templateId(), contract.periodType(),
@@ -95,11 +111,6 @@ public class JobContractService {
                     contract.rewardSnapshot(), contract.seedReference(), contract.progressAmount(), now, contract.rerollCount()
                 );
                 JobContractRepository.getInstance().saveContract(claimed);
-
-                ContractReward reward = contract.parseReward();
-                if (reward.coins() > 0) {
-                    EconomyAPI.deposit(playerUuid, BigDecimal.valueOf(reward.coins()));
-                }
                 if (reward.experience() > 0) {
                     PlayerJobsData data = JobsManager.getInstance().getPlayerData(playerUuid);
                     if (data != null) {

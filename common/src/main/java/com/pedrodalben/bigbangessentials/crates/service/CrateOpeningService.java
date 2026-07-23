@@ -194,7 +194,10 @@ public class CrateOpeningService {
         try {
             if (keyConsumed && !crate.getRequirements().getAcceptedKeyIds().isEmpty()) {
                 String keyId = crate.getRequirements().getAcceptedKeyIds().get(0);
-                keyService.giveVirtualKey(playerId, keyId, 1, GrantSource.ROLLBACK, null);
+                if (!keyService.giveVirtualKey(playerId, keyId, 1, GrantSource.ROLLBACK,
+                        "crate:key-refund:" + audit.getIdempotencyKey())) {
+                    throw new IllegalStateException("Key restore was rejected");
+                }
                 LOGGER.info("Rollback: restored 1 key for player {}", playerId);
             }
         } catch (Exception e) {
@@ -205,7 +208,9 @@ public class CrateOpeningService {
 
         try {
             if (costPaid) {
-                economyIntegration.deposit(playerId, crate.getCost(), "Rollback: crate opening failed", "crate:refund:" + audit.getIdempotencyKey());
+                if (!economyIntegration.deposit(playerId, crate.getCost(), "Rollback: crate opening failed", "crate:refund:" + audit.getIdempotencyKey())) {
+                    throw new IllegalStateException("Cost refund was rejected");
+                }
                 LOGGER.info("Rollback: restored cost of {} for player {}", crate.getCost(), playerId);
             }
         } catch (Exception e) {
@@ -337,6 +342,30 @@ public class CrateOpeningService {
     }
 
     public void reload() {
+    }
+
+    /** Retries only idempotent compensations; ambiguous reward delivery is never replayed. */
+    public int retryCompensations() {
+        int recovered = 0;
+        for (CrateOpenAudit audit : auditService.getAudits(null, null,
+                CrateOpenAudit.OpenStatus.COMPENSATION_FAILED, null, null, 100)) {
+            boolean ok = true;
+            UUID player = audit.getPlayerId();
+            if (audit.getConsumedKeyId() != null) {
+                ok &= keyService.giveVirtualKey(player, audit.getConsumedKeyId(), audit.getConsumedKeyAmount(),
+                        GrantSource.ROLLBACK, "crate:key-refund:" + audit.getIdempotencyKey());
+            }
+            if (audit.getCostAmount() > 0 && "REFUNDED".equals(audit.getCostStatus()) == false) {
+                ok &= economyIntegration.deposit(player, audit.getCostAmount(), "Retry crate refund",
+                        "crate:refund:" + audit.getIdempotencyKey());
+                if (ok) audit.setCost(audit.getCostAmount(), "REFUNDED");
+            }
+            if (ok) {
+                try { audit.transitionTo(CrateOpenAudit.OpenStatus.ROLLED_BACK); auditService.saveAudit(audit); recovered++; }
+                catch (Exception e) { LOGGER.error("Could not persist crate compensation {}", audit.getId(), e); }
+            }
+        }
+        return recovered;
     }
 
     public record CrateOpeningResult(boolean success, String message, CrateOpenAudit audit) {

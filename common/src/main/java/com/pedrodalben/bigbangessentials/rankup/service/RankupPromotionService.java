@@ -1,6 +1,8 @@
 package com.pedrodalben.bigbangessentials.rankup.service;
 
-import com.pedrodalben.bigbangessentials.api.EconomyAPI;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationReceipt;
+import com.pedrodalben.bigbangessentials.economy.managers.EconomyManager;
 import com.pedrodalben.bigbangessentials.economy.gems.api.GemCreditRequest;
 import com.pedrodalben.bigbangessentials.economy.gems.api.GemDebitRequest;
 import com.pedrodalben.bigbangessentials.economy.gems.api.GemOperationResult;
@@ -377,9 +379,7 @@ public class RankupPromotionService {
             return CompletableFuture.completedFuture(tx);
         }
         logStage(execution, PromotionStage.MONEY_DEBIT_STARTED, "start", null);
-        return CompletableFuture.supplyAsync(() -> com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI.getEconomyService() instanceof com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService db
-                ? db.debit(tx.playerUuid(), tx.moneyAmount(), "rankup:charge:" + tx.idempotencyKey(), "Rankup charge", java.util.Map.of("source", "rankup", "reference", tx.transactionId().toString())).join().status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED
-                : EconomyAPI.withdraw(tx.playerUuid(), tx.moneyAmount()))
+        return CompletableFuture.supplyAsync(() -> EconomyManager.getInstance().debit(tx.playerUuid(), tx.moneyAmount(), "rankup:charge:" + tx.idempotencyKey(), "Rankup charge", java.util.Map.of("source", "rankup", "reference", tx.transactionId().toString())).status() == EconomyOperationStatus.COMPLETED)
                 .orTimeout(databaseTimeoutSeconds(), TimeUnit.SECONDS)
                 .thenCompose(ok -> {
                     if (!ok) {
@@ -406,13 +406,17 @@ public class RankupPromotionService {
                 .orTimeout(databaseTimeoutSeconds(), TimeUnit.SECONDS)
                 .thenCompose(gemResult -> {
                     if (!gemResult.success()) {
+                        boolean moneyRestored = !tx.moneyDebited();
                         if (tx.moneyDebited() && tx.moneyAmount().compareTo(BigDecimal.ZERO) > 0) {
                             try {
-                                if (com.pedrodalben.bigbangessentials.api.BigBangEssentialsAPI.getEconomyService() instanceof com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService db) db.credit(tx.playerUuid(), tx.moneyAmount(), "rankup:refund:" + tx.idempotencyKey(), "Rankup refund", java.util.Map.of("source", "rankup", "reference", tx.transactionId().toString())).join();
-                                else EconomyAPI.deposit(tx.playerUuid(), tx.moneyAmount());
+                                EconomyOperationReceipt refund = EconomyManager.getInstance().credit(tx.playerUuid(), tx.moneyAmount(), "rankup:refund:" + tx.idempotencyKey(), "Rankup refund", java.util.Map.of("source", "rankup", "reference", tx.transactionId().toString()));
+                                moneyRestored = refund != null && refund.status() == EconomyOperationStatus.COMPLETED;
                             } catch (Exception ignored) {}
                         }
-                        RankupTransaction failedTx = tx.withCompensated(true).withStatus(RankupTransactionStatus.FAILED).withErrorMessage("Failed to debit gems");
+                        RankupTransaction failedTx = tx.withMoneyDebited(!moneyRestored)
+                                .withCompensated(moneyRestored)
+                                .withStatus(moneyRestored ? RankupTransactionStatus.COMPENSATED : RankupTransactionStatus.RECOVERY_REQUIRED)
+                                .withErrorMessage("Failed to debit gems");
                         RankupPromotionResult failRes = RankupPromotionResult.failure("Failed to debit gems: " + (gemResult.messageKey() != null ? gemResult.messageKey() : "unknown"), RankupTransactionStatus.FAILED, failedTx.transactionId(), RankupPromotionResultCode.INSUFFICIENT_GEMS);
                         return saveTransaction(execution, failedTx, PromotionStage.GEMS_DEBIT_COMPLETED)
                                 .thenCompose(v -> CompletableFuture.failedFuture(new PromotionPipelineException(failRes)));
@@ -707,7 +711,7 @@ public class RankupPromotionService {
         CompletableFuture<RankupTransaction> step2 = step1.thenCompose(tx -> {
             if (tx.moneyDebited() && !tx.compensated() && tx.moneyAmount().compareTo(BigDecimal.ZERO) > 0) {
                 try {
-                    boolean ok = EconomyAPI.deposit(uuid, tx.moneyAmount());
+                    boolean ok = EconomyManager.getInstance().credit(uuid, tx.moneyAmount(), "rankup:refund:" + tx.idempotencyKey(), "Rankup refund", Map.of("source", "rankup", "reference", tx.transactionId().toString())).status() == EconomyOperationStatus.COMPLETED;
                     if (ok) {
                         RankupTransaction updated = tx.withMoneyDebited(false);
                         return manager.getRepository().saveTransaction(updated)

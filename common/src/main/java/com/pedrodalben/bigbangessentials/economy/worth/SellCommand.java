@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * /sell hand|inventory|all|<item> [amount]
@@ -108,6 +109,10 @@ public class SellCommand {
         var source = ctx.getSource();
         ServerPlayer player = source.getPlayer();
         if (player == null) { source.sendFailure(MessageUtil.error("commands.bigbangessentials.general.player_only")); return 0; }
+        if (SellTransactionJournal.getInstance().hasPending(player.getUUID())) {
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.transaction_failed"));
+            return 0;
+        }
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty()) { source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.no_item_in_hand")); return 0; }
         int qty = amount > 0 ? Math.min(amount, held.getCount()) : held.getCount();
@@ -119,11 +124,16 @@ public class SellCommand {
         var source = ctx.getSource();
         ServerPlayer player = source.getPlayer();
         if (player == null) { source.sendFailure(MessageUtil.error("commands.bigbangessentials.general.player_only")); return 0; }
+        if (SellTransactionJournal.getInstance().hasPending(player.getUUID())) {
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.transaction_failed"));
+            return 0;
+        }
 
         WorthManager wm = WorthManager.getInstance();
         BigDecimal total = BigDecimal.ZERO;
         int typesSold = 0;
         List<String> skippedNamed = new ArrayList<>();
+        List<ItemStack> escrow = new ArrayList<>();
         Inventory inv = player.getInventory();
 
         for (int i = 0; i < inv.getContainerSize(); i++) {
@@ -139,7 +149,7 @@ public class SellCommand {
                 .multiply(BigDecimal.valueOf(s.getCount()));
             total = total.add(earned);
             typesSold++;
-            inv.setItem(i, ItemStack.EMPTY);
+            escrow.add(s.copy());
         }
 
         if (typesSold == 0 && skippedNamed.isEmpty()) {
@@ -147,7 +157,41 @@ public class SellCommand {
             return 0;
         }
         if (total.signum() > 0) {
-            EconomyManager.getInstance().addBalance(player.getUUID(), total);
+            String transactionId = UUID.randomUUID().toString();
+            String key = "sell:" + transactionId;
+            if (!SellTransactionJournal.getInstance().begin(transactionId, player.getUUID(), total, escrow)) {
+                source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.transaction_failed"));
+                return 0;
+            }
+            var receipt = EconomyManager.getInstance().credit(player.getUUID(), total, key, "Sell inventory",
+                    java.util.Map.of("source", "sell", "reference", transactionId));
+            if (receipt.status() != com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED) {
+                SellTransactionJournal.getInstance().failed(transactionId);
+                source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.transaction_failed"));
+                return 0;
+            }
+            List<ItemStack> removed = new ArrayList<>();
+            boolean exact = true;
+            for (ItemStack line : escrow) {
+                int count = removeFromInventory(player, line, line.getCount());
+                if (count > 0) removed.add(line.copyWithCount(count));
+                if (count != line.getCount()) { exact = false; break; }
+            }
+            if (!exact) {
+                boolean restored = restoreItems(player, removed);
+                boolean refunded = EconomyManager.getInstance().debit(player.getUUID(), total, key + ":rollback",
+                        "Sell rollback", java.util.Map.of("source", "sell", "reference", transactionId))
+                        .status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED;
+                if (!restored || !refunded) SellTransactionJournal.getInstance().recoveryRequired(transactionId);
+                else SellTransactionJournal.getInstance().complete(transactionId);
+                source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.transaction_failed"));
+                return 0;
+            }
+            if (!SellTransactionJournal.getInstance().complete(transactionId)) {
+                SellTransactionJournal.getInstance().recoveryRequired(transactionId);
+                source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.transaction_failed"));
+                return 0;
+            }
             LOGGER.info("Player {} sold inventory for {}{}", player.getName().getString(),
                 WorthCommand.getCurrencySymbol(), WorthCommand.format(total));
         }
@@ -194,10 +238,38 @@ public class SellCommand {
             source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.not_enough_items"));
             return 0;
         }
-        removeFromInventory(player, template, toSell);
         BigDecimal earned = price.multiply(wm.getSellMultiplier())
             .multiply(BigDecimal.valueOf(toSell));
-        EconomyManager.getInstance().addBalance(player.getUUID(), earned);
+        String transactionId = UUID.randomUUID().toString();
+        if (!SellTransactionJournal.getInstance().begin(transactionId, player.getUUID(), earned,
+                List.of(template.copyWithCount(toSell)))) {
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.transaction_failed"));
+            return 0;
+        }
+        String key = "sell:" + transactionId;
+        var receipt = EconomyManager.getInstance().credit(player.getUUID(), earned, key, "Sell item",
+                java.util.Map.of("source", "sell", "reference", transactionId));
+        if (receipt.status() != com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED) {
+            SellTransactionJournal.getInstance().failed(transactionId);
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.transaction_failed"));
+            return 0;
+        }
+        int removed = removeFromInventory(player, template, toSell);
+        if (removed != toSell) {
+            boolean restored = restoreItems(player, template.copyWithCount(removed));
+            boolean refunded = EconomyManager.getInstance().debit(player.getUUID(), earned, key + ":rollback",
+                    "Sell rollback", java.util.Map.of("source", "sell", "reference", transactionId))
+                    .status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED;
+            if (!restored || !refunded) SellTransactionJournal.getInstance().recoveryRequired(transactionId);
+            else SellTransactionJournal.getInstance().complete(transactionId);
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.transaction_failed"));
+            return 0;
+        }
+        if (!SellTransactionJournal.getInstance().complete(transactionId)) {
+            SellTransactionJournal.getInstance().recoveryRequired(transactionId);
+            source.sendFailure(MessageUtil.error("commands.bigbangessentials.sell.transaction_failed"));
+            return 0;
+        }
         LOGGER.info("Player {} sold {}x {} for {}{}", player.getName().getString(),
             toSell, WorthManager.getItemId(template),
             WorthCommand.getCurrencySymbol(), WorthCommand.format(earned));
@@ -261,7 +333,7 @@ public class SellCommand {
         return count;
     }
 
-    private static void removeFromInventory(ServerPlayer player, ItemStack template, int amount) {
+    private static int removeFromInventory(ServerPlayer player, ItemStack template, int amount) {
         Inventory inv = player.getInventory();
         int remaining = amount;
         for (int i = 0; i < inv.getContainerSize() && remaining > 0; i++) {
@@ -273,6 +345,22 @@ public class SellCommand {
                 if (s.isEmpty()) inv.setItem(i, ItemStack.EMPTY);
             }
         }
+        return amount - remaining;
+    }
+
+    private static boolean restoreItems(ServerPlayer player, List<ItemStack> stacks) {
+        boolean ok = true;
+        for (ItemStack stack : stacks) ok &= restoreItems(player, stack);
+        return ok;
+    }
+
+    private static boolean restoreItems(ServerPlayer player, ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return true;
+        ItemStack remaining = stack.copy();
+        player.getInventory().add(remaining);
+        if (remaining.isEmpty()) return true;
+        boolean pending = com.pedrodalben.bigbangessentials.crates.service.CratePendingDeliveryService.getInstance()
+                .storePending(player.getUUID(), remaining.copy(), "sell-rollback");
+        return pending;
     }
 }
-

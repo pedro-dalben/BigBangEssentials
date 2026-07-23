@@ -175,7 +175,7 @@ public class CrateOpenAudit {
         if (status == newStatus) {
             return;
         }
-        if (status.isTerminal()) {
+        if (status.isTerminal() && !(status == OpenStatus.COMPENSATION_FAILED && newStatus == OpenStatus.ROLLED_BACK)) {
             throw new IllegalStateException("Cannot transition from terminal state: " + status);
         }
         if (!status.canTransitionTo(newStatus)) {
@@ -222,7 +222,8 @@ public class CrateOpenAudit {
                 case DELIVERY_PENDING -> target == DELIVERED || target == COMPLETED || target == FAILED || target == COMPENSATION_REQUIRED;
                 case DELIVERED -> target == COMPLETED || target == COMPENSATION_REQUIRED;
                 case COMPENSATION_REQUIRED -> target == ROLLED_BACK || target == COMPENSATION_FAILED || target == FAILED;
-                case COMPLETED, FAILED, COMPENSATION_FAILED, ROLLED_BACK, CANCELLED -> false;
+                case COMPENSATION_FAILED -> target == ROLLED_BACK;
+                case COMPLETED, FAILED, ROLLED_BACK, CANCELLED -> false;
             };
         }
 
