@@ -2,6 +2,8 @@
 
 The Gems system exposes a clean, decoupled public interface for integration with other modules, such as `BigBang Regions`.
 
+When the database backend is ready, SQL is the only runtime source of truth. Do not read the legacy JSON state or ledger. Use the asynchronous methods (`getBalanceAsync`, `creditAsync`, `debitAsync`, `reserveAsync`, `captureAsync`, `releaseAsync`) from server-thread code; the synchronous methods remain compatibility wrappers.
+
 ## Accessing the API
 
 To interact with the Gems system, consume the API exposed through the main entry point:

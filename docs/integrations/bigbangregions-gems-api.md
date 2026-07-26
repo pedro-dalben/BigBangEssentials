@@ -61,7 +61,7 @@ If a crash or network interruption occurs during the resize, the state might be 
   - Retrying `release()` is now fully idempotent via `idempotencyKey`. `GemReleaseRequest` includes `idempotencyKey`, `source`, `purpose`, `externalReference`, and `metadata`. A retry with the same key returns `idempotent_success` without modifying state.
   - Retrying `renew()` is now fully idempotent via `idempotencyKey`. `GemRenewRequest` includes `idempotencyKey`, `lease`, `source`, `purpose`, `externalReference`, and `metadata`.
 - **Never Generate New Keys for Retries:** Creating a new `idempotencyKey` for a retried expansion will cause a double-charge.
-- **Idempotency Survives Crashes:** All idempotency records are persisted in `gems_state.json` under `idempotencyRecords`. Even if the server crashes between saving state and appending to the ledger, the `checkIdempotencyWithStateFallback()` method finds the persisted record on the next request and prevents duplicate operations.
+  - **Idempotency Survives Crashes:** With the database backend, idempotency records and fingerprints are committed in `bbe_gem_operations` in the same transaction as the balance/reservation change. `gems_state.json` is migration input only; it is not a fallback or a runtime contract.
 
 ---
 
