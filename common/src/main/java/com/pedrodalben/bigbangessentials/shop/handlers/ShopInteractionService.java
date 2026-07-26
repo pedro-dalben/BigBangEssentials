@@ -73,9 +73,10 @@ public final class ShopInteractionService {
             return true;
         }
 
-        sendTransactionResult(player,
-                ShopTransaction.executeBuy(player, shop, level, java.util.UUID.randomUUID().toString()),
-                shop, true);
+        ShopTransaction.executeBuyAsync(player, shop, level, java.util.UUID.randomUUID().toString())
+                .whenComplete((result, error) -> player.getServer().execute(() -> sendTransactionResult(player,
+                        error == null ? result : new TransactionResult(ShopTransaction.ResultType.RECOVERY_REQUIRED,
+                                "RECOVERY_REQUIRED", java.math.BigDecimal.ZERO, 0), shop, true)));
         return true;
     }
 
@@ -100,9 +101,10 @@ public final class ShopInteractionService {
             return true;
         }
 
-        sendTransactionResult(player,
-                ShopTransaction.executeSell(player, shop, level, java.util.UUID.randomUUID().toString()),
-                shop, false);
+        ShopTransaction.executeSellAsync(player, shop, level, java.util.UUID.randomUUID().toString())
+                .whenComplete((result, error) -> player.getServer().execute(() -> sendTransactionResult(player,
+                        error == null ? result : new TransactionResult(ShopTransaction.ResultType.RECOVERY_REQUIRED,
+                                "RECOVERY_REQUIRED", java.math.BigDecimal.ZERO, 0), shop, false)));
         return true;
     }
 
@@ -144,6 +146,8 @@ public final class ShopInteractionService {
             case NOT_ENOUGH_MONEY -> player.sendSystemMessage(Component.literal(buying
                     ? "§cYou don't have enough money to buy that."
                     : "§cThe shop owner can't afford to buy that."));
+            case MAXIMUM_BALANCE -> player.sendSystemMessage(Component.literal("§cThe receiving account is at its maximum balance."));
+            case IDEMPOTENCY_CONFLICT -> player.sendSystemMessage(Component.literal("§cThis click conflicts with an existing transaction."));
             case NOT_ENOUGH_STOCK -> player.sendSystemMessage(Component.literal(buying
                     ? "§cThis shop is out of stock."
                     : "§cYou don't have enough of that item."));

@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * /chestshop (alias /cshop, /shop) — admin and player shop management commands.
+ * /chestshop (alias /cshop) — admin and player shop management commands.
  */
 public class ShopCommand {
 
@@ -52,6 +52,10 @@ public class ShopCommand {
                     (src.getEntity() != null &&
                      PermissionAPI.hasPermission(src.getEntity().getUUID(), "bigbangessentials.shop.admin.reload")))
                 .executes(ctx -> executeReload(ctx.getSource())))
+            .then(Commands.literal("admin")
+                .requires(src -> src.hasPermission(3) || src.getEntity() instanceof ServerPlayer player
+                        && PermissionAPI.hasPermission(player.getUUID(), "bigbangessentials.shop.admin.recovery"))
+                .then(Commands.literal("status").executes(ctx -> executeRecoveryStatus(ctx.getSource()))))
             .executes(ctx -> executeHelp(ctx.getSource()));
 
         dispatcher.register(node);
@@ -223,6 +227,18 @@ public class ShopCommand {
         return 1;
     }
 
+    private static int executeRecoveryStatus(CommandSourceStack src) {
+        com.pedrodalben.bigbangessentials.shop.ChestShopTransactionJournal.getInstance().pendingCount()
+                .whenComplete((count, error) -> src.getServer().execute(() -> {
+                    if (error != null || count == null || count < 0) {
+                        src.sendFailure(Component.literal("§cChestShop journal unavailable."));
+                    } else {
+                        src.sendSuccess(() -> Component.literal("§6ChestShop pending/recovery operations: §f" + count), false);
+                    }
+                }));
+        return 1;
+    }
+
     private static boolean canConvertShop(CommandSourceStack src) {
         return src.getEntity() instanceof ServerPlayer sp &&
             PermissionAPI.hasPermission(sp.getUUID(), "bigbangessentials.shop.create");
@@ -243,6 +259,7 @@ public class ShopCommand {
         src.sendSuccess(() -> Component.literal("§e/chestshop convert §7- Register looked-at sign as shop"), false);
         src.sendSuccess(() -> Component.literal("§e/chestshop remove <x> <y> <z> §7- Admin: remove shop"), false);
         src.sendSuccess(() -> Component.literal("§e/chestshop reload §7- Admin: reload shop data"), false);
+        src.sendSuccess(() -> Component.literal("§e/chestshop admin status §7- Admin: pending/recovery operations"), false);
         src.sendSuccess(() -> Component.literal("§7Signs: [Name] / [Qty] / [B buy:S sell] / [item]"), false);
         return 1;
     }
