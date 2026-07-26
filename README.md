@@ -465,6 +465,9 @@ O mod registra aproximadamente **110 comandos únicos** (sem contar aliases e su
 |---|---|---|
 | `/pokemarket` `/gts` `/pm` | Mercado de Pokémon | pokemarket |
 
+`/shop` é AdminShop. `/chestshop` e `/cshop` são os comandos do ChestShop;
+`/gts` e `/pm` são aliases da mesma árvore do PokéMarket.
+
 Referência completa de comandos: [`docs/Wiki/CommandsReference.md`](docs/Wiki/CommandsReference.md)
 
 ---

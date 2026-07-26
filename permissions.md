@@ -72,6 +72,30 @@ Sign-based chest shops for automated buy/sell trading.
 | `bigbangessentials.shop.list.others` | List other players' shops |
 | `bigbangessentials.shop.admin.remove` | Remove any shop |
 | `bigbangessentials.shop.admin.reload` | Reload shop data |
+| `bigbangessentials.shop.admin.recovery` | Inspect pending/recovery operations |
+
+## AdminShop and PokéMarket
+
+`/shop` is AdminShop; `/chestshop` and `/cshop` are ChestShop. PokéMarket
+aliases `/gts` and `/pm` redirect to the same command tree.
+
+| Node | Default | Description |
+|---|---:|---|
+| `bigbangessentials.adminshop.money` | false | Open/use `/shop` |
+| `bigbangessentials.adminshop.gems` | false | Open/use `/cash` and `/gemas shop` |
+| `bigbangessentials.adminshop.admin` | false | AdminShop administration |
+| `bigbangessentials.adminshop.audit` | false | Inspect AdminShop audit |
+| `bigbangessentials.pokemarket.use` | true | Use PokéMarket and aliases |
+| `bigbangessentials.pokemarket.admin` | false | PokéMarket administration |
+| `bigbangessentials.pokemarket.admin.health` | false | Health and full scans |
+| `bigbangessentials.pokemarket.admin.inspect` | false | Inspect listings/operations |
+| `bigbangessentials.pokemarket.admin.retry` | false | Retry recovery |
+| `bigbangessentials.pokemarket.admin.refund` | false | Refund operations |
+| `bigbangessentials.pokemarket.admin.reconcile` | false | Reconcile operations |
+
+The granular player nodes are also registered (`browse`, `sell`, `buy`,
+`trade`, `cancel`, `claim`, `history`, and `notifications`) with the same
+default as `pokemarket.use`; the root node remains the compatibility gate.
 
 ---
 
