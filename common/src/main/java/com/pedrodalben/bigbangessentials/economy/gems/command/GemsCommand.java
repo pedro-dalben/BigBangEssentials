@@ -9,6 +9,7 @@ import com.pedrodalben.bigbangessentials.economy.EconomyPlayerUtil;
 import com.pedrodalben.bigbangessentials.economy.gems.api.*;
 import com.pedrodalben.bigbangessentials.economy.gems.domain.*;
 import com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager;
+import com.pedrodalben.bigbangessentials.economy.migration.GemsJsonMigrationService;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
@@ -214,7 +215,15 @@ public class GemsCommand {
         // /gems admin reload
         adminBuilder.then(net.minecraft.commands.Commands.literal("reload")
             .requires(src -> hasPermission(src, "bigbangessentials.gems.admin.reload"))
-            .executes(ctx -> executeAdminReload(ctx))
+                .executes(ctx -> executeAdminReload(ctx))
+        );
+
+        // /gems admin migrate-json --dry-run | --execute confirm
+        adminBuilder.then(net.minecraft.commands.Commands.literal("migrate-json")
+            .requires(src -> hasPermission(src, "bigbangessentials.gems.admin.migrate"))
+            .then(net.minecraft.commands.Commands.literal("--dry-run").executes(GemsCommand::executeMigrationDryRun))
+            .then(net.minecraft.commands.Commands.literal("--execute")
+                .then(net.minecraft.commands.Commands.literal("confirm").executes(GemsCommand::executeMigration)))
         );
 
         gemsBuilder.then(adminBuilder);
@@ -263,7 +272,8 @@ public class GemsCommand {
             "bigbangessentials.gems.admin.release",
             "bigbangessentials.gems.admin.verify",
             "bigbangessentials.gems.admin.repair",
-            "bigbangessentials.gems.admin.reload");
+            "bigbangessentials.gems.admin.reload",
+            "bigbangessentials.gems.admin.migrate");
     }
 
     private static boolean canUseGemsBalanceBranch(CommandSourceStack src) {
@@ -680,5 +690,29 @@ public class GemsCommand {
             ctx.getSource().sendFailure(MessageUtil.error("Reload failed: " + e.getMessage()));
             return 0;
         }
+    }
+
+    private static int executeMigrationDryRun(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
+        try {
+            var report = new GemsJsonMigrationService().dryRun();
+            ctx.getSource().sendSuccess(() -> MessageUtil.info("Gems JSON: accounts=" + report.accountsFound() + ", reservations=" + report.reservationsFound() + ", total=" + report.totalBalanceMinor() + ", checksum=" + report.checksum() + ", status=" + report.status()), false);
+            return report.status() == GemsJsonMigrationService.Status.FAILED ? 0 : 1;
+        } catch (Exception e) {
+            ctx.getSource().sendFailure(MessageUtil.error("Gems migration validation failed: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int executeMigration(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().sendSuccess(() -> MessageUtil.info("Gems JSON import started; database remains the only active backend."), false);
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                var report = new GemsJsonMigrationService().execute();
+                ctx.getSource().sendSuccess(() -> MessageUtil.info("Gems JSON import: accounts=" + report.accountsImported() + ", reservations=" + report.reservationsImported() + ", status=" + report.status()), true);
+            } catch (Exception e) {
+                ctx.getSource().sendFailure(MessageUtil.error("Gems migration failed: " + e.getMessage()));
+            }
+        });
+        return 1;
     }
 }

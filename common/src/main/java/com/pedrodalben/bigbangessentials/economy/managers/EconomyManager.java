@@ -27,6 +27,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -266,6 +267,12 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
             uuid -> BigDecimal.valueOf(ConfigManager.getEconomyStartingBalance()));
     }
 
+    /** Non-blocking balance boundary for integrations; the legacy getter remains for compatibility. */
+    public CompletableFuture<BigDecimal> getBalanceAsync(UUID player) {
+        if (databaseMode) return databaseBackend == null ? CompletableFuture.completedFuture(BigDecimal.ZERO) : databaseBackend.getBalanceDecimalAsync(player);
+        return CompletableFuture.completedFuture(getBalance(player));
+    }
+
     public synchronized void setBalance(UUID player, BigDecimal amount) {
         setBalanceChecked(player, amount);
     }
@@ -346,6 +353,28 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
         return mutateLocal(player, amount, operationKey, false, reason, metadata);
     }
 
+    public CompletableFuture<EconomyOperationReceipt> creditAsync(UUID player, BigDecimal amount, String operationKey, String reason, Map<String, String> metadata) {
+        if (databaseMode) return databaseBackend == null ? CompletableFuture.completedFuture(failedReceipt(player, amount, operationKey)) : databaseBackend.credit(player, amount, operationKey, reason, metadata);
+        return CompletableFuture.completedFuture(credit(player, amount, operationKey, reason, metadata));
+    }
+
+    public CompletableFuture<EconomyOperationReceipt> debitAsync(UUID player, BigDecimal amount, String operationKey, String reason, Map<String, String> metadata) {
+        if (databaseMode) return databaseBackend == null ? CompletableFuture.completedFuture(failedReceipt(player, amount, operationKey)) : databaseBackend.debit(player, amount, operationKey, reason, metadata);
+        return CompletableFuture.completedFuture(debit(player, amount, operationKey, reason, metadata));
+    }
+
+    public CompletableFuture<EconomyOperationReceipt> transferResultAsync(UUID sender, UUID receiver, BigDecimal amount, BigDecimal fee, String operationKey) {
+        if (databaseMode) {
+            if (databaseBackend == null) return CompletableFuture.completedFuture(failedReceipt(sender, amount, operationKey));
+            return databaseBackend.transferResult(sender, receiver, amount, fee, operationKey);
+        }
+        BigDecimal before = getBalance(sender);
+        boolean success = transfer(sender, receiver, amount, fee, operationKey);
+        BigDecimal after = getBalance(sender);
+        return CompletableFuture.completedFuture(new EconomyOperationReceipt(UUID.randomUUID(), sender, amount,
+                success ? EconomyOperationStatus.COMPLETED : EconomyOperationStatus.REJECTED, before, after, operationKey, null));
+    }
+
     /** Transfers money without leaving the sender debited when the recipient cannot be credited. */
     public synchronized boolean transfer(UUID sender, UUID receiver, BigDecimal amount, BigDecimal fee) {
         return transfer(sender, receiver, amount, fee, "pay:" + sender + ":" + receiver + ":" + UUID.randomUUID());
@@ -417,7 +446,7 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
                 return new EconomyOperationReceipt(existing.id(), player, amount, EconomyOperationStatus.IDEMPOTENCY_CONFLICT,
                         existing.balanceBefore(), existing.balanceAfter(), key, fingerprint);
             }
-            return existing;
+            return existing.replay();
         }
         BigDecimal before = getBalance(player);
         BigDecimal after = credit ? updatedBalance(before, amount, BigDecimal.valueOf(ConfigManager.getMaxBalance()), ConfigManager.allowNegativeBalances()) : before.subtract(amount);

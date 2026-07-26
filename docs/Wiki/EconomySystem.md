@@ -1,136 +1,72 @@
 # Economy System
 
-> **Version:** 1.0.2.6 · **Config files:** `economy.json`, `config.json` → `economy` section
+## Source of truth
 
----
+The configured default is `backend: DATABASE`. Money is represented as exact `BigDecimal` at the API boundary and checked `long` minor units in `bbe_economy_accounts.balance_minor`. The durable journal is `bbe_economy_operations`; `balances.json` is legacy migration input only when the database backend is selected.
 
-## Overview
+`currency.scale` is centralized in `economy.json` and supports 0–18 decimal places. `currency.rounding-mode` is applied once at the boundary. Existing Vault/double methods remain compatibility wrappers; new integrations should use structured async calls.
 
-BigBangEssentials provides a full server economy with player balances, payments, admin tools, an async leaderboard, a sign-based ChestShop, and Vault API integration.
+## Configuration
 
----
+| Key | Default | Meaning |
+|---|---:|---|
+| `backend` | `DATABASE` | `DATABASE` or explicit legacy `JSON` mode |
+| `startingBalance` | `100.0` | Balance for a newly created database account |
+| `currency.scale` | `2` | Minor-unit scale |
+| `currency.rounding-mode` | `HALF_UP` | Boundary rounding mode |
+| `maxBalance` | `999999999.99` | Maximum account balance |
+| `allowNegativeBalances` | `false` | Must remain false for normal economy safety |
+| `taxPercentage` | `0.0` | `/pay` tax percentage |
 
-## Config (`economy.json`)
+Database connection, pool, executor, queue, migration, and debug settings live in `database.json`. SQLite is deliberately forced to one connection and one executor thread; MySQL uses the configured pool and bounded executor.
 
-| Key | Default | Description |
-|---|---|---|
-| `enabled` | `true` | Enable/disable the economy system |
-| `startingBalance` | `1000.0` | Balance given to new players |
-| `currencySymbol` | `"$"` | Symbol prepended to all amounts |
-| `currencyNameSingular` | `"Dollar"` | Full currency name (singular) |
-| `currencyNamePlural` | `"Dollars"` | Full currency name (plural) |
-| `maxBalance` | `1000000000.0` | Maximum balance a player can hold |
-| `allowNegativeBalances` | `false` | Allow balances below zero |
-| `taxPercentage` | `0.0` | Tax applied to `/pay` transfers (0.0–1.0) |
-| `maxTransferAmount` | `0` | Max single `/pay` amount (0 = unlimited) |
-| `paytoggleDefault` | `true` | Whether players accept payments by default |
-| `payConfirmThreshold` | `0` | Ask for confirmation above this amount (0 = off) |
-| `sellMultiplier` | `1.0` | Global multiplier applied to all `/sell` prices |
-| `allowSellNamedItems` | `false` | Allow selling renamed items |
-| `baltopCacheSeconds` | `60` | How often the `/baltop` leaderboard refreshes |
-| `baltopPageSize` | `10` | Entries per `/baltop` page |
+## Transaction contract
 
----
+Every database credit, debit, set, and transfer follows:
 
-## Commands
+1. validate exact amount and key;
+2. lock account rows;
+3. check the durable operation key and fingerprint;
+4. insert a `PENDING` journal row;
+5. update account(s) using checked minor-unit arithmetic;
+6. mark the receipt `COMPLETED` or `REJECTED`;
+7. commit once and only then return success.
 
-### Player Commands
+The same idempotency key with the same payload returns the original operation id and marks the receipt as `idempotentReplay`. Reusing a key with different player, amount, type, source, reference, or metadata returns `IDEMPOTENCY_CONFLICT` and changes no balance.
 
-| Command | Syntax | Permission | Description |
-|---|---|---|---|
-| `/balance` | `/balance [player]` | `bigbangessentials.economy.balance` | Check your balance |
-| `/bal` | alias | same | Alias |
-| `/pay` | `/pay <player> <amount>` | `bigbangessentials.economy.pay` | Send money to a player |
-| `/paytoggle` | `/paytoggle` | `bigbangessentials.economy.pay.toggle` | Toggle receiving payments |
-| `/baltop` | `/baltop [page]` | `bigbangessentials.economy.baltop` | View top balances (paginated, async) |
-| `/worth` | `/worth [item\|hand] [qty]` | `bigbangessentials.worth` | Check sell value of an item |
-| `/sell` | `/sell hand\|inventory\|all\|<item> [qty]` | `bigbangessentials.sell` | Sell items for money |
-| `/payconfirmtoggle` | `/payconfirmtoggle` | `bigbangessentials.economy.pay.toggle` | Toggle payment confirmation prompts |
+Transfers lock both UUIDs in lexical order and update sender and receiver in one transaction. The fee is removed from the transfer; the structured receipt describes the sender-side balance transition and includes receiver/fee metadata.
 
-### Admin Commands
+## Public API
 
-| Command | Syntax | Permission | Description |
-|---|---|---|---|
-| `/eco give` | `/eco give <player> <amount[%]>` | `bigbangessentials.economy.eco` | Give money (supports `10%` of balance) |
-| `/eco take` | `/eco take <player> <amount[%]>` | `bigbangessentials.economy.eco` | Take money |
-| `/eco set` | `/eco set <player> <amount>` | `bigbangessentials.economy.eco` | Set balance |
-| `/eco reset` | `/eco reset <player>` | `bigbangessentials.economy.eco` | Reset to starting balance |
-| `/setworth` | `/setworth <item\|hand> <price\|remove>` | `bigbangessentials.setworth` | Set/remove an item's sell price |
-
----
-
-## ChestShop
-
-Sign-based shops that connect a chest to a sign for automated buy/sell.
-
-### Setup
-
-1. Place a chest
-2. Place a sign on the chest (or adjacent block)
-3. Write the sign in this format:
-
-```
-Line 1: [leave blank or your name]   ← auto-assigns your name if blank
-Line 2: 5                            ← quantity per trade
-Line 3: B 10:S 5                     ← buy price : sell price  (B only, S only, or both)
-Line 4: diamond                      ← item name, or ? to assign by right-clicking with item
+```java
+EconomyAPI.depositAsync(player, amount, key, reason, metadata);
+EconomyAPI.withdrawAsync(player, amount, key, reason, metadata);
+EconomyAPI.payPlayerAsync(sender, receiver, amount, key);
 ```
 
-**Price shortcuts:** `B FREE` = free to buy · `S FREE` = free to sell · `1K` = 1000 · `1.5M` = 1500000
+Each returns `CompletableFuture<EconomyOperationReceipt>`. The receipt includes operation id, status, currency, player, amount, balances before/after, idempotency key, fingerprint, error, replay flag, timestamp, source module, and external reference.
 
-### Admin Shops
+The old `deposit`, `withdraw`, boolean Vault methods, and synchronous manager methods remain for compatibility. They may block on JDBC and should not be used from a server-thread hot path.
 
-Use `Admin Shop` on line 1 — requires `bigbangessentials.shop.create.admin`. Admin shops have unlimited stock.
+## Administration
 
-### Commands
-
-| Command | Permission | Description |
-|---|---|---|
-| `/chestshop list [player]` | none for self, `bigbangessentials.shop.list.others` for another player | List shops |
-| `/chestshop info` | `bigbangessentials.shop.use` | Show info about a looked-at shop |
-| `/chestshop remove <x y z>` | `bigbangessentials.shop.admin.remove` | Admin-remove a shop by coordinates |
-| `/chestshop reload` | `bigbangessentials.shop.admin.reload` | Reload shops from disk |
-
-### Permissions
-
-| Node | Description |
+| Command | Purpose |
 |---|---|
-| `bigbangessentials.shop.create` | Create player shops and convert signs into shops |
-| `bigbangessentials.shop.create.admin` | Create admin shops |
-| `bigbangessentials.shop.use` | Buy/sell at shops |
-| `bigbangessentials.shop.list.others` | View other players' shops |
-| `bigbangessentials.shop.admin.remove` | Remove any shop |
-| `bigbangessentials.shop.admin.reload` | Reload shop data |
+| `/bbe economy status` | Shows configured backend and database state |
+| `/bbe economy migrate-json --dry-run` | Validates legacy balances and prints checksum/total/conflicts |
+| `/bbe economy migrate-json --execute --confirm` | Backs up and imports valid rows transactionally |
+| `/bbe economy reconcile` | Read-only pending/orphan/negative/idempotency checks |
+| `/bbe database status` | Pool, queue, transaction, SQL, commit, and retry metrics |
 
----
+Migration is keyed by the source SHA-256. The original JSON is retained, the backup is never auto-deleted, and a conflicting or partial import reports `RECONCILIATION_REQUIRED` instead of guessing.
 
-## Vault API
+## Files and tables
 
-BigBangEssentials registers itself as a Vault Economy, Chat, and Permission provider. Any mod/plugin using Vault will automatically use BigBangEssentials.
-
-| Provider | Class | Notes |
-|---|---|---|
-| Economy | `BigBangEssentialsEconomy` | Backed by `EconomyManager`; `format()` uses live `currencySymbol` |
-| Chat | `BigBangEssentialsChat` | Prefix/suffix routed through LuckPerms → FTBRanks → internal |
-| Permission | `BigBangEssentialsPermission` | `playerHas()` → `PermissionAPI.hasPermission()` |
-
-Use `/vault` to check provider status in-game.
-
----
-
-## Data Files
-
-| File | Contents |
+| Resource | Role |
 |---|---|
-| `bigbangessentials/balances.json` | Legado somente para migração/rollback administrativo; não é fonte de verdade em `backend: DATABASE` |
+| `bigbangessentials/balances.json` | Legacy import/rollback artifact, not active in `DATABASE` mode |
+| `bbe_economy_accounts` | Current minor-unit balances |
+| `bbe_economy_operations` | Durable receipts, idempotency, fingerprints, before/after values |
+| `bbe_economy_data_migrations` | Legacy money migration records |
 
-## Economia transacional
-
-O backend padrão é `DATABASE`. Saldos ficam em `bbe_economy_accounts.balance_minor` (`BIGINT`, escala 2); receipts e idempotência ficam em `bbe_economy_operations`. Use `/bbe economy migrate-json --dry-run` para validar o legado e `/bbe economy migrate-json --execute --confirm` para importar com backup e reconciliação. O banco não faz fallback silencioso para JSON.
-| `bigbangessentials/transactions.json` | Transaction history log |
-| `bigbangessentials/worth.json` | Item ID → sell price |
-| `bigbangessentials/shops.json` | ChestShop data |
-
----
-
-*Back to [Wiki Home](Home)*
+Migrations V018–V024 establish the money journal and fingerprint. V027 expands MySQL journal decimals to `DECIMAL(38,18)` so the journal does not truncate a configured scale.

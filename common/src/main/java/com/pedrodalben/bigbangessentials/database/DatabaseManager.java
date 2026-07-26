@@ -3,6 +3,7 @@ package com.pedrodalben.bigbangessentials.database;
 import com.zaxxer.hikari.HikariDataSource;
 import com.pedrodalben.bigbangessentials.database.config.DatabaseConfig;
 import com.pedrodalben.bigbangessentials.database.config.DatabaseConfigLoader;
+import com.pedrodalben.bigbangessentials.database.config.DatabaseConfigValidator;
 import com.pedrodalben.bigbangessentials.database.datasource.MySqlDataSourceFactory;
 import com.pedrodalben.bigbangessentials.database.datasource.SqliteDataSourceFactory;
 import com.pedrodalben.bigbangessentials.database.dialect.DatabaseDialect;
@@ -79,6 +80,7 @@ public class DatabaseManager {
         try {
             // Load and resolve configuration
             config = DatabaseConfigLoader.load();
+            DatabaseConfigValidator.validateAndSanitize(config);
             
             if (!config.isEnabled()) {
                 LOGGER.info("Database module is disabled in configuration.");

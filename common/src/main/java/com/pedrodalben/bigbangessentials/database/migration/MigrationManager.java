@@ -55,6 +55,9 @@ public class MigrationManager {
         registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V022CreatePokeMarketNotificationsTable());
         registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V023CreateAdminShopAuditTable());
         registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V024AddEconomyOperationFingerprint());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V025CreateDurableGemsTables());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V026AddGemHeldBalance());
+        registeredMigrations.add(new com.pedrodalben.bigbangessentials.database.migration.migrations.V027ExpandEconomyDecimalPrecision());
     }
 
     /** Snapshot used by diagnostics and migration tests; callers cannot mutate registration order. */

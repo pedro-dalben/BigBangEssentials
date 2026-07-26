@@ -8,6 +8,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationReceipt;
 
 /**
  * Public API for other mods to interact with BigBangEssentials Economy.
@@ -52,6 +54,16 @@ public class EconomyAPI {
         return EconomyManager.getInstance().debit(player, amount, key, reason, metadata);
     }
 
+    /** Async structured deposit. Database-backed calls never block the caller on JDBC. */
+    public static CompletableFuture<EconomyOperationReceipt> depositAsync(UUID player, BigDecimal amount, String key, String reason, Map<String, String> metadata) {
+        return EconomyManager.getInstance().creditAsync(player, amount, key, reason, metadata);
+    }
+
+    /** Async structured withdrawal. Database-backed calls never block the caller on JDBC. */
+    public static CompletableFuture<EconomyOperationReceipt> withdrawAsync(UUID player, BigDecimal amount, String key, String reason, Map<String, String> metadata) {
+        return EconomyManager.getInstance().debitAsync(player, amount, key, reason, metadata);
+    }
+
     /**
      * Check if a player is accepting payments (paytoggle).
      */
@@ -90,13 +102,34 @@ public class EconomyAPI {
         EconomyManager manager = EconomyManager.getInstance();
         BigDecimal fee;
         try {
-            fee = amount.multiply(BigDecimal.valueOf(ConfigManager.getTaxPercentage()).movePointLeft(2))
+            fee = amount.multiply(ConfigManager.getTaxPercentageDecimal().movePointLeft(2))
                     .setScale(ConfigManager.getEconomyCurrencyScale(), ConfigManager.getEconomyRoundingMode());
         } catch (ArithmeticException e) { return false; }
         BigDecimal netAmount = amount.subtract(fee);
         if (netAmount.compareTo(BigDecimal.ZERO) <= 0) return false; // Fee too high for amount
 
         return manager.transfer(sender, receiver, amount, fee, requestKey);
+    }
+
+    /** Async structured payment; the receipt describes the sender-side atomic transfer. */
+    public static CompletableFuture<EconomyOperationReceipt> payPlayerAsync(UUID sender, UUID receiver, BigDecimal amount, String requestKey) {
+        if (sender == null || receiver == null || amount == null || sender.equals(receiver) || !isValidAmount(amount)) {
+            return CompletableFuture.completedFuture(new EconomyOperationReceipt(UUID.randomUUID(), sender, amount,
+                    com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.REJECTED, null, null, requestKey, null));
+        }
+        BigDecimal fee;
+        try {
+            fee = amount.multiply(ConfigManager.getTaxPercentageDecimal().movePointLeft(2))
+                    .setScale(ConfigManager.getEconomyCurrencyScale(), ConfigManager.getEconomyRoundingMode());
+        } catch (RuntimeException e) {
+            return CompletableFuture.completedFuture(new EconomyOperationReceipt(UUID.randomUUID(), sender, amount,
+                    com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.REJECTED, null, null, requestKey, null));
+        }
+        if (amount.subtract(fee).signum() <= 0) {
+            return CompletableFuture.completedFuture(new EconomyOperationReceipt(UUID.randomUUID(), sender, amount,
+                    com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.REJECTED, null, null, requestKey, null));
+        }
+        return EconomyManager.getInstance().transferResultAsync(sender, receiver, amount, fee, requestKey);
     }
 
     private static boolean isValidAmount(BigDecimal amount) {

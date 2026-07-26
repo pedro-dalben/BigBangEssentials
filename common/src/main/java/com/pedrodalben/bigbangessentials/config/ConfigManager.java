@@ -1624,13 +1624,11 @@ public class ConfigManager {
      * Defaults to 100.0 if not set.
      */
     public static double getEconomyStartingBalance() {
-        JsonObject config = getInstance().getConfig(ECONOMY_CONFIG);
-        if (config.has("startingBalance")) {
-            try {
-                return config.get("startingBalance").getAsDouble();
-            } catch (Exception ignored) {}
-        }
-        return 100.0;
+        return getEconomyStartingBalanceDecimal().doubleValue();
+    }
+
+    public static java.math.BigDecimal getEconomyStartingBalanceDecimal() {
+        return economyDecimal("startingBalance", "100.0");
     }
 
     public static String getEconomyBackend() {
@@ -1680,13 +1678,11 @@ public class ConfigManager {
      * Defaults to 999999999.99 if not set.
      */
     public static double getMaxBalance() {
-        JsonObject config = getInstance().getConfig(ECONOMY_CONFIG);
-        if (config.has("maxBalance")) {
-            try {
-                return config.get("maxBalance").getAsDouble();
-            } catch (Exception ignored) {}
-        }
-        return 999999999.99;
+        return getMaxBalanceDecimal().doubleValue();
+    }
+
+    public static java.math.BigDecimal getMaxBalanceDecimal() {
+        return economyDecimal("maxBalance", "999999999.99");
     }
 
     /**
@@ -1694,13 +1690,20 @@ public class ConfigManager {
      * Defaults to 0.0 if not set.
      */
     public static double getTaxPercentage() {
+        return getTaxPercentageDecimal().doubleValue();
+    }
+
+    public static java.math.BigDecimal getTaxPercentageDecimal() {
+        return economyDecimal("taxPercentage", "0.0");
+    }
+
+    private static java.math.BigDecimal economyDecimal(String key, String fallback) {
         JsonObject config = getInstance().getConfig(ECONOMY_CONFIG);
-        if (config.has("taxPercentage")) {
-            try {
-                return config.get("taxPercentage").getAsDouble();
-            } catch (Exception ignored) {}
+        try {
+            return new java.math.BigDecimal(config.get(key).getAsString());
+        } catch (Exception ignored) {
+            return new java.math.BigDecimal(fallback);
         }
-        return 0.0;
     }
 
     /**

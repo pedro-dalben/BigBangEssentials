@@ -54,6 +54,7 @@ public class DatabaseConfigLoader {
                 checkMissingEnv(config.getSqlite().getFile());
                 checkMissingEnv(config.getSqlite().path);
                 config.getPool().setMaximumPoolSize(1);
+                config.getPool().setMinimumIdle(1);
                 config.getExecutor().setThreads(1);
             } else if (config.getType() == com.pedrodalben.bigbangessentials.database.DatabaseType.MYSQL) {
                 checkMissingEnv(config.getMysql().getHost());

@@ -1,5 +1,7 @@
 # Gems Ledger and Idempotency Reference
 
+> **Current database backend:** The runtime source of truth is `bbe_gem_operations` plus `bbe_gem_accounts`/`bbe_gem_reservations`. The JSON state/ledger details below describe the explicit legacy file backend and migration input only; they are not a fallback when MySQL is configured.
+
 This page describes the transaction logging schema and the idempotency mechanisms that guarantee safety across restarts and crash recoveries.
 
 ## Transaction Log Schema (`gems_transactions.jsonl`)
