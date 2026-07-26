@@ -6,6 +6,9 @@ import com.pedrodalben.bigbangessentials.economy.gems.domain.*;
 import com.pedrodalben.bigbangessentials.economy.gems.event.*;
 import com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistence;
 import com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsState;
+import com.pedrodalben.bigbangessentials.economy.gems.service.DatabaseGemsService;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.database.DatabaseType;
 import com.pedrodalben.bigbangessentials.util.Platform;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -50,13 +53,13 @@ public class GemsManager {
 
     public GemsManager(File baseDir) {
         this.persistence = new GemsPersistence(baseDir);
-        recover();
+        if (!databaseModeConfigured()) recover();
         startCleanupTask();
     }
 
     private GemsManager() {
         this.persistence = new GemsPersistence();
-        recover();
+        if (!databaseModeConfigured()) recover();
         startCleanupTask();
 
         // Register JVM Shutdown Hook
@@ -64,7 +67,9 @@ public class GemsManager {
     }
 
     public boolean isGemsEnabled() {
-        return persistence.isGemsEnabled();
+        DatabaseManager database = DatabaseManager.getInstance();
+        if (database.getConfig() != null && database.getType() == DatabaseType.MYSQL) return database.isReady() && persistence.getConfig().enabled;
+        return databaseBackend() != null ? persistence.getConfig().enabled : persistence.isGemsEnabled();
     }
 
     private void checkFailpoint(com.pedrodalben.bigbangessentials.economy.gems.persistence.GemsPersistenceFailpoint expected) {
@@ -75,6 +80,8 @@ public class GemsManager {
     }
 
     public GemCurrencyDescriptor getCurrencyDescriptor() {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.descriptor();
         GemConfig.Display display = persistence.getConfig().display;
         return new GemCurrencyDescriptor(
             persistence.getConfig().technicalId,
@@ -125,6 +132,8 @@ public class GemsManager {
     }
 
     public String format(long amount) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.format(amount);
         if (!isGemsEnabled()) {
             return amount + " ✦";
         }
@@ -150,6 +159,8 @@ public class GemsManager {
     }
 
     public GemBalanceView getBalanceView(UUID playerUuid) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.getBalance(playerUuid);
         stateLock.readLock().lock();
         try {
             long total = getBalanceTotal(currentState, playerUuid);
@@ -162,6 +173,8 @@ public class GemsManager {
     }
 
     public List<GemReservation> getActiveReservations(UUID playerUuid) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.getActiveReservations(playerUuid);
         stateLock.readLock().lock();
         try {
             List<GemReservation> list = new ArrayList<>();
@@ -177,6 +190,8 @@ public class GemsManager {
     }
 
     public boolean hasAvailable(UUID playerUuid, long amount) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.hasAvailable(playerUuid, amount);
         if (amount < 0) return false;
         stateLock.readLock().lock();
         try {
@@ -191,6 +206,8 @@ public class GemsManager {
     // API OPERATIONS
 
     public GemOperationResult credit(GemCreditRequest request) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.credit(request);
         if (shuttingDown) return GemOperationResult.fail(GemOperationFailure.SHUTTING_DOWN, "Server is shutting down");
         if (!isGemsEnabled()) return GemOperationResult.fail(GemOperationFailure.DISABLED, "Gems system is disabled");
         if (dataIntegrityError) return GemOperationResult.fail(GemOperationFailure.DATA_INTEGRITY_FAILURE, "Gems state integrity check failed");
@@ -309,6 +326,8 @@ public class GemsManager {
     }
 
     public GemOperationResult debit(GemDebitRequest request) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.debit(request);
         if (shuttingDown) return GemOperationResult.fail(GemOperationFailure.SHUTTING_DOWN, "Server is shutting down");
         if (!isGemsEnabled()) return GemOperationResult.fail(GemOperationFailure.DISABLED, "Gems system is disabled");
         if (dataIntegrityError) return GemOperationResult.fail(GemOperationFailure.DATA_INTEGRITY_FAILURE, "Gems state integrity check failed");
@@ -427,6 +446,8 @@ public class GemsManager {
     }
 
     public GemOperationResult setBalance(GemSetBalanceRequest request) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.setBalance(request);
         if (shuttingDown) return GemOperationResult.fail(GemOperationFailure.SHUTTING_DOWN, "Server is shutting down");
         if (!isGemsEnabled()) return GemOperationResult.fail(GemOperationFailure.DISABLED, "Gems system is disabled");
         if (dataIntegrityError) return GemOperationResult.fail(GemOperationFailure.DATA_INTEGRITY_FAILURE, "Gems state integrity check failed");
@@ -503,6 +524,8 @@ public class GemsManager {
     }
 
     public GemReservationResult reserve(GemReservationRequest request) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.reserve(request);
         if (shuttingDown) return GemReservationResult.fail(GemOperationFailure.SHUTTING_DOWN, "Server is shutting down");
         if (!isGemsEnabled()) return GemReservationResult.fail(GemOperationFailure.DISABLED, "Gems system is disabled");
         if (dataIntegrityError) return GemReservationResult.fail(GemOperationFailure.DATA_INTEGRITY_FAILURE, "Gems state integrity check failed");
@@ -636,6 +659,8 @@ public class GemsManager {
     }
 
     public GemOperationResult capture(GemCaptureRequest request) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.capture(request);
         if (shuttingDown) return GemOperationResult.fail(GemOperationFailure.SHUTTING_DOWN, "Server is shutting down");
         if (!isGemsEnabled()) return GemOperationResult.fail(GemOperationFailure.DISABLED, "Gems system is disabled");
         if (dataIntegrityError) return GemOperationResult.fail(GemOperationFailure.DATA_INTEGRITY_FAILURE, "Gems state integrity check failed");
@@ -777,6 +802,8 @@ public class GemsManager {
     }
 
     public GemOperationResult release(GemReleaseRequest request) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.release(request);
         if (shuttingDown) return GemOperationResult.fail(GemOperationFailure.SHUTTING_DOWN, "Server is shutting down");
         if (!isGemsEnabled()) return GemOperationResult.fail(GemOperationFailure.DISABLED, "Gems system is disabled");
         if (dataIntegrityError) return GemOperationResult.fail(GemOperationFailure.DATA_INTEGRITY_FAILURE, "Gems state integrity check failed");
@@ -915,6 +942,8 @@ public class GemsManager {
     }
 
     public GemOperationResult renew(GemRenewRequest request) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.renew(request);
         if (shuttingDown) return GemOperationResult.fail(GemOperationFailure.SHUTTING_DOWN, "Server is shutting down");
         if (!isGemsEnabled()) return GemOperationResult.fail(GemOperationFailure.DISABLED, "Gems system is disabled");
         if (dataIntegrityError) return GemOperationResult.fail(GemOperationFailure.DATA_INTEGRITY_FAILURE, "Gems state integrity check failed");
@@ -1043,6 +1072,8 @@ public class GemsManager {
     }
 
     public Optional<GemReservation> findReservation(UUID reservationId) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.findReservation(reservationId);
         stateLock.readLock().lock();
         try {
             GemReservation res = currentState.reservations.get(reservationId.toString());
@@ -1053,6 +1084,8 @@ public class GemsManager {
     }
 
     public Optional<GemReservation> findReservationByIdempotencyKey(String idempotencyKey) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.findReservationByIdempotencyKey(idempotencyKey);
         if (idempotencyKey == null) return Optional.empty();
         stateLock.readLock().lock();
         try {
@@ -1068,6 +1101,8 @@ public class GemsManager {
     }
 
     public List<GemTransaction> getHistory(UUID playerUuid, int page, int pageSize) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.getHistory(playerUuid, page, pageSize);
         // Read directly from persistence history
         List<GemTransaction> all = persistence.getHistory(playerUuid);
         if (all.isEmpty()) return Collections.emptyList();
@@ -1312,6 +1347,8 @@ public class GemsManager {
 
     // PERIODIC CLEANUP OF EXPIRED RESERVATIONS
     private void startCleanupTask() {
+        DatabaseManager configuredDatabase = DatabaseManager.getInstance();
+        if (configuredDatabase.getConfig() != null && configuredDatabase.getType() == DatabaseType.MYSQL && !configuredDatabase.isReady()) return;
         if (!isGemsEnabled() || !persistence.getConfig().reservations.enabled) {
             return;
         }
@@ -1323,10 +1360,12 @@ public class GemsManager {
             return t;
         });
 
-        cleanupScheduler.scheduleAtFixedRate(this::expireReservationsTask, interval, interval, TimeUnit.SECONDS);
+        DatabaseGemsService database = databaseBackend();
+        cleanupScheduler.scheduleAtFixedRate(database == null ? this::expireReservationsTask : database::expireDueReservations, interval, interval, TimeUnit.SECONDS);
     }
 
     private void expireReservationsTask() {
+        if (databaseBackend() != null) return;
         stateLock.writeLock().lock();
         try {
             if (shuttingDown || !isGemsEnabled() || dataIntegrityError) return;
@@ -1405,6 +1444,8 @@ public class GemsManager {
 
     // DIAGNOSTICS & REPAIR
     public String verify() {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.verify();
         stateLock.readLock().lock();
         try {
             long totalGems = 0;
@@ -1427,6 +1468,8 @@ public class GemsManager {
     }
 
     public synchronized void repair(boolean confirm) {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) { database.repair(confirm); return; }
         if (!confirm) {
             throw new IllegalArgumentException("Repair requires literal confirmation");
         }
@@ -1517,6 +1560,7 @@ public class GemsManager {
     }
 
     public void reload() {
+        if (databaseBackend() != null) { persistence.loadConfig(); return; }
         stateLock.writeLock().lock();
         try {
             LOGGER.info("Reloading Gems configuration and state...");
@@ -1562,7 +1606,7 @@ public class GemsManager {
                 }
             }
 
-            if (currentState != null && !dataIntegrityError) {
+            if (databaseBackend() == null && currentState != null && !dataIntegrityError) {
                 persistence.saveState(currentState);
             }
             LOGGER.info("Gems manager shutdown complete.");
@@ -1678,5 +1722,16 @@ public class GemsManager {
         } catch (Exception e) {
             LOGGER.error("Exception thrown by event listener", e);
         }
+    }
+
+    private DatabaseGemsService databaseBackend() {
+        DatabaseManager database = DatabaseManager.getInstance();
+        if (database.getConfig() != null && database.getType() == DatabaseType.MYSQL) return new DatabaseGemsService(database, persistence.getConfig());
+        return database.isReady() ? new DatabaseGemsService(database, persistence.getConfig()) : null;
+    }
+
+    private boolean databaseModeConfigured() {
+        DatabaseManager database = DatabaseManager.getInstance();
+        return database.getConfig() != null && database.getType() == DatabaseType.MYSQL;
     }
 }
