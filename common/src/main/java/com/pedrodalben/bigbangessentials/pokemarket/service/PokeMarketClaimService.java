@@ -1,6 +1,5 @@
 package com.pedrodalben.bigbangessentials.pokemarket.service;
 
-import com.pedrodalben.bigbangessentials.api.economy.EconomyServiceImpl;
 import com.pedrodalben.bigbangessentials.api.economy.IdempotentEconomyService;
 import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
 import com.pedrodalben.bigbangessentials.config.ConfigManager;
@@ -24,7 +23,8 @@ public final class PokeMarketClaimService {
             this.databaseEconomy = db; this.economy = db;
         } else {
             this.databaseEconomy = null;
-            this.economy = new EconomyServiceImpl(com.pedrodalben.bigbangessentials.util.ResourceUtil.getDataPath("balances.json"));
+            // Claims are part of the DATABASE contract; do not create a JSON side ledger.
+            this.economy = null;
         }
     }
 
@@ -48,7 +48,7 @@ public final class PokeMarketClaimService {
                                 try (var s = c.prepareStatement("UPDATE bbe_pokemarket_claims SET status='CLAIMED',claimed_at=? WHERE id=? AND status='PROCESSING'")) { s.setLong(1, System.currentTimeMillis()); s.setString(2, id.toString()); if (s.executeUpdate() != 1) throw new java.sql.SQLException("Claim state changed"); }
                                 return "success";
                             }).thenAccept(result::complete).exceptionally(error -> { claims.markAvailable(id); result.complete("deposit_failed"); return null; });
-                        } else if (economy == null) { result.complete("economy_unavailable"); return; }
+                        } else if (economy == null) { claims.markAvailable(id); result.complete("economy_unavailable"); return; }
                         else economy.credit(player.getUUID(), claim.money(), "pokemarket:claim-money:" + id, "PokéMarket money claim", java.util.Map.of("claim", id.toString())).thenAccept(receipt -> {
                             if (receipt.status() == com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.IDEMPOTENCY_CONFLICT) { claims.markAdminLocked(id); result.complete("recovery_required"); return; }
                             if (receipt.status() != com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus.COMPLETED) { claims.markAvailable(id); result.complete("deposit_failed"); return; }

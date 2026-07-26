@@ -18,7 +18,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.security.MessageDigest;
 
-/** Durable purchase saga. The economy is a JSON store, so the journal is the recovery boundary. */
+/** Durable purchase saga. Monetary purchase integrity requires the configured SQL economy. */
 public final class PokeMarketPurchaseService {
     private final PokeMarketListingRepository listings;
     private final PokeMarketClaimRepository claims;
@@ -42,7 +42,8 @@ public final class PokeMarketPurchaseService {
             this.economy = db;
             this.jdbcEconomy = db;
         } else {
-            this.economy = new EconomyServiceImpl(com.pedrodalben.bigbangessentials.util.ResourceUtil.getDataPath("balances.json"));
+            // DATABASE is an integrity requirement for listings and claims. Never fall back to JSON.
+            this.economy = null;
             this.jdbcEconomy = null;
         }
     }
@@ -53,9 +54,11 @@ public final class PokeMarketPurchaseService {
             if (found.isEmpty()) return CompletableFuture.completedFuture("unavailable");
             ListingRecord listing = found.get();
             if (listing.seller().equals(buyer.getUUID())) return CompletableFuture.completedFuture("own_listing");
-            BigDecimal gross = listing.price().setScale(2, RoundingMode.HALF_UP);
-            BigDecimal tax = gross.multiply(new BigDecimal("0.05")).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal net = gross.subtract(tax).setScale(2, RoundingMode.HALF_UP);
+            int scale = ConfigManager.getEconomyCurrencyScale();
+            RoundingMode rounding = ConfigManager.getEconomyRoundingMode();
+            BigDecimal gross = listing.price().setScale(scale, rounding);
+            BigDecimal tax = gross.multiply(new BigDecimal("0.05")).setScale(scale, rounding);
+            BigDecimal net = gross.subtract(tax).setScale(scale, rounding);
             UUID operationId = UUID.randomUUID();
             PurchaseOperation op = new PurchaseOperation(operationId, listingId, buyer.getUUID(), listing.seller(), gross, tax, net,
                 PurchaseOperationStatus.CREATED, "pokemarket:purchase:debit:" + operationId, "pokemarket:refund:" + operationId, System.currentTimeMillis());
@@ -214,6 +217,7 @@ public final class PokeMarketPurchaseService {
 
     /** Administrative escape hatch for a permanently invalid purchase; the credit itself is idempotent. */
     public CompletableFuture<String> refund(UUID operationId, String reason) {
+        if (economy == null) return CompletableFuture.completedFuture("economy_unavailable");
         return operations.find(operationId).thenCompose(found -> {
             if (found.isEmpty()) return CompletableFuture.completedFuture("not_found");
             PurchaseOperation op = found.get();
@@ -226,6 +230,7 @@ public final class PokeMarketPurchaseService {
     }
 
     private CompletableFuture<Void> recoverOne(PurchaseOperation op) {
+        if (economy == null) return CompletableFuture.completedFuture(null);
         if (op.status() == PurchaseOperationStatus.DEBIT_PENDING) {
             return economy.findOperation(op.debitKey()).thenCompose(found -> found.isPresent() ? continueDebit(op, found.get()) : economy.debit(op.buyer(), op.gross(), op.debitKey(), "PokéMarket purchase recovery", Map.of("operation", op.id().toString())).thenCompose(receipt -> continueDebit(op, receipt)));
         }

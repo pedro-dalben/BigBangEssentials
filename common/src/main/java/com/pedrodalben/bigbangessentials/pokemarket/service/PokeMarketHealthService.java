@@ -30,9 +30,15 @@ public final class PokeMarketHealthService {
         checks.put("invalid_accounts", count("SELECT COUNT(*) FROM bbe_economy_accounts WHERE balance_minor<0"));
         checks.put("invalid_notifications", count("SELECT COUNT(*) FROM bbe_pokemarket_notifications WHERE status NOT IN ('UNREAD','DELIVERED','READ')"));
         CompletableFuture<Void> all = CompletableFuture.allOf(checks.values().toArray(CompletableFuture[]::new));
-        return all.thenCompose(ignored -> checksumScan(0, 0, 0).thenApply(scan -> {
-            Map<String, Long> result = new LinkedHashMap<>();
-            checks.forEach((key, value) -> result.put(key, value.join()));
+        CompletableFuture<Map<String, Long>> values = CompletableFuture.completedFuture(new LinkedHashMap<>());
+        for (var entry : checks.entrySet()) {
+            values = values.thenCombine(entry.getValue(), (result, value) -> {
+                result.put(entry.getKey(), value);
+                return result;
+            });
+        }
+        final CompletableFuture<Map<String, Long>> valueResults = values;
+        return all.thenCompose(ignored -> checksumScan(0, 0, 0).thenCombine(valueResults, (scan, result) -> {
             result.put("trade_checksum_mismatch", scan.mismatches());
             return new FullReport(result, scan.scanned());
         }));

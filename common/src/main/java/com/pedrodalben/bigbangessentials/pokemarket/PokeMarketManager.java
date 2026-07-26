@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import com.pedrodalben.bigbangessentials.pokemarket.cobblemon.Cobblemon173MarketBridge;
 import com.pedrodalben.bigbangessentials.pokemarket.repository.*;
 import com.pedrodalben.bigbangessentials.pokemarket.service.*;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 
 /** Lifecycle gate. The real module stays unavailable until Cobblemon is installed. */
 public final class PokeMarketManager {
@@ -25,6 +26,7 @@ public final class PokeMarketManager {
 
     public synchronized void initialize() {
         if (!isCobblemonPresent()) throw new IllegalStateException("Cobblemon API not present; PokéMarket remains disabled");
+        if (!DatabaseManager.getInstance().isReady()) throw new IllegalStateException("Database unavailable; PokéMarket remains fail-closed");
         bridge = new Cobblemon173MarketBridge();
         if (!Cobblemon173MarketBridge.isSupportedVersion()) {
             throw new IllegalStateException("Unsupported Cobblemon version " + Cobblemon173MarketBridge.runtimeVersion() + "; expected " + Cobblemon173MarketBridge.COBBLEMON_VERSION);

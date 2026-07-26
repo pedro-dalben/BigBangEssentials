@@ -98,10 +98,17 @@ public final class PokeMarketCommand {
     private static int help(CommandSourceStack source) {
         ServerPlayer player = source.getPlayer();
         try {
-            var result = com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(player, "pokemarket_main", new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, null, null, UUID.randomUUID())).toCompletableFuture().join();
-            if (result.success()) return 1;
-        } catch (Exception ignored) { }
-        source.sendSuccess(() -> Component.literal("§6PokéMarket: §esell party|pc | trade party|pc | browse | buy <id> | cancel <id> | claim <id|all|money|pokemon> | history | notifications"), false); return 1;
+            com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService()
+                    .openMenu(player, "pokemarket_main", new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, null, null, UUID.randomUUID()))
+                    .toCompletableFuture().whenComplete((result, error) -> player.getServer().execute(() -> {
+                        if (error != null || result == null || !result.success()) {
+                            source.sendSuccess(() -> Component.literal("§6PokéMarket: §esell party|pc | trade party|pc | browse | buy <id> | cancel <id> | claim <id|all|money|pokemon> | history | notifications"), false);
+                        }
+                    }));
+        } catch (Exception ignored) {
+            source.sendSuccess(() -> Component.literal("§6PokéMarket: §esell party|pc | trade party|pc | browse | buy <id> | cancel <id> | claim <id|all|money|pokemon> | history | notifications"), false);
+        }
+        return 1;
     }
 
     private static ServerPlayer player(CommandSourceStack source) { return source.getPlayer(); }
@@ -207,9 +214,9 @@ public final class PokeMarketCommand {
         CompletableFuture<Long> pendingPurchases = db.getExecutor().queryOne("notify.purchases", "SELECT COUNT(*) FROM bbe_pokemarket_purchase_operations WHERE (buyer_uuid=? OR seller_uuid=?) AND status='COMPLETED' AND completed_at>?", s -> { s.setString(1, pid.toString()); s.setString(2, pid.toString()); s.setLong(3, System.currentTimeMillis() - 86400000L); }, r -> r.getLong(1));
         CompletableFuture<Long> pendingTrades = db.getExecutor().queryOne("notify.trades", "SELECT COUNT(*) FROM bbe_pokemarket_trade_operations WHERE (buyer_uuid=? OR seller_uuid=?) AND status='COMPLETED' AND completed_at>?", s -> { s.setString(1, pid.toString()); s.setString(2, pid.toString()); s.setLong(3, System.currentTimeMillis() - 86400000L); }, r -> r.getLong(1));
         CompletableFuture.allOf(pendingClaims, pendingPurchases, pendingTrades).thenRun(() -> p.getServer().execute(() -> {
-            long claims = pendingClaims.join().longValue();
-            long buys = pendingPurchases.join().longValue();
-            long trades = pendingTrades.join().longValue();
+            long claims = pendingClaims.getNow(0L).longValue();
+            long buys = pendingPurchases.getNow(0L).longValue();
+            long trades = pendingTrades.getNow(0L).longValue();
             p.sendSystemMessage(Component.literal("§6Notificações:"));
             p.sendSystemMessage(Component.literal(" §e" + claims + " §fitens aguardando retirada."));
             p.sendSystemMessage(Component.literal(" §e" + buys + " §fcompras concluídas (último dia)."));
@@ -254,7 +261,7 @@ public final class PokeMarketCommand {
 
     private static int notificationsRead(CommandSourceStack source, String rawId) {
         ServerPlayer p = player(source);
-        try { PokeMarketManager.getInstance().notificationRepository().markRead(p.getUUID(), UUID.fromString(rawId)); p.sendSystemMessage(Component.literal("§7Notificação marcada como lida.")); return 1; }
+        try { PokeMarketManager.getInstance().notificationRepository().markRead(p.getUUID(), UUID.fromString(rawId)).whenComplete((count, error) -> p.getServer().execute(() -> p.sendSystemMessage(Component.literal(error == null && count > 0 ? "§7Notificação marcada como lida." : "§cNotificação não encontrada.")))); return 1; }
         catch (IllegalArgumentException e) { p.sendSystemMessage(Component.literal("§cID inválido.")); return 0; }
     }
 
@@ -286,13 +293,23 @@ public final class PokeMarketCommand {
     private static int adminStats(CommandSourceStack source) {
         var db = DatabaseManager.getInstance(); if (!db.isReady()) { source.sendFailure(Component.literal("§cBanco indisponível")); return 0; }
         source.sendSuccess(() -> Component.literal("§6PokéMarket Stats:"), false);
-        CompletableFuture.allOf(
-            db.getExecutor().queryOne("stats.listings", "SELECT COUNT(*) FROM bbe_pokemarket_listings", null, r -> r.getLong(1)).thenAccept(v -> source.sendSuccess(() -> Component.literal(" §eTotal anúncios: §f" + v), false)),
-            db.getExecutor().queryOne("stats.purchases", "SELECT COUNT(*) FROM bbe_pokemarket_purchase_operations", null, r -> r.getLong(1)).thenAccept(v -> source.sendSuccess(() -> Component.literal(" §eTotal compras: §f" + v), false)),
-            db.getExecutor().queryOne("stats.trades", "SELECT COUNT(*) FROM bbe_pokemarket_trade_operations", null, r -> r.getLong(1)).thenAccept(v -> source.sendSuccess(() -> Component.literal(" §eTotal trocas: §f" + v), false)),
-            db.getExecutor().queryOne("stats.claims", "SELECT COUNT(*) FROM bbe_pokemarket_claims", null, r -> r.getLong(1)).thenAccept(v -> source.sendSuccess(() -> Component.literal(" §eTotal claims: §f" + v), false)),
-            db.getExecutor().queryOne("stats.escrow", "SELECT COUNT(*) FROM bbe_pokemarket_escrow WHERE status='ACTIVE'", null, r -> r.getLong(1)).thenAccept(v -> source.sendSuccess(() -> Component.literal(" §eEm escrow: §f" + v), false))
-        ).join();
+        var listings = db.getExecutor().queryOne("stats.listings", "SELECT COUNT(*) FROM bbe_pokemarket_listings", null, r -> r.getLong(1));
+        var purchases = db.getExecutor().queryOne("stats.purchases", "SELECT COUNT(*) FROM bbe_pokemarket_purchase_operations", null, r -> r.getLong(1));
+        var trades = db.getExecutor().queryOne("stats.trades", "SELECT COUNT(*) FROM bbe_pokemarket_trade_operations", null, r -> r.getLong(1));
+        var claims = db.getExecutor().queryOne("stats.claims", "SELECT COUNT(*) FROM bbe_pokemarket_claims", null, r -> r.getLong(1));
+        var escrow = db.getExecutor().queryOne("stats.escrow", "SELECT COUNT(*) FROM bbe_pokemarket_escrow WHERE status='ACTIVE'", null, r -> r.getLong(1));
+        listings.thenCombine(purchases, (a, b) -> new long[]{a, b})
+                .thenCombine(trades, (v, c) -> new long[]{v[0], v[1], c})
+                .thenCombine(claims, (v, c) -> new long[]{v[0], v[1], v[2], c})
+                .thenCombine(escrow, (v, c) -> new long[]{v[0], v[1], v[2], v[3], c})
+                .whenComplete((v, error) -> dispatch(source, () -> {
+                    if (error != null) { source.sendFailure(Component.literal("§cFalha ao consultar estatísticas.")); return; }
+                    source.sendSuccess(() -> Component.literal(" §eTotal anúncios: §f" + v[0]), false);
+                    source.sendSuccess(() -> Component.literal(" §eTotal compras: §f" + v[1]), false);
+                    source.sendSuccess(() -> Component.literal(" §eTotal trocas: §f" + v[2]), false);
+                    source.sendSuccess(() -> Component.literal(" §eTotal claims: §f" + v[3]), false);
+                    source.sendSuccess(() -> Component.literal(" §eEm escrow: §f" + v[4]), false);
+                }));
         return 1;
     }
 
@@ -372,7 +389,8 @@ public final class PokeMarketCommand {
             var db = DatabaseManager.getInstance();
             CompletableFuture< String > purchase = db.getExecutor().querySingle("admin.reconcile.purchase", "SELECT status FROM bbe_pokemarket_purchase_operations WHERE id=?", s -> s.setString(1, id.toString()), r -> r.getString(1)).thenApply(v -> v.orElse("not_found"));
             CompletableFuture< String > trade = db.getExecutor().querySingle("admin.reconcile.trade", "SELECT status FROM bbe_pokemarket_trade_operations WHERE id=?", s -> s.setString(1, id.toString()), r -> r.getString(1)).thenApply(v -> v.orElse("not_found"));
-            CompletableFuture.allOf(purchase, trade).thenRun(() -> source.sendSuccess(() -> Component.literal("§eReconciliação somente leitura " + id + ": purchase=" + purchase.join() + ", trade=" + trade.join() + ". Use retry <id> para recovery."), false));
+            purchase.thenCombine(trade, (purchaseStatus, tradeStatus) -> "§eReconciliação somente leitura " + id + ": purchase=" + purchaseStatus + ", trade=" + tradeStatus + ". Use retry <id> para recovery.")
+                    .whenComplete((message, error) -> dispatch(source, () -> source.sendSuccess(() -> Component.literal(error == null ? message : "§cFalha na reconciliação."), false)));
             return 1;
         } catch (Exception e) { source.sendFailure(Component.literal("§cID inválido")); return 0; }
     }
@@ -418,5 +436,9 @@ public final class PokeMarketCommand {
         try { return UUID.fromString(nameOrUuid); } catch (IllegalArgumentException ignored) {}
         ServerPlayer target = source.getServer().getPlayerList().getPlayerByName(nameOrUuid);
         return target != null ? target.getUUID() : null;
+    }
+
+    private static void dispatch(CommandSourceStack source, Runnable action) {
+        if (source.getServer().isSameThread()) action.run(); else source.getServer().execute(action);
     }
 }
