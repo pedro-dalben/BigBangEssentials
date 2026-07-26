@@ -13,9 +13,6 @@ public record Money(long minorUnits, int scale) {
     public static Money from(BigDecimal amount, int scale, RoundingMode roundingMode, boolean allowNegative) {
         Objects.requireNonNull(amount, "amount");
         Objects.requireNonNull(roundingMode, "roundingMode");
-        if (amount.abs().compareTo(BigDecimal.valueOf(Double.MAX_VALUE)) > 0) {
-            throw new ArithmeticException("Monetary amount is too large");
-        }
         BigDecimal normalized;
         try {
             normalized = amount.setScale(scale, roundingMode);
