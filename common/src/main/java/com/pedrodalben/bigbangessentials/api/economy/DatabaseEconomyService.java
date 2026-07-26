@@ -16,6 +16,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Collectors;
 
 /** JDBC economy. Account mutations and their receipts commit in one transaction. */
@@ -103,6 +105,35 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
 
     public CompletableFuture<Boolean> transfer(UUID sender, UUID receiver, BigDecimal amount, BigDecimal fee, String key) {
         return transferResult(sender, receiver, amount, fee, key).thenApply(r -> r.status() == EconomyOperationStatus.COMPLETED);
+    }
+
+    /**
+     * Atomic, fee-free transfer owned by a commerce module.  This is deliberately
+     * separate from /pay: commerce has no toggles, cooldowns, confirmation, or tax.
+     */
+    public CompletableFuture<CommercialTransferReceipt> commercialTransfer(UUID sender, UUID receiver,
+                                                                             BigDecimal amount, String key,
+                                                                             String sourceModule) {
+        if (sender == null || receiver == null || sender.equals(receiver) || key == null || key.isBlank()
+                || sourceModule == null || sourceModule.isBlank()) {
+            return CompletableFuture.completedFuture(commercialRejected(sender, receiver, amount, key,
+                    CommercialTransferStatus.INVALID_AMOUNT, "Invalid transfer request"));
+        }
+        final Money value;
+        try {
+            value = money(amount, false);
+            if (value.minorUnits() <= 0) throw new IllegalArgumentException("Amount must be positive");
+        } catch (RuntimeException invalid) {
+            return CompletableFuture.completedFuture(commercialRejected(sender, receiver, amount, key,
+                    CommercialTransferStatus.INVALID_AMOUNT, invalid.getMessage()));
+        }
+        try {
+            return executor().transaction("economy.commercial-transfer",
+                            c -> commercialTransfer(c, sender, receiver, value, key, sourceModule))
+                    .exceptionally(error -> commercialFailure(sender, receiver, value.decimal(), key, error));
+        } catch (RuntimeException unavailable) {
+            return CompletableFuture.completedFuture(commercialFailure(sender, receiver, value.decimal(), key, unavailable));
+        }
     }
 
     /** Atomic transfer boundary. The boolean overload remains for compatibility. */
@@ -253,6 +284,125 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
         updateExact(c, sender, senderAfter, senderAccount.version(), operationId.toString());
         updateExact(c, receiver, receiverAfter, receiverAccount.version(), operationId.toString());
         return complete(c, key, EconomyOperationStatus.COMPLETED, null, decimal(senderBefore), decimal(senderAfter));
+    }
+
+    private CommercialTransferReceipt commercialTransfer(Connection c, UUID sender, UUID receiver, Money amount,
+                                                          String key, String sourceModule) throws SQLException {
+        Map<String, String> metadata = Map.of("source", sourceModule, "reference", key,
+                "receiver", receiver.toString());
+        String fingerprint = EconomyOperationFingerprint.of(sender, "COMMERCE_TRANSFER", amount.decimal(), CURRENCY,
+                sourceModule, key, metadata);
+        UUID first = sender.compareTo(receiver) < 0 ? sender : receiver;
+        UUID second = first.equals(sender) ? receiver : sender;
+        if (findAccount(c, first).isEmpty()) insertAccountIfAbsent(c, first, starting(), System.currentTimeMillis());
+        if (findAccount(c, second).isEmpty()) insertAccountIfAbsent(c, second, starting(), System.currentTimeMillis());
+        Account firstAccount = lockAccount(c, first).orElseThrow(() -> new SQLException("Account disappeared"));
+        Account secondAccount = lockAccount(c, second).orElseThrow(() -> new SQLException("Account disappeared"));
+
+        Optional<EconomyOperationReceipt> old = existing(c, key);
+        if (old.isPresent()) {
+            if (old.get().fingerprint() != null && !old.get().fingerprint().equals(fingerprint)) {
+                return commercialFrom(old.get(), sender, receiver, amount.decimal(), fingerprint,
+                        CommercialTransferStatus.IDEMPOTENCY_CONFLICT, "IDEMPOTENCY_CONFLICT", false);
+            }
+            CommercialTransferStatus status = old.get().status() == EconomyOperationStatus.COMPLETED
+                    ? CommercialTransferStatus.IDEMPOTENT_REPLAY
+                    : commercialStatus(old.get().error());
+            return commercialFrom(old.get(), sender, receiver, amount.decimal(), fingerprint, status,
+                    old.get().error(), true);
+        }
+
+        Account senderAccount = sender.equals(first) ? firstAccount : secondAccount;
+        Account receiverAccount = receiver.equals(first) ? firstAccount : secondAccount;
+        long senderBefore = senderAccount.balance();
+        long receiverBefore = receiverAccount.balance();
+        long senderAfter = senderBefore;
+        long receiverAfter = receiverBefore;
+        String rejection = null;
+        try {
+            senderAfter = Math.subtractExact(senderBefore, amount.minorUnits());
+            receiverAfter = Math.addExact(receiverBefore, amount.minorUnits());
+        } catch (ArithmeticException overflow) {
+            rejection = "Monetary balance overflow";
+        }
+        if (rejection == null && senderAfter < 0) rejection = "Insufficient funds";
+        if (rejection == null && receiverAfter > maximum()) rejection = "Maximum balance exceeded";
+
+        UUID operationId = UUID.randomUUID();
+        try {
+            insertPending(c, operationId, sender, "COMMERCE_TRANSFER", amount.decimal(), key,
+                    "Commerce transfer", decimal(senderBefore), rejection == null ? decimal(senderAfter) : decimal(senderBefore),
+                    metadata, fingerprint);
+        } catch (SQLException duplicate) {
+            Optional<EconomyOperationReceipt> duplicateOperation = existing(c, key);
+            if (duplicateOperation.isPresent()) {
+                if (duplicateOperation.get().fingerprint() != null && !duplicateOperation.get().fingerprint().equals(fingerprint)) {
+                    return commercialFrom(duplicateOperation.get(), sender, receiver, amount.decimal(), fingerprint,
+                            CommercialTransferStatus.IDEMPOTENCY_CONFLICT, "IDEMPOTENCY_CONFLICT", false);
+                }
+                return commercialFrom(duplicateOperation.get(), sender, receiver, amount.decimal(), fingerprint,
+                        duplicateOperation.get().status() == EconomyOperationStatus.COMPLETED
+                                ? CommercialTransferStatus.IDEMPOTENT_REPLAY : commercialStatus(duplicateOperation.get().error()),
+                        duplicateOperation.get().error(), true);
+            }
+            throw duplicate;
+        }
+        if (rejection != null) {
+            EconomyOperationStatus status = rejection.equals("Insufficient funds") || rejection.equals("Maximum balance exceeded")
+                    ? EconomyOperationStatus.REJECTED : EconomyOperationStatus.FAILED;
+            EconomyOperationReceipt stored = complete(c, key, status, rejection, decimal(senderBefore), decimal(senderBefore));
+            return commercialFrom(stored, sender, receiver, amount.decimal(), fingerprint, commercialStatus(rejection), rejection, false,
+                    decimal(receiverBefore), decimal(receiverBefore));
+        }
+
+        updateExact(c, sender, senderAfter, senderAccount.version(), operationId.toString());
+        updateExact(c, receiver, receiverAfter, receiverAccount.version(), operationId.toString());
+        EconomyOperationReceipt stored = complete(c, key, EconomyOperationStatus.COMPLETED, null,
+                decimal(senderBefore), decimal(senderAfter));
+        return commercialFrom(stored, sender, receiver, amount.decimal(), fingerprint,
+                CommercialTransferStatus.COMPLETED, null, false, decimal(receiverBefore), decimal(receiverAfter));
+    }
+
+    private CommercialTransferReceipt commercialFrom(EconomyOperationReceipt stored, UUID sender, UUID receiver,
+                                                      BigDecimal amount, String fingerprint,
+                                                      CommercialTransferStatus status, String error, boolean replay) {
+        return commercialFrom(stored, sender, receiver, amount, fingerprint, status, error, replay,
+                stored.balanceAfter(), stored.balanceAfter());
+    }
+
+    private CommercialTransferReceipt commercialFrom(EconomyOperationReceipt stored, UUID sender, UUID receiver,
+                                                      BigDecimal amount, String fingerprint,
+                                                      CommercialTransferStatus status, String error, boolean replay,
+                                                      BigDecimal receiverBefore, BigDecimal receiverAfter) {
+        return new CommercialTransferReceipt(stored.id(), sender, receiver, amount, stored.balanceBefore(),
+                stored.balanceAfter(), receiverBefore, receiverAfter, stored.idempotencyKey(), fingerprint,
+                status, error, replay, stored.timestamp());
+    }
+
+    private CommercialTransferReceipt commercialRejected(UUID sender, UUID receiver, BigDecimal amount, String key,
+                                                         CommercialTransferStatus status, String error) {
+        return new CommercialTransferReceipt(UUID.randomUUID(), sender, receiver, amount, null, null, null, null,
+                key, null, status, error, false, System.currentTimeMillis());
+    }
+
+    private CommercialTransferReceipt commercialFailure(UUID sender, UUID receiver, BigDecimal amount, String key,
+                                                        Throwable error) {
+        Throwable cause = error;
+        while (cause instanceof CompletionException && cause.getCause() != null) cause = cause.getCause();
+        CommercialTransferStatus status = cause instanceof RejectedExecutionException
+                ? CommercialTransferStatus.EXECUTOR_SATURATED
+                : cause instanceof com.pedrodalben.bigbangessentials.database.exception.DatabaseUnavailableException
+                ? CommercialTransferStatus.DATABASE_UNAVAILABLE
+                : CommercialTransferStatus.TECHNICAL_FAILURE;
+        return commercialRejected(sender, receiver, amount, key, status,
+                cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage());
+    }
+
+    private CommercialTransferStatus commercialStatus(String error) {
+        if ("Insufficient funds".equals(error)) return CommercialTransferStatus.INSUFFICIENT_FUNDS;
+        if ("Maximum balance exceeded".equals(error)) return CommercialTransferStatus.MAXIMUM_BALANCE;
+        if ("IDEMPOTENCY_CONFLICT".equals(error)) return CommercialTransferStatus.IDEMPOTENCY_CONFLICT;
+        return CommercialTransferStatus.TECHNICAL_FAILURE;
     }
 
     private Optional<Account> lockAccount(Connection c, UUID id) throws SQLException {

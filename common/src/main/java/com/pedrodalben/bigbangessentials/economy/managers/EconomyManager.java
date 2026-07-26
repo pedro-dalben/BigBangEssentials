@@ -7,6 +7,9 @@ import com.pedrodalben.bigbangessentials.economy.EconomyTransactionLogger;
 import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationReceipt;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus;
+import com.pedrodalben.bigbangessentials.api.economy.CommercialTransferReceipt;
+import com.pedrodalben.bigbangessentials.api.economy.CommercialTransferStatus;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationFingerprint;
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import java.math.BigDecimal;
 import java.util.Map;
@@ -355,12 +358,28 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
 
     public CompletableFuture<EconomyOperationReceipt> creditAsync(UUID player, BigDecimal amount, String operationKey, String reason, Map<String, String> metadata) {
         if (databaseMode) return databaseBackend == null ? CompletableFuture.completedFuture(failedReceipt(player, amount, operationKey)) : databaseBackend.credit(player, amount, operationKey, reason, metadata);
-        return CompletableFuture.completedFuture(credit(player, amount, operationKey, reason, metadata));
+        return CompletableFuture.supplyAsync(() -> credit(player, amount, operationKey, reason, metadata));
     }
 
     public CompletableFuture<EconomyOperationReceipt> debitAsync(UUID player, BigDecimal amount, String operationKey, String reason, Map<String, String> metadata) {
         if (databaseMode) return databaseBackend == null ? CompletableFuture.completedFuture(failedReceipt(player, amount, operationKey)) : databaseBackend.debit(player, amount, operationKey, reason, metadata);
-        return CompletableFuture.completedFuture(debit(player, amount, operationKey, reason, metadata));
+        return CompletableFuture.supplyAsync(() -> debit(player, amount, operationKey, reason, metadata));
+    }
+
+    /** Commerce-only atomic transfer. It has no /pay policy and never blocks its caller. */
+    public CompletableFuture<CommercialTransferReceipt> commercialTransferAsync(UUID sender, UUID receiver,
+                                                                                  BigDecimal amount, String operationKey,
+                                                                                  String sourceModule) {
+        if (databaseMode) {
+            if (databaseBackend == null) {
+                return CompletableFuture.completedFuture(new CommercialTransferReceipt(UUID.randomUUID(), sender, receiver,
+                        amount, null, null, null, null, operationKey, null,
+                        CommercialTransferStatus.DATABASE_UNAVAILABLE, "Database economy is unavailable", false,
+                        System.currentTimeMillis()));
+            }
+            return databaseBackend.commercialTransfer(sender, receiver, amount, operationKey, sourceModule);
+        }
+        return CompletableFuture.supplyAsync(() -> commercialTransferLocal(sender, receiver, amount, operationKey, sourceModule));
     }
 
     public CompletableFuture<EconomyOperationReceipt> transferResultAsync(UUID sender, UUID receiver, BigDecimal amount, BigDecimal fee, String operationKey) {
@@ -431,6 +450,71 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
         EconomyTransactionLogger.log("SUBTRACT", sender.toString(), "SERVER", amount.toPlainString(), "Player payment");
         EconomyTransactionLogger.log("ADD", "SERVER", receiver.toString(), credit.toPlainString(), "Player payment");
         return true;
+    }
+
+    private synchronized CommercialTransferReceipt commercialTransferLocal(UUID sender, UUID receiver, BigDecimal amount,
+                                                                              String operationKey, String sourceModule) {
+        if (sender == null || receiver == null || sender.equals(receiver) || amount == null || amount.signum() <= 0
+                || operationKey == null || operationKey.isBlank() || sourceModule == null || sourceModule.isBlank()) {
+            return new CommercialTransferReceipt(UUID.randomUUID(), sender, receiver, amount, null, null, null, null,
+                    operationKey, null, CommercialTransferStatus.INVALID_AMOUNT, "Invalid transfer request", false,
+                    System.currentTimeMillis());
+        }
+        BigDecimal normalized;
+        try { normalized = amount.setScale(ConfigManager.getEconomyCurrencyScale(), ConfigManager.getEconomyRoundingMode()); }
+        catch (RuntimeException invalid) {
+            return new CommercialTransferReceipt(UUID.randomUUID(), sender, receiver, amount, null, null, null, null,
+                    operationKey, null, CommercialTransferStatus.INVALID_AMOUNT, invalid.getMessage(), false,
+                    System.currentTimeMillis());
+        }
+        String fingerprint = EconomyOperationFingerprint.of(sender, "COMMERCE_TRANSFER", normalized, "money",
+                sourceModule, operationKey, Map.of("source", sourceModule, "reference", operationKey, "receiver", receiver.toString()));
+        EconomyOperationReceipt existing = localOperations.get(operationKey);
+        if (existing != null) {
+            if (!fingerprint.equals(existing.fingerprint())) {
+                return new CommercialTransferReceipt(existing.id(), sender, receiver, normalized,
+                        existing.balanceBefore(), existing.balanceAfter(), null, null, operationKey, fingerprint,
+                        CommercialTransferStatus.IDEMPOTENCY_CONFLICT, "IDEMPOTENCY_CONFLICT", false, existing.timestamp());
+            }
+            return new CommercialTransferReceipt(existing.id(), sender, receiver, normalized,
+                    existing.balanceBefore(), existing.balanceAfter(), getBalance(receiver), getBalance(receiver),
+                    operationKey, fingerprint,
+                    existing.status() == EconomyOperationStatus.COMPLETED ? CommercialTransferStatus.IDEMPOTENT_REPLAY : CommercialTransferStatus.TECHNICAL_FAILURE,
+                    existing.error(), true, existing.timestamp());
+        }
+        BigDecimal senderBefore = getBalance(sender);
+        BigDecimal receiverBefore = getBalance(receiver);
+        BigDecimal senderAfter = senderBefore.subtract(normalized);
+        BigDecimal receiverAfter = updatedBalance(receiverBefore, normalized,
+                BigDecimal.valueOf(ConfigManager.getMaxBalance()), ConfigManager.allowNegativeBalances());
+        CommercialTransferStatus rejection = senderAfter.signum() < 0 ? CommercialTransferStatus.INSUFFICIENT_FUNDS
+                : receiverAfter == null ? CommercialTransferStatus.MAXIMUM_BALANCE : null;
+        if (rejection != null) {
+            EconomyOperationReceipt failed = new EconomyOperationReceipt(UUID.randomUUID(), sender, normalized,
+                    EconomyOperationStatus.REJECTED, senderBefore, senderBefore, operationKey, fingerprint,
+                    "money", "Commerce transfer", rejection.name(), false, System.currentTimeMillis(), sourceModule, operationKey);
+            localOperations.put(operationKey, failed);
+            saveBalancesAtomic();
+            return new CommercialTransferReceipt(failed.id(), sender, receiver, normalized, senderBefore, senderBefore,
+                    receiverBefore, receiverBefore, operationKey, fingerprint, rejection, rejection.name(), false, failed.timestamp());
+        }
+        balancesCache.put(sender, senderAfter);
+        balancesCache.put(receiver, receiverAfter);
+        EconomyOperationReceipt completed = new EconomyOperationReceipt(UUID.randomUUID(), sender, normalized,
+                EconomyOperationStatus.COMPLETED, senderBefore, senderAfter, operationKey, fingerprint,
+                "money", "Commerce transfer", null, false, System.currentTimeMillis(), sourceModule, operationKey);
+        localOperations.put(operationKey, completed);
+        if (!saveBalancesAtomic()) {
+            balancesCache.put(sender, senderBefore);
+            balancesCache.put(receiver, receiverBefore);
+            localOperations.remove(operationKey);
+            return new CommercialTransferReceipt(completed.id(), sender, receiver, normalized, senderBefore, senderBefore,
+                    receiverBefore, receiverBefore, operationKey, fingerprint, CommercialTransferStatus.TECHNICAL_FAILURE,
+                    "Could not persist commerce transfer", false, completed.timestamp());
+        }
+        return new CommercialTransferReceipt(completed.id(), sender, receiver, normalized, senderBefore, senderAfter,
+                receiverBefore, receiverAfter, operationKey, fingerprint, CommercialTransferStatus.COMPLETED, null,
+                false, completed.timestamp());
     }
 
     private synchronized EconomyOperationReceipt mutateLocal(UUID player, BigDecimal amount, String key, boolean credit, String reason, Map<String, String> metadata) {

@@ -70,3 +70,12 @@ Migration is keyed by the source SHA-256. The original JSON is retained, the bac
 | `bbe_economy_data_migrations` | Legacy money migration records |
 
 Migrations V018–V024 establish the money journal and fingerprint. V027 expands MySQL journal decimals to `DECIMAL(38,18)` so the journal does not truncate a configured scale.
+
+## Commerce boundary
+
+Shop and market modules use `EconomyManager.commercialTransferAsync` for
+player-owned sales. It is fee-free and independent of `/pay` policies. The
+receipt is structured and idempotent; the sender debit and recipient credit are
+one SQL transaction. ChestShop additionally persists item and money checkpoints
+in `bbe_chestshop_operations` (V028). Database mode fails closed when the
+database is unavailable; it never creates a JSON fallback balance store.

@@ -1,6 +1,11 @@
 package com.pedrodalben.bigbangessentials.shop;
 
 import com.pedrodalben.bigbangessentials.economy.managers.EconomyManager;
+import com.pedrodalben.bigbangessentials.api.economy.CommercialTransferReceipt;
+import com.pedrodalben.bigbangessentials.api.economy.CommercialTransferStatus;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationReceipt;
+import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus;
+import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.shop.model.ShopData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -17,6 +22,8 @@ import java.math.RoundingMode;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * Executes buy/sell transactions for ChestShop.
@@ -32,7 +39,8 @@ public final class ShopTransaction {
     // ── Result ────────────────────────────────────────────────────────────────
 
     public enum ResultType { SUCCESS, NOT_ENOUGH_MONEY, NOT_ENOUGH_STOCK, NO_SPACE,
-                             NO_CHEST, NO_ECONOMY_ACCOUNT, SHOP_DISABLED, LEGACY_UNOWNED, RECOVERY_REQUIRED, ERROR }
+                             NO_CHEST, NO_ECONOMY_ACCOUNT, MAXIMUM_BALANCE, IDEMPOTENCY_CONFLICT,
+                             SHOP_DISABLED, LEGACY_UNOWNED, RECOVERY_REQUIRED, ERROR }
 
     public static class TransactionResult {
         public final ResultType type;
@@ -40,7 +48,7 @@ public final class ShopTransaction {
         public final BigDecimal price;
         public final int quantity;
 
-        TransactionResult(ResultType type, String message, BigDecimal price, int quantity) {
+        public TransactionResult(ResultType type, String message, BigDecimal price, int quantity) {
             this.type = type; this.message = message;
             this.price = price; this.quantity = quantity;
         }
@@ -53,6 +61,190 @@ public final class ShopTransaction {
     private static TransactionResult fail(ResultType type) {
         return new TransactionResult(type, type.name(), BigDecimal.ZERO, 0);
     }
+
+    /** Async commerce entry point used by sign events. No database wait occurs on the server thread. */
+    public static CompletableFuture<TransactionResult> executeBuyAsync(ServerPlayer buyer, ShopData shop, ServerLevel level, String transactionId) {
+        if (buyer == null || shop == null || level == null) return CompletableFuture.completedFuture(fail(ResultType.ERROR));
+        if (shop.isLegacyUnownedShop()) return CompletableFuture.completedFuture(fail(ResultType.LEGACY_UNOWNED));
+        if (!shop.canBuy()) return CompletableFuture.completedFuture(fail(ResultType.SHOP_DISABLED));
+        ItemStack template = resolveItem(shop.itemId);
+        if (template.isEmpty()) return CompletableFuture.completedFuture(fail(ResultType.ERROR));
+        BigDecimal price = normalizePrice(shop.buyPrice);
+        ItemStack item = template.copyWithCount(shop.quantity);
+        if (!shop.isAdminShop()) {
+            ChestBlockEntity chest = getChest(shop, level);
+            if (chest == null) return CompletableFuture.completedFuture(fail(ResultType.NO_CHEST));
+            if (countItems(chest, template) < shop.quantity) return CompletableFuture.completedFuture(fail(ResultType.NOT_ENOUGH_STOCK));
+        }
+        if (!hasSpace(buyer.getInventory(), item)) return CompletableFuture.completedFuture(fail(ResultType.NO_SPACE));
+
+        String financialKey = "chestshop:buy:" + transactionId;
+        String compensationKey = financialKey + ":compensate";
+        ChestShopTransactionJournal journal = ChestShopTransactionJournal.getInstance();
+        return journal.hasPendingDurable(shop.toKey(), buyer.getUUID()).thenCompose(pending -> {
+            if (pending) return CompletableFuture.completedFuture(fail(ResultType.RECOVERY_REQUIRED));
+            return journal.beginDurable(transactionId, "BUY", shop, buyer.getUUID(), price, item, financialKey,
+                    compensationKey, shop.itemId).thenCompose(started -> {
+                if (!started) return CompletableFuture.completedFuture(fail(ResultType.RECOVERY_REQUIRED));
+                CompletableFuture<?> money = shop.isAdminShop()
+                        ? EconomyManager.getInstance().debitAsync(buyer.getUUID(), price, financialKey, "ChestShop admin purchase", metadata(transactionId))
+                        : EconomyManager.getInstance().commercialTransferAsync(buyer.getUUID(), shop.ownerUUID, price, financialKey, "chestshop");
+                return money.thenCompose(receipt -> {
+                    if (!moneySucceeded(receipt)) {
+                        return journal.checkpointDurable(transactionId, "CANCELLED", "PENDING", "REJECTED", economyError(receipt))
+                                .thenApply(ignored -> economyFailure(receipt));
+                    }
+                    return journal.checkpointDurable(transactionId, "MONEY_COMPLETED", "PENDING", "COMPLETED", null)
+                            .thenCompose(checkpointed -> {
+                        if (!checkpointed) return journal.recoveryDurable(transactionId, "Money committed but checkpoint failed")
+                                .thenApply(ignored -> fail(ResultType.RECOVERY_REQUIRED));
+                        return onServerThread(buyer, () -> applyBuyItems(buyer, shop, level, template, item, price))
+                                .thenCompose(items -> {
+                            if (items.success()) {
+                                return journal.checkpointDurable(transactionId, "ITEMS_APPLIED", "APPLIED", "COMPLETED", null)
+                                        .thenCompose(applied -> applied
+                                                ? journal.completeDurable(transactionId).thenApply(done -> done ? items.result() : fail(ResultType.RECOVERY_REQUIRED))
+                                                : journal.recoveryDurable(transactionId, "Item checkpoint failed").thenApply(ignored -> fail(ResultType.RECOVERY_REQUIRED)));
+                            }
+                            return compensateBuy(buyer, shop, price, compensationKey, transactionId, items.rollbackSafe())
+                                    .thenCompose(compensated -> journal.checkpointDurable(transactionId,
+                                            compensated && items.rollbackSafe() ? "ROLLED_BACK" : "RECOVERY_REQUIRED",
+                                            items.rollbackSafe() ? "ROLLED_BACK" : "UNKNOWN", compensated ? "ROLLED_BACK" : "UNKNOWN",
+                                            compensated ? null : "Buy compensation failed")
+                                            .thenApply(ignored -> compensated && items.rollbackSafe() ? items.result() : fail(ResultType.RECOVERY_REQUIRED)));
+                        });
+                    });
+                });
+            });
+        });
+    }
+
+    /** Async commerce entry point used by sign events. */
+    public static CompletableFuture<TransactionResult> executeSellAsync(ServerPlayer seller, ShopData shop, ServerLevel level, String transactionId) {
+        if (seller == null || shop == null || level == null) return CompletableFuture.completedFuture(fail(ResultType.ERROR));
+        if (shop.isLegacyUnownedShop()) return CompletableFuture.completedFuture(fail(ResultType.LEGACY_UNOWNED));
+        if (!shop.canSell()) return CompletableFuture.completedFuture(fail(ResultType.SHOP_DISABLED));
+        ItemStack template = resolveItem(shop.itemId);
+        if (template.isEmpty()) return CompletableFuture.completedFuture(fail(ResultType.ERROR));
+        BigDecimal price = normalizePrice(shop.sellPrice);
+        ItemStack item = template.copyWithCount(shop.quantity);
+        if (countItems(seller.getInventory(), template) < shop.quantity) return CompletableFuture.completedFuture(fail(ResultType.NOT_ENOUGH_STOCK));
+        if (!shop.isAdminShop()) {
+            ChestBlockEntity chest = getChest(shop, level);
+            if (chest == null) return CompletableFuture.completedFuture(fail(ResultType.NO_CHEST));
+            if (!hasSpaceInContainer(chest, template, shop.quantity)) return CompletableFuture.completedFuture(fail(ResultType.NO_SPACE));
+        }
+        String financialKey = "chestshop:sell:" + transactionId;
+        String compensationKey = financialKey + ":compensate";
+        ChestShopTransactionJournal journal = ChestShopTransactionJournal.getInstance();
+        return journal.hasPendingDurable(shop.toKey(), seller.getUUID()).thenCompose(pending -> {
+            if (pending) return CompletableFuture.completedFuture(fail(ResultType.RECOVERY_REQUIRED));
+            return journal.beginDurable(transactionId, "SELL", shop, seller.getUUID(), price, item, financialKey,
+                    compensationKey, shop.itemId).thenCompose(started -> {
+                if (!started) return CompletableFuture.completedFuture(fail(ResultType.RECOVERY_REQUIRED));
+                CompletableFuture<?> money = shop.isAdminShop()
+                        ? EconomyManager.getInstance().creditAsync(seller.getUUID(), price, financialKey, "ChestShop admin sale", metadata(transactionId))
+                        : EconomyManager.getInstance().commercialTransferAsync(shop.ownerUUID, seller.getUUID(), price, financialKey, "chestshop");
+                return money.thenCompose(receipt -> {
+                    if (!moneySucceeded(receipt)) return journal.checkpointDurable(transactionId, "CANCELLED", "PENDING", "REJECTED", economyError(receipt))
+                            .thenApply(ignored -> economyFailure(receipt));
+                    return journal.checkpointDurable(transactionId, "MONEY_COMPLETED", "PENDING", "COMPLETED", null)
+                            .thenCompose(checkpointed -> {
+                        if (!checkpointed) return journal.recoveryDurable(transactionId, "Money committed but checkpoint failed")
+                                .thenApply(ignored -> fail(ResultType.RECOVERY_REQUIRED));
+                        return onServerThread(seller, () -> applySellItems(seller, shop, level, template, item, price))
+                                .thenCompose(items -> {
+                            if (items.success()) return journal.checkpointDurable(transactionId, "ITEMS_APPLIED", "APPLIED", "COMPLETED", null)
+                                    .thenCompose(applied -> applied
+                                            ? journal.completeDurable(transactionId).thenApply(done -> done ? items.result() : fail(ResultType.RECOVERY_REQUIRED))
+                                            : journal.recoveryDurable(transactionId, "Item checkpoint failed").thenApply(ignored -> fail(ResultType.RECOVERY_REQUIRED)));
+                            return compensateSell(seller, shop, price, compensationKey, transactionId, items.rollbackSafe())
+                                    .thenCompose(compensated -> journal.checkpointDurable(transactionId,
+                                            compensated && items.rollbackSafe() ? "ROLLED_BACK" : "RECOVERY_REQUIRED",
+                                            items.rollbackSafe() ? "ROLLED_BACK" : "UNKNOWN", compensated ? "ROLLED_BACK" : "UNKNOWN",
+                                            compensated ? null : "Sell compensation failed")
+                                            .thenApply(ignored -> compensated && items.rollbackSafe() ? items.result() : fail(ResultType.RECOVERY_REQUIRED)));
+                        });
+                    });
+                });
+            });
+        });
+    }
+
+    private static ItemOutcome applyBuyItems(ServerPlayer buyer, ShopData shop, ServerLevel level, ItemStack template, ItemStack item, BigDecimal price) {
+        ChestBlockEntity chest = shop.isAdminShop() ? null : getChest(shop, level);
+        if (!shop.isAdminShop() && (chest == null || !removeItems(chest, template, shop.quantity)))
+            return new ItemOutcome(false, true, fail(ResultType.NOT_ENOUGH_STOCK));
+        int accepted = giveItemsStrict(buyer, item);
+        if (accepted == shop.quantity) return new ItemOutcome(true, true, ok(price, shop.quantity));
+        boolean playerRestored = accepted == 0 || removeItems(buyer.getInventory(), item.copyWithCount(accepted), accepted);
+        boolean chestRestored = shop.isAdminShop() || addItems(chest, template, shop.quantity) == shop.quantity;
+        return new ItemOutcome(false, playerRestored && chestRestored, fail(playerRestored && chestRestored ? ResultType.NO_SPACE : ResultType.RECOVERY_REQUIRED));
+    }
+
+    private static ItemOutcome applySellItems(ServerPlayer seller, ShopData shop, ServerLevel level, ItemStack template, ItemStack item, BigDecimal price) {
+        ChestBlockEntity chest = shop.isAdminShop() ? null : getChest(shop, level);
+        if (!removeItems(seller.getInventory(), template, shop.quantity)) return new ItemOutcome(false, true, fail(ResultType.NOT_ENOUGH_STOCK));
+        if (shop.isAdminShop() || addItems(chest, template, shop.quantity) == shop.quantity)
+            return new ItemOutcome(true, true, ok(price, shop.quantity));
+        boolean sellerRestored = addItems(seller.getInventory(), template, shop.quantity) == shop.quantity;
+        return new ItemOutcome(false, sellerRestored, fail(sellerRestored ? ResultType.NO_SPACE : ResultType.RECOVERY_REQUIRED));
+    }
+
+    private static CompletableFuture<Boolean> compensateBuy(ServerPlayer buyer, ShopData shop, BigDecimal amount, String key, String tx, boolean itemRollbackSafe) {
+        if (!itemRollbackSafe) return CompletableFuture.completedFuture(false);
+        if (shop.isAdminShop()) return EconomyManager.getInstance().creditAsync(buyer.getUUID(), amount, key, "ChestShop purchase compensation", metadata(tx)).thenApply(ShopTransaction::moneySucceeded);
+        return EconomyManager.getInstance().commercialTransferAsync(shop.ownerUUID, buyer.getUUID(), amount, key, "chestshop").thenApply(ShopTransaction::moneySucceeded);
+    }
+
+    private static CompletableFuture<Boolean> compensateSell(ServerPlayer seller, ShopData shop, BigDecimal amount, String key, String tx, boolean itemRollbackSafe) {
+        if (!itemRollbackSafe) return CompletableFuture.completedFuture(false);
+        if (shop.isAdminShop()) return EconomyManager.getInstance().debitAsync(seller.getUUID(), amount, key, "ChestShop sale compensation", metadata(tx)).thenApply(ShopTransaction::moneySucceeded);
+        return EconomyManager.getInstance().commercialTransferAsync(seller.getUUID(), shop.ownerUUID, amount, key, "chestshop").thenApply(ShopTransaction::moneySucceeded);
+    }
+
+    private static int giveItemsStrict(ServerPlayer player, ItemStack item) {
+        ItemStack remaining = item.copy();
+        int requested = remaining.getCount();
+        player.getInventory().add(remaining);
+        return requested - remaining.getCount();
+    }
+
+    private static BigDecimal normalizePrice(BigDecimal price) {
+        return price.setScale(ConfigManager.getEconomyCurrencyScale(), ConfigManager.getEconomyRoundingMode());
+    }
+
+    private static Map<String, String> metadata(String transactionId) {
+        return Map.of("source", "chestshop", "reference", transactionId);
+    }
+
+    private static boolean moneySucceeded(Object receipt) {
+        return receipt instanceof CommercialTransferReceipt commercial && commercial.success()
+                || receipt instanceof EconomyOperationReceipt economy && economy.status() == EconomyOperationStatus.COMPLETED;
+    }
+
+    private static String economyError(Object receipt) {
+        if (receipt instanceof CommercialTransferReceipt commercial) return commercial.error() == null ? commercial.status().name() : commercial.error();
+        if (receipt instanceof EconomyOperationReceipt economy) return economy.error() == null ? economy.status().name() : economy.error();
+        return "Unknown economy result";
+    }
+
+    private static TransactionResult economyFailure(Object receipt) {
+        String error = economyError(receipt);
+        if (error.contains("Insufficient") || error.equals(CommercialTransferStatus.INSUFFICIENT_FUNDS.name())) return fail(ResultType.NOT_ENOUGH_MONEY);
+        if (error.contains("Maximum") || error.equals(CommercialTransferStatus.MAXIMUM_BALANCE.name())) return fail(ResultType.MAXIMUM_BALANCE);
+        if (error.contains("IDEMPOTENCY")) return fail(ResultType.IDEMPOTENCY_CONFLICT);
+        return fail(ResultType.RECOVERY_REQUIRED);
+    }
+
+    private static <T> CompletableFuture<T> onServerThread(ServerPlayer player, Supplier<T> action) {
+        if (player.getServer() == null || player.getServer().isSameThread()) return CompletableFuture.completedFuture(action.get());
+        CompletableFuture<T> result = new CompletableFuture<>();
+        player.getServer().execute(() -> { try { result.complete(action.get()); } catch (Throwable error) { result.completeExceptionally(error); } });
+        return result;
+    }
+
+    private record ItemOutcome(boolean success, boolean rollbackSafe, TransactionResult result) {}
 
     // ── BUY ───────────────────────────────────────────────────────────────────
 

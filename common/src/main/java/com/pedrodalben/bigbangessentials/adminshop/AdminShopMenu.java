@@ -50,10 +50,13 @@ public final class AdminShopMenu {
         public String type() { return operation == AdminShopTransactionService.Operation.BUY ? "adminshop_buy" : "adminshop_sell"; }
         public CompletionStage<ActionExecutionResult> execute(ActionContext c) {
             String id = PlaceholderService.resolve(c.param("product-id", String.class), c.player(), c.context());
-            var result = AdminShopTransactionService.getInstance().execute(c.player(), id, operation);
-            c.player().sendSystemMessage(net.minecraft.network.chat.Component.literal(result.message()));
-            if (result.success()) MenuSystem.getInstance().getMenuService().refreshCurrentPage(c.player());
-            return CompletableFuture.completedFuture(result.success() ? ActionExecutionResult.success() : ActionExecutionResult.failed(result.message()));
+            return AdminShopTransactionService.getInstance().executeAsync(c.player(), id, operation).thenApply(result -> {
+                c.player().getServer().execute(() -> {
+                    c.player().sendSystemMessage(net.minecraft.network.chat.Component.literal(result.message()));
+                    if (result.success()) MenuSystem.getInstance().getMenuService().refreshCurrentPage(c.player());
+                });
+                return result.success() ? ActionExecutionResult.success() : ActionExecutionResult.failed(result.message());
+            });
         }
     }
 }

@@ -11,7 +11,7 @@ Loja virtual administrativa independente do ChestShop físico de jogadores.
 | `/gemas shop` | Alias do Cash Shop | gems |
 | `/adminshop reload` | Recarrega configuração | administração |
 
-`/adminshop reload` exige nível 2 do Minecraft. O módulo pode ser desativado
+`/adminshop reload` exige OP nível 2 ou `bigbangessentials.adminshop.admin`. O módulo pode ser desativado
 com `modules.json > adminshopEnabled: false` e passa a valer no próximo
 reinício; isso remove os comandos do AdminShop, sem afetar o ChestShop nem
 remover configuração, estado ou tabelas SQL.
@@ -27,6 +27,11 @@ remover configuração, estado ou tabelas SQL.
 
 Na primeira inicialização, o JSON e os menus são criados com um catálogo
 vanilla inicial. Edite o JSON e use `/adminshop reload`.
+
+`/shop` é exclusivamente AdminShop; não é alias do ChestShop. As ações do menu
+usam uma saga assíncrona: SQL/economia não bloqueiam o servidor, enquanto
+inventário e comandos retornam ao thread do servidor. Produtos `command` devem
+conter `{transaction}`; uma entrega ambígua fica visível para reconciliação.
 
 ## Catálogo
 
@@ -85,8 +90,10 @@ Compra aumenta a demanda e venda reduz. A demanda fica limitada entre menos
 
 ## Transações
 
-O serviço serializa operações e valida produto, permissão, preço, limite,
-estoque, saldo e inventário antes de alterar dados.
+O serviço valida produto, permissão, preço, limite, estoque, saldo e inventário
+antes de reservar estado. A operação financeira e o journal usam chaves
+idempotentes; falha de entrega, SQL ou compensação termina em rollback confirmado
+ou `RECONCILIATION_REQUIRED`.
 
 - money usa `EconomyManager`;
 - gems usa reserva/captura e restauração do saldo original em rollback;
@@ -119,6 +126,8 @@ As permissões da moeda são obrigatórias tanto para abrir quanto para transaci
 |---|---|
 | `bigbangessentials.adminshop.money` | `/shop` e produtos de money |
 | `bigbangessentials.adminshop.gems` | `/cash`, `/gemas shop` e produtos de gems |
+| `bigbangessentials.adminshop.admin` | `/adminshop reload` e administração |
+| `bigbangessentials.adminshop.audit` | Inspeção de transações AdminShop |
 
 O campo opcional `permission` do produto continua sendo uma restrição adicional.
 Todas são verificadas por `PermissionAPI.hasPermission`, funcionando com o sistema

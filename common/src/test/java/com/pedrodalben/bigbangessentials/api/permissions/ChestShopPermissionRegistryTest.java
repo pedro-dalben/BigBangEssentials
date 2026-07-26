@@ -10,4 +10,13 @@ class ChestShopPermissionRegistryTest {
         assertTrue(PermissionRegistry.getInstance()
                 .getDefaultPermissionValue("bigbangessentials.shop.use"));
     }
+
+    @Test
+    void commerceNodesAreExplicitlyRegistered() {
+        var registry = PermissionRegistry.getInstance();
+        assertTrue(registry.isRegistered("bigbangessentials.shop.create"));
+        assertTrue(registry.isRegistered("bigbangessentials.shop.admin.remove"));
+        assertTrue(registry.isRegistered("bigbangessentials.adminshop.admin"));
+        assertTrue(registry.isRegistered("bigbangessentials.pokemarket.admin.retry"));
+    }
 }

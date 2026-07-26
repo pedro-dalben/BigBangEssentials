@@ -29,6 +29,8 @@ Módulo completo de mercado virtual de Pokémon com suporte a venda por dinheiro
 - Claims de Pokémon entregues ao storage do jogador
 - Claims de dinheiro creditados via DatabaseEconomyService
 - Idempotência total
+- Com `backend: DATABASE`, indisponibilidade do banco bloqueia novas compras,
+  claims monetários e recovery; não há fallback JSON.
 
 ### Notificações (`/pokemarket notifications`)
 - Consulta de claims pendentes, compras e trocas recentes
@@ -78,6 +80,10 @@ Módulo completo de mercado virtual de Pokémon com suporte a venda por dinheiro
 | V020 | Contas econômicas transacionais |
 | V021 | Operações de troca Pokémon-por-Pokémon |
 | V022 | Notificações persistentes |
+
+O preço bruto, imposto de 5% e líquido usam a escala e o arredondamento da
+moeda configurados. As aliases `/gts` e `/pm` usam a mesma árvore e permissão
+de `/pokemarket`.
 
 ## Eventos para mercado físico futuro
 
