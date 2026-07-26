@@ -8,6 +8,7 @@ import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /** SQL backend for admin shop state. JSON remains the migration/fallback backend. */
 final class AdminShopSqlStore {
@@ -164,6 +165,11 @@ final class AdminShopSqlStore {
         }).join() == 1; } catch (Exception e) { return false; }
     }
 
+    CompletableFuture<Boolean> startAuditAsync(String tx, UUID player, String product, String operation, String currency, long quantity,
+                                                BigDecimal price, String economicKey, String stockStage, String limitStage) {
+        return CompletableFuture.supplyAsync(() -> startAudit(tx, player, product, operation, currency, quantity, price, economicKey, stockStage, limitStage));
+    }
+
     boolean updateAudit(String tx, AdminShopAuditStatus status, EconomyOperationReceipt receipt,
                         String itemStage, String stockStage, String limitStage, String demandStage, String failure) {
         Optional<DatabaseExecutor> optional = executor();
@@ -182,9 +188,18 @@ final class AdminShopSqlStore {
         }).join() == 1; } catch (Exception e) { return false; }
     }
 
+    CompletableFuture<Boolean> updateAuditAsync(String tx, AdminShopAuditStatus status, EconomyOperationReceipt receipt,
+                                                 String itemStage, String stockStage, String limitStage, String demandStage, String failure) {
+        return CompletableFuture.supplyAsync(() -> updateAudit(tx, status, receipt, itemStage, stockStage, limitStage, demandStage, failure));
+    }
+
     boolean log(String tx, UUID player, String product, String operation, String currency, BigDecimal price) {
         Optional<DatabaseExecutor> optional = executor(); if (optional.isEmpty()) return true;
         try { return optional.get().executeUpdate("adminshop transaction", "INSERT INTO adminshop_transactions(tx_id,player_uuid,product_id,operation,currency,price,success,created_at) VALUES (?,?,?,?,?,?,?,?)", s -> { s.setString(1,tx); s.setString(2,player.toString()); s.setString(3,product); s.setString(4,operation); s.setString(5,currency); s.setBigDecimal(6,price); s.setBoolean(7,true); s.setLong(8,System.currentTimeMillis()); }).join() == 1; } catch (Exception ignored) { return false; }
+    }
+
+    CompletableFuture<Boolean> logAsync(String tx, UUID player, String product, String operation, String currency, BigDecimal price) {
+        return CompletableFuture.supplyAsync(() -> log(tx, player, product, operation, currency, price));
     }
 
     List<AuditRow> forPlayer(UUID player, int limit) {
@@ -197,11 +212,26 @@ final class AdminShopSqlStore {
         catch (Exception e) { return List.of(); }
     }
 
+    CompletableFuture<List<AuditRow>> forPlayerAsync(UUID player, int limit) {
+        Optional<DatabaseExecutor> optional = executor();
+        int safeLimit = Math.max(1, Math.min(100, limit));
+        if (optional.isEmpty()) return CompletableFuture.supplyAsync(() -> forPlayer(player, safeLimit));
+        return optional.get().queryList("adminshop audit.player", "SELECT * FROM adminshop_transaction_audit WHERE player_uuid=? ORDER BY created_at DESC LIMIT " + safeLimit,
+                s -> s.setString(1, player.toString()), this::mapAudit);
+    }
+
     Optional<AuditRow> inspect(String tx) {
         Optional<DatabaseExecutor> optional = executor();
         if (optional.isEmpty()) { loadJson(); return Optional.ofNullable(jsonAudits.get(tx)).map(this::mapJson); }
         try { return optional.get().querySingle("adminshop audit.inspect", "SELECT * FROM adminshop_transaction_audit WHERE tx_id=?", s -> s.setString(1,tx), this::mapAudit).join(); }
         catch (Exception e) { return Optional.empty(); }
+    }
+
+    CompletableFuture<Optional<AuditRow>> inspectAsync(String tx) {
+        Optional<DatabaseExecutor> optional = executor();
+        if (optional.isEmpty()) return CompletableFuture.supplyAsync(() -> inspect(tx));
+        return optional.get().querySingle("adminshop audit.inspect", "SELECT * FROM adminshop_transaction_audit WHERE tx_id=?",
+                s -> s.setString(1, tx), this::mapAudit);
     }
 
     List<String> reconcile() {

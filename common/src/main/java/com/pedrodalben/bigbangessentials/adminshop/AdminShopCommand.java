@@ -19,7 +19,7 @@ public final class AdminShopCommand {
         registerStore(d, "shop", "money", "adminshop_money_menu");
         registerStore(d, "cash", "gems", "adminshop_gems_menu");
         d.register(Commands.literal("gemas").then(Commands.literal("shop").executes(c -> open(c.getSource(), "gems", "adminshop_gems_menu"))));
-        d.register(Commands.literal("adminshop").requires(s -> s.hasPermission(2))
+        d.register(Commands.literal("adminshop").requires(s -> s.hasPermission(2) || s.getPlayer() != null && PermissionAPI.hasPermission(s.getPlayer().getUUID(), "bigbangessentials.adminshop.admin"))
             .then(Commands.literal("reload").executes(c -> { AdminShopManager.getInstance().reload(); c.getSource().sendSuccess(() -> Component.literal("§aAdminShop recarregado."), true); return 1; }))
             .then(Commands.literal("audit")
                 .then(Commands.literal("inspect").then(Commands.argument("tx", StringArgumentType.word()).executes(c -> inspect(c.getSource(), StringArgumentType.getString(c, "tx")))))
@@ -27,7 +27,11 @@ public final class AdminShopCommand {
                     .executes(c -> audit(c.getSource(), StringArgumentType.getString(c, "player"), 20))
                     .then(Commands.argument("limit", IntegerArgumentType.integer(1, 100)).executes(c -> audit(c.getSource(), StringArgumentType.getString(c, "player"), IntegerArgumentType.getInteger(c, "limit")))))));
     }
-    private static void registerStore(CommandDispatcher<CommandSourceStack> d, String command, String currency, String menu) { d.register(Commands.literal(command).executes(c -> open(c.getSource(), currency, menu))); }
+    private static void registerStore(CommandDispatcher<CommandSourceStack> d, String command, String currency, String menu) {
+        d.register(Commands.literal(command)
+                .requires(s -> s.getPlayer() != null && PermissionAPI.hasPermission(s.getPlayer().getUUID(), AdminShopTransactionService.currencyPermission(currency)))
+                .executes(c -> open(c.getSource(), currency, menu)));
+    }
     private static int open(CommandSourceStack source, String currency, String menu) {
         ServerPlayer p; try { p = source.getPlayerOrException(); } catch (Exception e) { source.sendFailure(Component.literal("§cA loja só pode ser aberta por jogadores.")); return 0; }
         if (!PermissionAPI.hasPermission(p.getUUID(), AdminShopTransactionService.currencyPermission(currency))) { source.sendFailure(Component.literal("§cVocê não possui permissão.")); return 0; }
@@ -38,17 +42,20 @@ public final class AdminShopCommand {
     private static int audit(CommandSourceStack source, String name, int limit) {
         var uuid = resolve(source, name);
         if (uuid.isEmpty()) { source.sendFailure(Component.literal("§cJogador não encontrado.")); return 0; }
-        var rows = AdminShopManager.getInstance().sql.forPlayer(uuid.get(), limit);
-        source.sendSuccess(() -> Component.literal("§6Auditoria AdminShop (" + rows.size() + ")"), false);
-        rows.forEach(row -> source.sendSuccess(() -> Component.literal("§7" + row.format()), false));
-        if (rows.isEmpty()) source.sendSuccess(() -> Component.literal("§7Nenhuma operação encontrada."), false);
+        AdminShopManager.getInstance().sql.forPlayerAsync(uuid.get(), limit).whenComplete((rows, error) -> source.getServer().execute(() -> {
+            if (error != null) { source.sendFailure(Component.literal("§cFalha ao consultar auditoria.")); return; }
+            source.sendSuccess(() -> Component.literal("§6Auditoria AdminShop (" + rows.size() + ")"), false);
+            rows.forEach(row -> source.sendSuccess(() -> Component.literal("§7" + row.format()), false));
+            if (rows.isEmpty()) source.sendSuccess(() -> Component.literal("§7Nenhuma operação encontrada."), false);
+        }));
         return 1;
     }
 
     private static int inspect(CommandSourceStack source, String tx) {
-        var row = AdminShopManager.getInstance().sql.inspect(tx);
-        if (row.isEmpty()) { source.sendFailure(Component.literal("§cTransação não encontrada: " + tx)); return 0; }
-        source.sendSuccess(() -> Component.literal("§6" + row.get().format()), false);
+        AdminShopManager.getInstance().sql.inspectAsync(tx).whenComplete((row, error) -> source.getServer().execute(() -> {
+            if (error != null || row.isEmpty()) { source.sendFailure(Component.literal("§cTransação não encontrada: " + tx)); return; }
+            source.sendSuccess(() -> Component.literal("§6" + row.get().format()), false);
+        }));
         return 1;
     }
 
