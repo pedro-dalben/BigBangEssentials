@@ -11,12 +11,19 @@ public class DatabaseConfigValidator {
             }
         }
         
-        if (config.getPool().getConnectionTimeoutMs() < 0) {
-            throw new DatabaseException("Connection timeout cannot be negative");
+        if (config.getPool().getConnectionTimeoutMs() <= 0) {
+            throw new DatabaseException("Connection timeout must be positive");
         }
         
-        if (config.getExecutor().getQueueCapacity() < 0) {
-            throw new DatabaseException("Queue capacity cannot be negative");
+        if (config.getExecutor().getQueueCapacity() <= 0) {
+            throw new DatabaseException("Queue capacity must be positive");
+        }
+        if (config.getExecutor().getThreads() <= 0) {
+            throw new DatabaseException("Executor threads must be positive");
+        }
+        if (config.getPool().getMaximumPoolSize() <= 0 || config.getPool().getMinimumIdle() < 0
+                || config.getPool().getMinimumIdle() > config.getPool().getMaximumPoolSize()) {
+            throw new DatabaseException("Invalid connection pool size");
         }
     }
 }

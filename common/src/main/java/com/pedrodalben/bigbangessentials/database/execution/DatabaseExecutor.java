@@ -28,6 +28,8 @@ public class DatabaseExecutor {
     private final DatabaseType type;
     private final DatabaseMetrics metrics;
     private final ThreadPoolExecutor threadPool;
+    private final java.util.Set<CompletableFuture<?>> inFlight = ConcurrentHashMap.newKeySet();
+    private volatile boolean shuttingDown;
 
     public DatabaseExecutor(HikariDataSource dataSource, DatabaseConfig config, DatabaseType type, DatabaseMetrics metrics) {
         this.dataSource = dataSource;
@@ -70,9 +72,17 @@ public class DatabaseExecutor {
      */
     private <T> CompletableFuture<T> submit(String operationName, DatabaseTask<T> task) {
         CompletableFuture<T> future = new CompletableFuture<>();
+        if (shuttingDown) {
+            metrics.incrementRejectedTasks();
+            future.completeExceptionally(new DatabaseException("Database executor is shutting down"));
+            return future;
+        }
+        inFlight.add(future);
+        long enqueuedAt = System.currentTimeMillis();
         try {
             threadPool.execute(() -> {
                 long startTime = System.currentTimeMillis();
+                metrics.recordQueueWait(startTime - enqueuedAt, threadPool.getQueue().size());
                 boolean success = false;
                 T result = null;
                 Throwable error = null;
@@ -83,6 +93,7 @@ public class DatabaseExecutor {
                     error = e;
                 } finally {
                     long duration = System.currentTimeMillis() - startTime;
+                    metrics.recordSqlTime(duration);
                     boolean slow = duration >= config.getDebug().getSlowQueryThresholdMs();
                     metrics.recordExecution(duration, success, slow);
 
@@ -99,9 +110,11 @@ public class DatabaseExecutor {
                     } else {
                         future.completeExceptionally(error);
                     }
+                    inFlight.remove(future);
                 }
             });
         } catch (RejectedExecutionException e) {
+            inFlight.remove(future);
             future.completeExceptionally(new DatabaseException("Database executor queue is full", e));
         }
         return future;
@@ -112,7 +125,7 @@ public class DatabaseExecutor {
      */
     public CompletableFuture<Boolean> ping() {
         return submit("ping", () -> {
-            try (Connection conn = dataSource.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement stmt = conn.prepareStatement("SELECT 1")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     return rs.next();
@@ -130,7 +143,7 @@ public class DatabaseExecutor {
 
     public CompletableFuture<Integer> executeUpdate(String operationName, String sql, StatementBinder binder) {
         return submit(operationName, () -> {
-            try (Connection conn = dataSource.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement stmt = conn.prepareStatement(sql)) {
                 if (binder != null) {
                     binder.bind(stmt);
@@ -149,7 +162,7 @@ public class DatabaseExecutor {
 
     public <T> CompletableFuture<java.util.Optional<T>> querySingle(String operationName, String sql, StatementBinder binder, RowMapper<T> mapper) {
         return submit(operationName, () -> {
-            try (Connection conn = dataSource.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement stmt = conn.prepareStatement(sql)) {
                 if (binder != null) {
                     binder.bind(stmt);
@@ -174,7 +187,7 @@ public class DatabaseExecutor {
 
     public <T> CompletableFuture<T> queryOne(String operationName, String sql, StatementBinder binder, RowMapper<T> mapper) {
         return submit(operationName, () -> {
-            try (Connection conn = dataSource.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement stmt = conn.prepareStatement(sql)) {
                 if (binder != null) {
                     binder.bind(stmt);
@@ -198,7 +211,7 @@ public class DatabaseExecutor {
 
     public <T> CompletableFuture<List<T>> queryList(String operationName, String sql, StatementBinder binder, RowMapper<T> mapper) {
         return submit(operationName, () -> {
-            try (Connection conn = dataSource.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement stmt = conn.prepareStatement(sql)) {
                 if (binder != null) {
                     binder.bind(stmt);
@@ -223,7 +236,7 @@ public class DatabaseExecutor {
 
     public CompletableFuture<int[]> executeBatch(String operationName, String sql, List<StatementBinder> binders) {
         return submit(operationName, () -> {
-            try (Connection conn = dataSource.getConnection()) {
+            try (Connection conn = getConnection()) {
                 boolean originalAutoCommit = conn.getAutoCommit();
                 conn.setAutoCommit(false);
                 try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -232,7 +245,9 @@ public class DatabaseExecutor {
                         stmt.addBatch();
                     }
                     int[] results = stmt.executeBatch();
+                    long commitStarted = System.currentTimeMillis();
                     conn.commit();
+                    metrics.recordCommitTime(System.currentTimeMillis() - commitStarted);
                     return results;
                 } catch (Exception e) {
                     conn.rollback();
@@ -254,28 +269,32 @@ public class DatabaseExecutor {
     public <T> CompletableFuture<T> transaction(String operationName, TransactionCallback<T> callback) {
         return submit(operationName, () -> {
             metrics.incrementActiveTransactions();
-            try (Connection conn = dataSource.getConnection()) {
-                boolean originalAutoCommit = conn.getAutoCommit();
-                conn.setAutoCommit(false);
-                try {
-                    T result = callback.doInTransaction(conn);
-                    conn.commit();
-                    return result;
-                } catch (Throwable e) {
-                    try {
-                        conn.rollback();
-                    } catch (SQLException rollbackEx) {
-                        LOGGER.error("Failed to rollback transaction", rollbackEx);
+            try {
+                for (int attempt = 0; ; attempt++) {
+                    try (Connection conn = getConnection()) {
+                        boolean originalAutoCommit = conn.getAutoCommit();
+                        conn.setAutoCommit(false);
+                        try {
+                            T result = callback.doInTransaction(conn);
+                            long commitStarted = System.currentTimeMillis();
+                            conn.commit();
+                            metrics.recordCommitTime(System.currentTimeMillis() - commitStarted);
+                            return result;
+                        } catch (Throwable e) {
+                            try { conn.rollback(); } catch (SQLException rollbackEx) { LOGGER.error("Failed to rollback transaction", rollbackEx); }
+                            if (isRetryableTransactionFailure(e) && attempt < 2) {
+                                metrics.incrementTransactionRetries();
+                                try { Thread.sleep(10L << attempt); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw e; }
+                                continue;
+                            }
+                            throw e;
+                        } finally {
+                            try { conn.setAutoCommit(originalAutoCommit); } catch (SQLException ex) { LOGGER.error("Failed to restore autocommit state", ex); }
+                        }
                     }
-                    throw e;
-                } finally {
-                    try {
-                        conn.setAutoCommit(originalAutoCommit);
-                    } catch (SQLException ex) {
-                        LOGGER.error("Failed to restore autocommit state", ex);
-                    }
-                    metrics.decrementActiveTransactions();
                 }
+            } finally {
+                metrics.decrementActiveTransactions();
             }
         });
     }
@@ -291,6 +310,7 @@ public class DatabaseExecutor {
      * Shutdown the executor pool safely.
      */
     public void shutdown() {
+        shuttingDown = true;
         threadPool.shutdown();
         try {
             if (!threadPool.awaitTermination(config.getExecutor().getShutdownTimeoutSeconds(), TimeUnit.SECONDS)) {
@@ -300,6 +320,26 @@ public class DatabaseExecutor {
             threadPool.shutdownNow();
             Thread.currentThread().interrupt();
         }
+        inFlight.forEach(future -> future.completeExceptionally(new DatabaseException("Database executor shut down")));
+        inFlight.clear();
+    }
+
+    private Connection getConnection() throws SQLException {
+        long started = System.currentTimeMillis();
+        Connection connection = dataSource.getConnection();
+        metrics.recordConnectionWait(System.currentTimeMillis() - started);
+        return connection;
+    }
+
+    private boolean isRetryableTransactionFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof SQLException sql) {
+                if ("40001".equals(sql.getSQLState()) || sql.getErrorCode() == 1205 || sql.getErrorCode() == 1213) return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     @FunctionalInterface

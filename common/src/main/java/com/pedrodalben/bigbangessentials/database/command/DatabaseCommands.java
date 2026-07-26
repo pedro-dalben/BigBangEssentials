@@ -78,6 +78,8 @@ public class DatabaseCommands {
         source.sendSuccess(() -> Component.literal("§eSlow Queries: §f" + metrics.slowQueries()), false);
         source.sendSuccess(() -> Component.literal("§eAvg Execution Time: §f" + metrics.averageExecutionTimeMs() + "ms"), false);
         source.sendSuccess(() -> Component.literal("§eMax Execution Time: §f" + metrics.maximumExecutionTimeMs() + "ms"), false);
+        source.sendSuccess(() -> Component.literal("§eAvg Queue/Connection/SQL/Commit: §f" + metrics.averageQueueWaitTimeMs() + "/" + metrics.averageConnectionWaitTimeMs() + "/" + metrics.averageSqlTimeMs() + "/" + metrics.averageCommitTimeMs() + "ms"), false);
+        source.sendSuccess(() -> Component.literal("§ePeak Queue / Tx Retries: §f" + metrics.peakQueuedTasks() + " / " + metrics.transactionRetries()), false);
 
         if (manager.isPoolActive()) {
             source.sendSuccess(() -> Component.literal("§ePool Active Connections: §f" + manager.getPoolActiveConnections()), false);
