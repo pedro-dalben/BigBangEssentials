@@ -41,6 +41,9 @@ public class MySqlDataSourceFactory implements DataSourceFactory {
 
         // Custom MySQL Properties
         hikariConfig.addDataSourceProperty("sslMode", mysql.getSslMode());
+        // MySQL 8 defaults to caching_sha2_password. Without TLS, Connector/J
+        // needs explicit permission to retrieve the server RSA key.
+        hikariConfig.addDataSourceProperty("allowPublicKeyRetrieval", "true");
         hikariConfig.addDataSourceProperty("serverTimezone", mysql.getServerTimezone());
         
         // Performance optimizations for MySQL

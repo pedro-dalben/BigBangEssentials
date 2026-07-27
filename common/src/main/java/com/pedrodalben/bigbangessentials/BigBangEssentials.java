@@ -14,6 +14,9 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 
@@ -30,6 +33,7 @@ public class BigBangEssentials {
     private static final String NEOFORGE_VERSION = "21.1.179+";
 
     private static BigBangEssentials instance;
+    private static volatile ScheduledExecutorService databaseRetryExecutor;
 
     public static void init() {
         instance = new BigBangEssentials();
@@ -274,6 +278,7 @@ public class BigBangEssentials {
                 if (mgr.getConfig() != null && mgr.getConfig().isRequired()) {
                     throw new RuntimeException("Database is required but failed to initialize: " + e.getMessage(), e);
                 }
+                scheduleDatabaseRetry();
             }
 
             if (ModuleManager.getInstance().prepare("economy")) {
@@ -633,6 +638,10 @@ public class BigBangEssentials {
 
         public static void onServerStopping(net.minecraft.server.MinecraftServer server) {
             LOGGER.info("════════════════════════════════════════════════════════════════");
+
+            ScheduledExecutorService retry = databaseRetryExecutor;
+            databaseRetryExecutor = null;
+            if (retry != null) retry.shutdownNow();
             LOGGER.info("Server stopping - shutting down BigBangEssentials systems...");
             LOGGER.info("════════════════════════════════════════════════════════════════");
 
@@ -786,6 +795,30 @@ public class BigBangEssentials {
                 LOGGER.error("Failed to run thread diagnostics", e);
             }
             */
+        }
+
+        private static void scheduleDatabaseRetry() {
+            if (databaseRetryExecutor != null) return;
+            databaseRetryExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread thread = new Thread(r, "BigBangEssentials-DatabaseRetry");
+                thread.setDaemon(true);
+                return thread;
+            });
+            databaseRetryExecutor.scheduleWithFixedDelay(() -> {
+                var database = com.pedrodalben.bigbangessentials.database.DatabaseManager.getInstance();
+                if (database.isReady()) {
+                    LOGGER.info("Database retry succeeded; Gems integrations may transition to READY.");
+                    databaseRetryExecutor.shutdown();
+                    return;
+                }
+                if (database.getState() != com.pedrodalben.bigbangessentials.database.DatabaseState.FAILED) return;
+                try {
+                    LOGGER.info("Retrying failed database initialization for optional integrations...");
+                    database.initialize();
+                } catch (Exception retryError) {
+                    LOGGER.warn("Database retry still unavailable: {}", retryError.getMessage());
+                }
+            }, 5, 5, TimeUnit.SECONDS);
         }
 
         public static void onRegisterCommands(CommandDispatcher<CommandSourceStack> dispatcher) {

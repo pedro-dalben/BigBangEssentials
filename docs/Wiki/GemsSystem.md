@@ -72,3 +72,8 @@ The migration is repeatable by source checksum. The source and backup remain ava
 ## Events
 
 `GemBalanceChangedEvent`, `GemReservationCreatedEvent`, `GemReservationCapturedEvent`, `GemReservationReleasedEvent`, and `GemReservationExpiredEvent` are published after the database commit. A listener must treat the transaction id as the deduplication key.
+# Cross-mod API
+
+Other mods must use `BigBangEssentialsApi.gemsIntegration()` and the public `api.gems` records. The provider can be `WAITING_FOR_DATABASE` while Fabric server startup is still initializing MySQL; this is normal and must not be converted to a permanent disabled state.
+
+All balance and reservation operations exposed for integrations are asynchronous. Persist the caller's idempotency key before sending a request and reuse it after restart. `ALREADY_CAPTURED` and `ALREADY_RELEASED` are safe replays; `IDEMPOTENCY_CONFLICT` is a manual-reconciliation failure.
