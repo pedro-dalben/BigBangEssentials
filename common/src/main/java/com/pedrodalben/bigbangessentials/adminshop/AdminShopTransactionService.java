@@ -22,7 +22,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
-/** Product-scoped saga boundary. */
 public final class AdminShopTransactionService {
     public enum Operation { BUY, SELL }
     public record Result(boolean success, String message) {}
@@ -36,13 +35,16 @@ public final class AdminShopTransactionService {
     public static AdminShopTransactionService getInstance() { return INSTANCE; }
     static String currencyPermission(String currency) { return "bigbangessentials.adminshop." + currency; }
 
-    /** Active GUI path: world mutations run on the server thread, economy and SQL do not. */
     public CompletableFuture<Result> executeAsync(ServerPlayer player, String productId, Operation operation) {
+        return executeAsync(player, productId, operation, -1);
+    }
+
+    public CompletableFuture<Result> executeAsync(ServerPlayer player, String productId, Operation operation, int quantity) {
         if (player == null) return CompletableFuture.completedFuture(fail("§cJogador indisponível."));
-        return onServer(player, () -> prepare(player, productId, operation)).thenCompose(prepared -> {
+        return onServer(player, () -> prepare(player, productId, operation, quantity)).thenCompose(prepared -> {
             if (prepared == null) return CompletableFuture.completedFuture(fail("§cOperação indisponível."));
             return manager.sql.startAuditAsync(prepared.tx, player.getUUID(), productId, operation.name(), prepared.currency,
-                            prepared.product.quantity, prepared.price, prepared.economicKey, prepared.stockStage, "RESERVED")
+                            prepared.quantity, prepared.price, prepared.economicKey, prepared.stockStage, "RESERVED")
                     .handle((audited, error) -> error == null && Boolean.TRUE.equals(audited))
                     .thenCompose(audited -> {
                         if (!audited) return rollbackPrepared(prepared, false).thenApply(ignored -> fail("§cA auditoria da transação está indisponível."));
@@ -61,41 +63,51 @@ public final class AdminShopTransactionService {
         });
     }
 
-    private Prepared prepare(ServerPlayer player, String productId, Operation operation) {
+    private Prepared prepare(ServerPlayer player, String productId, Operation operation, int rawQuantity) {
         if (productId == null || operation == null) return null;
         AdminShopConfig.Product product = manager.config().product(productId);
         if (product == null) return null;
+
+        int quantity = rawQuantity > 0 ? rawQuantity : product.quantity;
+        quantity = Math.max(1, Math.min(quantity, product.maxQuantity > 0 ? product.maxQuantity : 64));
+
         boolean buy = operation == Operation.BUY;
-        BigDecimal currentPrice = price(product, buy, productId);
-        if ((buy && !product.buyEnabled) || (!buy && (!product.sellEnabled || product.isCommand())) || currentPrice == null) return null;
+        BigDecimal unitPrice = price(product, buy, productId);
+        if ((buy && !product.buyEnabled) || (!buy && (!product.sellEnabled || product.isCommand())) || unitPrice == null) return null;
+
+        BigDecimal totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity))
+                .setScale(ConfigManager.getEconomyCurrencyScale(), ConfigManager.getEconomyRoundingMode());
+
         String currency = manager.config().currency(productId);
         if (currency == null || !PermissionAPI.hasPermission(player.getUUID(), currencyPermission(currency))
                 || product.permission != null && !product.permission.isBlank() && !PermissionAPI.hasPermission(player.getUUID(), product.permission)) return null;
+
         long used = manager.state.limits.getOrDefault(player.getUUID() + ":" + productId, 0L);
         long remaining = manager.state.remaining.getOrDefault(productId, product.stock);
-        ItemStack stack = product.stack(product.quantity);
-        if (product.limit >= 0 && (used > product.limit || product.quantity > product.limit - used)) return null;
-        if (buy && product.stock >= 0 && remaining < product.quantity) return null;
-        if (!product.isCommand() && (stack.isEmpty() || buy && !hasRoom(player, stack) || !buy && count(player, stack) < product.quantity)) return null;
+        ItemStack stack = product.stack(quantity);
+
+        if (product.limit >= 0 && (used > product.limit || quantity > product.limit - used)) return null;
+        if (buy && product.stock >= 0 && remaining < quantity) return null;
+        if (!product.isCommand() && (stack.isEmpty() || buy && !hasRoom(player, stack) || !buy && count(player, stack) < quantity)) return null;
         if (product.isCommand() && (product.command == null || !product.command.contains("{transaction}"))) return null;
 
         Object lock = productLocks.computeIfAbsent(productId, ignored -> new Object());
         synchronized (lock) {
             used = manager.state.limits.getOrDefault(player.getUUID() + ":" + productId, 0L);
             remaining = manager.state.remaining.getOrDefault(productId, product.stock);
-            if (product.limit >= 0 && (used > product.limit || product.quantity > product.limit - used)) return null;
-            if (buy && product.stock >= 0 && remaining < product.quantity) return null;
+            if (product.limit >= 0 && (used > product.limit || quantity > product.limit - used)) return null;
+            if (buy && product.stock >= 0 && remaining < quantity) return null;
             boolean hadLimit = manager.state.limits.containsKey(player.getUUID() + ":" + productId);
             boolean hadRemaining = manager.state.remaining.containsKey(productId);
             boolean hadDemand = manager.state.demand.containsKey(productId);
             long demand = manager.state.demand.getOrDefault(productId, 0L);
             String tx = UUID.randomUUID().toString();
-            if (buy && product.stock >= 0) manager.state.remaining.put(productId, remaining - product.quantity);
-            manager.state.limits.put(player.getUUID() + ":" + productId, used + product.quantity);
+            if (buy && product.stock >= 0) manager.state.remaining.put(productId, remaining - quantity);
+            manager.state.limits.put(player.getUUID() + ":" + productId, used + quantity);
             manager.state.processed.add(tx);
-            return new Prepared(player, productId, product, operation, buy, currency, currentPrice, stack.copy(), tx,
+            return new Prepared(player, productId, product, operation, buy, currency, totalPrice, stack.copy(), tx,
                     "adminshop:" + (buy ? "buy:" : "sell:") + tx, used, remaining, demand, hadLimit, hadRemaining, hadDemand,
-                    buy && product.stock >= 0 ? "RESERVED" : "NOT_APPLICABLE", lock);
+                    buy && product.stock >= 0 ? "RESERVED" : "NOT_APPLICABLE", lock, quantity);
         }
     }
 
@@ -149,10 +161,10 @@ public final class AdminShopTransactionService {
         }
         if (p.buy) {
             int accepted = addItemsStrict(p.player, p.stack);
-            return new ItemOutcome(accepted == p.product.quantity, accepted > 0, accepted, false);
+            return new ItemOutcome(accepted == p.quantity, accepted > 0, accepted, false);
         }
-        int removed = remove(p.player, p.stack, p.product.quantity);
-        return new ItemOutcome(removed == p.product.quantity, removed > 0, removed, false);
+        int removed = remove(p.player, p.stack, p.quantity);
+        return new ItemOutcome(removed == p.quantity, removed > 0, removed, false);
     }
 
     private CompletableFuture<Result> finish(Prepared p, Finance finance, ItemOutcome items, AtomicBoolean statePersisted) {
@@ -161,7 +173,7 @@ public final class AdminShopTransactionService {
                         finance.receipt, "APPLIED", p.stockStage, "RESERVED", "PENDING", null)
                 .thenCompose(audited -> audited ? onServer(p.player, () -> {
                     long demand = manager.state.demand.getOrDefault(p.productId, p.oldDemand);
-                    manager.state.demand.put(p.productId, Math.max(-1000, Math.min(1000, demand + (p.buy ? p.product.quantity : -p.product.quantity))));
+                    manager.state.demand.put(p.productId, Math.max(-1000, Math.min(1000, demand + (p.buy ? (long) p.quantity : -(long) p.quantity))));
                     return true;
                 }) : failed(new SagaFailure("§cA auditoria da transação falhou.")))
                 .thenCompose(ignored -> persistState(p).thenApply(done -> { statePersisted.set(true); return done; }))
@@ -169,7 +181,7 @@ public final class AdminShopTransactionService {
                 .thenCompose(logged -> logged ? manager.sql.updateAuditAsync(p.tx, AdminShopAuditStatus.COMPLETED, finance.receipt,
                         "APPLIED", p.stockStage, "APPLIED", "APPLIED", null).thenApply(done -> {
                             if (!done) throw new SagaFailure("§cA auditoria final não pôde ser gravada.");
-                            return new Result(true, "§aTransação concluída: §f" + (p.product.displayName == null ? p.productId : p.product.displayName) + " §7(" + p.price + " " + p.currency + ")");
+                            return new Result(true, "§aTransação concluída: §f" + (p.product.displayName == null ? p.productId : p.product.displayName) + " §7(x" + p.quantity + " " + p.price + " " + p.currency + ")");
                         }) : failed(new SagaFailure("§cO registro da transação não pôde ser gravado.")));
     }
 
@@ -277,7 +289,7 @@ public final class AdminShopTransactionService {
     private record Prepared(ServerPlayer player, String productId, AdminShopConfig.Product product, Operation operation, boolean buy,
                             String currency, BigDecimal price, ItemStack stack, String tx, String economicKey, long oldUsed,
                             long oldRemaining, long oldDemand, boolean hadLimit, boolean hadRemaining, boolean hadDemand,
-                            String stockStage, Object lock) {}
+                            String stockStage, Object lock, int quantity) {}
     private record Finance(EconomyOperationReceipt receipt, UUID reservation, boolean captured) {}
     private record ItemOutcome(boolean success, boolean applied, int amount, boolean command) {}
     private static final class FinanceFailure extends SagaFailure {
@@ -285,7 +297,6 @@ public final class AdminShopTransactionService {
         private FinanceFailure(Finance finance, String message) { super(message); this.finance = finance; }
     }
 
-    /** @deprecated use {@link #executeAsync(ServerPlayer, String, Operation)} from server code. */
     @Deprecated
     public Result execute(ServerPlayer player, String productId, Operation operation) {
         if (player == null || player.getServer() != null && player.getServer().isSameThread()) {
@@ -294,6 +305,8 @@ public final class AdminShopTransactionService {
         return executeAsync(player, productId, operation).join();
     }
 
+    @Deprecated
+    @SuppressWarnings("unused")
     private Result executeLocked(ServerPlayer player, String productId, Operation operation) {
         AdminShopConfig.Product product = manager.config().product(productId);
         if (player == null || product == null) return fail("§cProduto indisponível.");
@@ -307,137 +320,7 @@ public final class AdminShopTransactionService {
             return fail("§cVocê não possui permissão.");
         }
 
-        long used = manager.state.limits.getOrDefault(player.getUUID() + ":" + productId, 0L);
-        if (product.limit >= 0 && (used > product.limit || product.quantity > product.limit - used)) return fail("§cLimite individual atingido.");
-        long remaining = manager.state.remaining.getOrDefault(productId, product.stock);
-        if (buy && product.stock >= 0 && remaining < product.quantity) return fail("§cProduto sem estoque.");
-        ItemStack stack = product.stack(product.quantity);
-        if (!product.isCommand() && (stack.isEmpty() || buy && !hasRoom(player, stack) || !buy && count(player, stack) < product.quantity)) {
-            return fail(buy ? "§cSem espaço no inventário." : "§cVocê não possui os itens necessários.");
-        }
-
-        String tx = UUID.randomUUID().toString();
-        String economicKey = "adminshop:" + (buy ? "buy:" : "sell:") + tx;
-        if (product.isCommand() && !product.command.contains("{transaction}")) {
-            return fail("§cEste produto não possui contrato transacional.");
-        }
-        if (!manager.sql.startAudit(tx, player.getUUID(), productId, operation.name(), currency, product.quantity, price, economicKey,
-            buy && product.stock >= 0 ? "CHECKED" : "NOT_APPLICABLE", "CHECKED")) {
-            LOGGER.error("AdminShop transaction {} blocked: audit could not be started", tx);
-            return fail("§cA auditoria da transação está indisponível.");
-        }
-        manager.state.processed.add(tx);
-
-        String playerProduct = player.getUUID() + ":" + productId;
-        boolean hadLimit = manager.state.limits.containsKey(playerProduct);
-        boolean hadDemand = manager.state.demand.containsKey(productId);
-        boolean hadRemaining = manager.state.remaining.containsKey(productId);
-        long oldDemand = manager.state.demand.getOrDefault(productId, 0L);
-        long oldGems = gems.getBalance(player.getUUID()).totalBalance();
-        EconomyOperationReceipt receipt = null;
-        UUID reservation = null;
-        boolean gemsCaptured = false;
-        boolean itemApplied = false;
-        boolean commandAttempted = false;
-        boolean statePersisted = false;
-        int itemsRemoved = 0;
-        String itemStage = "PENDING";
-        String stockStage = buy && product.stock >= 0 ? "CHECKED" : "NOT_APPLICABLE";
-        String limitStage = "CHECKED";
-        String demandStage = "PENDING";
-
-        try {
-            if (buy) {
-                if ("gems".equals(currency)) {
-                    String reservationKey = economicKey + ":reserve";
-                    GemReservationResult reserved = gems.reserve(new GemReservationRequest(player.getUUID(), price.longValueExact(), "adminshop", "buy_" + productId,
-                        reservationKey, tx, Duration.ofSeconds(30), Map.of("source", "adminshop", "reference", tx)));
-                    if (!reserved.success()) throw new SagaFailure("§cGemas insuficientes.");
-                    reservation = reserved.reservationId();
-                    GemOperationResult captured = gems.capture(new GemCaptureRequest(reservation, "adminshop", "buy_" + productId, player.getUUID(), economicKey, tx, Map.of("source", "adminshop", "reference", tx)));
-                    receipt = gemReceipt(captured, player.getUUID(), price, oldGems, economicKey);
-                    if (!captured.success()) throw new SagaFailure("§cGemas insuficientes.");
-                    gemsCaptured = true;
-                } else {
-                    receipt = EconomyManager.getInstance().debit(player.getUUID(), price, economicKey, "AdminShop purchase", Map.of("source", "adminshop", "reference", tx));
-                    if (receipt.status() != EconomyOperationStatus.COMPLETED) throw new SagaFailure("§cSaldo insuficiente.");
-                }
-                updateAudit(tx, AdminShopAuditStatus.MONEY_APPLIED, receipt, itemStage, stockStage, limitStage, demandStage, null);
-                if (product.isCommand()) {
-                    commandAttempted = true;
-                    String command = product.command.replace("{player}", player.getName().getString()).replace("{transaction}", tx);
-                    if (command.startsWith("/")) command = command.substring(1);
-                    int commandResult = player.getServer().getCommands().getDispatcher().execute(
-                            command, player.createCommandSourceStack().withPermission(4));
-                    if (commandResult <= 0) throw new SagaFailure("§cO comando não confirmou a entrega.");
-                } else if (addItems(player, stack) != product.quantity) {
-                    throw new SagaFailure("§cO item não pôde ser entregue.");
-                }
-                itemApplied = true;
-                itemStage = "APPLIED";
-            } else {
-                itemsRemoved = remove(player, stack, product.quantity);
-                if (itemsRemoved != product.quantity) throw new SagaFailure("§cOs itens mudaram durante a venda.");
-                itemApplied = true;
-                itemStage = "APPLIED";
-                updateAudit(tx, AdminShopAuditStatus.ITEM_APPLIED, null, itemStage, stockStage, limitStage, demandStage, null);
-                if ("gems".equals(currency)) {
-                    GemOperationResult credited = gems.credit(new GemCreditRequest(player.getUUID(), price.longValueExact(), "adminshop", "sell_" + productId, player.getUUID(), economicKey, tx, Map.of("source", "adminshop", "reference", tx)));
-                    receipt = gemReceipt(credited, player.getUUID(), price, oldGems, economicKey);
-                    if (!credited.success()) throw new SagaFailure("§cO crédito não pôde ser aplicado.");
-                } else {
-                    receipt = EconomyManager.getInstance().credit(player.getUUID(), price, economicKey, "AdminShop sale", Map.of("source", "adminshop", "reference", tx));
-                    if (receipt.status() != EconomyOperationStatus.COMPLETED) throw new SagaFailure("§cO crédito não pôde ser aplicado.");
-                }
-            }
-
-            if (buy && product.stock >= 0) {
-                manager.state.remaining.put(productId, remaining - product.quantity);
-                stockStage = "APPLIED";
-            }
-            manager.state.limits.put(playerProduct, used + product.quantity);
-            limitStage = "APPLIED";
-            manager.state.demand.merge(productId, buy ? (long) product.quantity : -(long) product.quantity, Long::sum);
-            manager.state.demand.put(productId, Math.max(-1000, Math.min(1000, manager.state.demand.get(productId))));
-            demandStage = "APPLIED";
-            updateAudit(tx, buy ? AdminShopAuditStatus.ITEM_APPLIED : AdminShopAuditStatus.MONEY_APPLIED, receipt, itemStage, stockStage, limitStage, demandStage, null);
-            long nextRemaining = manager.state.remaining.getOrDefault(productId, remaining);
-            long nextUsed = manager.state.limits.getOrDefault(playerProduct, used);
-            long nextDemand = manager.state.demand.getOrDefault(productId, 0L);
-            manager.saveStateDelta(productId, remaining, nextRemaining, player.getUUID(), used, nextUsed,
-                    oldDemand, nextDemand, hadRemaining, hadLimit, hadDemand,
-                    manager.state.remaining.containsKey(productId), manager.state.limits.containsKey(playerProduct),
-                    manager.state.demand.containsKey(productId));
-            statePersisted = true;
-            if (!manager.sql.log(tx, player.getUUID(), productId, operation.name(), currency, price)) throw new SagaFailure("§cO registro legado não pôde ser gravado.");
-            updateAudit(tx, AdminShopAuditStatus.COMPLETED, receipt, itemStage, stockStage, limitStage, demandStage, null);
-            return new Result(true, "§aTransação concluída: §f" + (product.displayName == null ? productId : product.displayName) + " §7(" + price + " " + currency + ")");
-        } catch (Exception error) {
-            LOGGER.error("AdminShop transaction {} failed for player {} and product {}", tx, player.getUUID(), productId, error);
-            boolean stateCompensated = restoreState(tx, player.getUUID(), playerProduct, productId, used, oldDemand, remaining,
-                    hadLimit, hadDemand, hadRemaining, statePersisted);
-            boolean itemCompensated;
-            try { itemCompensated = compensateItem(player, stack, product.quantity, buy, itemApplied, commandAttempted, itemsRemoved); }
-            catch (Exception ignored) { itemCompensated = false; }
-            boolean moneyCompensated;
-            try { moneyCompensated = compensateMoney(player.getUUID(), price, currency, buy, economicKey, receipt, tx); }
-            catch (Exception ignored) { moneyCompensated = false; }
-            if (reservation != null && !gemsCaptured) {
-                try {
-                    if (!gems.release(new GemReleaseRequest(reservation, "adminshop", "rollback", player.getUUID(), error.getMessage(), economicKey + ":release", tx, Map.of())).success()) moneyCompensated = false;
-                } catch (Exception ignored) { moneyCompensated = false; }
-            }
-            AdminShopAuditStatus status = !stateCompensated || !itemCompensated ? AdminShopAuditStatus.RECONCILIATION_REQUIRED
-                : moneyCompensated ? AdminShopAuditStatus.ROLLED_BACK : AdminShopAuditStatus.COMPENSATION_FAILED;
-            String reason = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
-            if (receipt != null && receipt.status() == EconomyOperationStatus.COMPLETED) reason += " compensation_key=" + economicKey + ":compensate";
-            if (reservation != null && !gemsCaptured) reason += " release_key=" + economicKey + ":release";
-            if (!manager.sql.updateAudit(tx, status, receipt, itemCompensated ? "ROLLED_BACK" : "RECONCILIATION_REQUIRED", stockStage, limitStage, demandStage, reason)) {
-                LOGGER.error("AdminShop transaction {} could not persist final audit state", tx);
-            }
-            return fail(status == AdminShopAuditStatus.ROLLED_BACK ? (error instanceof SagaFailure s ? s.message : "§cA transação falhou e foi revertida.")
-                : "§cA transação falhou e requer reconciliação. ID: " + tx);
-        }
+        return executeAsync(player, productId, operation, product.quantity).join();
     }
 
     private boolean updateAudit(String tx, AdminShopAuditStatus status, EconomyOperationReceipt receipt, String item, String stock, String limit, String demand, String failure) {
