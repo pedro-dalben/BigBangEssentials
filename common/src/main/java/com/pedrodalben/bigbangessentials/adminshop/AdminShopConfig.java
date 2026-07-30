@@ -2,6 +2,11 @@ package com.pedrodalben.bigbangessentials.adminshop;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
+import com.pedrodalben.bigbangessentials.adminshop.catalog.AdminShopCatalogLoader;
+import com.pedrodalben.bigbangessentials.adminshop.catalog.AdminShopCatalogV2;
 import com.pedrodalben.bigbangessentials.crates.domain.ItemSerializer;
 import com.pedrodalben.bigbangessentials.util.ResourceUtil;
 import net.minecraft.world.item.ItemStack;
@@ -16,25 +21,38 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** External, server-owned catalog. ChestShop never reads this file. */
 public final class AdminShopConfig {
     private static final Logger LOGGER = LoggerFactory.getLogger(AdminShopConfig.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+
+    public int version;
     public Map<String, Store> stores = new LinkedHashMap<>();
     public Map<String, String> messages = new LinkedHashMap<>();
+    public Map<String, Category> categories = new LinkedHashMap<>();
 
     public static final class Store {
         public String currency;
         public String title;
+        public List<String> categories = new ArrayList<>();
         public List<Product> products = new ArrayList<>();
+    }
+
+    public static final class Category {
+        public String title;
+        public String icon;
+        public int order;
     }
 
     public static final class Product {
         public String id;
+        public String store;
         public String displayName;
         public String itemId;
-        public com.google.gson.JsonObject item;
+        public JsonObject item;
+        public String category;
         public int quantity = 1;
+        public List<Integer> quantityOptions;
+        public int maxQuantity = 64;
         public BigDecimal buyPrice;
         public BigDecimal sellPrice;
         public boolean buyEnabled = true;
@@ -45,19 +63,41 @@ public final class AdminShopConfig {
         public String command;
         public int page = 1;
         public int slot = -1;
+        public int order = 100;
         public DynamicPrice dynamic;
 
         public boolean isCommand() { return command != null && !command.isBlank(); }
+
         public ItemStack stack(int count) {
             if (item != null) {
-                ItemStack result = ItemSerializer.deserialize(com.google.gson.JsonParser.parseString(item.toString()).getAsJsonObject());
+                ItemStack result = ItemSerializer.deserialize(item);
                 result.setCount(count);
                 return result;
             }
-            com.google.gson.JsonObject json = new com.google.gson.JsonObject();
+            JsonObject json = new JsonObject();
             json.addProperty("item", itemId == null ? "minecraft:stone" : itemId);
             json.addProperty("count", count);
             return ItemSerializer.deserialize(json);
+        }
+
+        public String effectiveItemId() {
+            if (item != null && item.has("item")) {
+                String raw = item.get("item").getAsString();
+                if (raw != null && !raw.isBlank()) return raw;
+            }
+            return itemId != null && !itemId.isBlank() ? itemId : "minecraft:stone";
+        }
+
+        public List<Integer> resolvedQuantityOptions() {
+            if (quantityOptions != null && !quantityOptions.isEmpty()) return quantityOptions;
+            int def = Math.max(1, quantity);
+            ItemStack stack = stack(def);
+            if (stack.isEmpty()) return List.of(1);
+            int maxStack = stack.getMaxStackSize();
+            if (maxStack == 1) return List.of(1);
+            if (maxStack == 16) return List.of(1, 8, 16);
+            if (def < 32 && maxStack >= 64) return List.of(def, 32, 64);
+            return List.of(def, Math.min(def * 16, maxStack), maxStack);
         }
     }
 
@@ -70,65 +110,206 @@ public final class AdminShopConfig {
 
     private final Map<String, Product> products = new ConcurrentHashMap<>();
     private final Map<String, String> productCurrencies = new ConcurrentHashMap<>();
+    private final Map<String, Category> categoriesById = new ConcurrentHashMap<>();
+    private final Map<String, List<String>> storeCategories = new ConcurrentHashMap<>();
+    private final Map<String, List<Product>> productsByCategory = new ConcurrentHashMap<>();
 
-    public static Path path() { return ResourceUtil.getConfigPath("adminshop.json"); }
+    public static Path path() { return ResourceUtil.getConfigPath("adminshop.yml"); }
 
     public static AdminShopConfig load() {
         try {
-            Files.createDirectories(path().getParent());
-            if (!Files.exists(path())) {
-                AdminShopConfig fresh = defaults();
-                try (Writer writer = Files.newBufferedWriter(path())) { GSON.toJson(fresh, writer); }
-                return fresh.index();
-            }
-            try (Reader reader = Files.newBufferedReader(path())) {
-                AdminShopConfig config = GSON.fromJson(reader, AdminShopConfig.class);
-                return (config == null ? defaults() : config).index();
-            }
+            AdminShopCatalogV2 catalog = AdminShopCatalogLoader.load();
+            return fromCatalog(catalog);
         } catch (Exception e) {
-            LOGGER.error("Failed to load adminshop.json", e);
+            LOGGER.error("Failed to load adminshop config", e);
             return new AdminShopConfig().index();
         }
     }
 
-    private AdminShopConfig index() {
-        products.clear(); productCurrencies.clear();
+    @SuppressWarnings("unchecked")
+    static AdminShopConfig fromCatalog(AdminShopCatalogV2 catalog) {
+        AdminShopConfig config = new AdminShopConfig();
+        config.version = catalog.version;
+        if (catalog.messages != null) config.messages.putAll(catalog.messages);
+
+        if (catalog.categories != null) {
+            for (var e : catalog.categories.entrySet()) {
+                AdminShopCatalogV2.CategoryDef def = e.getValue();
+                Category cat = new Category();
+                cat.title = def.title;
+                cat.icon = def.icon;
+                cat.order = def.order;
+                config.categories.put(e.getKey(), cat);
+            }
+        }
+
+        if (catalog.stores != null) {
+            for (var e : catalog.stores.entrySet()) {
+                AdminShopCatalogV2.StoreDef def = e.getValue();
+                Store store = new Store();
+                store.currency = def.currency != null ? def.currency : (e.getKey().equalsIgnoreCase("gems") ? "gems" : "money");
+                store.title = def.title;
+                store.categories = def.categories != null ? new ArrayList<>(def.categories) : new ArrayList<>();
+                store.products = new ArrayList<>();
+                config.stores.put(e.getKey(), store);
+            }
+        }
+
+        if (catalog.products != null) {
+            for (var e : catalog.products.entrySet()) {
+                AdminShopCatalogV2.ProductDef def = e.getValue();
+                Product p = new Product();
+                p.id = e.getKey();
+                p.store = def.store;
+                p.displayName = def.displayName;
+                p.itemId = def.itemId;
+                p.category = def.category;
+                p.quantity = def.quantity.defaultQuantity;
+                p.quantityOptions = def.quantity.options != null ? new ArrayList<>(def.quantity.options) : null;
+                p.maxQuantity = def.quantity.max;
+                p.buyPrice = def.price.buy;
+                p.sellPrice = def.price.sell;
+                p.buyEnabled = def.buyEnabled;
+                p.sellEnabled = def.sellEnabled;
+                p.stock = def.stock;
+                p.limit = def.limit;
+                p.permission = def.permission;
+                p.command = def.command;
+                p.order = def.order;
+
+                if (def.item != null && !def.item.isEmpty()) {
+                    p.item = GSON.toJsonTree(def.item).getAsJsonObject();
+                }
+
+                if (def.price.dynamic != null && def.price.dynamic.enabled) {
+                    p.dynamic = new DynamicPrice();
+                    p.dynamic.enabled = true;
+                    p.dynamic.step = def.price.dynamic.step;
+                    p.dynamic.minMultiplier = def.price.dynamic.minMultiplier;
+                    p.dynamic.maxMultiplier = def.price.dynamic.maxMultiplier;
+                }
+
+                Store store = config.stores.get(def.store);
+                if (store != null) {
+                    store.products.add(p);
+                }
+            }
+        }
+
+        return config.index();
+    }
+
+    AdminShopConfig index() {
+        products.clear();
+        productCurrencies.clear();
+        categoriesById.clear();
+        storeCategories.clear();
+        productsByCategory.clear();
+
         if (stores == null) stores = new LinkedHashMap<>();
+        if (categories == null) categories = new LinkedHashMap<>();
+
+        for (var e : categories.entrySet()) {
+            categoriesById.put(e.getKey(), e.getValue());
+        }
+
         for (var entry : stores.entrySet()) {
             Store store = entry.getValue();
-            if (store == null || store.products == null) continue;
-            String currency = entry.getKey().equalsIgnoreCase("gems") ? "gems" : "money";
+            if (store == null) continue;
+            String storeKey = entry.getKey();
+            String currency = store.currency != null ? store.currency
+                    : storeKey.equalsIgnoreCase("gems") ? "gems" : "money";
+            store.currency = currency;
+
+            storeCategories.put(storeKey, store.categories != null ? new ArrayList<>(store.categories) : new ArrayList<>());
+
+            if (store.products == null) {
+                store.products = new ArrayList<>();
+                continue;
+            }
+
             for (Product product : store.products) {
-                if (product == null || product.id == null || product.id.isBlank() || products.putIfAbsent(product.id, product) != null) {
-                    LOGGER.warn("Ignoring invalid/duplicate admin shop product in store {}", entry.getKey());
+                if (product == null || product.id == null || product.id.isBlank()
+                        || products.putIfAbsent(product.id, product) != null) {
+                    LOGGER.warn("Ignoring invalid/duplicate admin shop product in store {}", storeKey);
                     continue;
                 }
                 productCurrencies.put(product.id, currency);
-                if (product.quantity < 1 || product.buyPrice != null && product.buyPrice.signum() < 0 || product.sellPrice != null && product.sellPrice.signum() < 0) {
-                    products.remove(product.id); productCurrencies.remove(product.id);
+                if (product.category == null) {
+                    for (String catId : store.categories) {
+                        product.category = catId;
+                        break;
+                    }
+                }
+                productsByCategory.computeIfAbsent(product.category, k -> new ArrayList<>()).add(product);
+
+                if (product.quantity < 1 || product.buyPrice != null && product.buyPrice.signum() < 0
+                        || product.sellPrice != null && product.sellPrice.signum() < 0) {
+                    products.remove(product.id);
+                    productCurrencies.remove(product.id);
+                    if (product.category != null) {
+                        productsByCategory.getOrDefault(product.category, List.of()).remove(product);
+                    }
                     LOGGER.warn("Ignoring invalid admin shop product {}", product.id);
                 }
             }
         }
+
         return this;
     }
 
     public Product product(String id) { return products.get(id); }
+
     public String currency(String id) { return productCurrencies.get(id); }
-    public Collection<Product> products(String currency) {
-        return products.entrySet().stream().filter(e -> currency.equals(productCurrencies.get(e.getKey()))).map(Map.Entry::getValue).toList();
+
+    public String currencyForStore(String storeId) {
+        Store s = stores.get(storeId);
+        return s != null ? s.currency : null;
     }
 
-    private static AdminShopConfig defaults() {
-        AdminShopConfig c = new AdminShopConfig();
-        c.messages.put("no-funds", "§cSaldo insuficiente.");
-        c.messages.put("no-item", "§cVocê não possui os itens necessários.");
-        c.messages.put("success", "§aTransação concluída: §f{product} §7({price} {currency})");
-        Store money = new Store(); money.currency = "money"; money.title = "§2Admin Shop";
-        Store gems = new Store(); gems.currency = "gems"; gems.title = "§dCash Shop";
-        String[][] vanilla = {{"coal","minecraft:coal","2.00","0.50"},{"iron_ingot","minecraft:iron_ingot","8.00","2.00"},{"gold_ingot","minecraft:gold_ingot","16.00","4.00"},{"diamond","minecraft:diamond","100.00","25.00"},{"emerald","minecraft:emerald","80.00","20.00"},{"redstone","minecraft:redstone","3.00","0.75"},{"lapis_lazuli","minecraft:lapis_lazuli","4.00","1.00"},{"oak_log","minecraft:oak_log","3.00","0.75"},{"cobblestone","minecraft:cobblestone","1.00","0.25"},{"sand","minecraft:sand","1.50","0.35"},{"wheat","minecraft:wheat","2.00","0.50"},{"bread","minecraft:bread","4.00","1.00"},{"coal_block","minecraft:coal_block","18.00","4.50"},{"iron_block","minecraft:iron_block","72.00","18.00"},{"gold_block","minecraft:gold_block","144.00","36.00"},{"diamond_block","minecraft:diamond_block","900.00","225.00"}};
-        for (int i = 0; i < vanilla.length; i++) { Product p = new Product(); p.id = vanilla[i][0]; p.displayName = vanilla[i][0]; p.itemId = vanilla[i][1]; p.buyPrice = new BigDecimal(vanilla[i][2]); p.sellPrice = new BigDecimal(vanilla[i][3]); p.slot = i % 45; p.dynamic = new DynamicPrice(); p.dynamic.enabled = true; money.products.add(p); }
-        Product beacon = new Product(); beacon.id = "beacon"; beacon.displayName = "Beacon"; beacon.itemId = "minecraft:beacon"; beacon.buyPrice = new BigDecimal("500"); beacon.sellEnabled = false; beacon.slot = 0; gems.products.add(beacon);
-        c.stores.put("money", money); c.stores.put("gems", gems); return c;
+    public Collection<Product> products(String currency) {
+        return products.entrySet().stream()
+                .filter(e -> currency.equals(productCurrencies.get(e.getKey())))
+                .map(Map.Entry::getValue).toList();
+    }
+
+    public Collection<Product> productsByCategory(String categoryId) {
+        return productsByCategory.getOrDefault(categoryId, List.of());
+    }
+
+    public Collection<Category> categoriesByStore(String storeId) {
+        List<String> catIds = storeCategories.getOrDefault(storeId, List.of());
+        List<Category> result = new ArrayList<>();
+        for (String id : catIds) {
+            Category c = categoriesById.get(id);
+            if (c != null) result.add(c);
+        }
+        result.sort(Comparator.comparingInt(c -> c.order));
+        return result;
+    }
+
+    public Category category(String id) { return categoriesById.get(id); }
+
+    public String storeIdForCategory(String categoryId) {
+        for (var e : storeCategories.entrySet()) {
+            if (e.getValue().contains(categoryId)) return e.getKey();
+        }
+        return null;
+    }
+
+    public String message(String key) {
+        return messages.getOrDefault(key, "§cErro desconhecido.");
+    }
+
+    public String message(String key, Map<String, String> replacements) {
+        String msg = messages.getOrDefault(key, "§cErro desconhecido.");
+        for (var e : replacements.entrySet()) {
+            msg = msg.replace("{" + e.getKey() + "}", e.getValue());
+        }
+        return msg;
+    }
+
+    public JsonObject toJson() {
+        return GSON.toJsonTree(this).getAsJsonObject();
     }
 }
