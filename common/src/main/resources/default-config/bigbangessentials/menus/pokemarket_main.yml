@@ -1,7 +1,7 @@
 id: pokemarket_main
-schema-version: 1
+schema-version: 2
 size: 27
-title: "&6&lPokéMarket"
+title: "&8&lPokéMarket &7• &bCentral"
 flags:
   cache-rendered-items: false
   close-on-world-change: true
@@ -10,14 +10,18 @@ pages:
   main:
     default-page: true
     items:
+      frame:
+        slots: [0,1,2,3,4,5,6,7,8,24,26]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
       browse:
         slot: 10
         item:
           material-id: "minecraft:compass"
-          display-name: "&eExplorar anúncios"
+          display-name: "&bExplorar anúncios"
+          lore: ["&7Veja Pokémon disponíveis", "&7e abra os detalhes antes de comprar.", "", "&eClique para abrir"]
         actions:
-          - type: "run_player_command"
-            params: { command: "pokemarket browse" }
+          - type: "open_menu"
+            params: { menu-id: "pokemarket_browse" }
       party:
         slot: 12
         item:
@@ -25,8 +29,8 @@ pages:
           display-name: "&aAnunciar da party"
           lore: ["&7Escolha o Pokémon e confirme o preço"]
         actions:
-          - type: "open_menu"
-            params: { menu-id: "pokemarket_party" }
+          - type: "pokemarket_source_open"
+            params: { mode: "money", source: "party" }
       pc:
         slot: 14
         item:
@@ -34,65 +38,62 @@ pages:
           display-name: "&bAnunciar do PC"
           lore: ["&7Escolha a caixa, o Pokémon e confirme o preço"]
         actions:
-          - type: "open_menu"
-            params: { menu-id: "pokemarket_pc" }
+          - type: "pokemarket_source_open"
+            params: { mode: "money", source: "pc" }
       trade_party:
         slot: 13
-        item: { material-id: "minecraft:emerald", display-name: "&aAnunciar troca" }
+        item: { material-id: "minecraft:emerald", display-name: "&dAnunciar troca", lore: ["&7Escolha seu Pokémon e defina", "&7os requisitos em etapas."] }
         actions:
-          - type: "send_message"
-            params: { message: "&7Use /pokemarket trade party <slot> <requisitos JSON>" }
+          - type: "pokemarket_source_open"
+            params: { mode: "trade", source: "party" }
       browse_history:
         slot: 15
         item: { material-id: "minecraft:book", display-name: "&fHistórico" }
         actions:
-          - type: "run_player_command"
-            params: { command: "pokemarket history" }
+          - type: "send_message"
+            params: { message: "&7O histórico visual será aberto nesta mesma central." }
       my_listings:
         slot: 17
         item: { material-id: "minecraft:map", display-name: "&bMeus anúncios" }
-        actions:
-          - type: "run_player_command"
-            params: { command: "pokemarket listings" }
+        actions: [{ type: "pokemarket_records_open", params: { record_type: "listings" } }]
       purchases:
         slot: 18
         item: { material-id: "minecraft:emerald", display-name: "&aMinhas compras" }
-        actions:
-          - type: "run_player_command"
-            params: { command: "pokemarket purchases" }
+        actions: [{ type: "pokemarket_records_open", params: { record_type: "purchases" } }]
       sales:
         slot: 19
         item: { material-id: "minecraft:gold_ingot", display-name: "&6Minhas vendas" }
-        actions:
-          - type: "run_player_command"
-            params: { command: "pokemarket sales" }
+        actions: [{ type: "pokemarket_records_open", params: { record_type: "sales" } }]
       notifications:
         slot: 20
         item: { material-id: "minecraft:bell", display-name: "&6Notificações" }
         actions:
-          - type: "run_player_command"
-            params: { command: "pokemarket notifications" }
+          - type: "open_menu"
+            params: { menu-id: "pokemarket_notifications" }
       help:
         slot: 21
         item: { material-id: "minecraft:paper", display-name: "&eAjuda" }
         actions:
-          - type: "run_player_command"
-            params: { command: "pokemarket" }
+          - type: "send_message"
+            params: { message: "&bPokéMarket &7— escolha uma ação. Compras e anúncios sempre pedem confirmação." }
       claims:
         slot: 16
         item:
           material-id: "minecraft:hopper"
           display-name: "&dMinhas retiradas"
-          lore: ["&7Use: /pokemarket claim <id>"]
+          lore: ["&7Retire Pokémon e dinheiro", "&7com segurança."]
         actions:
-          - type: "run_player_command"
-            params: { command: "pokemarket claims" }
+          - type: "open_menu"
+            params: { menu-id: "pokemarket_claims" }
       trades:
         slot: 23
         item: { material-id: "minecraft:amethyst_shard", display-name: "&dMinhas trocas" }
-        actions:
-          - type: "run_player_command"
-            params: { command: "pokemarket trades" }
+        actions: [{ type: "pokemarket_records_open", params: { record_type: "trades" } }]
+      admin:
+        slot: 25
+        item: { material-id: "minecraft:command_block", display-name: "&cPainel Staff", lore: ["&7Health, estatísticas, listagens", "&7e operações administrativas."] }
+        view-permission: "bigbangessentials.pokemarket.admin"
+        actions: [{ type: "open_menu", params: { menu-id: "pokemarket_admin" } }]
       close:
         slot: 22
         item:

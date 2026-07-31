@@ -1,0 +1,47 @@
+id: pokemarket_admin
+schema-version: 2
+size: 27
+title: "&8&lPokéMarket &7• &cStaff"
+flags:
+  cache-rendered-items: false
+  close-on-world-change: true
+  prevent-item-take: true
+pages:
+  main:
+    default-page: true
+    items:
+      frame:
+        slots: [0,1,2,3,4,5,6,7,8,19,20,21,23,24,25]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
+      health:
+        slot: 10
+        item: { material-id: "minecraft:beacon", display-name: "&aHealth rápido", lore: ["&7Verifica módulo, banco, claims", "&7e operações pendentes."] }
+        actions: [{ type: "run_player_command", params: { command: "pokemarket admin health" } }]
+      full:
+        slot: 11
+        item: { material-id: "minecraft:ender_eye", display-name: "&eHealth completo", lore: ["&7Executa a verificação em lotes."] }
+        actions: [{ type: "run_player_command", params: { command: "pokemarket admin health full" } }]
+      stats:
+        slot: 13
+        item: { material-id: "minecraft:clock", display-name: "&bEstatísticas" }
+        actions: [{ type: "run_player_command", params: { command: "pokemarket admin stats" } }]
+      listings:
+        slot: 15
+        item: { material-id: "minecraft:map", display-name: "&fListagens recentes" }
+        actions: [{ type: "run_player_command", params: { command: "pokemarket admin listings" } }]
+      operations:
+        slot: 16
+        item: { material-id: "minecraft:gold_block", display-name: "&6Operações de compra" }
+        actions: [{ type: "run_player_command", params: { command: "pokemarket admin operations" } }]
+      trades:
+        slot: 22
+        item: { material-id: "minecraft:amethyst_shard", display-name: "&dTrocas recentes" }
+        actions: [{ type: "run_player_command", params: { command: "pokemarket admin trades" } }]
+      back:
+        slot: 18
+        item: { material-id: "minecraft:arrow", display-name: "&cVoltar" }
+        actions: [{ type: "back_menu" }]
+      close:
+        slot: 26
+        item: { material-id: "minecraft:barrier", display-name: "&cFechar" }
+        actions: [{ type: "close_menu" }]

@@ -1,0 +1,51 @@
+id: pokemarket_trade_requirements
+schema-version: 2
+size: 27
+title: "&8&lPokéMarket &7• &dRequisitos da troca"
+flags:
+  cache-rendered-items: false
+  close-on-world-change: true
+  prevent-item-take: true
+pages:
+  main:
+    default-page: true
+    items:
+      frame:
+        slots: [0,1,2,3,5,6,7,8,19,20,21,22,23,24,25,26]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
+      species:
+        slot: 4
+        item: { material-id: "minecraft:compass", display-name: "&bEspécie desejada: {context:wanted_species}", lore: ["&7Escolha pela lista A–Z."] }
+        actions:
+          - type: "open_menu"
+            params: { menu-id: "pokemarket_species" }
+      shiny:
+        slot: 10
+        item: { material-id: "minecraft:glowstone", display-name: "&eExigir shiny", lore: ["&7Clique para alternar exigência."] }
+        actions: [{ type: "pokemarket_trade_requirement", params: { key: "shiny", value: "required" } }]
+      no_shiny:
+        slot: 11
+        item: { material-id: "minecraft:coal", display-name: "&7Proibir shiny" }
+        actions: [{ type: "pokemarket_trade_requirement", params: { key: "shiny", value: "prohibited" } }]
+      any_shiny:
+        slot: 12
+        item: { material-id: "minecraft:stone", display-name: "&fQualquer shiny" }
+        actions: [{ type: "pokemarket_trade_requirement", params: { key: "shiny", value: "any" } }]
+      level_25:
+        slot: 14
+        item: { material-id: "minecraft:experience_bottle", display-name: "&bNível 1–25" }
+        actions:
+          - type: "pokemarket_trade_requirement"
+            params: { key: "min_level", value: "1", max-key: "max_level", max-value: "25" }
+      ivs:
+        slot: 15
+        item: { material-id: "minecraft:diamond", display-name: "&bExigir 3 IVs perfeitos" }
+        actions: [{ type: "pokemarket_trade_requirement", params: { key: "min_ivs", value: "3" } }]
+      confirm:
+        slot: 16
+        item: { material-id: "minecraft:lime_wool", display-name: "&aPublicar troca", lore: ["&7Revisa os requisitos e coloca", "&7seu Pokémon em escrow."] }
+        actions: [{ type: "pokemarket_trade_confirm" }]
+      back:
+        slot: 18
+        item: { material-id: "minecraft:arrow", display-name: "&cVoltar" }
+        actions: [{ type: "back_menu" }]

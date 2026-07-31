@@ -1,5 +1,5 @@
 id: pokemarket_pc
-schema-version: 1
+schema-version: 2
 size: 54
 title: "&b&lPC — caixa {context:pc_box}"
 flags:
@@ -21,9 +21,9 @@ dynamic-item-template:
       - "&7Shiny: &f{shiny}"
       - "&7IVs perfeitos: &f{perfect_ivs}"
       - ""
-      - "&eClique para informar preço"
+      - "&eClique para selecionar"
   actions:
-    - type: "pokemarket_sell_party"
+    - type: "pokemarket_source_select"
       params:
         pokemon_uuid: "{pokemon_uuid}"
       clicks: ["LEFT"]
@@ -31,6 +31,9 @@ pages:
   main:
     default-page: true
     items:
+      frame:
+        slots: [0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,47,50,52,53]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
       previous:
         slot: 45
         item: { material-id: "minecraft:arrow", display-name: "&eCaixa anterior" }

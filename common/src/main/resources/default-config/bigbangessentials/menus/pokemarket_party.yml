@@ -1,5 +1,5 @@
 id: pokemarket_party
-schema-version: 1
+schema-version: 2
 size: 54
 title: "&6&lEscolha um Pokémon da party"
 flags:
@@ -20,9 +20,9 @@ dynamic-item-template:
       - "&7Shiny: &f{shiny}"
       - "&7IVs perfeitos: &f{perfect_ivs}"
       - ""
-      - "&eClique para informar preço"
+      - "&eClique para selecionar"
   actions:
-    - type: "pokemarket_sell_party"
+    - type: "pokemarket_source_select"
       params:
         party_slot: "{party_slot}"
         pokemon_uuid: "{pokemon_uuid}"
@@ -31,6 +31,9 @@ pages:
   main:
     default-page: true
     items:
+      frame:
+        slots: [0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,46,47,48,50,51,52,53]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
       back:
         slot: 45
         item: { material-id: "minecraft:arrow", display-name: "&cVoltar" }
