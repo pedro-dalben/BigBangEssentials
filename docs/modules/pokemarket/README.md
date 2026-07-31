@@ -10,6 +10,24 @@ Módulo completo de mercado virtual de Pokémon com suporte a venda por dinheiro
 
 ## Funcionalidades
 
+### Central visual
+
+`/pokemarket`, `/gts` e `/pm` abrem a central visual do módulo. A central
+oferece exploração paginada, filtros por tipo, espécie, shiny, nível, IVs,
+faixa de preço e ordenação, detalhes do anúncio, compra com confirmação,
+party/PC para publicação, construtor guiado de trocas, claims, notificações e
+registros pessoais.
+
+O valor de publicação e os limites de preço podem ser digitados no chat
+temporariamente. A entrada é privada, expira automaticamente, aceita `cancel`
+e nunca movimenta Pokémon ou dinheiro sem a confirmação no menu.
+
+Os menus padrão são copiados para `config/bigbangessentials/menus/` somente
+quando ainda não existem e podem ser customizados e recarregados com
+`/bbmenu reload`. O catálogo usa os anúncios ativos para montar o seletor de
+espécies; a consulta filtrada permanece no banco e não carrega todos os
+Pokémon para o servidor.
+
 ### Venda por dinheiro (`/pokemarket sell party|pc`)
 - Anúncio pela party ou PC com preço e duração configurável
 - Escrow do Pokémon durante o anúncio
@@ -43,31 +61,12 @@ Módulo completo de mercado virtual de Pokémon com suporte a venda por dinheiro
 
 ## Comandos
 
-| Comando | Descrição |
-|---|---|
-| `/pokemarket browse [page]` | Lista anúncios ativos |
-| `/pokemarket sell party <slot> <preco>` | Anunciar Pokémon da party |
-| `/pokemarket sell pc <box> <slot> <preco>` | Anunciar Pokémon do PC |
-| `/pokemarket trade party <slot> <json>` | Anunciar troca da party |
-| `/pokemarket trade pc <box> <slot> <json>` | Anunciar troca do PC |
-| `/pokemarket trade accept <id> party <slot>` | Aceitar troca |
-| `/pokemarket trade accept <id> pc <box> <slot>` | Aceitar troca |
-| `/pokemarket buy <id>` | Comprar anúncio |
-| `/pokemarket cancel <id>` | Cancelar anúncio próprio |
-| `/pokemarket claim <id>` | Retirar claim |
-| `/pokemarket claim all [money\|pokemon]` | Retirar todos os claims |
-| `/pokemarket claims` | Ver claims disponíveis |
-| `/pokemarket history [page]` | Histórico pessoal |
-| `/pokemarket notifications` | Notificações |
-| `/pokemarket admin health [full]` | Health check |
-| `/pokemarket admin stats` | Estatísticas |
-| `/pokemarket admin listings` | Listagens recentes |
-| `/pokemarket admin inspect <id>` | Detalhes do anúncio |
-| `/pokemarket admin operations` | Operações de compra |
-| `/pokemarket admin trades` | Trocas recentes |
-| `/pokemarket admin cancel <id> <motivo>` | Cancelamento admin |
-| `/pokemarket admin claims <player>` | Claims do jogador |
-| `/pokemarket admin history <player>` | Auditoria do jogador |
+`/pokemarket`, `/gts` e `/pm` abrem a central visual. Os subcomandos antigos
+continuam registrados exclusivamente para compatibilidade com menus já
+instalados; os novos fluxos de jogador são conduzidos pela GUI.
+
+Staff ainda pode usar `/pokemarket admin ...` como compatibilidade operacional;
+o acesso recomendado é o botão **Painel Staff** dentro da central.
 
 ## Migrations
 
