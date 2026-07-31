@@ -308,6 +308,15 @@ world/serverconfig/bigbangessentials/
 
 Quando o `config.json` monolítico é muito grande, o comando `/bigbangessentials config split` o divide em arquivos menores por sistema (`main.json`, `commands.json`, `chat.json`, `teleportation.json`, `moderation.json`, `webdashboard.json`, `items.json`, `afk.json`, `security.json`).
 
+Em instalações que já possuem `.split_configs`, use primeiro:
+
+```
+/bigbangessentials config split dry-run
+/bigbangessentials config split apply
+```
+
+O `dry-run` mostra chaves legadas e alterações planejadas. O `apply` preserva os valores dos arquivos split existentes, cria backups timestampados somente dos arquivos alterados e migra aliases conhecidos, como `targetWorld` para `world`. `status` exibe o estado atual. Arquivos de dados mutáveis como `crates.json`, `keys.json` e `shops.json` não são convertidos pelo merge genérico.
+
 > Todos os arquivos ausentes são gerados automaticamente com valores padrão na primeira inicialização.
 
 ---
