@@ -574,7 +574,7 @@ public class BigBangEssentials {
                 if (ModuleManager.getInstance().isActive("pokemarket") && com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager.getInstance().isInitialized()) {
                     var notifications = com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager.getInstance().notificationRepository();
                     notifications.markDelivered(player.getUUID()).thenCompose(ignored -> notifications.unread(player.getUUID())).thenAccept(count -> {
-                        if (count > 0) player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§6PokéMarket: §e" + count + " §fnotificação(ões) pendente(s). Use /pokemarket notifications."));
+                        if (count > 0) player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§6PokéMarket: §e" + count + " §fnotificação(ões) pendente(s). Abra /pokemarket para revisar."));
                     });
                 }
             } catch (Exception e) {
