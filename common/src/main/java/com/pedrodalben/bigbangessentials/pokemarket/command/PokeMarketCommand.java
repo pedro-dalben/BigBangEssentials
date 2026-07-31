@@ -18,6 +18,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -28,44 +29,33 @@ public final class PokeMarketCommand {
         var root = Commands.literal("pokemarket").requires(source -> source.getEntity() instanceof ServerPlayer player && PermissionAPI.hasPermission(player.getUUID(), "bigbangessentials.pokemarket.use"));
         root.executes(ctx -> help(ctx.getSource()));
 
-        // sell (money)
+        // Legacy command compatibility: existing menu YAML may still invoke these routes.
         var partyPrice = Commands.argument("price", StringArgumentType.word()).executes(ctx -> sellParty(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "slot"), StringArgumentType.getString(ctx, "price")));
-        var partySlot = Commands.argument("slot", IntegerArgumentType.integer(1, 6)).then(partyPrice);
-        root.then(Commands.literal("sell").then(Commands.literal("party").then(partySlot)));
+        root.then(Commands.literal("sell").then(Commands.literal("party").then(Commands.argument("slot", IntegerArgumentType.integer(1, 6)).then(partyPrice))));
         var pcPrice = Commands.argument("price", StringArgumentType.word()).executes(ctx -> sellPc(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "box"), IntegerArgumentType.getInteger(ctx, "slot"), StringArgumentType.getString(ctx, "price")));
-        var pcSlot = Commands.argument("slot", IntegerArgumentType.integer(1, 30)).then(pcPrice);
-        var pcBox = Commands.argument("box", IntegerArgumentType.integer(1)).then(pcSlot);
-        root.then(Commands.literal("sell").then(Commands.literal("pc").then(pcBox)));
-
-        // trade listings
+        root.then(Commands.literal("sell").then(Commands.literal("pc").then(Commands.argument("box", IntegerArgumentType.integer(1)).then(Commands.argument("slot", IntegerArgumentType.integer(1, 30)).then(pcPrice)))));
         var tradePartyReq = Commands.argument("requirements", StringArgumentType.greedyString()).executes(ctx -> tradeParty(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "slot"), StringArgumentType.getString(ctx, "requirements")));
         root.then(Commands.literal("trade").then(Commands.literal("party").then(Commands.argument("slot", IntegerArgumentType.integer(1, 6)).then(tradePartyReq))));
         var tradePcReq = Commands.argument("requirements", StringArgumentType.greedyString()).executes(ctx -> tradePc(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "box"), IntegerArgumentType.getInteger(ctx, "slot"), StringArgumentType.getString(ctx, "requirements")));
         root.then(Commands.literal("trade").then(Commands.literal("pc").then(Commands.argument("box", IntegerArgumentType.integer(1)).then(Commands.argument("slot", IntegerArgumentType.integer(1, 30)).then(tradePcReq)))));
-
-        // trade accept
         var tradeAccSlot = Commands.argument("slot", IntegerArgumentType.integer(1, 6)).executes(ctx -> tradeAcceptParty(ctx.getSource(), StringArgumentType.getString(ctx, "id"), IntegerArgumentType.getInteger(ctx, "slot")));
         root.then(Commands.literal("trade").then(Commands.literal("accept").then(Commands.argument("id", StringArgumentType.word()).then(Commands.literal("party").then(tradeAccSlot)))));
         var tradeAccPcSlot = Commands.argument("slot", IntegerArgumentType.integer(1, 30)).executes(ctx -> tradeAcceptPc(ctx.getSource(), StringArgumentType.getString(ctx, "id"), IntegerArgumentType.getInteger(ctx, "box"), IntegerArgumentType.getInteger(ctx, "slot")));
         root.then(Commands.literal("trade").then(Commands.literal("accept").then(Commands.argument("id", StringArgumentType.word()).then(Commands.literal("pc").then(Commands.argument("box", IntegerArgumentType.integer(1)).then(tradeAccPcSlot))))));
-
-        // browse, buy, cancel, claim, history
-        root.then(Commands.literal("browse").executes(ctx -> browse(ctx.getSource(), 0)).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> browse(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "page") - 1))));
+        root.then(Commands.literal("browse").executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_browse", Map.of())).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_browse", Map.of()))));
         root.then(Commands.literal("buy").then(Commands.argument("id", StringArgumentType.word()).executes(ctx -> buy(ctx.getSource(), StringArgumentType.getString(ctx, "id")))));
         root.then(Commands.literal("cancel").then(Commands.argument("id", StringArgumentType.word()).executes(ctx -> cancel(ctx.getSource(), StringArgumentType.getString(ctx, "id")))));
         root.then(Commands.literal("claim").then(Commands.argument("id", StringArgumentType.word()).executes(ctx -> claim(ctx.getSource(), StringArgumentType.getString(ctx, "id")))));
         root.then(Commands.literal("claim").then(Commands.literal("all").executes(ctx -> claimAll(ctx.getSource(), null)))
             .then(Commands.literal("money").executes(ctx -> claimAll(ctx.getSource(), ClaimType.MONEY)))
             .then(Commands.literal("pokemon").executes(ctx -> claimAll(ctx.getSource(), ClaimType.POKEMON))));
-        root.then(Commands.literal("claims").executes(ctx -> claimAll(ctx.getSource(), null)));
-        root.then(Commands.literal("history").executes(ctx -> history(ctx.getSource(), 0)).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> history(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "page") - 1))));
-        root.then(Commands.literal("listings").executes(ctx -> playerListings(ctx.getSource(), 0)).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> playerListings(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "page") - 1))));
-        root.then(Commands.literal("purchases").executes(ctx -> playerPurchases(ctx.getSource(), 0)).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> playerPurchases(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "page") - 1))));
-        root.then(Commands.literal("sales").executes(ctx -> playerSales(ctx.getSource(), 0)).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> playerSales(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "page") - 1))));
-        root.then(Commands.literal("trades").executes(ctx -> playerTrades(ctx.getSource(), 0)).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> playerTrades(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "page") - 1))));
-
-        // notifications
-        root.then(Commands.literal("notifications").executes(ctx -> notifications(ctx.getSource(), 0)).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> notifications(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "page") - 1)))
+        root.then(Commands.literal("claims").executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_claims", Map.of())));
+        root.then(Commands.literal("history").executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_records", Map.of("record_type", "history"))).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_records", Map.of("record_type", "history")))));
+        root.then(Commands.literal("listings").executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_records", Map.of("record_type", "listings"))).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_records", Map.of("record_type", "listings")))));
+        root.then(Commands.literal("purchases").executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_records", Map.of("record_type", "purchases"))).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_records", Map.of("record_type", "purchases")))));
+        root.then(Commands.literal("sales").executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_records", Map.of("record_type", "sales"))).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_records", Map.of("record_type", "sales")))));
+        root.then(Commands.literal("trades").executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_records", Map.of("record_type", "trades"))).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_records", Map.of("record_type", "trades")))));
+        root.then(Commands.literal("notifications").executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_notifications", Map.of())).then(Commands.argument("page", IntegerArgumentType.integer(1)).executes(ctx -> openPlayerMenu(ctx.getSource(), "pokemarket_notifications", Map.of())))
             .then(Commands.literal("read").executes(ctx -> notificationsRead(ctx.getSource())))
             .then(Commands.literal("read").then(Commands.argument("id", StringArgumentType.word()).executes(ctx -> notificationsRead(ctx.getSource(), StringArgumentType.getString(ctx, "id"))))));
 
@@ -102,16 +92,23 @@ public final class PokeMarketCommand {
                     .openMenu(player, "pokemarket_main", new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, null, null, UUID.randomUUID()))
                     .toCompletableFuture().whenComplete((result, error) -> player.getServer().execute(() -> {
                         if (error != null || result == null || !result.success()) {
-                            source.sendSuccess(() -> Component.literal("§6PokéMarket: §esell party|pc | trade party|pc | browse | buy <id> | cancel <id> | claim <id|all|money|pokemon> | history | notifications"), false);
+                            source.sendSuccess(() -> Component.literal("§6PokéMarket: §eabra a central visual pelo menu; use os botões para comprar, vender, trocar, retirar e consultar."), false);
                         }
                     }));
         } catch (Exception ignored) {
-            source.sendSuccess(() -> Component.literal("§6PokéMarket: §esell party|pc | trade party|pc | browse | buy <id> | cancel <id> | claim <id|all|money|pokemon> | history | notifications"), false);
+            source.sendSuccess(() -> Component.literal("§6PokéMarket: §eabra a central visual pelo menu; use os botões para comprar, vender, trocar, retirar e consultar."), false);
         }
         return 1;
     }
 
     private static ServerPlayer player(CommandSourceStack source) { return source.getPlayer(); }
+
+    private static int openPlayerMenu(CommandSourceStack source, String menuId, Map<String, Object> values) {
+        ServerPlayer player = player(source);
+        com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(player, menuId,
+            new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", values, null, "pokemarket", "legacy", UUID.randomUUID()));
+        return 1;
+    }
 
     private static int sellParty(CommandSourceStack source, int slot, String rawPrice) {
         ServerPlayer p = player(source); try { var ref = PokeMarketManager.getInstance().bridge().findPartySlot(p, slot - 1); return sell(p, ref.orElse(null), rawPrice); }
