@@ -684,6 +684,7 @@
   "commands.bigbangessentials.teleport.misc.tpr_searching": "§eSearching for a random safe location...",
   "commands.bigbangessentials.teleport.misc.tpr_success": "§aTeleported to random location: ({0}, {1}, {2})",
   "commands.bigbangessentials.teleport.misc.tpr_no_safe_location": "§cCould not find a safe random location. Please try again.",
+  "commands.bigbangessentials.teleport.misc.tpr_no_configured_world": "§cNo configured RTP world is available.",
   "commands.bigbangessentials.teleport.misc.tpr_failed": "§cRandom teleport failed: {0}",
   "commands.bigbangessentials.teleport.misc.tpr_cooldown": "§cYou must wait {0} more second(s) before using /tpr again.",
   "commands.bigbangessentials.teleport.misc.settpr_success": "§aSet random teleport centre ''{0}'' to ({1}, {2}, {3}).",

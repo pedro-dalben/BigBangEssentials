@@ -80,7 +80,9 @@ public final class AdminShopMenu {
             }
             if (storeId == null) storeId = "money";
 
-            AdminShopConfig.Store store = AdminShopManager.getInstance().config().stores.get(storeId);
+            AdminShopConfig config = AdminShopManager.getInstance().config();
+            storeId = config.findStoreId(storeId);
+            AdminShopConfig.Store store = storeId == null ? null : config.stores.get(storeId);
             if (store == null) return CompletableFuture.completedFuture(new MenuDataResult(List.of(), 0));
 
             var categories = AdminShopManager.getInstance().config().categoriesByStore(storeId);

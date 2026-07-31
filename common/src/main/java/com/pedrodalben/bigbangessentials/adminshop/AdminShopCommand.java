@@ -113,9 +113,9 @@ public final class AdminShopCommand {
         d.register(Commands.literal(command)
                 .requires(s -> {
                     if (s.getPlayer() == null) return false;
-                    String resolvedStoreId = resolveStoreId(storeId);
-                    AdminShopConfig.Store store = resolvedStoreId == null ? null
-                            : AdminShopManager.getInstance().config().stores.get(resolvedStoreId);
+                    AdminShopConfig config = AdminShopManager.getInstance().config();
+                    String resolvedStoreId = config.findStoreId(storeId);
+                    AdminShopConfig.Store store = resolvedStoreId == null ? null : config.stores.get(resolvedStoreId);
                     String currency = store != null ? store.currency : storeId.equals("gems") ? "gems" : "money";
                     return PermissionAPI.hasPermission(s.getPlayer().getUUID(), AdminShopTransactionService.currencyPermission(currency));
                 })
@@ -129,9 +129,9 @@ public final class AdminShopCommand {
             return 0;
         }
 
-        String resolvedStoreId = resolveStoreId(storeId);
-        AdminShopConfig.Store store = resolvedStoreId == null ? null
-                : AdminShopManager.getInstance().config().stores.get(resolvedStoreId);
+        AdminShopConfig config = AdminShopManager.getInstance().config();
+        String resolvedStoreId = config.findStoreId(storeId);
+        AdminShopConfig.Store store = resolvedStoreId == null ? null : config.stores.get(resolvedStoreId);
         if (store == null) {
             source.sendFailure(Component.literal("§cLoja não encontrada: " + storeId));
             return 0;
@@ -159,15 +159,7 @@ public final class AdminShopCommand {
     }
 
     private static String resolveStoreId(String requestedId) {
-        var stores = AdminShopManager.getInstance().config().stores;
-        if (stores.containsKey(requestedId)) return requestedId;
-
-        String currency = requestedId.equalsIgnoreCase("gems") ? "gems" : "money";
-        return stores.entrySet().stream()
-                .filter(e -> e.getValue() != null && currency.equalsIgnoreCase(e.getValue().currency))
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .orElse(null);
+        return AdminShopManager.getInstance().config().findStoreId(requestedId);
     }
 
     private static int audit(CommandSourceStack source, String name, int limit) {
@@ -215,7 +207,8 @@ public final class AdminShopCommand {
 
     private static int createCategory(CommandSourceStack source, String storeId, String catId, String title, String icon) {
         AdminShopConfig config = AdminShopManager.getInstance().config();
-        AdminShopConfig.Store store = config.stores.get(storeId);
+        String resolvedStoreId = config.findStoreId(storeId);
+        AdminShopConfig.Store store = resolvedStoreId == null ? null : config.stores.get(resolvedStoreId);
         if (store == null) { source.sendFailure(Component.literal("§cLoja não encontrada: " + storeId)); return 0; }
         if (config.categories.containsKey(catId) || store.categories.contains(catId)) {
             source.sendFailure(Component.literal("§cCategoria já existe: " + catId));
@@ -229,13 +222,14 @@ public final class AdminShopCommand {
         store.categories.add(catId);
         config.index();
         AdminShopManager.getInstance().saveCatalog();
-        source.sendSuccess(() -> Component.literal("§aCategoria criada: " + catId + " na loja " + storeId), true);
+        source.sendSuccess(() -> Component.literal("§aCategoria criada: " + catId + " na loja " + resolvedStoreId), true);
         return 1;
     }
 
     private static int deleteCategory(CommandSourceStack source, String storeId, String catId) {
         AdminShopConfig config = AdminShopManager.getInstance().config();
-        AdminShopConfig.Store store = config.stores.get(storeId);
+        String resolvedStoreId = config.findStoreId(storeId);
+        AdminShopConfig.Store store = resolvedStoreId == null ? null : config.stores.get(resolvedStoreId);
         if (store == null) { source.sendFailure(Component.literal("§cLoja não encontrada: " + storeId)); return 0; }
         if (!store.categories.contains(catId)) {
             source.sendFailure(Component.literal("§cCategoria não encontrada: " + catId));
@@ -260,7 +254,8 @@ public final class AdminShopCommand {
             return 0;
         }
         AdminShopConfig config = AdminShopManager.getInstance().config();
-        AdminShopConfig.Store store = config.stores.get(storeId);
+        String resolvedStoreId = config.findStoreId(storeId);
+        AdminShopConfig.Store store = resolvedStoreId == null ? null : config.stores.get(resolvedStoreId);
         if (store == null) { source.sendFailure(Component.literal("§cLoja não encontrada: " + storeId)); return 0; }
         if (!store.categories.contains(catId)) {
             source.sendFailure(Component.literal("§cCategoria não encontrada: " + catId));
@@ -278,7 +273,7 @@ public final class AdminShopCommand {
 
         AdminShopConfig.Product product = new AdminShopConfig.Product();
         product.id = productId;
-        product.store = storeId;
+        product.store = resolvedStoreId;
         product.category = catId;
         product.displayName = AdminShopItemFromHandSerializer.effectiveDisplayName(hand);
         product.itemId = AdminShopItemFromHandSerializer.effectiveItemId(hand);

@@ -20,13 +20,40 @@ remover configuração, estado ou tabelas SQL.
 
 | Arquivo | Uso |
 |---|---|
-| `world/serverconfig/bigbangessentials/adminshop.json` | Catálogo e regras |
+| `world/serverconfig/bigbangessentials/shops/<loja>/<categoria>.yml` | Catálogo editável, um arquivo por categoria |
+| `world/serverconfig/bigbangessentials/adminshop.yml` | Compatibilidade e migração |
 | `bigbangessentials/adminshop_state.json` | Fallback/migração local |
 | banco de `config/database.json` | Estado principal quando SQL está disponível |
 | `world/serverconfig/bigbangessentials/menus/adminshop_*_menu.yml` | Layout |
 
-Na primeira inicialização, o JSON e os menus são criados com um catálogo
-vanilla inicial. Edite o JSON e use `/adminshop reload`.
+Na primeira inicialização, o catálogo é dividido automaticamente em arquivos
+YAML por categoria. Edite, por exemplo,
+`shops/money/blocks.yml` e use `/adminshop reload`.
+
+Para criar uma categoria, copie um arquivo de categoria para
+`shops/money/<nova-categoria>.yml`, ajuste `category`, `title`, `icon`, `order`
+e `products`, e use `/adminshop reload`. Para alterar somente o preço:
+
+```yaml
+products:
+  blocks_1:
+    price:
+      buy: 100
+```
+
+Também é possível editar pelo servidor:
+
+| Comando | Ação |
+|---|---|
+| `/adminshop category list <loja>` | Lista categorias e quantidade de itens |
+| `/adminshop category create <loja> <id> <título>` | Cria uma categoria |
+| `/adminshop category delete <loja> <id>` | Remove categoria vazia |
+| `/adminshop item setprice <id> buy\|sell <valor>` | Altera preço de um item |
+| `/adminshop item addhand <loja> <categoria> <id>` | Adiciona o item da mão |
+| `/adminshop item remove <id>` | Remove um item |
+
+Os IDs de loja aceitam maiúsculas/minúsculas e também a moeda (`money` ou
+`gems`).
 
 `/shop` é exclusivamente AdminShop; não é alias do ChestShop. As ações do menu
 usam uma saga assíncrona: SQL/economia não bloqueiam o servidor, enquanto
@@ -37,32 +64,21 @@ conter `{transaction}`; uma entrega ambígua fica visível para reconciliação.
 
 Cada loja é uma entrada em `stores`. Os IDs de produto devem ser únicos.
 
-```json
-{
-  "stores": {
-    "money": {
-      "currency": "money",
-      "products": [
-        {
-          "id": "diamond",
-          "displayName": "Diamante",
-          "itemId": "minecraft:diamond",
-          "quantity": 1,
-          "buyPrice": 100,
-          "sellPrice": 25,
-          "buyEnabled": true,
-          "sellEnabled": true,
-          "stock": -1,
-          "limit": -1,
-          "permission": "bigbangessentials.adminshop.diamond",
-          "page": 1,
-          "slot": 13
-        }
-      ]
-    },
-    "gems": { "currency": "gems", "products": [] }
-  }
-}
+```yaml
+# shops/money/blocks.yml
+store: money
+category: blocks
+title: "§aBlocos"
+icon: "minecraft:grass_block"
+order: 10
+products:
+  diamond:
+    store: money
+    category: blocks
+    displayName: Diamante
+    itemId: "minecraft:diamond"
+    quantity: { defaultQuantity: 1, options: [1, 16, 64], max: 64 }
+    price: { buy: 100, sell: 25 }
 ```
 
 `stock: -1` e `limit: -1` significam ilimitado. `command` cria um produto

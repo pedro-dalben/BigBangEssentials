@@ -35,6 +35,7 @@
   "commands.bigbangessentials.teleport.misc.tpr_searching": "§eZoeken naar een willekeurige veilige locatie...",
   "commands.bigbangessentials.teleport.misc.tpr_success": "§aGeteleporteerd naar willekeurige locatie: ({0}, {1}, {2})",
   "commands.bigbangessentials.teleport.misc.tpr_no_safe_location": "§cKon geen veilige willekeurige locatie vinden. Probeer opnieuw.",
+  "commands.bigbangessentials.teleport.misc.tpr_no_configured_world": "§cEr is geen geconfigureerde RTP-wereld beschikbaar.",
   "commands.bigbangessentials.teleport.misc.tpr_cooldown": "§cJe moet {0} seconde(n) wachten voordat je /tpr opnieuw kunt gebruiken.",
   "commands.bigbangessentials.teleport.misc.back_success": "§aGeteleporteerd naar vorige locatie.",
   "commands.bigbangessentials.teleport.misc.no_back_location": "§cGeen vorige locatie.",
@@ -70,4 +71,3 @@
   "commands.bigbangessentials.channel.switched": "§aJe bent overgestapt naar kanaal {0}.",
   "commands.bigbangessentials.baltop.entry": "§e{0}. §f{1} §7- §a{2}{3}"
 }
-

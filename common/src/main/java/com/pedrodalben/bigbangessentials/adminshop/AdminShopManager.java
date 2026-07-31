@@ -67,6 +67,7 @@ public final class AdminShopManager {
             Path tmp = yml.resolveSibling("adminshop.yml.tmp");
             Files.writeString(tmp, toYaml(config), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             Files.move(tmp, yml, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            com.pedrodalben.bigbangessentials.adminshop.catalog.AdminShopCatalogLoader.syncCategoryFiles();
         } catch (Exception e) {
             LOGGER.error("Failed to save adminshop.yml", e);
             throw new IllegalStateException("Could not persist admin shop catalog", e);

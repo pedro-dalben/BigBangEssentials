@@ -466,6 +466,8 @@
     },
     "randomTeleportSettings": {
       "randomTeleportSettings_comment": "Random teleport (/tpr /rtp) system — ported from EssentialsX RandomTeleport",
+      "world": ["overworld", "bigbangcraft:minerar"],
+      "world_comment": "Optional list of allowed RTP worlds. Use overworld, nether, end, or a full dimension ID. If absent or empty, RTP stays in the player's current world.",
       "defaultLocation": "{world}",
       "defaultLocation_comment": "Default named location slot when /tpr is run with no argument. {world} is replaced with the player's current world name.",
       "defaultMinRange": 0,
