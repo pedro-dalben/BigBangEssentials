@@ -22,6 +22,10 @@ public interface MenuService {
     CompletionStage<MenuOpenResult> openMenu(ServerPlayer player, String menuId, MenuContext context);
     CompletionStage<MenuOpenResult> openMenu(ServerPlayer player, String menuId, String pageId, MenuContext context);
     CompletionStage<MenuOpenResult> openMenuFromBack(ServerPlayer player, String menuId, String pageId, MenuContext context, Deque<com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry> backStack);
+    default CompletionStage<MenuOpenResult> openMenuFromBack(ServerPlayer player, String menuId, String pageId, int pageIndex,
+                                                              MenuContext context, Deque<com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry> backStack) {
+        return openMenuFromBack(player, menuId, pageId, context, backStack);
+    }
     MenuCloseResult closeMenu(ServerPlayer player, String menuId, MenuCloseReason reason);
     MenuRefreshResult refreshMenu(ServerPlayer player, String menuId);
     MenuRefreshResult refreshCurrentPage(ServerPlayer player);

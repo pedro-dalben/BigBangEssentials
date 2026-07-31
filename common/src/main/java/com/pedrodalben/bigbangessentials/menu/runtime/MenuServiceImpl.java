@@ -20,6 +20,7 @@ import java.util.function.UnaryOperator;
 import java.util.function.Supplier;
 import java.util.ArrayDeque;
 import java.time.Instant;
+import com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry;
 
 public class MenuServiceImpl implements MenuService {
 
@@ -80,8 +81,14 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public CompletionStage<MenuOpenResult> openMenuFromBack(ServerPlayer player, String menuId, String pageId, MenuContext context,
-                                                             java.util.Deque<com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry> backStack) {
-        return runOnServerThread(player, () -> openMenuSync(player, menuId, pageId, context, backStack, true));
+                                                             java.util.Deque<MenuBackStackEntry> backStack) {
+        return openMenuFromBack(player, menuId, pageId, 1, context, backStack);
+    }
+
+    @Override
+    public CompletionStage<MenuOpenResult> openMenuFromBack(ServerPlayer player, String menuId, String pageId, int pageIndex,
+                                                             MenuContext context, java.util.Deque<MenuBackStackEntry> backStack) {
+        return runOnServerThread(player, () -> openMenuSync(player, menuId, pageId, pageIndex, context, backStack, true));
     }
 
     @Override
@@ -167,11 +174,11 @@ public class MenuServiceImpl implements MenuService {
     }
 
     private MenuOpenResult openMenuSync(ServerPlayer player, String menuId, String pageId, MenuContext context) {
-        return openMenuSync(player, menuId, pageId, context, null, false);
+        return openMenuSync(player, menuId, pageId, 1, context, null, false);
     }
 
-    private MenuOpenResult openMenuSync(ServerPlayer player, String menuId, String pageId, MenuContext context,
-                                        java.util.Deque<com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry> inheritedBackStack,
+    private MenuOpenResult openMenuSync(ServerPlayer player, String menuId, String pageId, int pageIndex, MenuContext context,
+                                        java.util.Deque<MenuBackStackEntry> inheritedBackStack,
                                         boolean fromBack) {
         Optional<MenuDefinition> menuOpt = menuRegistry.getMenu(menuId);
         if (menuOpt.isEmpty()) {
@@ -179,10 +186,11 @@ public class MenuServiceImpl implements MenuService {
         }
 
         MenuDefinition menu = menuOpt.get();
-        MenuOpenDecision decision = eventListener.onMenuOpen(player, menuId, context, menu);
+        MenuContext effectiveContext = context == null ? defaultContext(player) : context;
+        MenuOpenDecision decision = eventListener.onMenuOpen(player, menuId, effectiveContext, menu);
         if (!decision.allowed()) {
             if (decision.redirectMenuId() != null) {
-                return openMenuSync(player, decision.redirectMenuId(), null, context);
+                return openMenuSync(player, decision.redirectMenuId(), null, effectiveContext);
             }
             return new MenuOpenResult(false, decision.denyReason() != null ? decision.denyReason() : "Abertura negada.");
         }
@@ -204,22 +212,23 @@ public class MenuServiceImpl implements MenuService {
         session.setPlayerId(player.getUUID());
         session.setMenuId(menuId);
         session.setCurrentPageId(initialPageId);
-        session.setCurrentPageIndex(1);
+        session.setCurrentPageIndex(Math.max(1, pageIndex));
         session.setOpenedAt(Instant.now());
         session.setRevision(1);
-        java.util.Deque<com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry> history =
+        java.util.Deque<MenuBackStackEntry> history =
             inheritedBackStack == null ? new ArrayDeque<>() : new ArrayDeque<>(inheritedBackStack);
         if (!fromBack && previous.isPresent()) {
-            history.push(new com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry(
-                previous.get().getMenuId(), previous.get().getCurrentPageId()));
+            MenuSession previousSession = previous.get();
+            history.push(new MenuBackStackEntry(previousSession.getMenuId(), previousSession.getCurrentPageId(),
+                previousSession.getCurrentPageIndex(), previousSession.getContext()));
         }
         session.setBackStack(history);
         session.setClosed(false);
-        session.setContext(context);
+        session.setContext(effectiveContext);
 
-        renderer.openMenu(player, session, menu, context, this);
+        renderer.openMenu(player, session, menu, effectiveContext, this);
         sessionStore.save(session);
-        renderer.renderPage(player, session, menu, context);
+        renderer.renderPage(player, session, menu, effectiveContext);
         eventListener.onMenuOpened(player, menuId, session);
         return new MenuOpenResult(true, null);
     }
