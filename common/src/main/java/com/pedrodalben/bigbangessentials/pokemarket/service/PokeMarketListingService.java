@@ -84,4 +84,20 @@ public final class PokeMarketListingService {
     public CompletableFuture<java.util.List<ListingRecord>> browse(int page) {
         return listings.findActivePage(Math.max(0, page), 45);
     }
+
+    public CompletableFuture<java.util.List<ListingRecord>> browsePage(int page, int size) {
+        return listings.findActivePage(Math.max(0, page), Math.max(1, Math.min(45, size)));
+    }
+
+    public CompletableFuture<java.util.List<ListingRecord>> browsePage(ListingSearch filter, int page, int size) {
+        return listings.findActivePage(filter, Math.max(0, page), Math.max(1, Math.min(45, size)));
+    }
+
+    public CompletableFuture<java.util.List<String>> activeSpecies(int page, int size) {
+        return listings.findActiveSpecies(page, size);
+    }
+
+    public CompletableFuture<java.util.Optional<ListingRecord>> find(UUID id) {
+        return listings.findById(id);
+    }
 }

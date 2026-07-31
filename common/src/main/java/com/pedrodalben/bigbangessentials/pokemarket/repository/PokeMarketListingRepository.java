@@ -41,6 +41,43 @@ public final class PokeMarketListingRepository {
         return database.getExecutor().queryList("pokemarket.listing.page", "SELECT * FROM bbe_pokemarket_listings WHERE status = 'ACTIVE' AND expires_at > ? ORDER BY created_at DESC LIMIT ? OFFSET ?", s -> { s.setLong(1, System.currentTimeMillis()); s.setInt(2, size); s.setInt(3, Math.max(0, page) * size); }, this::map);
     }
 
+    public CompletableFuture<List<ListingRecord>> findActivePage(ListingSearch filter, int page, int size) {
+        ListingSearch safe = filter == null ? ListingSearch.empty() : filter;
+        StringBuilder sql = new StringBuilder("SELECT * FROM bbe_pokemarket_listings WHERE status='ACTIVE' AND expires_at>? ");
+        List<Object> values = new java.util.ArrayList<>(); values.add(System.currentTimeMillis());
+        if (safe.species() != null && !safe.species().isBlank()) { sql.append("AND LOWER(species)=LOWER(?) "); values.add(safe.species()); }
+        if (safe.type() != null) { sql.append("AND listing_type=? "); values.add(safe.type().name()); }
+        if (safe.shiny() != null) { sql.append("AND shiny=? "); values.add(safe.shiny()); }
+        if (safe.minLevel() != null) { sql.append("AND level>=? "); values.add(safe.minLevel()); }
+        if (safe.maxLevel() != null) { sql.append("AND level<=? "); values.add(safe.maxLevel()); }
+        if (safe.minPerfectIvs() != null) { sql.append("AND perfect_iv_count>=? "); values.add(safe.minPerfectIvs()); }
+        if (safe.minPrice() != null) { sql.append("AND price>=? "); values.add(safe.minPrice()); }
+        if (safe.maxPrice() != null) { sql.append("AND price<=? "); values.add(safe.maxPrice()); }
+        sql.append("ORDER BY ").append(switch (safe.sort() == null ? ListingSearch.Sort.NEWEST : safe.sort()) {
+            case PRICE_ASC -> "price ASC, created_at DESC";
+            case PRICE_DESC -> "price DESC, created_at DESC";
+            case LEVEL_DESC -> "level DESC, created_at DESC";
+            case NEWEST -> "created_at DESC";
+        }).append(" LIMIT ? OFFSET ?");
+        int bounded = Math.max(1, Math.min(size, 100));
+        return database.getExecutor().queryList("pokemarket.listing.filtered-page", sql.toString(), s -> {
+            int i = 1;
+            for (Object value : values) {
+                if (value instanceof Long v) s.setLong(i++, v);
+                else if (value instanceof String v) s.setString(i++, v);
+                else if (value instanceof Boolean v) s.setBoolean(i++, v);
+                else if (value instanceof Integer v) s.setInt(i++, v);
+                else if (value instanceof BigDecimal v) s.setBigDecimal(i++, v);
+            }
+            s.setInt(i++, bounded); s.setInt(i, Math.max(0, page) * bounded);
+        }, this::map);
+    }
+
+    public CompletableFuture<List<String>> findActiveSpecies(int page, int size) {
+        int bounded = Math.max(1, Math.min(size, 100));
+        return database.getExecutor().queryList("pokemarket.listing.species", "SELECT DISTINCT species FROM bbe_pokemarket_listings WHERE status='ACTIVE' AND expires_at>? ORDER BY species LIMIT ? OFFSET ?", s -> { s.setLong(1, System.currentTimeMillis()); s.setInt(2, bounded); s.setInt(3, Math.max(0, page) * bounded); }, r -> r.getString(1));
+    }
+
     public CompletableFuture<Boolean> reserveAtomically(UUID id, UUID buyer) {
         return database.getExecutor().executeUpdate("pokemarket.listing.reserve", "UPDATE bbe_pokemarket_listings SET status='RESERVED',reserved_by_uuid=?,reserved_at=?,version=version+1 WHERE id=? AND status='ACTIVE' AND expires_at>?", s -> { s.setString(1, buyer.toString()); s.setLong(2, System.currentTimeMillis()); s.setString(3, id.toString()); s.setLong(4, System.currentTimeMillis()); }).thenApply(rows -> rows == 1);
     }
