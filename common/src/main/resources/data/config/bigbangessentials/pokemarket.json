@@ -1,0 +1,6 @@
+{
+  "_configVersion": 1,
+  "saleTaxPercentage": 5.0,
+  "price": { "min": 0.01, "max": 1000000.00 },
+  "recovery": { "reservedTimeoutMinutes": 5 }
+}
