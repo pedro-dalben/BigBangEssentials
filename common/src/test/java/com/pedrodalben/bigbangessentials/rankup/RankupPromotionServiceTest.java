@@ -1,5 +1,6 @@
 package com.pedrodalben.bigbangessentials.rankup;
 
+import com.pedrodalben.bigbangessentials.BigBangEssentials;
 import com.pedrodalben.bigbangessentials.rankup.domain.*;
 import com.pedrodalben.bigbangessentials.rankup.service.RankupPromotionService;
 import net.minecraft.server.level.ServerPlayer;
@@ -94,6 +95,24 @@ class RankupPromotionServiceTest {
         assertFalse(result.success());
         assertFalse(service.isPromotionInProgress(uuid));
         assertEquals(1, service.doPromoteCalls.get());
+    }
+
+    @Test
+    void shutdownRejectsNewPromotionBeforePreflight() {
+        ControlledPromotionService service = new ControlledPromotionService(CompletableFuture.completedFuture(successResult("tx-shutdown")));
+        UUID uuid = UUID.randomUUID();
+        ServerPlayer player = player(uuid);
+
+        try (var lifecycle = Mockito.mockStatic(BigBangEssentials.class)) {
+            lifecycle.when(BigBangEssentials::isServerStopping).thenReturn(true);
+
+            RankupPromotionResult result = service.promote(player, NEXT).join();
+
+            assertFalse(result.success());
+            assertEquals(RankupTransactionStatus.RECOVERY_REQUIRED, result.terminalStatus());
+            assertFalse(service.isPromotionInProgress(uuid));
+            assertEquals(0, service.doPromoteCalls.get());
+        }
     }
 
     @Test

@@ -336,8 +336,24 @@ public class DatabaseManagerTest {
             assertTrue(metrics.executedQueries() > 0);
             assertEquals(1, metrics.failedQueries()); // Rollback transaction query counts as failed/aborted task
 
+            CompletableFuture<Integer> chainedWrite = executor.transaction(conn -> {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return 1;
+            }).thenCompose(ignored -> executor.executeUpdate(
+                    "INSERT INTO bbe_metadata (meta_key, meta_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                    stmt -> {
+                        stmt.setString(1, "shutdown_chain_key");
+                        stmt.setString(2, "shutdown_chain_value");
+                    }
+            ));
+
             // Shutdown test
             manager.shutdown();
+            assertEquals(1, chainedWrite.get(2, TimeUnit.SECONDS));
             assertEquals(DatabaseState.STOPPED, manager.getState());
             assertFalse(manager.isReady());
             
