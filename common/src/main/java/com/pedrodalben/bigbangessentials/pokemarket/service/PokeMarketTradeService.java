@@ -114,8 +114,9 @@ public final class PokeMarketTradeService {
                     CompletableFuture<RemovalResult> removed = new CompletableFuture<>();
                     buyer.getServer().execute(() -> removed.complete(bridge.removeOwnedPokemon(buyer, offered)));
                     return removed.thenCompose(result -> {
-                        if (!result.success()) return listings.transition(op.listingId(), ListingStatus.RESERVED, ListingStatus.ACTIVE)
-                            .thenCompose(ignored -> operations.updateStatusNoFrom(op.id(), TradeOperationStatus.FAILED, result.error()))
+                        if (!result.success()) return listings.releaseEscrowPokemon(op.listingId(), op.offeredPokemonUuid())
+                            .thenCompose(released -> released == 1 ? listings.transition(op.listingId(), ListingStatus.RESERVED, ListingStatus.ACTIVE) : CompletableFuture.completedFuture(false))
+                            .thenCompose(reopened -> reopened ? operations.updateStatusNoFrom(op.id(), TradeOperationStatus.FAILED, result.error()) : operations.updateStatusNoFrom(op.id(), TradeOperationStatus.RECONCILIATION_REQUIRED, "Offer rollback was ambiguous"))
                             .thenCompose(ignored -> notifications.createOnce(op.buyer(), "operation-failed:" + op.id(), "OPERATION_FAILED", "pokemarket.operation.failed", "pokemarket.operation.failed", "TRADE", op.id().toString(), result.error()))
                             .thenApply(ignored -> "offer_removal_failed");
                         failureInjector.checkpoint(PokeMarketCheckpoint.AFTER_TRADE_POKEMON_REMOVAL);
@@ -144,8 +145,9 @@ public final class PokeMarketTradeService {
                 s.setString(1, op.buyer().toString()); s.setLong(2, System.currentTimeMillis()); s.setString(3, op.listingId().toString()); s.setLong(4, System.currentTimeMillis());
                 if (s.executeUpdate() != 1) { updateTradeStatus(c, op.id(), TradeOperationStatus.FAILED, "Listing unavailable"); return false; }
             }
-            // Escrow the offered Pokemon BEFORE removal so recovery can create a claim if the JVM dies
-            try (var s = c.prepareStatement("INSERT OR REPLACE INTO bbe_pokemarket_escrow (pokemon_uuid,listing_id,pokemon_data,created_at,status) VALUES (?,?,?,?,?)")) {
+            // Escrow the offered Pokemon BEFORE removal so recovery can create a claim if the JVM dies.
+            // Plain INSERT: a pokemon_uuid PRIMARY KEY conflict means the Pokémon is already escrowed elsewhere (real conflict).
+            try (var s = c.prepareStatement("INSERT INTO bbe_pokemarket_escrow (pokemon_uuid,listing_id,pokemon_data,created_at,status) VALUES (?,?,?,?,?)")) {
                 s.setString(1, op.offeredPokemonUuid().toString()); s.setString(2, op.listingId().toString());
                 s.setBytes(3, op.offeredPokemonData()); s.setLong(4, System.currentTimeMillis()); s.setString(5, "ACTIVE");
                 s.executeUpdate();
@@ -200,6 +202,9 @@ public final class PokeMarketTradeService {
             s.setString(1, op.buyer().toString()); s.setLong(2, System.currentTimeMillis()); s.setString(3, op.listingId().toString());
             if (s.executeUpdate() != 1) throw new java.sql.SQLException("Could not mark listing TRADED");
         }
+
+        // Release both escrow rows (listed + offered Pokémon) now that claims carry ownership.
+        try (var s = c.prepareStatement("DELETE FROM bbe_pokemarket_escrow WHERE listing_id=?")) { s.setString(1, op.listingId().toString()); s.executeUpdate(); }
 
         // Audit
         try (var s = c.prepareStatement("INSERT INTO bbe_pokemarket_audit_log (id,listing_id,actor_uuid,action,old_status,new_status,details_json,created_at) VALUES (?,?,?,?,?,?,?,?)")) {
@@ -268,23 +273,11 @@ public final class PokeMarketTradeService {
                 return markReviewTrade(op, "Recovery: unexpected listing state before offer escrow");
             });
         }
-        if (op.status() == TradeOperationStatus.LISTING_RESERVED) {
-            // The offered Pokemon escrow row was inserted in prepareTrade.
-            // If the escrow row exists, the removal was authorized — create a claim.
-            return database.getExecutor().queryOne("trade.recovery.escrow", "SELECT 1 FROM bbe_pokemarket_escrow WHERE listing_id=? AND pokemon_uuid=? AND status='ACTIVE'", s -> { s.setString(1, op.listingId().toString()); s.setString(2, op.offeredPokemonUuid().toString()); }, r -> true).thenApply(v -> v != null).thenCompose(hasEscrow -> {
-                if (hasEscrow) return completeTradeClaims(op);
-                return markReviewTrade(op, "Recovery: offer removal is ambiguous; manual reconciliation required");
-            });
-        }
+        if (op.status() == TradeOperationStatus.LISTING_RESERVED) return markReviewTrade(op, "Recovery: crash before offered Pokémon removal is ambiguous; manual reconciliation required");
         if (op.status() == TradeOperationStatus.OFFER_ESCROW_PENDING || op.status() == TradeOperationStatus.OFFER_IN_ESCROW) {
             return completeTradeClaims(op);
         }
-        if (op.status() == TradeOperationStatus.CLAIMS_CREATED || op.status() == TradeOperationStatus.FEE_PENDING || op.status() == TradeOperationStatus.FEE_CONFIRMED) {
-            return listings.transition(op.listingId(), ListingStatus.RESERVED, ListingStatus.TRADED).thenCompose(sold -> {
-                if (sold) return updateAndComplete(op);
-                return markReviewTrade(op, "Claims exist but listing not RESERVED");
-            });
-        }
+        if (op.status() == TradeOperationStatus.CLAIMS_CREATED || op.status() == TradeOperationStatus.FEE_PENDING || op.status() == TradeOperationStatus.FEE_CONFIRMED) return completeTradeClaims(op);
         return CompletableFuture.completedFuture(null);
     }
 
@@ -292,11 +285,13 @@ public final class PokeMarketTradeService {
         return listings.findById(op.listingId()).thenCompose(found -> {
             if (found.isEmpty()) return markReviewTrade(op, "Listing missing during trade recovery");
             ListingRecord listing = found.get();
+            if (listing.status() == ListingStatus.TRADED) return listings.releaseEscrow(op.listingId()).thenCompose(released -> updateAndComplete(op));
+            if (listing.status() != ListingStatus.RESERVED) return markReviewTrade(op, "Trade listing is not RESERVED or TRADED");
             // Create claims if they don't exist
             return claims.createPokemonClaim(op.buyer(), op.listingId(), listing.pokemonUuid(), listing.payload(), "pokemarket:trade:buyer-pokemon:" + op.id())
                 .thenCompose(bc -> claims.createPokemonClaim(op.seller(), op.listingId(), op.offeredPokemonUuid(), op.offeredPokemonData(), "pokemarket:trade:seller-pokemon:" + op.id()))
                 .thenCompose(sc -> listings.transition(op.listingId(), listing.status(), ListingStatus.TRADED)
-                    .thenCompose(sold -> sold ? updateAndComplete(op) : markReviewTrade(op, "Could not finalize trade recovery")));
+                    .thenCompose(sold -> sold ? listings.releaseEscrow(op.listingId()).thenCompose(released -> updateAndComplete(op)) : markReviewTrade(op, "Could not finalize trade recovery")));
         });
     }
 

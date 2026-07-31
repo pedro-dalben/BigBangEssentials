@@ -120,7 +120,7 @@ public final class PokeMarketCommand {
     }
     private static int sell(ServerPlayer p, OwnedPokemonReference ref, String rawPrice) {
         if (ref == null) { p.sendSystemMessage(Component.literal("Pokémon não encontrado.")); return 0; }
-        try { BigDecimal price = new BigDecimal(rawPrice); PokeMarketManager.getInstance().listingService().create(p, ref, price, Duration.ofDays(3).toMillis()).whenComplete((id, error) -> p.getServer().execute(() -> p.sendSystemMessage(Component.literal(error == null ? "§aAnúncio criado: " + id : "§cFalha ao anunciar: " + error.getCause().getMessage())))); return 1; }
+        try { BigDecimal price = new BigDecimal(rawPrice); PokeMarketManager.getInstance().listingService().create(p, ref, price, Duration.ofDays(3).toMillis()).whenComplete((id, error) -> p.getServer().execute(() -> p.sendSystemMessage(Component.literal(error == null ? "§aAnúncio criado: " + id : "§cFalha ao anunciar: " + safeMessage(error))))); return 1; }
         catch (Exception e) { p.sendSystemMessage(Component.literal("§cPreço inválido: " + e.getMessage())); return 0; }
     }
 
@@ -142,7 +142,7 @@ public final class PokeMarketCommand {
         if (ref == null) { p.sendSystemMessage(Component.literal("Pokémon não encontrado.")); return 0; }
         try {
             JsonObject req = new com.google.gson.JsonParser().parse(rawJson).getAsJsonObject();
-            PokeMarketManager.getInstance().tradeService().create(p, ref, req, Duration.ofDays(3).toMillis()).whenComplete((id, error) -> p.getServer().execute(() -> p.sendSystemMessage(Component.literal(error == null ? "§aAnúncio de troca criado: " + id : "§cFalha: " + error.getCause().getMessage())))); return 1;
+            PokeMarketManager.getInstance().tradeService().create(p, ref, req, Duration.ofDays(3).toMillis()).whenComplete((id, error) -> p.getServer().execute(() -> p.sendSystemMessage(Component.literal(error == null ? "§aAnúncio de troca criado: " + id : "§cFalha: " + safeMessage(error))))); return 1;
         } catch (Exception e) { p.sendSystemMessage(Component.literal("§cJSON inválido: " + e.getMessage())); return 0; }
     }
     private static int tradeAcceptParty(CommandSourceStack source, String rawId, int slot) {
@@ -269,7 +269,7 @@ public final class PokeMarketCommand {
         var db = DatabaseManager.getInstance();
         source.sendSuccess(() -> Component.literal("§6PokéMarket Health:"), false);
         source.sendSuccess(() -> Component.literal(" §emódulo: §f" + PokeMarketManager.getInstance().isInitialized() + " §e| banco: §f" + db.getState()), false);
-        source.sendSuccess(() -> Component.literal(" §eCobblemon: §f" + (PokeMarketManager.isCobblemonPresent() ? Cobblemon173MarketBridge.runtimeVersion() : "indisponível") + " §e| migração esperada: §f22"), false);
+        source.sendSuccess(() -> Component.literal(" §eCobblemon: §f" + (PokeMarketManager.isCobblemonPresent() ? Cobblemon173MarketBridge.runtimeVersion() : "indisponível") + " §e| migração esperada: §f29"), false);
         db.getExecutor().queryOne("health.purchases", "SELECT COUNT(*) FROM bbe_pokemarket_purchase_operations WHERE status NOT IN ('COMPLETED','FAILED','REFUNDED')", null, r -> r.getLong(1)).whenComplete((v, t) -> source.sendSuccess(() -> Component.literal(" §ecompras pendentes: §f" + (t == null ? v : "?")), false));
         db.getExecutor().queryOne("health.claims", "SELECT COUNT(*) FROM bbe_pokemarket_claims WHERE status='AVAILABLE'", null, r -> r.getLong(1)).whenComplete((v, t) -> source.sendSuccess(() -> Component.literal(" §eclaims disponíveis: §f" + (t == null ? v : "?")), false));
         db.getExecutor().queryOne("health.trades", "SELECT COUNT(*) FROM bbe_pokemarket_trade_operations WHERE status NOT IN ('COMPLETED','FAILED')", null, r -> r.getLong(1)).whenComplete((v, t) -> source.sendSuccess(() -> Component.literal(" §etrocas pendentes: §f" + (t == null ? v : "?")), false));
@@ -437,5 +437,11 @@ public final class PokeMarketCommand {
 
     private static void dispatch(CommandSourceStack source, Runnable action) {
         if (source.getServer().isSameThread()) action.run(); else source.getServer().execute(action);
+    }
+
+    private static String safeMessage(Throwable error) {
+        Throwable cause = error.getCause();
+        String message = cause != null ? cause.getMessage() : error.getMessage();
+        return message == null ? error.getClass().getSimpleName() : message;
     }
 }

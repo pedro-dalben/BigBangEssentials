@@ -1265,6 +1265,7 @@ public class ConfigManager {
     public static final String TABLIST_CONFIG = "tablist.json";
     public static final String CUSTOM_COMMANDS_CONFIG = "custom_commands.json";
     public static final String MODULES_CONFIG = "modules.json";
+    public static final String POKEMARKET_CONFIG = "pokemarket.json";
 
     // Config version tracking - increment when structure changes
     private static final String CONFIG_VERSION_KEY = "_configVersion";
@@ -1278,6 +1279,7 @@ public class ConfigManager {
         put(DISCORD_AUTH_CONFIG, 6);
         put(TABLIST_CONFIG, 2);
         put(MODULES_CONFIG, 3);
+        put(POKEMARKET_CONFIG, 1);
     }};
 
     private ConfigManager() {
@@ -1296,7 +1298,7 @@ public class ConfigManager {
         ResourceUtil.ensureConfigDirectory();
 
         String[] requiredConfigs = new String[] {
-            MAIN_CONFIG, ECONOMY_CONFIG, PERMISSIONS_CONFIG, KITS_CONFIG, DISCORD_AUTH_CONFIG, TABLIST_CONFIG, MODULES_CONFIG
+            MAIN_CONFIG, ECONOMY_CONFIG, PERMISSIONS_CONFIG, KITS_CONFIG, DISCORD_AUTH_CONFIG, TABLIST_CONFIG, MODULES_CONFIG, POKEMARKET_CONFIG
         };
 
         // Check if split configs are enabled
@@ -1715,6 +1717,52 @@ public class ConfigManager {
      */
     public static double getEconomyTaxPercentage() {
         return getTaxPercentage();
+    }
+
+    /** PokéMarket sale tax percentage from pokemarket.json (saleTaxPercentage). Defaults to 5.0. */
+    public static java.math.BigDecimal getPokeMarketSaleTaxPercentageDecimal() {
+        return pokeMarketDecimal("saleTaxPercentage", "5.0");
+    }
+
+    /** PokéMarket minimum listing price from pokemarket.json (price.min). Defaults to 0.01. */
+    public static java.math.BigDecimal getPokeMarketMinPriceDecimal() {
+        return pokeMarketNestedDecimal("price", "min", "0.01");
+    }
+
+    /** PokéMarket maximum listing price from pokemarket.json (price.max). Defaults to 1000000.00. */
+    public static java.math.BigDecimal getPokeMarketMaxPriceDecimal() {
+        return pokeMarketNestedDecimal("price", "max", "1000000.00");
+    }
+
+    /** PokéMarket stale reservation timeout in milliseconds from pokemarket.json (recovery.reservedTimeoutMinutes). Defaults to 300000. */
+    public static long getPokeMarketReservedTimeoutMs() {
+        JsonObject config = getInstance().getConfig(POKEMARKET_CONFIG);
+        try {
+            if (config.has("recovery") && config.getAsJsonObject("recovery").has("reservedTimeoutMinutes")) {
+                long minutes = config.getAsJsonObject("recovery").get("reservedTimeoutMinutes").getAsLong();
+                if (minutes > 0) return minutes * 60_000L;
+            }
+        } catch (Exception ignored) {}
+        return 300_000L;
+    }
+
+    private static java.math.BigDecimal pokeMarketDecimal(String key, String fallback) {
+        JsonObject config = getInstance().getConfig(POKEMARKET_CONFIG);
+        try {
+            return new java.math.BigDecimal(config.get(key).getAsString());
+        } catch (Exception ignored) {
+            return new java.math.BigDecimal(fallback);
+        }
+    }
+
+    private static java.math.BigDecimal pokeMarketNestedDecimal(String section, String key, String fallback) {
+        JsonObject config = getInstance().getConfig(POKEMARKET_CONFIG);
+        try {
+            if (config.has(section) && config.getAsJsonObject(section).has(key)) {
+                return new java.math.BigDecimal(config.getAsJsonObject(section).get(key).getAsString());
+            }
+        } catch (Exception ignored) {}
+        return new java.math.BigDecimal(fallback);
     }
 
     /**

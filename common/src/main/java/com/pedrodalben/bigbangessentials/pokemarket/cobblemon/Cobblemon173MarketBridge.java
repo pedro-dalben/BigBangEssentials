@@ -22,6 +22,9 @@ import java.util.UUID;
 public final class Cobblemon173MarketBridge implements CobblemonMarketBridge {
     public static final String COBBLEMON_VERSION = "1.7.3";
     private static final String FORMAT = "COBBLEMON_NBT_GZIP";
+    /** Upper bound on deserialized NBT size to prevent OOM from a crafted payload. */
+    private static final long MAX_POKEMON_NBT_BYTES = 1_048_576L;
+    private static final int MAX_POKEMON_NBT_DEPTH = 512;
 
     public static boolean isSupportedVersion() {
         return COBBLEMON_VERSION.equals(Cobblemon.VERSION);
@@ -87,7 +90,7 @@ public final class Cobblemon173MarketBridge implements CobblemonMarketBridge {
             byte[] payload = serialized.payload();
             if (!MessageDigest.isEqual(sha256(payload).getBytes(), serialized.checksum().getBytes()))
                 throw new IllegalArgumentException("Pokémon payload checksum mismatch");
-            CompoundTag tag = NbtIo.readCompressed(new ByteArrayInputStream(payload), NbtAccounter.unlimitedHeap());
+            CompoundTag tag = NbtIo.readCompressed(new ByteArrayInputStream(payload), new NbtAccounter(MAX_POKEMON_NBT_BYTES, MAX_POKEMON_NBT_DEPTH));
             Pokemon pokemon = Pokemon.Companion.loadFromNBT(player.registryAccess(), tag);
             if (!serialized.uuid().equals(pokemon.getUuid())) throw new IllegalArgumentException("Pokémon UUID mismatch");
             return pokemon;

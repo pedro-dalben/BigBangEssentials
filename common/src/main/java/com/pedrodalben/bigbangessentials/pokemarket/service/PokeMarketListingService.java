@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.pokemarket.service;
 
 import com.google.gson.JsonObject;
+import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import com.pedrodalben.bigbangessentials.pokemarket.cobblemon.*;
 import com.pedrodalben.bigbangessentials.pokemarket.model.*;
 import com.pedrodalben.bigbangessentials.pokemarket.repository.*;
@@ -16,6 +17,7 @@ public final class PokeMarketListingService {
     private final PokeMarketListingRepository listings;
     private final PokeMarketClaimRepository claims;
     private final PokeMarketAuditRepository audit;
+    private final DatabaseManager database = DatabaseManager.getInstance();
     private final PokeMarketNotificationRepository notifications = new PokeMarketNotificationRepository();
     private final PokeMarketFailureInjector failureInjector;
 
@@ -27,7 +29,7 @@ public final class PokeMarketListingService {
     }
 
     public CompletableFuture<String> create(ServerPlayer player, OwnedPokemonReference reference, BigDecimal price, long durationMs) {
-        BigDecimal normalized = MarketPricingService.normalize(price);
+        BigDecimal normalized = MarketPricingService.validateBounds(price);
         SerializedPokemon serialized = bridge.serialize(player, reference);
         JsonObject summary = new JsonObject();
         summary.addProperty("uuid", serialized.summary().uuid().toString()); summary.addProperty("species", serialized.summary().species());
@@ -58,25 +60,41 @@ public final class PokeMarketListingService {
     public CompletableFuture<Boolean> cancel(ServerPlayer player, UUID id) {
         return listings.findById(id).thenCompose(row -> {
             if (row.isEmpty() || !row.get().seller().equals(player.getUUID())) return CompletableFuture.completedFuture(false);
-            return cancelRow(player, id, row.get(), "CANCEL", "LISTING_CANCELLED", "listing-cancelled:" + id, null);
+            return cancelRow(player.getUUID(), id, row.get(), ListingStatus.ACTIVE, ListingStatus.CANCELLED, "CANCEL", "LISTING_CANCELLED", "listing-cancelled:" + id, null);
         });
     }
 
-    /** Admin cancellation preserves the seller's Pokémon as a claim and records the acting administrator. */
+    /** Admin cancellation preserves the seller's Pokémon as a claim. A RESERVED listing is cancellable only when no purchase or trade owns it. */
     public CompletableFuture<Boolean> cancelAsAdmin(ServerPlayer admin, UUID id, String reason) {
-        return listings.findById(id).thenCompose(row -> row.isEmpty()
-            ? CompletableFuture.completedFuture(false)
-            : cancelRow(admin, id, row.get(), "ADMIN_CANCEL", "ADMIN_CANCELLATION", "admin-cancelled:" + id, reason));
+        return cancelAsAdmin(admin.getUUID(), id, reason);
     }
 
-    private CompletableFuture<Boolean> cancelRow(ServerPlayer actor, UUID id, ListingRecord listing, String action, String notificationType, String eventKey, String reason) {
-        return listings.transition(id, ListingStatus.ACTIVE, ListingStatus.CANCELLED).thenCompose(ok -> {
+    CompletableFuture<Boolean> cancelAsAdmin(UUID admin, UUID id, String reason) {
+        return listings.findById(id).thenCompose(row -> {
+            if (row.isEmpty()) return CompletableFuture.completedFuture(false);
+            ListingStatus from = row.get().status();
+            if (from != ListingStatus.ACTIVE && from != ListingStatus.RESERVED) return CompletableFuture.completedFuture(false);
+            if (from == ListingStatus.RESERVED) return hasPendingOperation(id).thenCompose(pending -> pending
+                ? CompletableFuture.completedFuture(false)
+                : cancelRow(admin, id, row.get(), from, ListingStatus.ADMIN_CANCELLED, "ADMIN_CANCEL", "ADMIN_CANCELLATION", "admin-cancelled:" + id, reason));
+            return cancelRow(admin, id, row.get(), from, ListingStatus.ADMIN_CANCELLED, "ADMIN_CANCEL", "ADMIN_CANCELLATION", "admin-cancelled:" + id, reason);
+        });
+    }
+
+    private CompletableFuture<Boolean> hasPendingOperation(UUID listingId) {
+        CompletableFuture<Boolean> purchase = database.getExecutor().queryOne("pokemarket.admin-cancel.purchase", "SELECT 1 FROM bbe_pokemarket_purchase_operations WHERE listing_id=? AND status NOT IN ('COMPLETED','FAILED','REFUNDED') LIMIT 1", s -> s.setString(1, listingId.toString()), r -> true).thenApply(found -> found != null);
+        CompletableFuture<Boolean> trade = database.getExecutor().queryOne("pokemarket.admin-cancel.trade", "SELECT 1 FROM bbe_pokemarket_trade_operations WHERE listing_id=? AND status NOT IN ('COMPLETED','FAILED') LIMIT 1", s -> s.setString(1, listingId.toString()), r -> true).thenApply(found -> found != null);
+        return purchase.thenCombine(trade, (hasPurchase, hasTrade) -> hasPurchase || hasTrade);
+    }
+
+    private CompletableFuture<Boolean> cancelRow(UUID actor, UUID id, ListingRecord listing, ListingStatus from, ListingStatus to, String action, String notificationType, String eventKey, String reason) {
+        return listings.transition(id, from, to).thenCompose(ok -> {
             if (!ok) return CompletableFuture.completedFuture(false);
             return claims.createPokemonClaim(listing.seller(), id, listing.pokemonUuid(), listing.payload(), "listing-cancel:" + id).thenCompose(created -> listings.releaseEscrow(id).thenApply(released -> {
-                audit.record(id, actor.getUUID(), action, "ACTIVE", "CANCELLED", reason);
+                audit.record(id, actor, action, from.name(), to.name(), reason);
                 notifications.createOnce(listing.seller(), eventKey, notificationType, "pokemarket.listing.cancelled", "pokemarket.listing.cancelled", "LISTING", id.toString(), reason);
                 notifications.createOnce(listing.seller(), "pokemon-claim:" + eventKey, "POKEMON_CLAIM_AVAILABLE", "pokemarket.claim.pokemon", "pokemarket.claim.pokemon", "CLAIM", id.toString(), null);
-                return created == 1 && released == 1;
+                return created == 1 && released >= 1;
             }));
         });
     }

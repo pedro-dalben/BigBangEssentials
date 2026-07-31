@@ -21,6 +21,11 @@ public final class PokeMarketListingRepository {
         return database.getExecutor().executeUpdate("pokemarket.escrow.release", "DELETE FROM bbe_pokemarket_escrow WHERE listing_id=?", s -> { s.setString(1, listing.toString()); });
     }
 
+    /** Releases this trade's offered Pokémon without touching a later listing of the same Pokémon. */
+    public CompletableFuture<Integer> releaseEscrowPokemon(UUID listing, UUID pokemon) {
+        return database.getExecutor().executeUpdate("pokemarket.escrow.release-pokemon", "DELETE FROM bbe_pokemarket_escrow WHERE listing_id=? AND pokemon_uuid=?", s -> { s.setString(1, listing.toString()); s.setString(2, pokemon.toString()); });
+    }
+
     public CompletableFuture<Integer> createPreparing(ListingRecord listing, String idempotencyKey) {
         String sql = "INSERT INTO bbe_pokemarket_listings (id,seller_uuid,seller_name_snapshot,pokemon_uuid,pokemon_data,pokemon_data_format,pokemon_data_version,cobblemon_version,minecraft_version,pokemon_summary_json,species,form,shiny,level,perfect_iv_count,listing_type,price,status,created_at,expires_at,listing_fee,sale_tax,version,recovery_attempts) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         return database.getExecutor().executeUpdate("pokemarket.listing.create", sql, s -> {

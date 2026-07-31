@@ -10,7 +10,6 @@ import com.pedrodalben.bigbangessentials.pokemarket.repository.*;
 import com.pedrodalben.bigbangessentials.pokemarket.transaction.*;
 import net.minecraft.server.level.ServerPlayer;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -54,11 +53,9 @@ public final class PokeMarketPurchaseService {
             if (found.isEmpty()) return CompletableFuture.completedFuture("unavailable");
             ListingRecord listing = found.get();
             if (listing.seller().equals(buyer.getUUID())) return CompletableFuture.completedFuture("own_listing");
-            int scale = ConfigManager.getEconomyCurrencyScale();
-            RoundingMode rounding = ConfigManager.getEconomyRoundingMode();
-            BigDecimal gross = listing.price().setScale(scale, rounding);
-            BigDecimal tax = gross.multiply(new BigDecimal("0.05")).setScale(scale, rounding);
-            BigDecimal net = gross.subtract(tax).setScale(scale, rounding);
+            BigDecimal gross = MarketPricingService.normalize(listing.price());
+            BigDecimal tax = MarketPricingService.fee(gross, ConfigManager.getPokeMarketSaleTaxPercentageDecimal(), BigDecimal.ZERO, BigDecimal.ZERO);
+            BigDecimal net = MarketPricingService.net(gross, tax);
             UUID operationId = UUID.randomUUID();
             PurchaseOperation op = new PurchaseOperation(operationId, listingId, buyer.getUUID(), listing.seller(), gross, tax, net,
                 PurchaseOperationStatus.CREATED, "pokemarket:purchase:debit:" + operationId, "pokemarket:refund:" + operationId, System.currentTimeMillis());
@@ -120,6 +117,7 @@ public final class PokeMarketPurchaseService {
         insertTransaction(c, op);
         failureInjector.checkpoint(PokeMarketCheckpoint.BEFORE_LISTING_SOLD);
         try (var s = c.prepareStatement("UPDATE bbe_pokemarket_listings SET status='SOLD',buyer_uuid=?,completed_at=?,version=version+1 WHERE id=? AND status='RESERVED'")) { s.setString(1, op.buyer().toString()); s.setLong(2, System.currentTimeMillis()); s.setString(3, op.listingId().toString()); if (s.executeUpdate() != 1) throw new java.sql.SQLException("Could not mark listing SOLD"); }
+        releaseEscrow(c, op.listingId());
         failureInjector.checkpoint(PokeMarketCheckpoint.AFTER_LISTING_SOLD);
         updatePurchase(c, op.id(), PurchaseOperationStatus.COMPLETED, null);
         insertAudit(c, op);
@@ -140,10 +138,13 @@ public final class PokeMarketPurchaseService {
         }
     }
     private static void updatePurchase(Connection c, UUID id, PurchaseOperationStatus status, String error) throws java.sql.SQLException {
-        try (var s = c.prepareStatement("UPDATE bbe_pokemarket_purchase_operations SET status=?,updated_at=?,last_error=?,version=version+1,completed_at=? WHERE id=?")) { s.setString(1, status.name()); s.setLong(2, System.currentTimeMillis()); s.setString(3, error); if (status == PurchaseOperationStatus.COMPLETED || status == PurchaseOperationStatus.FAILED) s.setLong(4, System.currentTimeMillis()); else s.setNull(4, java.sql.Types.BIGINT); s.setString(5, id.toString()); s.executeUpdate(); }
+        try (var s = c.prepareStatement("UPDATE bbe_pokemarket_purchase_operations SET status=?,updated_at=?,last_error=?,version=version+1,completed_at=? WHERE id=?")) { s.setString(1, status.name()); s.setLong(2, System.currentTimeMillis()); s.setString(3, error); if (status == PurchaseOperationStatus.COMPLETED || status == PurchaseOperationStatus.FAILED || status == PurchaseOperationStatus.REFUNDED) s.setLong(4, System.currentTimeMillis()); else s.setNull(4, java.sql.Types.BIGINT); s.setString(5, id.toString()); s.executeUpdate(); }
     }
     private static void release(Connection c, UUID listing) throws java.sql.SQLException {
         try (var s = c.prepareStatement("UPDATE bbe_pokemarket_listings SET status='ACTIVE',reserved_by_uuid=NULL,reserved_at=NULL,version=version+1 WHERE id=? AND status='RESERVED'")) { s.setString(1, listing.toString()); s.executeUpdate(); }
+    }
+    private static void releaseEscrow(Connection c, UUID listing) throws java.sql.SQLException {
+        try (var s = c.prepareStatement("DELETE FROM bbe_pokemarket_escrow WHERE listing_id=?")) { s.setString(1, listing.toString()); s.executeUpdate(); }
     }
     private static void insertPokemonClaim(Connection c, PurchaseOperation op, UUID pokemon, byte[] payload) throws java.sql.SQLException {
         try (var s = c.prepareStatement("INSERT INTO bbe_pokemarket_claims (id,owner_uuid,listing_id,claim_type,pokemon_uuid,pokemon_data,status,created_at,idempotency_key) VALUES (?,?,?,?,?,?,?,?,?)")) { s.setString(1, UUID.randomUUID().toString()); s.setString(2, op.buyer().toString()); s.setString(3, op.listingId().toString()); s.setString(4, ClaimType.POKEMON.name()); s.setString(5, pokemon.toString()); s.setBytes(6, payload); s.setString(7, ClaimStatus.AVAILABLE.name()); s.setLong(8, System.currentTimeMillis()); s.setString(9, "pokemarket:buyer-pokemon:" + op.id()); s.executeUpdate(); }
@@ -197,7 +198,7 @@ public final class PokeMarketPurchaseService {
             .thenCompose(ignored -> { failureInjector.checkpoint(PokeMarketCheckpoint.AFTER_SELLER_CLAIM); failureInjector.checkpoint(PokeMarketCheckpoint.BEFORE_LISTING_SOLD); return listings.transition(op.listingId(), ListingStatus.RESERVED, ListingStatus.SOLD); })
             .thenCompose(sold -> {
                 if (!sold) return operations.updateStatus(op.id(), PurchaseOperationStatus.CLAIMS_CREATED, PurchaseOperationStatus.RECONCILIATION_REQUIRED, "Could not mark listing SOLD").thenApply(x -> "recovery_required");
-                return operations.updateStatus(op.id(), PurchaseOperationStatus.CLAIMS_CREATED, PurchaseOperationStatus.COMPLETED, null).thenApply(x -> { failureInjector.checkpoint(PokeMarketCheckpoint.AFTER_LISTING_SOLD); audit.record(op.listingId(), op.buyer(), "BUY", "RESERVED", "SOLD", op.id().toString()); return "success"; });
+                return listings.releaseEscrow(op.listingId()).thenCompose(released -> operations.updateStatus(op.id(), PurchaseOperationStatus.CLAIMS_CREATED, PurchaseOperationStatus.COMPLETED, null)).thenApply(x -> { failureInjector.checkpoint(PokeMarketCheckpoint.AFTER_LISTING_SOLD); audit.record(op.listingId(), op.buyer(), "BUY", "RESERVED", "SOLD", op.id().toString()); return "success"; });
             });
     }
 
@@ -215,18 +216,55 @@ public final class PokeMarketPurchaseService {
         return operations.find(operationId).thenCompose(found -> found.isEmpty() ? CompletableFuture.completedFuture(false) : recoverOne(found.get()).thenApply(ignored -> true));
     }
 
-    /** Administrative escape hatch for a permanently invalid purchase; the credit itself is idempotent. */
+    /** Administrative escape hatch for a permanently invalid purchase; runs as one JDBC transaction so credit, seller claim and listing cancel commit together. */
     public CompletableFuture<String> refund(UUID operationId, String reason) {
-        if (economy == null) return CompletableFuture.completedFuture("economy_unavailable");
+        if (jdbcEconomy == null) return CompletableFuture.completedFuture("economy_unavailable");
         return operations.find(operationId).thenCompose(found -> {
             if (found.isEmpty()) return CompletableFuture.completedFuture("not_found");
             PurchaseOperation op = found.get();
-            if (op.status() != PurchaseOperationStatus.DEBIT_CONFIRMED && op.status() != PurchaseOperationStatus.RECONCILIATION_REQUIRED) return CompletableFuture.completedFuture("invalid_state");
-            return operations.updateStatus(op.id(), op.status(), PurchaseOperationStatus.REFUND_PENDING, reason).thenCompose(ignored -> economy.credit(op.buyer(), op.gross(), op.refundKey(), "PokéMarket refund", Map.of("operation", op.id().toString(), "reason", reason))).thenCompose(receipt -> {
-                if (receipt.status() != EconomyOperationStatus.COMPLETED) return operations.updateStatus(op.id(), PurchaseOperationStatus.REFUND_PENDING, PurchaseOperationStatus.RECONCILIATION_REQUIRED, "Refund " + receipt.status()).thenCompose(x -> notifications.createOnce(op.buyer(), "reconciliation-required:" + op.id(), "RECONCILIATION_REQUIRED", "pokemarket.reconciliation.required", "pokemarket.reconciliation.required", "PURCHASE", op.id().toString(), reason)).thenApply(x -> "reconciliation_required");
-                return listings.findById(op.listingId()).thenCompose(listing -> listing.isEmpty() ? CompletableFuture.completedFuture("reconciliation_required") : claims.createPokemonClaim(op.seller(), op.listingId(), listing.get().pokemonUuid(), listing.get().payload(), "pokemarket:refund-pokemon:" + op.id()).thenCompose(x -> listings.transition(op.listingId(), ListingStatus.RESERVED, ListingStatus.CANCELLED)).thenCompose(x -> operations.updateStatus(op.id(), PurchaseOperationStatus.REFUND_PENDING, PurchaseOperationStatus.REFUNDED, null)).thenCompose(x -> notifications.createOnce(op.buyer(), "refund-completed:" + op.id(), "REFUND_COMPLETED", "pokemarket.refund.completed", "pokemarket.refund.completed", "PURCHASE", op.id().toString(), reason)).thenApply(x -> "refunded"));
-            });
+            return database.getExecutor().transaction("pokemarket.refund", c -> refundAtomic(c, op, reason))
+                .thenCompose(result -> {
+                    if (!"refunded".equals(result)) return CompletableFuture.completedFuture(result);
+                    return notifications.createOnce(op.buyer(), "refund-completed:" + op.id(), "REFUND_COMPLETED", "pokemarket.refund.completed", "pokemarket.refund.completed", "PURCHASE", op.id().toString(), reason).thenApply(ignored -> result);
+                });
         });
+    }
+
+    private String refundAtomic(Connection c, PurchaseOperation op, String reason) throws java.sql.SQLException {
+        if (!beginRefund(c, op.id())) return "invalid_state";
+        // If the buyer already holds a Pokémon claim the sale is ambiguous: quarantine, move no money.
+        try (var s = c.prepareStatement("SELECT 1 FROM bbe_pokemarket_claims WHERE listing_id=? AND owner_uuid=? AND claim_type='POKEMON' LIMIT 1")) {
+            s.setString(1, op.listingId().toString()); s.setString(2, op.buyer().toString());
+            try (ResultSet r = s.executeQuery()) { if (r.next()) { updatePurchase(c, op.id(), PurchaseOperationStatus.RECONCILIATION_REQUIRED, "Buyer Pokémon claim exists; refund blocked"); return "reconciliation_required"; } }
+        }
+        UUID pokemonUuid; byte[] payload;
+        try (var s = c.prepareStatement("SELECT pokemon_uuid,pokemon_data,status FROM bbe_pokemarket_listings WHERE id=?")) {
+            s.setString(1, op.listingId().toString());
+            try (ResultSet r = s.executeQuery()) {
+                if (!r.next()) { updatePurchase(c, op.id(), PurchaseOperationStatus.RECONCILIATION_REQUIRED, "Listing missing"); return "reconciliation_required"; }
+                if (!ListingStatus.RESERVED.name().equals(r.getString(3))) { updatePurchase(c, op.id(), PurchaseOperationStatus.RECONCILIATION_REQUIRED, "Listing is not RESERVED"); return "reconciliation_required"; }
+                pokemonUuid = UUID.fromString(r.getString(1)); payload = r.getBytes(2);
+            }
+        }
+        EconomyOperationReceipt receipt = jdbcEconomy.credit(c, op.buyer(), op.gross(), op.refundKey(), "PokéMarket refund", Map.of("operation", op.id().toString(), "reason", reason));
+        if (receipt.status() != EconomyOperationStatus.COMPLETED) { updatePurchase(c, op.id(), PurchaseOperationStatus.RECONCILIATION_REQUIRED, "Refund " + receipt.status()); return "reconciliation_required"; }
+        try (var s = c.prepareStatement("INSERT INTO bbe_pokemarket_claims (id,owner_uuid,listing_id,claim_type,pokemon_uuid,pokemon_data,status,created_at,idempotency_key) VALUES (?,?,?,?,?,?,?,?,?)")) {
+            s.setString(1, UUID.randomUUID().toString()); s.setString(2, op.seller().toString()); s.setString(3, op.listingId().toString()); s.setString(4, ClaimType.POKEMON.name()); s.setString(5, pokemonUuid.toString()); s.setBytes(6, payload); s.setString(7, ClaimStatus.AVAILABLE.name()); s.setLong(8, System.currentTimeMillis()); s.setString(9, "pokemarket:refund-pokemon:" + op.id()); s.executeUpdate();
+        }
+        try (var s = c.prepareStatement("UPDATE bbe_pokemarket_listings SET status='CANCELLED',version=version+1 WHERE id=? AND status='RESERVED'")) {
+            s.setString(1, op.listingId().toString());
+            if (s.executeUpdate() != 1) throw new java.sql.SQLException("Could not mark listing CANCELLED");
+        }
+        releaseEscrow(c, op.listingId());
+        updatePurchase(c, op.id(), PurchaseOperationStatus.REFUNDED, null);
+        return "refunded";
+    }
+
+    private static boolean beginRefund(Connection c, UUID id) throws java.sql.SQLException {
+        try (var s = c.prepareStatement("UPDATE bbe_pokemarket_purchase_operations SET status=?,updated_at=?,last_error=NULL,version=version+1,completed_at=NULL WHERE id=? AND status IN ('DEBIT_CONFIRMED','RECONCILIATION_REQUIRED')")) {
+            s.setString(1, PurchaseOperationStatus.REFUND_PENDING.name()); s.setLong(2, System.currentTimeMillis()); s.setString(3, id.toString());
+            return s.executeUpdate() == 1;
+        }
     }
 
     private CompletableFuture<Void> recoverOne(PurchaseOperation op) {
@@ -235,7 +273,7 @@ public final class PokeMarketPurchaseService {
             return economy.findOperation(op.debitKey()).thenCompose(found -> found.isPresent() ? continueDebit(op, found.get()) : economy.debit(op.buyer(), op.gross(), op.debitKey(), "PokéMarket purchase recovery", Map.of("operation", op.id().toString())).thenCompose(receipt -> continueDebit(op, receipt)));
         }
         if (op.status() == PurchaseOperationStatus.DEBIT_CONFIRMED || op.status() == PurchaseOperationStatus.CLAIMS_PENDING) return listings.findById(op.listingId()).thenCompose(found -> found.isPresent() ? createClaimsAfterRecovery(op, found.get()) : markReview(op, "Listing missing"));
-        if (op.status() == PurchaseOperationStatus.CLAIMS_CREATED) return listings.transition(op.listingId(), ListingStatus.RESERVED, ListingStatus.SOLD).thenCompose(sold -> sold ? operations.updateStatus(op.id(), PurchaseOperationStatus.CLAIMS_CREATED, PurchaseOperationStatus.COMPLETED, null).thenApply(x -> null) : markReview(op, "Claims exist but listing is not RESERVED"));
+        if (op.status() == PurchaseOperationStatus.CLAIMS_CREATED) return completeRecoveredPurchase(op);
         return CompletableFuture.completedFuture(null);
     }
 
@@ -248,12 +286,23 @@ public final class PokeMarketPurchaseService {
         return claims.createPokemonClaim(op.buyer(), op.listingId(), listing.pokemonUuid(), listing.payload(), "pokemarket:buyer-pokemon:" + op.id())
             .thenCompose(x -> claims.createMoneyClaim(op.seller(), op.listingId(), op.net(), "pokemarket:seller-money:" + op.id()))
             .thenCompose(x -> operations.updateStatus(op.id(), op.status() == PurchaseOperationStatus.DEBIT_CONFIRMED ? PurchaseOperationStatus.DEBIT_CONFIRMED : PurchaseOperationStatus.CLAIMS_PENDING, PurchaseOperationStatus.CLAIMS_CREATED, null))
-            .thenCompose(x -> listings.transition(op.listingId(), ListingStatus.RESERVED, ListingStatus.SOLD))
-            .thenCompose(sold -> sold ? operations.updateStatus(op.id(), PurchaseOperationStatus.CLAIMS_CREATED, PurchaseOperationStatus.COMPLETED, null).thenApply(x -> null) : markReview(op, "Could not complete recovered listing"));
+            .thenCompose(x -> completeRecoveredPurchase(op));
+    }
+
+    private CompletableFuture<Void> completeRecoveredPurchase(PurchaseOperation op) {
+        return listings.findById(op.listingId()).thenCompose(found -> {
+            if (found.isEmpty()) return markReview(op, "Listing missing during purchase recovery");
+            ListingStatus status = found.get().status();
+            if (status == ListingStatus.SOLD) return listings.releaseEscrow(op.listingId()).thenCompose(released -> operations.updateStatus(op.id(), PurchaseOperationStatus.CLAIMS_CREATED, PurchaseOperationStatus.COMPLETED, null)).thenApply(x -> null);
+            if (status != ListingStatus.RESERVED) return markReview(op, "Claims exist but listing is not RESERVED or SOLD");
+            return listings.transition(op.listingId(), ListingStatus.RESERVED, ListingStatus.SOLD).thenCompose(sold -> sold
+                ? listings.releaseEscrow(op.listingId()).thenCompose(released -> operations.updateStatus(op.id(), PurchaseOperationStatus.CLAIMS_CREATED, PurchaseOperationStatus.COMPLETED, null)).thenApply(x -> null)
+                : markReview(op, "Could not complete recovered listing"));
+        });
     }
 
     private CompletableFuture<Void> markReview(PurchaseOperation op, String error) {
-        return operations.updateStatus(op.id(), op.status(), PurchaseOperationStatus.RECONCILIATION_REQUIRED, error)
+        return operations.updateStatusNoFrom(op.id(), PurchaseOperationStatus.RECONCILIATION_REQUIRED, error)
             .thenCompose(x -> CompletableFuture.allOf(
                 notifications.createOnce(op.buyer(), "reconciliation-required:" + op.id(), "RECONCILIATION_REQUIRED", "pokemarket.reconciliation.required", "pokemarket.reconciliation.required", "PURCHASE", op.id().toString(), error),
                 notifications.createOnce(op.seller(), "reconciliation-required:seller:" + op.id(), "RECONCILIATION_REQUIRED", "pokemarket.reconciliation.required", "pokemarket.reconciliation.required", "PURCHASE", op.id().toString(), error)))

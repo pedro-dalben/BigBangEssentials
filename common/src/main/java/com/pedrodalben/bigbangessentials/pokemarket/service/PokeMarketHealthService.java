@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.pokemarket.service;
 
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
+import com.pedrodalben.bigbangessentials.config.ConfigManager;
 
 import java.security.MessageDigest;
 import java.sql.ResultSet;
@@ -19,7 +20,7 @@ public final class PokeMarketHealthService {
         checks.put("orphan_escrow", count("SELECT COUNT(*) FROM bbe_pokemarket_escrow e LEFT JOIN bbe_pokemarket_listings l ON e.listing_id=l.id WHERE l.id IS NULL"));
         checks.put("orphan_claims", count("SELECT COUNT(*) FROM bbe_pokemarket_claims c LEFT JOIN bbe_pokemarket_listings l ON c.listing_id=l.id WHERE l.id IS NULL"));
         checks.put("expired_active", count("SELECT COUNT(*) FROM bbe_pokemarket_listings WHERE status='ACTIVE' AND expires_at<= " + System.currentTimeMillis()));
-        checks.put("stale_reserved", count("SELECT COUNT(*) FROM bbe_pokemarket_listings WHERE status='RESERVED' AND reserved_at<?", System.currentTimeMillis() - 300000L));
+        checks.put("stale_reserved", count("SELECT COUNT(*) FROM bbe_pokemarket_listings WHERE status='RESERVED' AND reserved_at<?", System.currentTimeMillis() - ConfigManager.getPokeMarketReservedTimeoutMs()));
         checks.put("recovery_required", count("SELECT COUNT(*) FROM bbe_pokemarket_listings WHERE status='RECOVERY_REQUIRED'"));
         checks.put("duplicate_pokemon", count("SELECT COUNT(*) FROM (SELECT pokemon_uuid FROM bbe_pokemarket_listings WHERE status IN ('ACTIVE','RESERVED') GROUP BY pokemon_uuid HAVING COUNT(*)>1) d"));
         checks.put("missing_payload", count("SELECT COUNT(*) FROM bbe_pokemarket_listings WHERE status IN ('ACTIVE','RESERVED') AND (pokemon_data IS NULL OR LENGTH(pokemon_data)=0)"));

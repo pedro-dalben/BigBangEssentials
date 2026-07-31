@@ -16,6 +16,20 @@
 - Crates: compra/reembolso usam chaves derivadas da abertura no backend database quando disponível.
 - Menu principal recebeu entradas de troca, histórico, notificações e ajuda; os fluxos party/PC completos ainda exigem UI runtime.
 
+## Revisão de segurança (2026-07-31)
+
+Correções aplicadas após auditoria de integridade patrimonial:
+
+- **Refund atômico** (`PokeMarketPurchaseService.refund`): uma transição exclusiva para `REFUND_PENDING` impede concorrência; listagem e claim do comprador são verificadas antes do crédito. Crédito + claim do vendedor + `RESERVED→CANCELLED` + liberação do escrow comitam juntos.
+- **Trade escrow**: `INSERT OR REPLACE` virou `INSERT` (conflito real); rollback remove o escrow somente da própria listagem; conclusão normal e recovery limpam ambos os escrows. `LISTING_RESERVED` após crash vai para reconciliação, pois a remoção física ainda é ambígua. V029 remove `UNIQUE(listing_id)`.
+- **Purchase escrow**: compra concluída e recovery liberam o escrow da listagem antes de marcar a operação como concluída.
+- **Recovery**: `recoverStaleReserved` respeita `recovery.reservedTimeoutMinutes` (antes liberava qualquer `RESERVED`).
+- **Admin cancel**: funciona em `ACTIVE`; `RESERVED` só é permitido sem compra/troca incompleta associada.
+- **NBT**: `deserialize` limitado a 1 MB / profundidade 512 (anti-OOM).
+- **Preço/taxa**: limites `price.min/max` e `saleTaxPercentage` configuráveis em `pokemarket.json`; configuração inválida ou taxa que zere o repasse é rejeitada antes da compra.
+
+Testes novos: `PokeMarketRefundTest`, `PokeMarketRecoveryTimeoutTest`, `PokeMarketEscrowTest`, `PokeMarketPricingBoundsTest` (+ asserções de state machine em `PokeMarketDomainTest`). Runtime Cobblemon permanece `BLOCKED` (sem GameTest reproduzível).
+
 ## Limitações honestas
 
 - ChestShop agora compensa falhas de crédito com rollback de itens e dinheiro; a saga durável após crash permanece `PARTIAL`. AdminShop usa operações econômicas idempotentes.

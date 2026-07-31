@@ -30,6 +30,12 @@ class PokeMarketDomainTest {
         assertFalse(ListingStateMachine.canTransition(ListingStatus.SOLD, ListingStatus.TRADED));
     }
 
+    @Test void stateMachineAllowsCancellingReservedListings() {
+        assertTrue(ListingStateMachine.canTransition(ListingStatus.RESERVED, ListingStatus.CANCELLED));
+        assertTrue(ListingStateMachine.canTransition(ListingStatus.RESERVED, ListingStatus.ADMIN_CANCELLED));
+        assertTrue(ListingStateMachine.canTransition(ListingStatus.ADMIN_CANCELLED, ListingStatus.CLAIMED));
+    }
+
     @Test void tradeOperationStatusesAreConfigured() {
         assertNotNull(TradeOperationStatus.valueOf("CREATED"));
         assertNotNull(TradeOperationStatus.valueOf("LISTING_RESERVED"));

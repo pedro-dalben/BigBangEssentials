@@ -12,7 +12,7 @@ public final class ListingStateMachine {
     static {
         NEXT.put(ListingStatus.PREPARING, EnumSet.of(ListingStatus.ACTIVE, ListingStatus.CANCELLED, ListingStatus.RECOVERY_REQUIRED));
         NEXT.put(ListingStatus.ACTIVE, EnumSet.of(ListingStatus.RESERVED, ListingStatus.EXPIRED, ListingStatus.CANCELLED, ListingStatus.ADMIN_CANCELLED));
-        NEXT.put(ListingStatus.RESERVED, EnumSet.of(ListingStatus.SOLD, ListingStatus.TRADED, ListingStatus.ACTIVE, ListingStatus.RECOVERY_REQUIRED));
+        NEXT.put(ListingStatus.RESERVED, EnumSet.of(ListingStatus.SOLD, ListingStatus.TRADED, ListingStatus.ACTIVE, ListingStatus.RECOVERY_REQUIRED, ListingStatus.CANCELLED, ListingStatus.ADMIN_CANCELLED));
         NEXT.put(ListingStatus.SOLD, EnumSet.of(ListingStatus.CLAIMED));
         NEXT.put(ListingStatus.TRADED, EnumSet.of(ListingStatus.CLAIMED));
         NEXT.put(ListingStatus.EXPIRED, EnumSet.of(ListingStatus.CLAIMED));

@@ -1,5 +1,6 @@
 package com.pedrodalben.bigbangessentials.pokemarket.service;
 
+import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import com.pedrodalben.bigbangessentials.pokemarket.model.ClaimStatus;
 import com.pedrodalben.bigbangessentials.pokemarket.model.ClaimType;
@@ -16,7 +17,6 @@ import java.util.concurrent.CompletableFuture;
 /** Crash recovery is conservative: ambiguous ownership is quarantined with a seller claim so the Pokemon is never lost. */
 public final class PokeMarketRecoveryService {
     private static final Logger LOGGER = LoggerFactory.getLogger(PokeMarketRecoveryService.class);
-    private static final long RESERVATION_TIMEOUT_MS = 300_000L; // 5 minutes
     private final DatabaseManager database = DatabaseManager.getInstance();
     private final PokeMarketListingRepository listings;
     private final PokeMarketClaimRepository claims;
@@ -35,12 +35,11 @@ public final class PokeMarketRecoveryService {
             CompletableFuture<Boolean> hasTrade = database.getExecutor().queryOne("recovery.reserved.trade", "SELECT 1 FROM bbe_pokemarket_trade_operations WHERE listing_id=? AND status NOT IN ('COMPLETED','FAILED') LIMIT 1", s -> s.setString(1, id.toString()), r -> true).thenApply(v -> v != null);
             return hasPurchase.thenCombine(hasTrade, (p, t) -> p || t).thenCompose(hasOp -> {
                 if (hasOp) return CompletableFuture.completedFuture(null);
-                // Check if reservation is stale (older than timeout)
-                return listings.findById(id).thenCompose(row -> {
-                    if (row.isEmpty()) return CompletableFuture.completedFuture(null);
-                    var listing = row.get();
+                // Only release a reservation older than the configured timeout; a fresh RESERVED may belong to an in-flight purchase.
+                return database.getExecutor().queryOne("recovery.reserved.at", "SELECT reserved_at FROM bbe_pokemarket_listings WHERE id=? AND status='RESERVED'", s -> s.setString(1, id.toString()), r -> r.getLong(1)).thenCompose(reservedAt -> {
+                    if (reservedAt == null) return CompletableFuture.completedFuture(null);
                     long now = System.currentTimeMillis();
-                    // reserved_at is in the listing row; we check via listing status
+                    if (now - reservedAt <= ConfigManager.getPokeMarketReservedTimeoutMs()) return CompletableFuture.completedFuture(null);
                     return listings.transition(id, ListingStatus.RESERVED, ListingStatus.ACTIVE).thenCompose(released -> {
                         if (!released) return CompletableFuture.completedFuture(null);
                         audit.record(id, null, "RECOVERY_RELEASE_RESERVED", ListingStatus.RESERVED.name(), ListingStatus.ACTIVE.name(), "Stale RESERVED listing with no active operation");
