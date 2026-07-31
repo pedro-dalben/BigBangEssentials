@@ -9,6 +9,7 @@ import com.pedrodalben.bigbangessentials.menu.model.MenuCloseReason;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Deque;
 import java.util.concurrent.CompletionStage;
 import java.util.function.UnaryOperator;
 
@@ -20,6 +21,7 @@ public interface MenuService {
     MenuUpdateResult updateMenu(String menuId, UnaryOperator<MenuDefinition> updater);
     CompletionStage<MenuOpenResult> openMenu(ServerPlayer player, String menuId, MenuContext context);
     CompletionStage<MenuOpenResult> openMenu(ServerPlayer player, String menuId, String pageId, MenuContext context);
+    CompletionStage<MenuOpenResult> openMenuFromBack(ServerPlayer player, String menuId, String pageId, MenuContext context, Deque<com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry> backStack);
     MenuCloseResult closeMenu(ServerPlayer player, String menuId, MenuCloseReason reason);
     MenuRefreshResult refreshMenu(ServerPlayer player, String menuId);
     MenuRefreshResult refreshCurrentPage(ServerPlayer player);

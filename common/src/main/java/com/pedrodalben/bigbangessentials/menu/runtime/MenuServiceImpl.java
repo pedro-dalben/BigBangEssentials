@@ -79,6 +79,12 @@ public class MenuServiceImpl implements MenuService {
     }
 
     @Override
+    public CompletionStage<MenuOpenResult> openMenuFromBack(ServerPlayer player, String menuId, String pageId, MenuContext context,
+                                                             java.util.Deque<com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry> backStack) {
+        return runOnServerThread(player, () -> openMenuSync(player, menuId, pageId, context, backStack, true));
+    }
+
+    @Override
     public MenuCloseResult closeMenu(ServerPlayer player, String menuId, MenuCloseReason reason) {
         return runBlockingOnServerThread(player, () -> closeMenuSync(player, menuId, reason));
     }
@@ -161,6 +167,12 @@ public class MenuServiceImpl implements MenuService {
     }
 
     private MenuOpenResult openMenuSync(ServerPlayer player, String menuId, String pageId, MenuContext context) {
+        return openMenuSync(player, menuId, pageId, context, null, false);
+    }
+
+    private MenuOpenResult openMenuSync(ServerPlayer player, String menuId, String pageId, MenuContext context,
+                                        java.util.Deque<com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry> inheritedBackStack,
+                                        boolean fromBack) {
         Optional<MenuDefinition> menuOpt = menuRegistry.getMenu(menuId);
         if (menuOpt.isEmpty()) {
             return MenuOpenResult.NOT_FOUND;
@@ -175,9 +187,8 @@ public class MenuServiceImpl implements MenuService {
             return new MenuOpenResult(false, decision.denyReason() != null ? decision.denyReason() : "Abertura negada.");
         }
 
-        sessionStore.getByPlayerId(player.getUUID()).ifPresent(sess ->
-            closeMenuSync(player, sess.getMenuId(), MenuCloseReason.REDIRECT)
-        );
+        Optional<MenuSession> previous = sessionStore.getByPlayerId(player.getUUID());
+        previous.ifPresent(sess -> closeMenuSync(player, sess.getMenuId(), MenuCloseReason.REDIRECT));
 
         String initialPageId = pageId;
         if (initialPageId == null) {
@@ -196,7 +207,13 @@ public class MenuServiceImpl implements MenuService {
         session.setCurrentPageIndex(1);
         session.setOpenedAt(Instant.now());
         session.setRevision(1);
-        session.setBackStack(new ArrayDeque<>());
+        java.util.Deque<com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry> history =
+            inheritedBackStack == null ? new ArrayDeque<>() : new ArrayDeque<>(inheritedBackStack);
+        if (!fromBack && previous.isPresent()) {
+            history.push(new com.pedrodalben.bigbangessentials.menu.session.MenuBackStackEntry(
+                previous.get().getMenuId(), previous.get().getCurrentPageId()));
+        }
+        session.setBackStack(history);
         session.setClosed(false);
         session.setContext(context);
 

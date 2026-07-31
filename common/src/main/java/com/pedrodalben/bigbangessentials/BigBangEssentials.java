@@ -34,6 +34,11 @@ public class BigBangEssentials {
 
     private static BigBangEssentials instance;
     private static volatile ScheduledExecutorService databaseRetryExecutor;
+    private static volatile boolean serverStopping;
+
+    public static boolean isServerStopping() {
+        return serverStopping;
+    }
 
     public static void init() {
         instance = new BigBangEssentials();
@@ -240,6 +245,7 @@ public class BigBangEssentials {
     public static class GameEvents {
         
         public static void onServerStarting(net.minecraft.server.MinecraftServer server) {
+            serverStopping = false;
             LOGGER.info("════════════════════════════════════════════════════════════════");
             LOGGER.info("Server starting - initializing BigBangEssentials systems...");
             LOGGER.info("════════════════════════════════════════════════════════════════");
@@ -608,7 +614,7 @@ public class BigBangEssentials {
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§a✓ Organized §7- Find settings faster"));
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§a✓ Reversible §7- Keep backup to restore anytime"));
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal(""));
-                                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§eRun: §b/bigbangessentials config split §eto enable"));
+                                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§eRun: §b/bigbangessentials config split dry-run §eand then §bconfig split apply"));
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal(""));
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§6§l════════════════════════════════════════════════════════════════"));
                                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal(""));
@@ -623,9 +629,8 @@ public class BigBangEssentials {
 
         public static void onPlayerLoggedOut(net.minecraft.server.level.ServerPlayer player) {
             try {
-                com.pedrodalben.bigbangessentials.BigBangEssentialsManager.getInstance().savePlayerData(player.getUUID());
-                if (ModuleManager.getInstance().isActive("rankup")) {
-                    com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().onPlayerLogout(player.getUUID());
+                if (!serverStopping) {
+                    com.pedrodalben.bigbangessentials.BigBangEssentialsManager.getInstance().savePlayerData(player.getUUID());
                 }
                 com.pedrodalben.bigbangessentials.chat.MsgToggleManager.clearPlayer(player);
                 com.pedrodalben.bigbangessentials.chat.SocialSpyManager.clearPlayer(player);
@@ -637,6 +642,7 @@ public class BigBangEssentials {
         }
 
         public static void onServerStopping(net.minecraft.server.MinecraftServer server) {
+            serverStopping = true;
             LOGGER.info("════════════════════════════════════════════════════════════════");
 
             ScheduledExecutorService retry = databaseRetryExecutor;
@@ -769,6 +775,14 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown RankUp Manager", e);
+            }
+
+            // Flush cached player preferences before the database executor is closed.
+            try {
+                LOGGER.info("Flushing cached player data...");
+                com.pedrodalben.bigbangessentials.BigBangEssentialsManager.getInstance().saveAllPlayerData();
+            } catch (Exception e) {
+                LOGGER.error("Failed to flush cached player data", e);
             }
 
             // Shutdown Database Manager

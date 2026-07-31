@@ -92,6 +92,9 @@ public class RankupLuckPermsService {
 
     public CompletableFuture<RankupGroupMutationResult> applyRankChange(UUID uuid, RankupRank fromRank, RankupRank toRank,
                                                                         RankupConfig config) {
+        if (com.pedrodalben.bigbangessentials.BigBangEssentials.isServerStopping()) {
+            return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("Server is shutting down"));
+        }
         ExternalPermissionAdapter extAdapter = getExternalPermissionAdapter();
         if (!(extAdapter instanceof LuckPermsAdapter lpAdapter)) {
             return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("LuckPerms adapter not available"));
@@ -102,6 +105,9 @@ public class RankupLuckPermsService {
         }
 
         return loadUser(api, uuid).thenCompose(user -> {
+            if (com.pedrodalben.bigbangessentials.BigBangEssentials.isServerStopping()) {
+                return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("Server is shutting down"));
+            }
             if (user == null) {
                 return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("Could not load LuckPerms user"));
             }
@@ -153,6 +159,9 @@ public class RankupLuckPermsService {
 
     public CompletableFuture<RankupGroupMutationResult> revertRankChange(UUID uuid, RankupRank fromRank, RankupRank toRank,
                                                                          RankupConfig config) {
+        if (com.pedrodalben.bigbangessentials.BigBangEssentials.isServerStopping()) {
+            return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("Server is shutting down"));
+        }
         ExternalPermissionAdapter extAdapter = getExternalPermissionAdapter();
         if (!(extAdapter instanceof LuckPermsAdapter lpAdapter)) {
             return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("LuckPerms adapter not available"));
@@ -163,6 +172,9 @@ public class RankupLuckPermsService {
         }
 
         return loadUser(api, uuid).thenCompose(user -> {
+            if (com.pedrodalben.bigbangessentials.BigBangEssentials.isServerStopping()) {
+                return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("Server is shutting down"));
+            }
             if (user == null) {
                 return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("Could not load LuckPerms user"));
             }

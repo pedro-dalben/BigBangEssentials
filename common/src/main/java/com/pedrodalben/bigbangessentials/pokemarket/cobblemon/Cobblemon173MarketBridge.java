@@ -20,7 +20,7 @@ import java.util.UUID;
 
 /** Typed Cobblemon 1.7.3 integration. All methods must run on the server thread. */
 public final class Cobblemon173MarketBridge implements CobblemonMarketBridge {
-    public static final String COBBLEMON_VERSION = "1.7.3+1.21.1";
+    public static final String COBBLEMON_VERSION = "1.7.3";
     private static final String FORMAT = "COBBLEMON_NBT_GZIP";
 
     public static boolean isSupportedVersion() {

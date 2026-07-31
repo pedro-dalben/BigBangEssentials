@@ -1276,8 +1276,8 @@ public class ConfigManager {
         put(PERMISSIONS_CONFIG, 5);
         put(KITS_CONFIG, 2);
         put(DISCORD_AUTH_CONFIG, 6);
-        put(TABLIST_CONFIG, 1);
-        put(MODULES_CONFIG, 2);
+        put(TABLIST_CONFIG, 2);
+        put(MODULES_CONFIG, 3);
     }};
 
     private ConfigManager() {
@@ -1615,6 +1615,10 @@ public class ConfigManager {
                 default -> module.endsWith("Enabled") ? module : module + "Enabled";
             };
             if (modules.has(key)) return modules.get(key).getAsBoolean();
+            if (modules.has("modules") && modules.get("modules").isJsonObject()) {
+                JsonObject legacyModules = modules.getAsJsonObject("modules");
+                if (legacyModules.has(key)) return legacyModules.get(key).getAsBoolean();
+            }
         }
         return true;
     }

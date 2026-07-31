@@ -21,7 +21,8 @@ public class BackMenuAction implements MenuActionHandler {
         MenuSession session = context.session();
         if (session != null && session.getBackStack() != null && !session.getBackStack().isEmpty()) {
             MenuBackStackEntry entry = session.getBackStack().pop();
-            MenuSystem.getInstance().getMenuService().openMenu(player, entry.menuId(), entry.pageId(), context.context());
+            MenuSystem.getInstance().getMenuService().openMenuFromBack(
+                player, entry.menuId(), entry.pageId(), context.context(), session.getBackStack());
             return CompletableFuture.completedFuture(ActionExecutionResult.success());
         }
         // If no back stack, close the menu as fallback

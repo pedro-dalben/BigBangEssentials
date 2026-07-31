@@ -276,8 +276,8 @@ Cada profissão possui um arquivo de configuração próprio em formato JSON. O 
     }
   },
   "level-up-rewards": {
-    "10": { "commands": ["give %player% cobblemon:poke_ball 16"] },
-    "50": { "commands": ["give %player% cobblemon:ultra_ball 32"] }
+    "10": ["give %player% cobblemon:poke_ball 16"],
+    "50": ["give %player% cobblemon:ultra_ball 32"]
   },
   "messages": {
     "level-up": "§aVocê alcançou o nível %level% como Pesquisador Pokémon! Pontos: +%points%"

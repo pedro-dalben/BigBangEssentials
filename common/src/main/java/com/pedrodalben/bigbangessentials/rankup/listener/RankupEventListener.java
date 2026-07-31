@@ -31,7 +31,9 @@ public class RankupEventListener {
     public static void onPlayerLoggedOut(ServerPlayer player) {
         if (!active()) return;
         PLAYTIME.removePlayer(player.getUUID());
-        RankupManager.getInstance().onPlayerLogout(player.getUUID());
+        if (!com.pedrodalben.bigbangessentials.BigBangEssentials.isServerStopping()) {
+            RankupManager.getInstance().onPlayerLogout(player.getUUID());
+        }
     }
 
     public static void onPlayerTick(ServerPlayer player) {
