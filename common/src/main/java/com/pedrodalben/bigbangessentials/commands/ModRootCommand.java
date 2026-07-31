@@ -359,48 +359,58 @@ public class ModRootCommand {
 
     private static int splitConfiguration(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
-        
+
         try {
-            // Check if already using split configs
-            if (ConfigSplitter.isSplittingEnabled()) {
-                source.sendSuccess(() -> MessageUtil.warning("Split configs are already enabled!"), false);
-                source.sendSuccess(() -> MessageUtil.info("Config files are already split into smaller files."), false);
-                return 0;
-            }
-            
             source.sendSuccess(() -> MessageUtil.info("§6" + "─".repeat(40)), false);
-            source.sendSuccess(() -> MessageUtil.info("§eMigrating to split configuration files..."), false);
+            source.sendSuccess(() -> MessageUtil.info("§eApplying split configuration migration..."), false);
             source.sendSuccess(() -> MessageUtil.info("§6" + "─".repeat(40)), false);
 
-            // Perform the migration
-            boolean success = ConfigSplitter.migrateToSplitConfigs();
-
-            if (success) {
-                source.sendSuccess(() -> MessageUtil.success("✓ Successfully migrated to split configs!"), false);
-                source.sendSuccess(() -> MessageUtil.info("§aYour config.json has been split into smaller files:"), false);
-                source.sendSuccess(() -> MessageUtil.info("  - main.json (modules, logging, permissions)"), false);
-                source.sendSuccess(() -> MessageUtil.info("  - commands.json (command enable/disable)"), false);
-                source.sendSuccess(() -> MessageUtil.info("  - chat.json (chat system settings)"), false);
-                source.sendSuccess(() -> MessageUtil.info("  - teleportation.json (teleport settings)"), false);
-                source.sendSuccess(() -> MessageUtil.info("  - moderation.json (ban, jail, freeze, etc.)"), false);
-                source.sendSuccess(() -> MessageUtil.info("  - webdashboard.json (web interface settings)"), false);
-                source.sendSuccess(() -> MessageUtil.info("  - items.json (item spawn settings)"), false);
-                source.sendSuccess(() -> MessageUtil.info("  - afk.json (AFK system settings)"), false);
-                source.sendSuccess(() -> MessageUtil.info("  - security.json (security settings)"), false);
-                source.sendSuccess(() -> MessageUtil.info("§eOriginal config backed up to: config.json.backup"), false);
-                source.sendSuccess(() -> MessageUtil.info("§aReload configs with: /bigbangessentials reload"), false);
-                
-                LOGGER.info("Configuration split completed successfully by {}", source.getTextName());
+            ConfigSplitter.SplitMigrationReport report = ConfigSplitter.applySplitMigration();
+            sendSplitReport(source, report);
+            if (report.success()) {
+                source.sendSuccess(() -> MessageUtil.success("✓ Split configuration migration completed."), false);
+                source.sendSuccess(() -> MessageUtil.info("Reload configs with: /bigbangessentials reload"), false);
+                LOGGER.info("Configuration split migration completed by {}", source.getTextName());
                 return 1;
-            } else {
-                source.sendFailure(MessageUtil.error("Failed to split configuration. Check console for details."));
-                return 0;
             }
-            
+            source.sendFailure(MessageUtil.error("Split migration finished with errors. Check the console and backups."));
+            return 0;
         } catch (Exception e) {
             LOGGER.error("Failed to split configuration: {}", e.getMessage(), e);
             source.sendFailure(MessageUtil.error("An error occurred while splitting configs: " + e.getMessage()));
             return 0;
+        }
+    }
+
+    private static int inspectSplitConfiguration(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        ConfigSplitter.SplitMigrationReport report = ConfigSplitter.inspectSplitMigration();
+        sendSplitReport(source, report);
+        return report.success() ? 1 : 0;
+    }
+
+    private static int splitStatus(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        source.sendSuccess(() -> MessageUtil.info("Split configs: " + (ConfigSplitter.isSplittingEnabled() ? "enabled" : "disabled")), false);
+        return inspectSplitConfiguration(ctx);
+    }
+
+    private static void sendSplitReport(CommandSourceStack source, ConfigSplitter.SplitMigrationReport report) {
+        String mode = report.applying() ? "apply" : "dry-run";
+        source.sendSuccess(() -> MessageUtil.info("§eSplit migration (" + mode + ")"), false);
+        if (report.changes().isEmpty()) {
+            source.sendSuccess(() -> MessageUtil.info("§aNo changes required."), false);
+        } else {
+            source.sendSuccess(() -> MessageUtil.info("§ePlanned/applied changes:"), false);
+            for (String change : report.changes()) {
+                source.sendSuccess(() -> MessageUtil.info("  • " + change), false);
+            }
+        }
+        for (String preserved : report.preserved()) {
+            source.sendSuccess(() -> MessageUtil.info("§7  " + preserved), false);
+        }
+        for (String error : report.errors()) {
+            source.sendFailure(MessageUtil.error("  " + error));
         }
     }
 
@@ -429,6 +439,15 @@ public class ModRootCommand {
             }
 
             if (normalizedCommand.equalsIgnoreCase("config split")) {
+                return splitConfiguration(ctx);
+            }
+            if (normalizedCommand.equalsIgnoreCase("config split dry-run")) {
+                return inspectSplitConfiguration(ctx);
+            }
+            if (normalizedCommand.equalsIgnoreCase("config split status")) {
+                return splitStatus(ctx);
+            }
+            if (normalizedCommand.equalsIgnoreCase("config split apply")) {
                 return splitConfiguration(ctx);
             }
 
@@ -541,6 +560,7 @@ public class ModRootCommand {
                 "config split",
                 MessageUtil.localize("commands.bigbangessentials.root.config_split_entry")
             ), false);
+            source.sendSuccess(() -> MessageUtil.info("  config split dry-run | status | apply"), false);
         }
         
         source.sendSuccess(() -> MessageUtil.info("commands.bigbangessentials.root.help_footer"), false);
@@ -574,6 +594,9 @@ public class ModRootCommand {
         if (hasAdminPermission(source)) {
             commandNames.add("reload");
             commandNames.add("config split");
+            commandNames.add("config split dry-run");
+            commandNames.add("config split status");
+            commandNames.add("config split apply");
         }
 
         return commandNames.stream()

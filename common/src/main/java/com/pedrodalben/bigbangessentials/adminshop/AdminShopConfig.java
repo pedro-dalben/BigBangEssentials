@@ -260,10 +260,23 @@ public final class AdminShopConfig {
 
     public Product product(String id) { return products.get(id); }
 
+    public String findStoreId(String requestedId) {
+        if (requestedId == null || requestedId.isBlank()) return null;
+        for (String storeId : stores.keySet()) {
+            if (requestedId.equalsIgnoreCase(storeId)) return storeId;
+        }
+        for (var entry : stores.entrySet()) {
+            Store store = entry.getValue();
+            if (store != null && requestedId.equalsIgnoreCase(store.currency)) return entry.getKey();
+        }
+        return null;
+    }
+
     public String currency(String id) { return productCurrencies.get(id); }
 
     public String currencyForStore(String storeId) {
-        Store s = stores.get(storeId);
+        String resolvedStoreId = findStoreId(storeId);
+        Store s = resolvedStoreId == null ? null : stores.get(resolvedStoreId);
         return s != null ? s.currency : null;
     }
 
@@ -278,7 +291,9 @@ public final class AdminShopConfig {
     }
 
     public Collection<Category> categoriesByStore(String storeId) {
-        List<String> catIds = storeCategories.getOrDefault(storeId, List.of());
+        String resolvedStoreId = findStoreId(storeId);
+        List<String> catIds = resolvedStoreId == null ? List.of()
+                : storeCategories.getOrDefault(resolvedStoreId, List.of());
         List<Category> result = new ArrayList<>();
         for (String id : catIds) {
             Category c = categoriesById.get(id);

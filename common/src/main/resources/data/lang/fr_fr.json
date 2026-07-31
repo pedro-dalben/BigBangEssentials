@@ -83,6 +83,7 @@
   "commands.bigbangessentials.teleport.misc.tpr_searching": "§eRecherche d'un emplacement aléatoire sûr...",
   "commands.bigbangessentials.teleport.misc.tpr_success": "§aTéléporté à un emplacement aléatoire : ({0}, {1}, {2})",
   "commands.bigbangessentials.teleport.misc.tpr_no_safe_location": "§cImpossible de trouver un emplacement aléatoire sûr. Réessayez.",
+  "commands.bigbangessentials.teleport.misc.tpr_no_configured_world": "§cAucun monde RTP configuré n'est disponible.",
   "commands.bigbangessentials.teleport.misc.tpr_failed": "§cÉchec de la téléportation aléatoire : {0}",
   "commands.bigbangessentials.teleport.misc.tpr_cooldown": "§cVous devez attendre {0} seconde(s) avant d'utiliser /tpr à nouveau.",
   "commands.bigbangessentials.teleport.misc.settpr_success": "§aCentre de téléportation aléatoire ''{0}'' défini à ({1}, {2}, {3}).",
@@ -216,4 +217,3 @@
   "commands.bigbangessentials.powertool.no_item": "§cVous devez tenir un objet pour utiliser cette commande !",
   "commands.bigbangessentials.powertool.remove.success": "§aOutil de puissance supprimé de l'objet !"
 }
-

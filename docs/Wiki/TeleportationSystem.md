@@ -1,6 +1,6 @@
 # Teleportation System
 
-> **Version:** 1.0.2.6 · **Config:** `config.json` → `teleportation` section
+> **Version:** 1.0.2.6 · **Config:** `config.json` → `teleportation`, or split `teleportation.json`
 
 ---
 
@@ -107,8 +107,24 @@ All teleport destinations are checked for safety:
 
 ### Config (`teleportation.randomTeleportSettings`)
 
+For split configurations, edit `world/serverconfig/bigbangessentials/teleportation.json`:
+
+```json
+{
+  "_configVersion": 1,
+  "teleportation": {
+    "randomTeleportSettings": {
+      "world": ["overworld", "bigbangcraft:minerar"]
+    }
+  }
+}
+```
+
+Merge this into the existing file instead of replacing its other teleport settings. For an existing split installation, run `/bigbangessentials config split dry-run` and then `/bigbangessentials config split apply`; the migration converts the legacy `targetWorld` value into `world[]` and creates a timestamped backup before changing the file. Updating the JAR alone does not apply legacy-key migrations. If the key is absent or empty, the previous current-world RTP behavior is preserved.
+
 | Key | Default | Description |
 |---|---|---|
+| `world` | absent | Optional ordered list of RTP worlds. Accepts `overworld`, `nether`, `end`, or full IDs such as `bigbangcraft:minerar`. If the player's current world is listed, RTP stays there; otherwise the first configured loaded world is used. An absent or empty list keeps the current-world behavior. |
 | `defaultMinRange` | `500` | Minimum distance from centre |
 | `defaultMaxRange` | `10000` | Maximum distance from centre |
 | `findAttempts` | `10` | Attempts to find a safe spot |

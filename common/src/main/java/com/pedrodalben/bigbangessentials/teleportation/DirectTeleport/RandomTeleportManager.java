@@ -7,6 +7,10 @@ import com.pedrodalben.bigbangessentials.teleportation.TeleportLocation;
 import com.pedrodalben.bigbangessentials.teleportation.TeleportUtil;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
@@ -45,7 +49,7 @@ public class RandomTeleportManager {
     }
     public static RandomTeleportManager getInstance() { return Holder.INSTANCE; }
 
-    // Cache: location-name -> queue of ready TeleportLocations
+    // Cache: world + location-name -> queue of ready TeleportLocations
     private final Map<String, ConcurrentLinkedQueue<TeleportLocation>> locationCache = new ConcurrentHashMap<>();
 
     // Per-player cooldown tracking (ms timestamps)
@@ -76,11 +80,18 @@ public class RandomTeleportManager {
             }
         }
 
-        String name = (locationName == null || locationName.isEmpty()) ? resolveDefaultName(player) : locationName;
+        ServerLevel targetLevel = resolveTargetLevel(player);
+        if (targetLevel == null) {
+            player.sendSystemMessage(MessageUtil.error(
+                    "commands.bigbangessentials.teleport.misc.tpr_no_configured_world"));
+            return CompletableFuture.completedFuture(false);
+        }
+
+        String name = (locationName == null || locationName.isEmpty()) ? resolveDefaultName(targetLevel) : locationName;
         player.sendSystemMessage(MessageUtil.info("commands.bigbangessentials.teleport.misc.tpr_searching"));
 
         CompletableFuture<Boolean> result = new CompletableFuture<>();
-        getRandomLocation(player.serverLevel(), name)
+        getRandomLocation(targetLevel, name)
                 .thenAccept(loc -> {
                     if (loc == null) {
                         player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.misc.tpr_no_safe_location"));
@@ -109,7 +120,7 @@ public class RandomTeleportManager {
                                     result.complete(true);
 
                                     // Pre-warm cache in background
-                                    prewarmCache(player.serverLevel(), name);
+                                    prewarmCache(targetLevel, name);
                                 } else {
                                     player.sendSystemMessage(MessageUtil.error(
                                             "commands.bigbangessentials.teleport.misc.tpr_failed",
@@ -137,7 +148,7 @@ public class RandomTeleportManager {
      * Uses cache if available, else tries to find one immediately.
      */
     public CompletableFuture<TeleportLocation> getRandomLocation(ServerLevel level, String name) {
-        Queue<TeleportLocation> cache = getCache(name);
+        Queue<TeleportLocation> cache = getCache(level, name);
         if (!cache.isEmpty()) {
             return CompletableFuture.completedFuture(cache.poll());
         }
@@ -371,13 +382,14 @@ public class RandomTeleportManager {
     // Cache
     // -----------------------------------------------------------------------
 
-    private ConcurrentLinkedQueue<TeleportLocation> getCache(String name) {
-        return locationCache.computeIfAbsent(name, k -> new ConcurrentLinkedQueue<>());
+    private ConcurrentLinkedQueue<TeleportLocation> getCache(ServerLevel level, String name) {
+        return locationCache.computeIfAbsent(cacheKey(level.dimension().location().toString(), name),
+                k -> new ConcurrentLinkedQueue<>());
     }
 
     private void prewarmCache(ServerLevel level, String name) {
         int threshold = getCacheThreshold();
-        int current = getCache(name).size();
+        int current = getCache(level, name).size();
         if (current >= threshold) return;
 
         int toFill = threshold - current;
@@ -389,7 +401,7 @@ public class RandomTeleportManager {
             attemptFind(level, center[0], center[1], center[2], minRange, maxRange, name, getFindAttempts())
                     .thenAccept(loc -> {
                         if (loc != null) {
-                            getCache(name).add(loc);
+                            getCache(level, name).add(loc);
                         }
                     });
         }
@@ -400,17 +412,90 @@ public class RandomTeleportManager {
     }
 
     public void clearCache(String name) {
-        ConcurrentLinkedQueue<TeleportLocation> q = locationCache.get(name);
-        if (q != null) q.clear();
+        String suffix = "\u0000" + name;
+        locationCache.keySet().removeIf(key -> key.endsWith(suffix));
     }
 
     // -----------------------------------------------------------------------
     // Config helpers
     // -----------------------------------------------------------------------
 
-    private String resolveDefaultName(ServerPlayer player) {
+    private String resolveDefaultName(ServerLevel level) {
         String def = getConfigString("defaultLocation", "{world}");
-        return def.replace("{world}", player.level().dimension().location().toString());
+        return def.replace("{world}", level.dimension().location().toString());
+    }
+
+    private ServerLevel resolveTargetLevel(ServerPlayer player) {
+        ServerLevel currentLevel = player.serverLevel();
+        List<String> configuredWorlds = getConfiguredWorlds();
+        if (configuredWorlds == null) return currentLevel;
+
+        MinecraftServer server = player.getServer();
+        if (server == null) return null;
+
+        Set<String> loadedWorlds = new HashSet<>();
+        for (ServerLevel level : server.getAllLevels()) {
+            loadedWorlds.add(level.dimension().location().toString());
+        }
+
+        String targetWorld = selectConfiguredWorld(
+                currentLevel.dimension().location().toString(), configuredWorlds, loadedWorlds);
+        if (targetWorld == null) return null;
+        if (targetWorld.equals(currentLevel.dimension().location().toString())) return currentLevel;
+
+        ResourceLocation worldId = ResourceLocation.tryParse(targetWorld);
+        return worldId == null ? null : server.getLevel(ResourceKey.create(Registries.DIMENSION, worldId));
+    }
+
+    static String normalizeWorldId(String value) {
+        if (value == null) return null;
+        String world = value.trim().toLowerCase(Locale.ROOT);
+        if (world.isEmpty()) return null;
+        world = switch (world) {
+            case "overworld" -> "minecraft:overworld";
+            case "nether" -> "minecraft:the_nether";
+            case "end" -> "minecraft:the_end";
+            default -> world;
+        };
+        ResourceLocation id = ResourceLocation.tryParse(world);
+        return id == null ? null : id.toString();
+    }
+
+    static String selectConfiguredWorld(String currentWorld, List<String> configuredWorlds,
+                                        Set<String> loadedWorlds) {
+        if (configuredWorlds == null) return currentWorld;
+        if (loadedWorlds.contains(currentWorld) && configuredWorlds.contains(currentWorld)) {
+            return currentWorld;
+        }
+        for (String world : configuredWorlds) {
+            if (loadedWorlds.contains(world)) return world;
+        }
+        return null;
+    }
+
+    static String cacheKey(String worldId, String name) {
+        return worldId + "\u0000" + name;
+    }
+
+    static List<String> normalizeConfiguredWorlds(JsonArray worlds) {
+        if (worlds == null || worlds.isEmpty()) return null;
+
+        List<String> result = new ArrayList<>();
+        for (var element : worlds) {
+            if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) continue;
+            String normalized = normalizeWorldId(element.getAsString());
+            if (normalized != null && !result.contains(normalized)) result.add(normalized);
+        }
+        return result;
+    }
+
+    private List<String> getConfiguredWorlds() {
+        JsonObject tpr = getTprConfig();
+        if (tpr == null || !tpr.has("world") || !tpr.get("world").isJsonArray()
+                || tpr.getAsJsonArray("world").isEmpty()) {
+            return null;
+        }
+        return normalizeConfiguredWorlds(tpr.getAsJsonArray("world"));
     }
 
     private double[] getCenter(ServerLevel level, String name) {

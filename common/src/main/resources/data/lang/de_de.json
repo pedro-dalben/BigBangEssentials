@@ -61,6 +61,7 @@
   "commands.bigbangessentials.teleport.misc.tpr_searching": "§eSuche nach einem zufälligen sicheren Ort...",
   "commands.bigbangessentials.teleport.misc.tpr_success": "§aZum zufälligen Ort teleportiert: ({0}, {1}, {2})",
   "commands.bigbangessentials.teleport.misc.tpr_no_safe_location": "§cKein sicherer zufälliger Ort gefunden. Versuche es erneut.",
+  "commands.bigbangessentials.teleport.misc.tpr_no_configured_world": "§cKeine konfigurierte RTP-Welt ist verfügbar.",
   "commands.bigbangessentials.teleport.misc.tpr_failed": "§cZufallsteleportation fehlgeschlagen: {0}",
   "commands.bigbangessentials.teleport.misc.tpr_cooldown": "§cDu musst {0} Sekunde(n) warten, bevor du /tpr erneut verwenden kannst.",
   "commands.bigbangessentials.teleport.misc.settpr_success": "§aZufälliger Teleportationsmittelpunkt ''{0}'' auf ({1}, {2}, {3}) gesetzt.",
@@ -116,4 +117,3 @@
   "commands.bigbangessentials.powertool.no_item": "§cDu musst einen Gegenstand halten, um diesen Befehl zu verwenden!",
   "commands.bigbangessentials.baltop.entry": "§e{0}. §f{1} §7- §a{2}{3}"
 }
-

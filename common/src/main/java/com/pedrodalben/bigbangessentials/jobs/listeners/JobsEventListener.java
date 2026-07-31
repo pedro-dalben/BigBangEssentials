@@ -62,10 +62,15 @@ public class JobsEventListener {
         if (!active()) return;
         UUID uuid = player.getUUID();
         lastAnvilCompletionTicks.remove(uuid);
-        JobsManager.getInstance().savePlayerData(uuid).thenAccept(v -> {
+        if (!com.pedrodalben.bigbangessentials.BigBangEssentials.isServerStopping()) {
+            JobsManager.getInstance().savePlayerData(uuid).thenAccept(v -> {
+                JobsManager.getInstance().clearPlayerDataLoad(uuid);
+                JobsManager.getInstance().getPlayerDataCache().remove(uuid);
+            });
+        } else {
             JobsManager.getInstance().clearPlayerDataLoad(uuid);
             JobsManager.getInstance().getPlayerDataCache().remove(uuid);
-        });
+        }
         com.pedrodalben.bigbangessentials.jobs.progression.JobRankMilestoneService.getInstance()
                 .unloadPlayer(uuid);
         com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance()

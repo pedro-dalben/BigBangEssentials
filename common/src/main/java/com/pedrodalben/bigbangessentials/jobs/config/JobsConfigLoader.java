@@ -427,7 +427,7 @@ public class JobsConfigLoader {
         if (!root.has("messages")) return result;
         JsonObject msgs = root.getAsJsonObject("messages");
         for (Map.Entry<String, JsonElement> e : msgs.entrySet()) {
-            result.put(e.getKey(), e.getValue().getAsString());
+            result.put(e.getKey(), e.getValue().getAsString().replace("&", "\u00a7"));
         }
         return result;
     }
@@ -438,7 +438,15 @@ public class JobsConfigLoader {
         JsonObject rewards = root.getAsJsonObject("level-up-rewards");
         for (Map.Entry<String, JsonElement> e : rewards.entrySet()) {
             int level = Integer.parseInt(e.getKey());
-            result.put(level, jsonArrayToList(e.getValue().getAsJsonArray()));
+            JsonElement val = e.getValue();
+            if (val.isJsonObject()) {
+                JsonObject obj = val.getAsJsonObject();
+                if (obj.has("commands")) {
+                    result.put(level, jsonArrayToList(obj.getAsJsonArray("commands")));
+                }
+            } else if (val.isJsonArray()) {
+                result.put(level, jsonArrayToList(val.getAsJsonArray()));
+            }
         }
         return result;
     }

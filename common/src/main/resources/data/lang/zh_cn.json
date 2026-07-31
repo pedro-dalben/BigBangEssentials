@@ -38,6 +38,7 @@
   "commands.bigbangessentials.teleport.misc.tpr_searching": "§e正在寻找随机安全位置...",
   "commands.bigbangessentials.teleport.misc.tpr_success": "§a已传送到随机位置：({0}, {1}, {2})",
   "commands.bigbangessentials.teleport.misc.tpr_no_safe_location": "§c无法找到安全的随机位置，请重试。",
+  "commands.bigbangessentials.teleport.misc.tpr_no_configured_world": "§c没有可用的已配置随机传送世界。",
   "commands.bigbangessentials.teleport.misc.tpr_failed": "§c随机传送失败：{0}",
   "commands.bigbangessentials.teleport.misc.tpr_cooldown": "§c你需要等待 {0} 秒才能再次使用 /tpr。",
   "commands.bigbangessentials.teleport.misc.back_success": "§a已传送回上一个位置。",
@@ -76,4 +77,3 @@
   "commands.bigbangessentials.channel.switched": "§a你已切换到频道 {0}。",
   "commands.bigbangessentials.baltop.entry": "§e{0}. §f{1} §7- §a{2}{3}"
 }
-

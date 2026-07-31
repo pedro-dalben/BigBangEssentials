@@ -688,6 +688,7 @@
   "commands.bigbangessentials.teleport.misc.tpr_searching": "§eProcurando local aleatório seguro...",
   "commands.bigbangessentials.teleport.misc.tpr_success": "§aTeletransportado para local aleatório: ({0}, {1}, {2})",
   "commands.bigbangessentials.teleport.misc.tpr_no_safe_location": "§cNão foi possível encontrar um local aleatório seguro. Tente novamente.",
+  "commands.bigbangessentials.teleport.misc.tpr_no_configured_world": "§cNenhum mundo configurado para o RTP está disponível.",
   "commands.bigbangessentials.teleport.misc.tpr_failed": "§cFalha no teletransporte aleatório: {0}",
   "commands.bigbangessentials.teleport.misc.tpr_cooldown": "§cVocê deve aguardar {0} segundo(s) antes de usar /tpr novamente.",
   "commands.bigbangessentials.teleport.misc.settpr_success": "§aDefinido o centro do teletransporte aleatório ''{0}'' em ({1}, {2}, {3}).",

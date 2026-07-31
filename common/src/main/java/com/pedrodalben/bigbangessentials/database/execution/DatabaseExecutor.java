@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * Dedicated thread pool and execution manager for database queries.
@@ -310,10 +311,24 @@ public class DatabaseExecutor {
      * Shutdown the executor pool safely.
      */
     public void shutdown() {
+        long timeoutNanos = TimeUnit.SECONDS.toNanos(config.getExecutor().getShutdownTimeoutSeconds());
+        long deadline = System.nanoTime() + timeoutNanos;
+
+        // Let already accepted operations finish their synchronous future chains
+        // before rejecting submissions and stopping the worker pool.
+        while (!inFlight.isEmpty() && System.nanoTime() < deadline) {
+            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
+        }
+
+        if (!inFlight.isEmpty()) {
+            LOGGER.warn("Database executor shutdown timed out with {} operation(s) in flight", inFlight.size());
+        }
+
         shuttingDown = true;
         threadPool.shutdown();
         try {
-            if (!threadPool.awaitTermination(config.getExecutor().getShutdownTimeoutSeconds(), TimeUnit.SECONDS)) {
+            long remainingNanos = Math.max(0L, deadline - System.nanoTime());
+            if (!threadPool.awaitTermination(remainingNanos, TimeUnit.NANOSECONDS)) {
                 threadPool.shutdownNow();
             }
         } catch (InterruptedException e) {

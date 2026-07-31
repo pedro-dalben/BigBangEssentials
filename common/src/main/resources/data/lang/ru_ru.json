@@ -37,6 +37,7 @@
   "commands.bigbangessentials.teleport.misc.tpr_searching": "§eПоиск случайного безопасного места...",
   "commands.bigbangessentials.teleport.misc.tpr_success": "§aТелепортированы в случайное место: ({0}, {1}, {2})",
   "commands.bigbangessentials.teleport.misc.tpr_no_safe_location": "§cНе удалось найти безопасное случайное место. Попробуйте ещё раз.",
+  "commands.bigbangessentials.teleport.misc.tpr_no_configured_world": "§cНет доступного настроенного мира для случайной телепортации.",
   "commands.bigbangessentials.teleport.misc.tpr_failed": "§cОшибка случайной телепортации: {0}",
   "commands.bigbangessentials.teleport.misc.tpr_cooldown": "§cВам нужно подождать {0} секунд(у) перед следующим использованием /tpr.",
   "commands.bigbangessentials.teleport.misc.back_success": "§aТелепортированы назад в предыдущее место.",
@@ -84,4 +85,3 @@
   "commands.bigbangessentials.powertool.no_item": "§cВы должны держать предмет для использования этой команды!",
   "commands.bigbangessentials.baltop.entry": "§e{0}. §f{1} §7- §a{2}{3}"
 }
-

@@ -165,6 +165,9 @@ public class RankupPromotionService {
         if (player == null || player.getUUID() == null) {
             return CompletableFuture.completedFuture(RankupPromotionResult.failure("Invalid player", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.INTERNAL_ERROR));
         }
+        if (com.pedrodalben.bigbangessentials.BigBangEssentials.isServerStopping()) {
+            return CompletableFuture.completedFuture(RankupPromotionResult.failure("Server is shutting down", RankupTransactionStatus.RECOVERY_REQUIRED, null, RankupPromotionResultCode.INTERNAL_ERROR));
+        }
 
         UUID uuid = player.getUUID();
         LOGGER.info("[RANKUP-PROMOTION] player_uuid={} target_rank={} stage=PROMOTE_ENTERED thread={}",
