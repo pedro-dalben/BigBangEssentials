@@ -51,4 +51,19 @@ class PermissionAPIExactPermissionTest {
             "bigbangessentials.spawn.set"
         ));
     }
+
+    @Test
+    void targetPermissionAcceptsExplicitWildcardButNotPlainParent() {
+        UUID playerId = UUID.randomUUID();
+        ExternalPermissionAdapter adapter = mock(ExternalPermissionAdapter.class);
+        when(adapter.hasExactPermission(any(UUID.class), anyString())).thenAnswer(invocation ->
+            "bigbangessentials.ping.*".equals(invocation.getArgument(1, String.class)));
+        PermissionAPI.setExternalAdapter(adapter);
+
+        assertTrue(PermissionAPI.hasTargetPermission(playerId, "bigbangessentials.ping.others"));
+
+        when(adapter.hasExactPermission(any(UUID.class), anyString())).thenAnswer(invocation ->
+            "bigbangessentials.ping".equals(invocation.getArgument(1, String.class)));
+        assertFalse(PermissionAPI.hasTargetPermission(playerId, "bigbangessentials.ping.others"));
+    }
 }

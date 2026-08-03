@@ -20,6 +20,18 @@ public class PermissionValidator {
      * Includes proper error messaging and logging.
      */
     public static PermissionResult validatePermission(CommandSourceStack source, String permission) {
+        return validatePermission(source, permission, false);
+    }
+
+    /**
+     * Validates a target/others permission without inheriting from its plain parent node.
+     * Explicit target nodes and ancestor wildcards still apply.
+     */
+    public static PermissionResult validateExactPermission(CommandSourceStack source, String permission) {
+        return validatePermission(source, permission, true);
+    }
+
+    private static PermissionResult validatePermission(CommandSourceStack source, String permission, boolean exact) {
         try {
             // Check if source is a player
             ServerPlayer player = source.getPlayer();
@@ -34,7 +46,10 @@ public class PermissionValidator {
             UUID playerUuid = player.getUUID();
             
             // Validate permission
-            if (!PermissionAPI.hasPermission(playerUuid, permission)) {
+            boolean allowed = exact
+                ? PermissionAPI.hasTargetPermission(playerUuid, permission)
+                : PermissionAPI.hasPermission(playerUuid, permission);
+            if (!allowed) {
                 LOGGER.debug("Permission denied for player {} ({}): {}",
                     player.getGameProfile().getName(), playerUuid, permission);
                 return PermissionResult.failure(

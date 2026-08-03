@@ -176,6 +176,30 @@ public class PermissionAPI {
 
         return manager != null && manager.hasExactPermission(uuid, permission);
     }
+
+    /**
+     * Checks a target/others permission without inheriting from its plain parent node.
+     * Explicit target nodes and explicitly assigned ancestor wildcards still apply.
+     */
+    public static boolean hasTargetPermission(UUID uuid, String permission) {
+        if (permission == null || permission.trim().isEmpty()) {
+            return false;
+        }
+
+        String normalized = permission.toLowerCase();
+        if (hasExactPermission(uuid, normalized)) {
+            return true;
+        }
+
+        int dot = normalized.indexOf('.');
+        while (dot > 0 && dot < normalized.length() - 1) {
+            if (hasExactPermission(uuid, normalized.substring(0, dot) + ".*")) {
+                return true;
+            }
+            dot = normalized.indexOf('.', dot + 1);
+        }
+        return false;
+    }
     
     /**
      * Checks if a player is opped by their UUID.
