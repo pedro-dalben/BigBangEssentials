@@ -98,7 +98,7 @@ public class KitCommand {
                     .requires(src -> {
                         var p = src.getPlayer();
                         return p == null
-                            || PermissionAPI.hasPermission(p.getUUID(), "bigbangessentials.kit.others");
+                            || PermissionAPI.hasTargetPermission(p.getUUID(), "bigbangessentials.kit.others");
                     })
                     .executes(ctx -> executeGiveKit(ctx,
                         StringArgumentType.getString(ctx, "kitname"),
