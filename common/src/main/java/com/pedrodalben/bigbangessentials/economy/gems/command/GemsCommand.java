@@ -228,13 +228,13 @@ public class GemsCommand {
 
         gemsBuilder.then(adminBuilder);
 
-        var node = dispatcher.register(gemsBuilder);
+        dispatcher.register(gemsBuilder);
 
-        // Register default alias /gemas
+        // /gemas shares its root with /gemas shop, so it cannot be a redirect.
         for (String alias : aliases) {
             dispatcher.register(net.minecraft.commands.Commands.literal(alias)
                 .requires(GemsCommand::canUseGemsRoot)
-                .redirect(node));
+                .executes(GemsCommand::executeBalanceSelf));
         }
     }
 
@@ -251,6 +251,26 @@ public class GemsCommand {
     private static boolean hasAnyPermission(CommandSourceStack src, String... nodes) {
         for (String node : nodes) {
             if (hasPermission(src, node)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasTargetPermission(CommandSourceStack src, String node) {
+        if (src.getEntity() == null) {
+            return true;
+        }
+        if (src.getPlayer() != null) {
+            return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasTargetPermission(
+                src.getPlayer().getUUID(), node);
+        }
+        return src.hasPermission(2);
+    }
+
+    private static boolean hasAnyTargetPermission(CommandSourceStack src, String... nodes) {
+        for (String node : nodes) {
+            if (hasTargetPermission(src, node)) {
                 return true;
             }
         }
@@ -284,7 +304,7 @@ public class GemsCommand {
     }
 
     private static boolean canUseGemsBalanceOther(CommandSourceStack src) {
-        return hasAnyPermission(src,
+        return hasAnyTargetPermission(src,
             "bigbangessentials.gems.balance.others",
             "bigbangessentials.gems.admin.balance");
     }
@@ -345,8 +365,8 @@ public class GemsCommand {
             // Retrieve allowPlayerBalanceLookup from internal config if possible
             // Wait, we can get it from verify/reload or just implement the check.
             // Since we validate permissions, we check:
-            allowLookup = hasPermission(ctx.getSource(), "bigbangessentials.gems.admin.balance") ||
-                          hasPermission(ctx.getSource(), "bigbangessentials.gems.balance.others");
+            allowLookup = hasTargetPermission(ctx.getSource(), "bigbangessentials.gems.admin.balance") ||
+                          hasTargetPermission(ctx.getSource(), "bigbangessentials.gems.balance.others");
         } catch (Exception ignored) {}
 
         if (!allowLookup) {

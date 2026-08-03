@@ -21,7 +21,7 @@ public class BalanceCommand {
                 ).hasPermission())
                 .executes(ctx -> execute(ctx))
                 .then(net.minecraft.commands.Commands.argument("player", StringArgumentType.word())
-                    .requires(src -> PermissionValidator.validatePermission(
+                    .requires(src -> PermissionValidator.validateExactPermission(
                         src, "bigbangessentials.economy.balance.others").hasPermission())
                     .suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
                         ctx.getSource().getServer().getPlayerList().getPlayers().stream()
@@ -77,7 +77,7 @@ public class BalanceCommand {
             ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.balance.player_not_found"));
             return 0;
         }
-        if (!com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(sender.getUUID(), "bigbangessentials.economy.balance.others")) {
+        if (!com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasTargetPermission(sender.getUUID(), "bigbangessentials.economy.balance.others")) {
             ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.no_permission"));
             return 0;
         }
