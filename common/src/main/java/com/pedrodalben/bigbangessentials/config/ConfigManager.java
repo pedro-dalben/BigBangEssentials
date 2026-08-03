@@ -424,6 +424,12 @@ public class ConfigManager {
      */
     public boolean isVanishSystemEnabled() {
         JsonObject config = getConfig(MAIN_CONFIG);
+        if (config.has("moderation") && config.getAsJsonObject("moderation").has("vanishSettings")) {
+            JsonObject vanishSettings = config.getAsJsonObject("moderation").getAsJsonObject("vanishSettings");
+            if (vanishSettings.has("enableVanishSystem")) {
+                return vanishSettings.get("enableVanishSystem").getAsBoolean();
+            }
+        }
         if (config.has("enableVanishSystem")) {
             return config.get("enableVanishSystem").getAsBoolean();
         }

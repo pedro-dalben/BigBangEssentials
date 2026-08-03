@@ -562,6 +562,7 @@ public class BigBangEssentials {
         }
         
         public static void onPlayerLoggedIn(net.minecraft.server.level.ServerPlayer player) {
+            com.pedrodalben.bigbangessentials.moderation.VanishManager.getInstance().onPlayerJoin(player);
             try {
                 com.pedrodalben.bigbangessentials.BigBangEssentialsManager.getInstance().loadPlayerData(player.getUUID());
                 if (ModuleManager.getInstance().isActive("rankup")) {

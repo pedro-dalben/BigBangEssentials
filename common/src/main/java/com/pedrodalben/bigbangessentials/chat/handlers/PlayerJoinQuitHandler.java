@@ -32,25 +32,6 @@ public class PlayerJoinQuitHandler {
             return;
         }
 
-        // --- Vanish-on-join logic for staff ---
-        try {
-            com.pedrodalben.bigbangessentials.config.ConfigManager config = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance();
-            if (config.isVanishSystemEnabled() && config.isVanishOnJoinEnabled()) {
-                // Check if player has staff vanish permission
-                java.util.UUID playerUuid = player.getUUID();
-                String playerName = player.getName().getString();
-                boolean hasVanishPerm = com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(playerUuid, "bigbangessentials.moderation.vanish");
-                if (hasVanishPerm) {
-                    com.pedrodalben.bigbangessentials.moderation.VanishManager vanishManager = com.pedrodalben.bigbangessentials.moderation.VanishManager.getInstance();
-                    if (!vanishManager.isPlayerVanished(playerUuid)) {
-                        vanishManager.vanishPlayer(playerUuid, playerName, "AutoVanishOnJoin", true);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.error("Error handling vanish-on-join for player {}: {}", player.getName().getString(), e.getMessage());
-        }
-
         // --- newPlayerKit logic: Give kit on first join if enabled ---
         try {
             com.pedrodalben.bigbangessentials.config.ConfigManager config = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance();

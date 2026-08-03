@@ -185,6 +185,7 @@ public class TablistModule implements TablistAPI {
                 state.markDirty(TabDirtyFlag.SORT_ORDER);
                 state.markDirty(TabDirtyFlag.PLAYER_LIST_NAME);
                 state.markDirty(TabDirtyFlag.NAME_TAG);
+                state.markDirty(TabDirtyFlag.VISIBILITY);
                 break;
             case WORLD_CHANGED:
                 state.markDirty(TabDirtyFlag.HEADER_FOOTER);

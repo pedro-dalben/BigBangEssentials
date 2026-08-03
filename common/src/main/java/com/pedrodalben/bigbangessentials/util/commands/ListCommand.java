@@ -93,7 +93,8 @@ public class ListCommand {
 
         // Check if viewer can see vanished players
         boolean canSeeVanished = viewer != null &&
-            PermissionValidator.validatePermission(viewer.createCommandSourceStack(), "bigbangessentials.vanish.see").hasPermission();
+            com.pedrodalben.bigbangessentials.moderation.VanishManager.getInstance()
+                .canPlayerSeeVanished(viewer.getUUID());
 
         // Filter out vanished players if viewer can't see them
         if (!canSeeVanished) {

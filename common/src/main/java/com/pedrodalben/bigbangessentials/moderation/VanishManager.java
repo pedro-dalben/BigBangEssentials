@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
+import com.pedrodalben.bigbangessentials.util.Platform;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
@@ -15,14 +16,17 @@ import java.util.Map;
 
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -124,6 +128,8 @@ public class VanishManager {
         vanishedPlayers.put(playerId, vanishPriority);
         saveData();
 
+        setPlayerInvisible(playerId, true);
+
         // Packet sending is handled by VisibilityFeature via VanishTabIntegration below
         // Do NOT send packets directly here to avoid duplicates
         
@@ -148,6 +154,8 @@ public class VanishManager {
             return false; // Not vanished
         }
         saveData();
+
+        setPlayerInvisible(playerId, false);
 
         // Packet sending is handled by VisibilityFeature via VanishTabIntegration below
         // Do NOT send packets directly here to avoid duplicates
@@ -226,7 +234,15 @@ public class VanishManager {
      * Check if a player can see vanished players
      */
     public boolean canPlayerSeeVanished(UUID playerId) {
-    return viewerPriorities.containsKey(playerId);
+        if (viewerPriorities.containsKey(playerId)) return true;
+
+        String configuredPermission = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance()
+            .getSeeVanishedPermission();
+        return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasAnyPermission(
+            playerId,
+            configuredPermission,
+            "bigbangessentials.moderation.seevanished",
+            "bigbangessentials.vanish.see");
     }
     
     /**
@@ -249,9 +265,23 @@ public class VanishManager {
      */
     public void onPlayerJoin(ServerPlayer player) {
         UUID playerId = player.getUUID();
+        com.pedrodalben.bigbangessentials.config.ConfigManager config =
+            com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance();
+        if (!config.isVanishSystemEnabled()) return;
+
+        boolean wasVanished = isPlayerVanished(playerId);
+        if (!wasVanished && config.isVanishOnJoinEnabled()
+                && com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(
+                    playerId, "bigbangessentials.moderation.vanish")) {
+            vanishPlayer(playerId, player.getName().getString(), "AutoVanishOnJoin", true);
+        }
+
+        if (isPlayerVanished(playerId)) {
+            player.setInvisible(true);
+        }
         
         // Remind vanished player that they are still vanished
-        if (isPlayerVanished(playerId)) {
+        if (wasVanished) {
             String message = MessageUtil.localize("bigbangessentials.moderation.vanish_reminder");
             player.sendSystemMessage(MessageUtil.info(message));
         }
@@ -264,6 +294,16 @@ public class VanishManager {
         // No special handling needed on leave for vanish system
         // Vanish state persists across sessions
     }
+
+    private void setPlayerInvisible(UUID playerId, boolean invisible) {
+        MinecraftServer server = Platform.getCurrentServer();
+        if (server == null) return;
+
+        ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+        if (player != null) {
+            player.setInvisible(invisible);
+        }
+    }
     
     /**
      * Check whether a viewer is allowed to see a vanished target player.
@@ -273,6 +313,7 @@ public class VanishManager {
      */
     public boolean canViewerSeeVanished(UUID viewerId, UUID targetId) {
         if (!isPlayerVanished(targetId)) return true;
+        if (canPlayerSeeVanished(viewerId)) return true;
         int viewerPriority = viewerPriorities.getOrDefault(viewerId, 10);
         int vanishedPriority = vanishedPlayers.getOrDefault(targetId, 10);
         return viewerPriority <= vanishedPriority;
@@ -295,26 +336,34 @@ public class VanishManager {
         try (FileReader reader = new FileReader(vanishFile)) {
             JsonObject root = gson.fromJson(reader, JsonObject.class);
             if (root != null) {
-                if (root.has("vanished")) {
+                if (root.has("vanished") && root.get("vanished").isJsonArray()) {
                     JsonArray vanishedArray = root.getAsJsonArray("vanished");
                     for (JsonElement element : vanishedArray) {
-                        JsonObject obj = element.getAsJsonObject();
-                        UUID uuid = UUID.fromString(obj.get("uuid").getAsString());
-                        int priority = obj.has("priority") ? obj.get("priority").getAsInt() : 10;
-                        vanishedPlayers.put(uuid, priority);
+                        try {
+                            JsonObject obj = element.getAsJsonObject();
+                            UUID uuid = UUID.fromString(obj.get("uuid").getAsString());
+                            int priority = obj.has("priority") ? obj.get("priority").getAsInt() : 10;
+                            vanishedPlayers.put(uuid, priority);
+                        } catch (RuntimeException e) {
+                            LOGGER.warn("Ignoring invalid vanished player entry", e);
+                        }
                     }
                 }
-                if (root.has("viewerPriorities")) {
+                if (root.has("viewerPriorities") && root.get("viewerPriorities").isJsonArray()) {
                     JsonArray viewerArray = root.getAsJsonArray("viewerPriorities");
                     for (JsonElement element : viewerArray) {
-                        JsonObject obj = element.getAsJsonObject();
-                        UUID uuid = UUID.fromString(obj.get("uuid").getAsString());
-                        int priority = obj.has("priority") ? obj.get("priority").getAsInt() : 10;
-                        viewerPriorities.put(uuid, priority);
+                        try {
+                            JsonObject obj = element.getAsJsonObject();
+                            UUID uuid = UUID.fromString(obj.get("uuid").getAsString());
+                            int priority = obj.has("priority") ? obj.get("priority").getAsInt() : 10;
+                            viewerPriorities.put(uuid, priority);
+                        } catch (RuntimeException e) {
+                            LOGGER.warn("Ignoring invalid vanish viewer entry", e);
+                        }
                     }
                 }
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOGGER.error("Failed to load vanish data", e);
         }
     }
@@ -323,7 +372,9 @@ public class VanishManager {
      * Save data to file
      */
     private void saveData() {
-        try (FileWriter writer = new FileWriter(vanishFile)) {
+        Path target = vanishFile.toPath();
+        Path temp = target.resolveSibling(target.getFileName() + ".tmp");
+        try {
             JsonObject root = new JsonObject();
             JsonArray vanishedArray = new JsonArray();
             for (Map.Entry<UUID, Integer> entry : vanishedPlayers.entrySet()) {
@@ -341,9 +392,21 @@ public class VanishManager {
                 viewerArray.add(obj);
             }
             root.add("viewerPriorities", viewerArray);
-            gson.toJson(root, writer);
+            Files.writeString(temp, gson.toJson(root), StandardCharsets.UTF_8);
+
+            try {
+                Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
             LOGGER.error("Failed to save vanish data", e);
+        } finally {
+            try {
+                Files.deleteIfExists(temp);
+            } catch (IOException e) {
+                LOGGER.debug("Failed to clean up temporary vanish data file", e);
+            }
         }
     }
 }

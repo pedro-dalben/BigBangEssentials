@@ -13,14 +13,13 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 public class VisibilityFeature implements TablistFeature {
-    private boolean enabled = true;
     private boolean hideVanished = true;
     private String vanishBypassPermission = "bigbangessentials.vanish.see";
 
     @Override
     public void loadConfig(TablistConfig config) {
-        this.enabled = config.tablist.visibility.hideVanished;
-        this.hideVanished = config.tablist.visibility.hideVanished;
+        this.hideVanished = config.tablist.visibility.hideVanished
+            && com.pedrodalben.bigbangessentials.config.ConfigManager.isHideFromTabListEnabled();
         this.vanishBypassPermission = config.tablist.visibility.vanishBypassPermission;
     }
 
@@ -63,13 +62,9 @@ public class VisibilityFeature implements TablistFeature {
         boolean shouldHide = targetState.isVanished();
         boolean viewerCanSee = false;
         if (shouldHide) {
-            // 1st check: permission bypass
-            viewerCanSee = PermissionAPI.hasPermission(viewer.getUUID(), vanishBypassPermission);
-            // 2nd check: VanishManager priority system (only if permission didn't allow)
-            if (!viewerCanSee) {
-                viewerCanSee = com.pedrodalben.bigbangessentials.moderation.VanishManager.getInstance()
+            viewerCanSee = PermissionAPI.hasPermission(viewer.getUUID(), vanishBypassPermission)
+                || com.pedrodalben.bigbangessentials.moderation.VanishManager.getInstance()
                     .canViewerSeeVanished(viewer.getUUID(), target.getUUID());
-            }
         }
         boolean shouldBeVisible = !shouldHide || viewerCanSee;
 

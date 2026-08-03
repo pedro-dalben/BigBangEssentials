@@ -258,7 +258,7 @@ public class NearCommand {
                 com.pedrodalben.bigbangessentials.moderation.VanishManager.getInstance();
             return vanishManager.canPlayerSeeVanished(viewer.getUUID());
         } catch (Exception e) {
-            return PermissionValidator.validatePermission(viewer.createCommandSourceStack(), "bigbangessentials.vanish.see").hasPermission();
+            return false;
         }
     }
     
@@ -297,4 +297,3 @@ public class NearCommand {
         }
     }
 }
-
