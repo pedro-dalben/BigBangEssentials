@@ -78,7 +78,7 @@ public class ShopCommand {
             } else {
                 boolean canListOthers = src.hasPermission(3) ||
                     (src.getEntity() != null &&
-                     PermissionAPI.hasPermission(src.getEntity().getUUID(), "bigbangessentials.shop.list.others"));
+                     PermissionAPI.hasTargetPermission(src.getEntity().getUUID(), "bigbangessentials.shop.list.others"));
                 if (!canListOthers) {
                     src.sendFailure(Component.literal("§cYou don't have permission to list others' shops."));
                     return 0;
