@@ -407,7 +407,7 @@ These are **registered automatically** when a kit is created via `/createkit`.
 | `bigbangessentials.item.spawn` | 🔒 op-only | Spawn items | `/spawnitem` |
 | `bigbangessentials.invsee` | 🔒 op-only | View another player's inventory | `/invsee` |
 | `bigbangessentials.invsee.edit` | 🔒 op-only | Edit another player's inventory | `/invsee` |
-| `bigbangessentials.enderchest` | 🔒 op-only | View another player's ender chest | `/ec <player>` |
+| `bigbangessentials.enderchest` | 🔒 op-only | View another player's ender chest | `/ec [player]` (other player only) |
 | `bigbangessentials.enderchest.edit` | 🔒 op-only | Edit another player's ender chest | `/ec <player>` |
 
 ---

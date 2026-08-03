@@ -32,7 +32,7 @@ Compatibility note: inventory-view permissions accept both the canonical nodes a
 | `/ciconfirmtoggle` | `/ciconfirmtoggle` | same | Toggle confirmation prompt for `/ci` |
 | `/invsee` | `/invsee <player>` | `bigbangessentials.invsee` | View a player's inventory |
 | `/inv` | alias | same | Alias |
-| `/enderchest` | `/enderchest [player]` | `bigbangessentials.enderchest` | View a player's ender chest |
+| `/enderchest` | `/enderchest [player]` | none (self); `bigbangessentials.enderchest` (other) | Open own ender chest or view another player's read-only |
 | `/ec` | alias | same | Alias |
 | `/condense` | `/condense [item]` | `bigbangessentials.condense` | Compact loose items to storage blocks |
 

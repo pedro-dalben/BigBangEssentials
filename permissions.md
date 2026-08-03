@@ -337,9 +337,9 @@ Each tag is protected by `bigbangessentials.tag.<name>` and can be granted indiv
 | `/invsee` | `/invsee <player>` | `bigbangessentials.item.invsee` | 🔒 | View another player's inventory (read-only) |
 | `/inv` | alias for `/invsee` | same | 🔒 | Alias |
 | `/invseeedit` | `/invseeedit <player>` | `bigbangessentials.item.invsee.edit` | 🔒 | View and edit another player's inventory |
-| `/enderchest` | `/enderchest <player>` | `bigbangessentials.item.enderchest` | 🔒 | View another player's ender chest |
+| `/enderchest` | `/enderchest [player]` | none (self); `bigbangessentials.enderchest` (other) | 🔒 | Open own ender chest or view another player's read-only |
 | `/ec` | alias for `/enderchest` | same | 🔒 | Alias |
-| `/enderchestedit` | `/enderchestedit <player>` | `bigbangessentials.item.enderchest.edit` | 🔒 | View and edit another player's ender chest |
+| `/enderchestedit` | `/enderchestedit <player>` | `bigbangessentials.enderchest.edit` | 🔒 | View and edit another player's ender chest |
 | `/ecedit` | alias for `/enderchestedit` | same | 🔒 | Alias |
 
 ### Portable Workstations
