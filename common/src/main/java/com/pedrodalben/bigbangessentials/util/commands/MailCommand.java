@@ -292,7 +292,7 @@ public class MailCommand {
                                 clearMail(ctx.getSource(), p, Integer.parseInt(arg)) : 0;
                         } else {
                             // /mail clear <player>  (admin)
-                            if (!checkPerm(ctx.getSource(), "bigbangessentials.mail.clear.others")) return 0;
+                            if (!checkExactPerm(ctx.getSource(), "bigbangessentials.mail.clear.others")) return 0;
                             ServerPlayer target = ctx.getSource().getServer()
                                 .getPlayerList().getPlayerByName(arg);
                             if (target == null) {
@@ -306,7 +306,7 @@ public class MailCommand {
                     // /mail clear <player> <index>  (admin)
                     .then(Commands.argument("index", IntegerArgumentType.integer(1))
                         .executes(ctx -> {
-                            if (!checkPerm(ctx.getSource(), "bigbangessentials.mail.clear.others")) return 0;
+                            if (!checkExactPerm(ctx.getSource(), "bigbangessentials.mail.clear.others")) return 0;
                             String playerName = StringArgumentType.getString(ctx, "indexOrPlayer");
                             int index = IntegerArgumentType.getInteger(ctx, "index");
                             ServerPlayer target = ctx.getSource().getServer()
@@ -639,6 +639,16 @@ public class MailCommand {
     private static boolean checkPerm(CommandSourceStack source, String node) {
         PermissionValidator.PermissionResult r =
             PermissionValidator.validatePermission(source, node);
+        if (!r.hasPermission()) {
+            source.sendFailure(MessageUtil.error(r.getErrorMessage()));
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean checkExactPerm(CommandSourceStack source, String node) {
+        PermissionValidator.PermissionResult r =
+            PermissionValidator.validateExactPermission(source, node);
         if (!r.hasPermission()) {
             source.sendFailure(MessageUtil.error(r.getErrorMessage()));
             return false;

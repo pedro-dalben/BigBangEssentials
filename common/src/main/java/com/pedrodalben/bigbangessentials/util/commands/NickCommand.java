@@ -117,12 +117,12 @@ public class NickCommand {
         dispatcher.register(
             Commands.literal("setnick")
                 .requires(source ->
-                    PermissionValidator.validatePermission(source, "bigbangessentials.nick.others").hasPermission())
+                    PermissionValidator.validateExactPermission(source, "bigbangessentials.nick.others").hasPermission())
                 .then(Commands.argument("player", StringArgumentType.word())
                     .then(Commands.argument("nickname", StringArgumentType.greedyString())
                         .executes(ctx -> {
                             PermissionValidator.PermissionResult permResult =
-                                PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.nick.others");
+                                PermissionValidator.validateExactPermission(ctx.getSource(), "bigbangessentials.nick.others");
                             if (!permResult.hasPermission()) {
                                 ctx.getSource().sendFailure(MessageUtil.error(permResult.getErrorMessage()));
                                 return 0;
@@ -136,7 +136,7 @@ public class NickCommand {
                     .then(Commands.literal("reset")
                         .executes(ctx -> {
                             PermissionValidator.PermissionResult permResult =
-                                PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.nick.others");
+                                PermissionValidator.validateExactPermission(ctx.getSource(), "bigbangessentials.nick.others");
                             if (!permResult.hasPermission()) {
                                 ctx.getSource().sendFailure(MessageUtil.error(permResult.getErrorMessage()));
                                 return 0;

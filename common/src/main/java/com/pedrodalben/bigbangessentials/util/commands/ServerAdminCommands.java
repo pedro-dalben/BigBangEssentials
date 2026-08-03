@@ -306,28 +306,28 @@ public class ServerAdminCommands {
                 .executes(ctx -> executeGamemode(ctx, GameType.SURVIVAL, null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.gamemode.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.gamemode.others"))
                     .executes(ctx -> executeGamemode(ctx, GameType.SURVIVAL, StringArgumentType.getString(ctx, "target"))))
             )
             .then(Commands.literal("creative")
                 .executes(ctx -> executeGamemode(ctx, GameType.CREATIVE, null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.gamemode.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.gamemode.others"))
                     .executes(ctx -> executeGamemode(ctx, GameType.CREATIVE, StringArgumentType.getString(ctx, "target"))))
             )
             .then(Commands.literal("adventure")
                 .executes(ctx -> executeGamemode(ctx, GameType.ADVENTURE, null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.gamemode.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.gamemode.others"))
                     .executes(ctx -> executeGamemode(ctx, GameType.ADVENTURE, StringArgumentType.getString(ctx, "target"))))
             )
             .then(Commands.literal("spectator")
                 .executes(ctx -> executeGamemode(ctx, GameType.SPECTATOR, null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.gamemode.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.gamemode.others"))
                     .executes(ctx -> executeGamemode(ctx, GameType.SPECTATOR, StringArgumentType.getString(ctx, "target"))))
             )
             // numeric shortcuts: 0=survival, 1=creative, 2=adventure, 3=spectator
@@ -509,7 +509,7 @@ public class ServerAdminCommands {
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
                         ctx.getSource().getServer().getPlayerNames(), b))
                     .requires(src -> src.getPlayer() == null
-                        || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.world.others"))
+                        || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.world.others"))
                     .executes(ctx -> executeWorld(ctx,
                         StringArgumentType.getString(ctx, "dimension"),
                         StringArgumentType.getString(ctx, "target")))
@@ -646,4 +646,3 @@ public class ServerAdminCommands {
         return 1;
     }
 }
-

@@ -42,11 +42,11 @@ public class GetPosCommand {
                 ).hasPermission())
                 // /getpos [player] - Show position info for self or another player (console can use with target)
                 .then(Commands.argument("player", EntityArgument.player())
-                    .requires(source -> PermissionValidator.validatePermission(
+                    .requires(source -> PermissionValidator.validateExactPermission(
                         source, "bigbangessentials.getpos.others").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
-                            PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.getpos.others");
+                            PermissionValidator.validateExactPermission(ctx.getSource(), "bigbangessentials.getpos.others");
                         if (!permResult.hasPermission()) {
                             ctx.getSource().sendFailure(MessageUtil.error(permResult.getErrorMessage()));
                             return 0;

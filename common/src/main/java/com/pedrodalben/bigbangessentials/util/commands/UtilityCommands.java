@@ -64,7 +64,7 @@ public class UtilityCommands {
                 .executes(ctx -> executePtimeSet(ctx, -1L, null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.ptime.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.ptime.others"))
                     .executes(ctx -> executePtimeSet(ctx, -1L, StringArgumentType.getString(ctx, "target"))))
             )
             // /ptime <value> [player]
@@ -74,7 +74,7 @@ public class UtilityCommands {
                 .executes(ctx -> executePtimeSet(ctx, parseTimeTicks(StringArgumentType.getString(ctx, "time")), null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.ptime.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.ptime.others"))
                     .executes(ctx -> executePtimeSet(ctx,
                         parseTimeTicks(StringArgumentType.getString(ctx, "time")),
                         StringArgumentType.getString(ctx, "target"))))
@@ -131,14 +131,14 @@ public class UtilityCommands {
                 .executes(ctx -> executePweatherSet(ctx, null, null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.pweather.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.pweather.others"))
                     .executes(ctx -> executePweatherSet(ctx, null, StringArgumentType.getString(ctx, "target"))))
             )
             .then(Commands.literal("sun")
                 .executes(ctx -> executePweatherSet(ctx, "sun", null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.pweather.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.pweather.others"))
                     .executes(ctx -> executePweatherSet(ctx, "sun", StringArgumentType.getString(ctx, "target"))))
             )
             .then(Commands.literal("clear")
@@ -148,7 +148,7 @@ public class UtilityCommands {
                 .executes(ctx -> executePweatherSet(ctx, "storm", null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.pweather.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.pweather.others"))
                     .executes(ctx -> executePweatherSet(ctx, "storm", StringArgumentType.getString(ctx, "target"))))
             )
             .then(Commands.literal("rain")
@@ -305,7 +305,7 @@ public class UtilityCommands {
                         IntegerArgumentType.getInteger(ctx, "amount"), null))
                     .then(Commands.argument("target", StringArgumentType.word())
                         .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                        .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.spawnmob.others"))
+                        .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.spawnmob.others"))
                         .executes(ctx -> executeSpawnMob(ctx, StringArgumentType.getString(ctx, "mob"),
                             IntegerArgumentType.getInteger(ctx, "amount"),
                             StringArgumentType.getString(ctx, "target")))
@@ -389,21 +389,21 @@ public class UtilityCommands {
                 .executes(ctx -> executeUnlimitedList(ctx, null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.unlimited.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.unlimited.others"))
                     .executes(ctx -> executeUnlimitedList(ctx, StringArgumentType.getString(ctx, "target"))))
             )
             .then(Commands.literal("clear")
                 .executes(ctx -> executeUnlimitedClear(ctx, null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.unlimited.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.unlimited.others"))
                     .executes(ctx -> executeUnlimitedClear(ctx, StringArgumentType.getString(ctx, "target"))))
             )
             .then(Commands.argument("item", StringArgumentType.word())
                 .executes(ctx -> executeUnlimitedToggle(ctx, StringArgumentType.getString(ctx, "item"), null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.unlimited.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.unlimited.others"))
                     .executes(ctx -> executeUnlimitedToggle(ctx,
                         StringArgumentType.getString(ctx, "item"),
                         StringArgumentType.getString(ctx, "target")))
@@ -607,4 +607,3 @@ public class UtilityCommands {
         return src.getPlayer() != null ? src.getPlayer().getName().getString() : "Console";
     }
 }
-

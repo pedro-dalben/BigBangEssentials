@@ -75,7 +75,7 @@ public class PlayerStateCommands {
             .executes(ctx -> executeFly(ctx, null, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.fly.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.fly.others"))
                 .executes(ctx -> executeFly(ctx, StringArgumentType.getString(ctx, "target"), null))
                 .then(Commands.literal("on").executes(ctx -> executeFly(ctx, StringArgumentType.getString(ctx, "target"), true)))
                 .then(Commands.literal("off").executes(ctx -> executeFly(ctx, StringArgumentType.getString(ctx, "target"), false)))
@@ -115,7 +115,7 @@ public class PlayerStateCommands {
             .executes(ctx -> executeGod(ctx, null, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.god.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.god.others"))
                 .executes(ctx -> executeGod(ctx, StringArgumentType.getString(ctx, "target"), null))
                 .then(Commands.literal("on").executes(ctx -> executeGod(ctx, StringArgumentType.getString(ctx, "target"), true)))
                 .then(Commands.literal("off").executes(ctx -> executeGod(ctx, StringArgumentType.getString(ctx, "target"), false)))
@@ -173,7 +173,7 @@ public class PlayerStateCommands {
             .executes(ctx -> executeHeal(ctx, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.heal.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.heal.others"))
                 .executes(ctx -> executeHeal(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -210,7 +210,7 @@ public class PlayerStateCommands {
             .executes(ctx -> executeFeed(ctx, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.feed.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.feed.others"))
                 .executes(ctx -> executeFeed(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -244,7 +244,7 @@ public class PlayerStateCommands {
                 .executes(ctx -> executeSpeed(ctx, null, FloatArgumentType.getFloat(ctx, "speed"), null))
                 .then(Commands.argument("target", StringArgumentType.word())
                     .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.speed.others"))
+                    .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.speed.others"))
                     .executes(ctx -> executeSpeed(ctx, null, FloatArgumentType.getFloat(ctx, "speed"), StringArgumentType.getString(ctx, "target")))
                 )
             )
@@ -254,7 +254,7 @@ public class PlayerStateCommands {
                     .executes(ctx -> executeSpeed(ctx, false, FloatArgumentType.getFloat(ctx, "speed"), null))
                     .then(Commands.argument("target", StringArgumentType.word())
                         .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                        .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.speed.others"))
+                        .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.speed.others"))
                         .executes(ctx -> executeSpeed(ctx, false, FloatArgumentType.getFloat(ctx, "speed"), StringArgumentType.getString(ctx, "target")))
                     )
                 )
@@ -265,7 +265,7 @@ public class PlayerStateCommands {
                     .executes(ctx -> executeSpeed(ctx, true, FloatArgumentType.getFloat(ctx, "speed"), null))
                     .then(Commands.argument("target", StringArgumentType.word())
                         .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                        .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.speed.others"))
+                        .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.speed.others"))
                         .executes(ctx -> executeSpeed(ctx, true, FloatArgumentType.getFloat(ctx, "speed"), StringArgumentType.getString(ctx, "target")))
                     )
                 )
@@ -308,7 +308,7 @@ public class PlayerStateCommands {
             .executes(ctx -> executeExt(ctx, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.ext.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.ext.others"))
                 .executes(ctx -> executeExt(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -318,7 +318,7 @@ public class PlayerStateCommands {
             .executes(ctx -> executeExt(ctx, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.ext.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.ext.others"))
                 .executes(ctx -> executeExt(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -470,7 +470,7 @@ public class PlayerStateCommands {
                     .executes(ctx -> executeExpSet(ctx, IntegerArgumentType.getInteger(ctx, "amount"), null))
                     .then(Commands.argument("target", StringArgumentType.word())
                         .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                        .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.exp.set.others"))
+                        .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.exp.set.others"))
                         .executes(ctx -> executeExpSet(ctx, IntegerArgumentType.getInteger(ctx, "amount"), StringArgumentType.getString(ctx, "target")))
                     )
                 )
@@ -482,7 +482,7 @@ public class PlayerStateCommands {
                     .executes(ctx -> executeExpGive(ctx, IntegerArgumentType.getInteger(ctx, "amount"), null))
                     .then(Commands.argument("target", StringArgumentType.word())
                         .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                        .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.exp.give.others"))
+                        .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.exp.give.others"))
                         .executes(ctx -> executeExpGive(ctx, IntegerArgumentType.getInteger(ctx, "amount"), StringArgumentType.getString(ctx, "target")))
                     )
                 )
@@ -599,7 +599,7 @@ public class PlayerStateCommands {
             .executes(ctx -> executePlaytime(ctx, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.playtime.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.playtime.others"))
                 .executes(ctx -> executePlaytime(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -664,7 +664,7 @@ public class PlayerStateCommands {
             .executes(ctx -> executeNightVision(ctx, null, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.nightvision.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.nightvision.others"))
                 .executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), null))
                 .then(Commands.literal("on").executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), true)))
                 .then(Commands.literal("off").executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), false)))
@@ -681,7 +681,7 @@ public class PlayerStateCommands {
             .executes(ctx -> executeNightVision(ctx, null, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.nightvision.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.nightvision.others"))
                 .executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), null))
                 .then(Commands.literal("on").executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), true)))
                 .then(Commands.literal("off").executes(ctx -> executeNightVision(ctx, StringArgumentType.getString(ctx, "target"), false)))
@@ -715,8 +715,6 @@ public class PlayerStateCommands {
         return 1;
     }
 }
-
-
 
 
 

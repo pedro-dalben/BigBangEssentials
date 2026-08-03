@@ -32,7 +32,7 @@ public class DepthCommand {
                 .then(Commands.argument("player", EntityArgument.player())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
-                            PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.depth.others");
+                            PermissionValidator.validateExactPermission(ctx.getSource(), "bigbangessentials.depth.others");
                         if (!permResult.hasPermission()) {
                             ctx.getSource().sendFailure(MessageUtil.error(permResult.getErrorMessage()));
                             return 0;

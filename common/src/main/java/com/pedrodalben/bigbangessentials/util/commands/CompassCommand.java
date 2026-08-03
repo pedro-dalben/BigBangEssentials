@@ -41,11 +41,11 @@ public class CompassCommand {
                 ).hasPermission())
                 // /compass [player] - Show compass info for another player (console can use)
                 .then(Commands.argument("player", EntityArgument.player())
-                    .requires(source -> PermissionValidator.validatePermission(
+                    .requires(source -> PermissionValidator.validateExactPermission(
                         source, "bigbangessentials.compass.others").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult = 
-                            PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.compass.others");
+                            PermissionValidator.validateExactPermission(ctx.getSource(), "bigbangessentials.compass.others");
                         if (!permResult.hasPermission()) {
                             ctx.getSource().sendFailure(MessageUtil.error(permResult.getErrorMessage()));
                             return 0;

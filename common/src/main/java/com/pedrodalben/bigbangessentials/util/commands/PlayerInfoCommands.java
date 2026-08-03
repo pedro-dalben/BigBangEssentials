@@ -144,7 +144,7 @@ public class PlayerInfoCommands {
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
                     ctx.getSource().getServer().getPlayerNames(), b))
                 .requires(src -> src.getPlayer() == null
-                    || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.ping.others"))
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.ping.others"))
                 .executes(ctx -> executePing(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -178,7 +178,7 @@ public class PlayerInfoCommands {
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
                     ctx.getSource().getServer().getPlayerNames(), b))
                 .requires(src -> src.getPlayer() == null
-                    || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.playtime.others"))
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.playtime.others"))
                 .executes(ctx -> executePlaytime(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -351,7 +351,7 @@ public class PlayerInfoCommands {
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
                     ctx.getSource().getServer().getPlayerNames(), b))
                 .requires(src -> src.getPlayer() == null
-                    || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.msgtoggle.others"))
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.msgtoggle.others"))
                 .executes(ctx -> executeMsgToggle(ctx, StringArgumentType.getString(ctx, "target"), null))
                 .then(Commands.literal("on").executes(ctx -> executeMsgToggle(ctx, StringArgumentType.getString(ctx, "target"), false)))
                 .then(Commands.literal("off").executes(ctx -> executeMsgToggle(ctx, StringArgumentType.getString(ctx, "target"), true)))
@@ -401,7 +401,7 @@ public class PlayerInfoCommands {
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
                     ctx.getSource().getServer().getPlayerNames(), b))
                 .requires(src -> src.getPlayer() == null
-                    || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.rtoggle.others"))
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.rtoggle.others"))
                 .executes(ctx -> executeRtoggle(ctx, StringArgumentType.getString(ctx, "target"), null))
                 .then(Commands.literal("on").executes(ctx -> executeRtoggle(ctx, StringArgumentType.getString(ctx, "target"), true)))
                 .then(Commands.literal("off").executes(ctx -> executeRtoggle(ctx, StringArgumentType.getString(ctx, "target"), false)))
@@ -473,4 +473,3 @@ public class PlayerInfoCommands {
         );
     }
 }
-

@@ -308,7 +308,7 @@ public class WorldInteractionCommands {
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
                 .requires(src -> src.getPlayer() == null
-                    || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.ice.others"))
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.ice.others"))
                 .executes(ctx -> executeIce(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -388,7 +388,7 @@ public class WorldInteractionCommands {
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
                 .requires(src -> src.getPlayer() == null
-                    || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.tpaall.others"))
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.tpaall.others"))
                 .executes(ctx -> executeTpaAll(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -467,4 +467,3 @@ public class WorldInteractionCommands {
         );
     }
 }
-

@@ -83,12 +83,12 @@ public class GamemodeCommand {
                 // Branch 1: Change another player's gamemode
                 // Requires: bigbangessentials.gamemode.others permission
                 .then(Commands.argument("player", EntityArgument.player())
-                    .requires(source -> PermissionValidator.validatePermission(
+                    .requires(source -> PermissionValidator.validateExactPermission(
                         source, "bigbangessentials.gamemode.others").hasPermission())
                     .executes(ctx -> {
                         // Validate permission for changing others' gamemodes
-                        PermissionValidator.PermissionResult permResult = 
-                            PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.gamemode.others");
+                            PermissionValidator.PermissionResult permResult =
+                            PermissionValidator.validateExactPermission(ctx.getSource(), "bigbangessentials.gamemode.others");
                         if (!permResult.hasPermission()) {
                             ctx.getSource().sendFailure(MessageUtil.error(permResult.getErrorMessage()));
                             return 0;

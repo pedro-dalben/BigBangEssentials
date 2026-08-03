@@ -100,7 +100,7 @@ public class ItemCustomisationCommands {
             .then(Commands.literal("off").executes(ctx -> executeTpToggle(ctx, null, false)))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.tptoggle.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.tptoggle.others"))
                 .executes(ctx -> executeTpToggle(ctx, StringArgumentType.getString(ctx, "target"), null))
                 .then(Commands.literal("on").executes(ctx -> executeTpToggle(ctx, StringArgumentType.getString(ctx, "target"), true)))
                 .then(Commands.literal("off").executes(ctx -> executeTpToggle(ctx, StringArgumentType.getString(ctx, "target"), false)))
@@ -194,7 +194,7 @@ public class ItemCustomisationCommands {
             .executes(ctx -> executeLightning(ctx, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.lightning.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.lightning.others"))
                 .executes(ctx -> executeLightning(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -204,7 +204,7 @@ public class ItemCustomisationCommands {
             .executes(ctx -> executeLightning(ctx, null))
             .then(Commands.argument("target", StringArgumentType.word())
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(ctx.getSource().getServer().getPlayerNames(), b))
-                .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.lightning.others"))
+                .requires(src -> src.getPlayer() == null || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.lightning.others"))
                 .executes(ctx -> executeLightning(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -513,7 +513,6 @@ public class ItemCustomisationCommands {
         return src.getPlayer() != null ? src.getPlayer().getName().getString() : "Console";
     }
 }
-
 
 
 

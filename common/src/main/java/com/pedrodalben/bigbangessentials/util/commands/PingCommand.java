@@ -36,11 +36,11 @@ public class PingCommand {
                     "bigbangessentials.ping.others"
                 ).hasPermission())
                 .then(Commands.argument("player", EntityArgument.player())
-                    .requires(source -> PermissionValidator.validatePermission(
+                    .requires(source -> PermissionValidator.validateExactPermission(
                         source, "bigbangessentials.ping.others").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult =
-                            PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.ping.others");
+                            PermissionValidator.validateExactPermission(ctx.getSource(), "bigbangessentials.ping.others");
                         if (!permResult.hasPermission()) {
                             ctx.getSource().sendFailure(MessageUtil.error(permResult.getErrorMessage()));
                             return 0;
@@ -54,11 +54,11 @@ public class PingCommand {
                 )
                 .then(Commands.argument("player", StringArgumentType.word())
                     .suggests(FAKE_PLAYER_SUGGESTIONS)
-                    .requires(source -> PermissionValidator.validatePermission(
+                    .requires(source -> PermissionValidator.validateExactPermission(
                         source, "bigbangessentials.ping.others").hasPermission())
                     .executes(ctx -> {
                         PermissionValidator.PermissionResult permResult =
-                            PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.ping.others");
+                            PermissionValidator.validateExactPermission(ctx.getSource(), "bigbangessentials.ping.others");
                         if (!permResult.hasPermission()) {
                             ctx.getSource().sendFailure(MessageUtil.error(permResult.getErrorMessage()));
                             return 0;

@@ -709,7 +709,7 @@ public class FunCommands {
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
                     ctx.getSource().getServer().getPlayerNames(), b))
                 .requires(src -> src.getPlayer() == null
-                    || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.rest.others"))
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.rest.others"))
                 .executes(ctx -> executeRest(ctx, StringArgumentType.getString(ctx, "target")))
             )
         );
@@ -782,7 +782,6 @@ public class FunCommands {
         return 1;
     }
 }
-
 
 
 
