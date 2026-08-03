@@ -602,7 +602,7 @@ public class HomeCommands {
             // /renamehome <player:old> <new>  — admin format
             .then(Commands.argument("playercolon", StringArgumentType.word())
                 .requires(src -> src.getPlayer() == null
-                    || PermissionAPI.hasPermission(src.getPlayer().getUUID(), PERMISSION_RENAMEHOME_OTHERS))
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), PERMISSION_RENAMEHOME_OTHERS))
                 .then(Commands.argument("newname2", StringArgumentType.word())
                     .executes(ctx -> {
                         String arg = StringArgumentType.getString(ctx, "playercolon");

@@ -74,7 +74,7 @@ public class MiscTeleportCommands {
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
                     ctx.getSource().getServer().getPlayerNames(), b))
                 .requires(src -> src.getPlayer() == null
-                    || PermissionAPI.hasPermission(src.getPlayer().getUUID(), PERMISSION_TPAUTO_OTHERS))
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), PERMISSION_TPAUTO_OTHERS))
                 .executes(ctx -> executeTpAuto(ctx, StringArgumentType.getString(ctx, "target"), null))
                 .then(Commands.literal("on")
                     .executes(ctx -> executeTpAuto(ctx, StringArgumentType.getString(ctx, "target"), true)))
