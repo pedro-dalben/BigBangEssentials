@@ -94,7 +94,7 @@ public class EnchantCommand {
                 .then(Commands.argument("target", EntityArgument.player())
                     .requires(cs -> cs.hasPermission(2) || 
                         (cs.getEntity() instanceof ServerPlayer player && 
-                         com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), "bigbangessentials.item.enchant.others")))
+                         com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasTargetPermission(player.getUUID(), "bigbangessentials.item.enchant.others")))
                     .then(Commands.argument("enchantment", ResourceLocationArgument.id())
                         .suggests((ctx, builder) -> {
                             return net.minecraft.commands.SharedSuggestionProvider.suggestResource(
@@ -156,7 +156,9 @@ public class EnchantCommand {
         // Validate permission based on mode
         String requiredPermission = mode == EnchantMode.TARGET_HAND ? "bigbangessentials.item.enchant.others" : "bigbangessentials.item.enchant";
         PermissionValidator.PermissionResult permResult = 
-            PermissionValidator.validatePermission(ctx.getSource(), requiredPermission);
+            mode == EnchantMode.TARGET_HAND
+                ? PermissionValidator.validateExactPermission(ctx.getSource(), requiredPermission)
+                : PermissionValidator.validatePermission(ctx.getSource(), requiredPermission);
         if (!permResult.hasPermission()) {
             ctx.getSource().sendFailure(MessageUtil.error(permResult.getErrorMessage()));
             return 0;

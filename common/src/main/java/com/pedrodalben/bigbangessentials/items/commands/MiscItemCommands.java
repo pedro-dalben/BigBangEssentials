@@ -546,7 +546,7 @@ public class MiscItemCommands {
                 .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
                     ctx.getSource().getServer().getPlayerNames(), b))
                 .requires(src -> src.getPlayer() == null
-                    || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.rtoggle.others"))
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), "bigbangessentials.rtoggle.others"))
                 .executes(ctx -> executeRToggle(ctx, StringArgumentType.getString(ctx, "target"), null))
                 .then(Commands.literal("on")
                     .executes(ctx -> executeRToggle(ctx, StringArgumentType.getString(ctx, "target"), true)))
