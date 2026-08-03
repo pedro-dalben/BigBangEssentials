@@ -26,7 +26,7 @@ public class JourneyFragmentService {
             playerId, RewardType.JOURNEY_FRAGMENT.name(), amount, sourceType, sourceRefId, actionId, contractId, rankMilestoneId, metadata
         );
         if (newBalance >= 0) {
-            LOGGER.info("Player {} gained {} Journey Fragments (source: {}, ref: {}). New balance: {}", playerId, amount, sourceType, sourceRefId, newBalance);
+            LOGGER.debug("Player {} gained {} Journey Fragments (source: {}, ref: {}). New balance: {}", playerId, amount, sourceType, sourceRefId, newBalance);
             JobRewardNotificationService.getInstance().notifyFragmentsGained(playerId, amount, newBalance);
         }
         return newBalance;
@@ -41,7 +41,7 @@ public class JourneyFragmentService {
             playerId, RewardType.JOURNEY_FRAGMENT.name(), -amount, sourceType, sourceRefId, null, null, null, metadata
         );
         if (newBalance >= 0) {
-            LOGGER.info("Player {} spent {} Journey Fragments (source: {}, ref: {}). New balance: {}", playerId, amount, sourceType, sourceRefId, newBalance);
+            LOGGER.debug("Player {} spent {} Journey Fragments (source: {}, ref: {}). New balance: {}", playerId, amount, sourceType, sourceRefId, newBalance);
             return true;
         }
         return false;
