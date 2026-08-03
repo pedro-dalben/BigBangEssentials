@@ -53,7 +53,7 @@ public class VanishCommand {
             .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.moderation.vanish").hasPermission())
             .executes(ctx -> executeUnvanish(ctx, null))
             .then(Commands.argument("player", StringArgumentType.word())
-                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.moderation.vanish.others").hasPermission())
+                .requires(source -> PermissionValidator.validateExactPermission(source, "bigbangessentials.moderation.vanish.others").hasPermission())
                 .suggests(SUGGEST_VANISHED_PLAYERS)
                 .executes(ctx -> executeUnvanish(ctx, StringArgumentType.getString(ctx, "player"))))
         );
@@ -71,7 +71,7 @@ public class VanishCommand {
             .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.moderation.vanish").hasPermission())
             .executes(ctx -> executeToggleVanish(ctx, null))
             .then(Commands.argument("player", StringArgumentType.word())
-                .requires(source -> PermissionValidator.validatePermission(source, "bigbangessentials.moderation.vanish.others").hasPermission())
+                .requires(source -> PermissionValidator.validateExactPermission(source, "bigbangessentials.moderation.vanish.others").hasPermission())
                 .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
                     ctx.getSource().getServer().getPlayerNames(), builder))
                 .executes(ctx -> executeToggleVanish(ctx, StringArgumentType.getString(ctx, "player"))))
