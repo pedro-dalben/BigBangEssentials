@@ -26,8 +26,8 @@ pages:
         slot: 12
         item:
           material-id: "minecraft:player_head"
-          display-name: "&aAnunciar da party"
-          lore: ["&7Escolha o Pokémon e confirme o preço"]
+          display-name: "&aAnunciar venda"
+          lore: ["&7Venda um Pokémon da sua party", "&7por dinheiro e confirme o preço"]
         actions:
           - type: "pokemarket_source_open"
             params: { mode: "money", source: "party" }
@@ -35,8 +35,8 @@ pages:
         slot: 14
         item:
           material-id: "minecraft:chest"
-          display-name: "&bAnunciar do PC"
-          lore: ["&7Escolha a caixa, o Pokémon e confirme o preço"]
+          display-name: "&bAnunciar venda do PC"
+          lore: ["&7Venda um Pokémon do PC", "&7e confirme o preço"]
         actions:
           - type: "pokemarket_source_open"
             params: { mode: "money", source: "pc" }

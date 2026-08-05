@@ -31,6 +31,8 @@ pages:
         render-conditions:
           - type: "context_equals"
             params: { key: "listing_type", value: "MONEY" }
+          - type: "context_not_equals"
+            params: { key: "seller_uuid", value: "{player_uuid}" }
         actions:
           - type: "pokemarket_buy_prepare"
             params: { listing_id: "{context:listing_id}" }
@@ -40,6 +42,8 @@ pages:
         render-conditions:
           - type: "context_equals"
             params: { key: "listing_type", value: "POKEMON_TRADE" }
+          - type: "context_not_equals"
+            params: { key: "seller_uuid", value: "{player_uuid}" }
         actions:
           - type: "pokemarket_source_open"
             params: { mode: "accept_trade", source: "party" }
@@ -49,9 +53,20 @@ pages:
         render-conditions:
           - type: "context_equals"
             params: { key: "listing_type", value: "POKEMON_TRADE" }
+          - type: "context_not_equals"
+            params: { key: "seller_uuid", value: "{player_uuid}" }
         actions:
           - type: "pokemarket_source_open"
             params: { mode: "accept_trade", source: "pc" }
+      own_listing:
+        slot: 34
+        item:
+          material-id: "minecraft:paper"
+          display-name: "&eSeu anúncio"
+          lore: ["&7Você pode visualizar este Pokémon", "&7na lista, mas não pode comprá-lo."]
+        render-conditions:
+          - type: "context_equals"
+            params: { key: "seller_uuid", value: "{player_uuid}" }
       back:
         slot: 49
         item: { material-id: "minecraft:arrow", display-name: "&cVoltar" }
