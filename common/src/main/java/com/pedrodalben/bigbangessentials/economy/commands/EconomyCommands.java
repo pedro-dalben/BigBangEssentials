@@ -72,6 +72,14 @@ public class EconomyCommands {
             }
         }
         
+        // Register magnata command
+        try {
+            com.pedrodalben.bigbangessentials.economy.magnata.MagnataCommand.register(dispatcher);
+            LOGGER.info("Magnata command registered");
+        } catch (Exception e) {
+            LOGGER.error("Failed to register magnata command", e);
+        }
+
         LOGGER.info("All economy commands registration completed");
     }
 }
