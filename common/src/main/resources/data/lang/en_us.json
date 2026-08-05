@@ -1025,6 +1025,7 @@
   "commands.bigbangessentials.shop.sell_fail_space": "§cThe shop chest does not have enough space.",
   "commands.bigbangessentials.shop.sell_fail_funds": "§cShop owner does not have enough funds.",
   "commands.bigbangessentials.shop.owner_bought": "§e{0} bought §f{1}x {2}§e from your shop for §a{3}{4}§e.",
+  "commands.bigbangessentials.shop.owner_out_of_stock": "§cYour shop of §f{0}§c is out of stock!",
   "commands.bigbangessentials.shop.owner_sold": "§e{0} sold §f{1}x {2}§e to your shop for §a{3}{4}§e.",
   "commands.bigbangessentials.shop.no_buy_price": "§cThis shop does not buy items.",
   "commands.bigbangessentials.shop.no_sell_price": "§cThis shop does not sell items.",

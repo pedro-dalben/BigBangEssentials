@@ -7,6 +7,7 @@ import com.pedrodalben.bigbangessentials.shop.ShopParser;
 import com.pedrodalben.bigbangessentials.shop.ShopTransaction;
 import com.pedrodalben.bigbangessentials.shop.ShopTransaction.TransactionResult;
 import com.pedrodalben.bigbangessentials.shop.model.ShopData;
+import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -139,10 +140,18 @@ public final class ShopInteractionService {
                     player.sendSystemMessage(Component.literal(String.format(
                             "§aYou bought §f%dx %s §afor §f%s%s§a from §f%s§a.",
                             result.quantity, itemDisplay, currency, result.price.toPlainString(), shop.ownerName)));
+                    notifyOwner(player, shop, MessageUtil.component(
+                            "commands.bigbangessentials.shop.owner_bought",
+                            player.getName().getString(), result.quantity, itemDisplay,
+                            currency, result.price.toPlainString()));
                 } else {
                     player.sendSystemMessage(Component.literal(String.format(
                             "§aYou sold §f%dx %s §afor §f%s%s§a.",
                             result.quantity, itemDisplay, currency, result.price.toPlainString())));
+                    notifyOwner(player, shop, MessageUtil.component(
+                            "commands.bigbangessentials.shop.owner_sold",
+                            player.getName().getString(), result.quantity, itemDisplay,
+                            currency, result.price.toPlainString()));
                 }
             }
             case NOT_ENOUGH_MONEY -> player.sendSystemMessage(Component.literal(buying
@@ -150,9 +159,15 @@ public final class ShopInteractionService {
                     : "§cThe shop owner can't afford to buy that."));
             case MAXIMUM_BALANCE -> player.sendSystemMessage(Component.literal("§cThe receiving account is at its maximum balance."));
             case IDEMPOTENCY_CONFLICT -> player.sendSystemMessage(Component.literal("§cThis click conflicts with an existing transaction."));
-            case NOT_ENOUGH_STOCK -> player.sendSystemMessage(Component.literal(buying
-                    ? "§cThis shop is out of stock."
-                    : "§cYou don't have enough of that item."));
+            case NOT_ENOUGH_STOCK -> {
+                if (buying) {
+                    player.sendSystemMessage(Component.literal("§cThis shop is out of stock."));
+                    notifyOwner(player, shop, MessageUtil.component(
+                            "commands.bigbangessentials.shop.owner_out_of_stock", itemDisplay));
+                } else {
+                    player.sendSystemMessage(Component.literal("§cYou don't have enough of that item."));
+                }
+            }
             case NO_SPACE -> player.sendSystemMessage(Component.literal(buying
                     ? "§cYour inventory is full."
                     : "§cThe shop's chest is full."));
@@ -166,6 +181,12 @@ public final class ShopInteractionService {
                     "§cThis transaction requires administrative recovery. Do not retry it. §7(" + result.message + ")"));
             default -> player.sendSystemMessage(Component.literal("§cTransaction could not be completed. Please try again."));
         }
+    }
+
+    private static void notifyOwner(ServerPlayer actor, ShopData shop, Component message) {
+        if (shop.isAdminShop() || shop.ownerUUID == null || shop.ownerUUID.equals(actor.getUUID())) return;
+        ServerPlayer owner = actor.getServer().getPlayerList().getPlayer(shop.ownerUUID);
+        if (owner != null) owner.sendSystemMessage(message);
     }
 
     private static boolean blockLegacyShop(ServerPlayer player, ShopData shop) {
