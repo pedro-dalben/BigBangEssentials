@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.pokemarket;
 
 import com.pedrodalben.bigbangessentials.menu.persistence.yaml.YamlMenuParser;
+import com.pedrodalben.bigbangessentials.menu.model.MenuDefinition;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import org.junit.jupiter.api.BeforeAll;
@@ -12,6 +13,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class PokeMarketMenuParsingTest {
     @BeforeAll
@@ -31,6 +33,44 @@ class PokeMarketMenuParsingTest {
                 assertDoesNotThrow(() -> parser.parse(file), id);
                 Files.deleteIfExists(file);
             }
+        }
+    }
+
+    @Test
+    void mainMenuSeparatesMoneySalesFromPokemonTrades() throws Exception {
+        YamlMenuParser parser = new YamlMenuParser();
+        Path file = Files.createTempFile("pokemarket-main", ".yml");
+        try (InputStream input = getClass().getResourceAsStream("/default-config/bigbangessentials/menus/pokemarket_main.yml")) {
+            Files.copy(input, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        try {
+            MenuDefinition menu = parser.parse(file);
+            var items = menu.pages().get("main").items();
+            assertEquals("&aAnunciar venda", items.get("party").item().displayName());
+            assertEquals("money", items.get("party").actions().get(0).params().get("mode"));
+            assertEquals("money", items.get("pc").actions().get(0).params().get("mode"));
+            assertEquals("trade", items.get("trade_party").actions().get(0).params().get("mode"));
+        } finally {
+            Files.deleteIfExists(file);
+        }
+    }
+
+    @Test
+    void ownListingIsVisibleButPurchaseActionsAreHidden() throws Exception {
+        YamlMenuParser parser = new YamlMenuParser();
+        Path file = Files.createTempFile("pokemarket-detail", ".yml");
+        try (InputStream input = getClass().getResourceAsStream("/default-config/bigbangessentials/menus/pokemarket_detail.yml")) {
+            Files.copy(input, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        try {
+            MenuDefinition menu = parser.parse(file);
+            var items = menu.pages().get("main").items();
+            assertEquals("context_not_equals", items.get("buy").renderConditions().get(1).type());
+            assertEquals("seller_uuid", items.get("buy").renderConditions().get(1).params().get("key"));
+            assertEquals("{player_uuid}", items.get("buy").renderConditions().get(1).params().get("value"));
+            assertEquals("context_equals", items.get("own_listing").renderConditions().get(0).type());
+        } finally {
+            Files.deleteIfExists(file);
         }
     }
 }
