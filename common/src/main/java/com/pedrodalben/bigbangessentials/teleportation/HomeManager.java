@@ -13,8 +13,10 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -719,6 +721,41 @@ public class HomeManager {
     public int getHomeTeleportCooldownSeconds() { return homeTeleportCooldownSeconds; }
     public void setHomeTeleportCooldownSeconds(int seconds) { this.homeTeleportCooldownSeconds = Math.max(0, seconds); }
     
+    /**
+     * Delete all homes located in a specific world/dimension.
+     * Iterates all player data files (including offline players).
+     *
+     * @param worldName The dimension key string (e.g., "minecraft:overworld", "bigbangworld:exploracao")
+     * @return Number of homes deleted
+     */
+    public int deleteAllHomesInWorld(String worldName) {
+        int totalDeleted = 0;
+        Set<UUID> allPlayerIds = playerDataStore.getAllPlayerIds();
+        for (UUID playerId : allPlayerIds) {
+            Map<String, TeleportLocation> homes = getOrLoadPlayerHomes(playerId);
+            boolean modified = false;
+            Iterator<Map.Entry<String, TeleportLocation>> it = homes.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, TeleportLocation> entry = it.next();
+                if (worldName.equals(entry.getValue().getWorldName())) {
+                    it.remove();
+                    totalDeleted++;
+                    modified = true;
+                }
+            }
+            if (modified) {
+                if (homes.isEmpty()) {
+                    playerHomes.remove(playerId);
+                }
+                savePlayerHomes(playerId);
+            }
+        }
+        if (totalDeleted > 0) {
+            LOGGER.info("Deleted {} homes in world '{}' across {} players", totalDeleted, worldName, allPlayerIds.size());
+        }
+        return totalDeleted;
+    }
+
     /**
      * Clear all homes (for testing/admin purposes)
      */
