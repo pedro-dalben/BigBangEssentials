@@ -73,10 +73,11 @@ public final class ShopInteractionService {
             return true;
         }
 
-        ShopTransaction.executeBuyAsync(player, shop, level, java.util.UUID.randomUUID().toString())
+        String transactionId = java.util.UUID.randomUUID().toString();
+        ShopTransaction.executeBuyAsync(player, shop, level, transactionId)
                 .whenComplete((result, error) -> player.getServer().execute(() -> sendTransactionResult(player,
                         error == null ? result : new TransactionResult(ShopTransaction.ResultType.RECOVERY_REQUIRED,
-                                "RECOVERY_REQUIRED", java.math.BigDecimal.ZERO, 0), shop, true)));
+                                "tx=" + transactionId, java.math.BigDecimal.ZERO, 0), shop, true)));
         return true;
     }
 
@@ -101,10 +102,11 @@ public final class ShopInteractionService {
             return true;
         }
 
-        ShopTransaction.executeSellAsync(player, shop, level, java.util.UUID.randomUUID().toString())
+        String transactionId = java.util.UUID.randomUUID().toString();
+        ShopTransaction.executeSellAsync(player, shop, level, transactionId)
                 .whenComplete((result, error) -> player.getServer().execute(() -> sendTransactionResult(player,
                         error == null ? result : new TransactionResult(ShopTransaction.ResultType.RECOVERY_REQUIRED,
-                                "RECOVERY_REQUIRED", java.math.BigDecimal.ZERO, 0), shop, false)));
+                                "tx=" + transactionId, java.math.BigDecimal.ZERO, 0), shop, false)));
         return true;
     }
 
@@ -161,7 +163,7 @@ public final class ShopInteractionService {
             case LEGACY_UNOWNED -> player.sendSystemMessage(Component.literal(
                     "§cThis legacy shop has no owner UUID. Ask an admin to recreate it."));
             case RECOVERY_REQUIRED -> player.sendSystemMessage(Component.literal(
-                    "§cThis transaction requires administrative recovery. Do not retry it."));
+                    "§cThis transaction requires administrative recovery. Do not retry it. §7(" + result.message + ")"));
             default -> player.sendSystemMessage(Component.literal("§cTransaction failed (internal error)."));
         }
     }

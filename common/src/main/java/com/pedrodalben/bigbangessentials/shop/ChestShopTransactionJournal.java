@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 
 /** Small durable saga journal for ChestShop; ambiguous entries stay blocked for admin reconciliation. */
 public final class ChestShopTransactionJournal {
-    enum Status { PENDING, COMPLETED, RECOVERY_REQUIRED }
+    enum Status { PENDING, COMPLETED, CANCELLED, ROLLED_BACK, RECOVERY_REQUIRED }
     record Entry(String operation, String shop, UUID participant, BigDecimalValue price, int quantity,
                  ItemStackSnapshot item, Status status) {}
     record BigDecimalValue(String value) {}
@@ -34,9 +34,23 @@ public final class ChestShopTransactionJournal {
 
     public static ChestShopTransactionJournal getInstance() { return INSTANCE; }
 
+    static boolean blocks(Status status) {
+        return status == Status.PENDING || status == Status.RECOVERY_REQUIRED;
+    }
+
+    static Status statusOf(String status) {
+        return switch (status) {
+            case "COMPLETED" -> Status.COMPLETED;
+            case "CANCELLED" -> Status.CANCELLED;
+            case "ROLLED_BACK" -> Status.ROLLED_BACK;
+            case "RECOVERY_REQUIRED" -> Status.RECOVERY_REQUIRED;
+            default -> Status.PENDING;
+        };
+    }
+
     synchronized boolean hasPending(String shop, UUID participant) {
         load();
-        return entries.values().stream().anyMatch(entry -> entry.status() == Status.PENDING
+        return entries.values().stream().anyMatch(entry -> blocks(entry.status())
                 && entry.shop().equals(shop) && entry.participant().equals(participant));
     }
 
@@ -167,8 +181,7 @@ public final class ChestShopTransactionJournal {
         load();
         Entry entry = entries.get(id);
         if (entry == null) return false;
-        entries.put(id, new Entry(entry.operation(), entry.shop(), entry.participant(), entry.price(), entry.quantity(), entry.item(),
-                "COMPLETED".equals(status) ? Status.COMPLETED : "RECOVERY_REQUIRED".equals(status) ? Status.RECOVERY_REQUIRED : Status.PENDING));
+        entries.put(id, new Entry(entry.operation(), entry.shop(), entry.participant(), entry.price(), entry.quantity(), entry.item(), statusOf(status)));
         return save();
     }
 
