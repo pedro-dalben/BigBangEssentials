@@ -58,6 +58,7 @@ public class NeoForgeEvents {
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
         BigBangEssentials.GameEvents.onServerStopping(event.getServer());
+        com.pedrodalben.bigbangessentials.teleportation.DirectTeleport.RandomTeleportManager.getInstance().onServerStop();
         com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerStop(event.getServer());
     }
 
@@ -97,6 +98,7 @@ public class NeoForgeEvents {
     public static void onServerTick(ServerTickEvent.Post event) {
         var server = event.getServer();
         com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(server);
+        com.pedrodalben.bigbangessentials.teleportation.DirectTeleport.RandomTeleportManager.getInstance().onServerTick(server);
         com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
         com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerTick(server);
         com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().tick();

@@ -25,6 +25,7 @@ public class FabricEvents {
         // Server Tick Event (Task Scheduler + Kit Menu Refresh + RankUp Playtime + Tablist)
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             com.pedrodalben.bigbangessentials.scheduler.TaskScheduler.onServerTick(server);
+            com.pedrodalben.bigbangessentials.teleportation.DirectTeleport.RandomTeleportManager.getInstance().onServerTick(server);
             com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
             com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerTick(server);
             com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().tick();

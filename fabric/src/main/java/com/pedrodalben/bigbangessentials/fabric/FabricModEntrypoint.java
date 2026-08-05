@@ -37,6 +37,7 @@ public class FabricModEntrypoint implements ModInitializer {
 
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
             BigBangEssentials.GameEvents.onServerStopping(server);
+            com.pedrodalben.bigbangessentials.teleportation.DirectTeleport.RandomTeleportManager.getInstance().onServerStop();
             com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerStop(server);
             FabricPlatformProvider.setServer(null);
         });

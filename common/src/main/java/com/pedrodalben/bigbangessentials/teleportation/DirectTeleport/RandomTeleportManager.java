@@ -11,10 +11,13 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ChunkResult;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,6 +25,8 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * RandomTeleportManager — Essentials-inspired random teleport system for NeoForge.
@@ -39,6 +44,12 @@ public class RandomTeleportManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RandomTeleportManager.class);
     private static final Random RANDOM = new Random();
+    private static final int MAX_SEARCHES_PER_TICK = 2;
+    private static final ExecutorService CHUNK_REQUEST_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "BigBangEssentials-RTP-ChunkRequests");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     // Default location name used when no argument is supplied
     private static final String DEFAULT_LOCATION_KEY = "default";
@@ -54,6 +65,12 @@ public class RandomTeleportManager {
 
     // Per-player cooldown tracking (ms timestamps)
     private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
+
+    // All search state is advanced on the server thread; completions re-enter it through server.execute().
+    private final Queue<SearchRequest> searchQueue = new ConcurrentLinkedQueue<>();
+    private final Set<UUID> activePlayers = ConcurrentHashMap.newKeySet();
+    private final Set<CompletableFuture<TeleportLocation>> pendingSearches = ConcurrentHashMap.newKeySet();
+    private final Map<String, Integer> pendingCacheFills = new ConcurrentHashMap<>();
 
     private RandomTeleportManager() {}
 
@@ -88,13 +105,24 @@ public class RandomTeleportManager {
         }
 
         String name = (locationName == null || locationName.isEmpty()) ? resolveDefaultName(targetLevel) : locationName;
+        if (!activePlayers.add(player.getUUID())) {
+            player.sendSystemMessage(MessageUtil.info("commands.bigbangessentials.teleport.misc.tpr_searching"));
+            return CompletableFuture.completedFuture(false);
+        }
         player.sendSystemMessage(MessageUtil.info("commands.bigbangessentials.teleport.misc.tpr_searching"));
 
         CompletableFuture<Boolean> result = new CompletableFuture<>();
         getRandomLocation(targetLevel, name)
                 .thenAccept(loc -> {
                     if (loc == null) {
+                        activePlayers.remove(player.getUUID());
                         player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.misc.tpr_no_safe_location"));
+                        result.complete(false);
+                        return;
+                    }
+
+                    if (player.hasDisconnected()) {
+                        activePlayers.remove(player.getUUID());
                         result.complete(false);
                         return;
                     }
@@ -105,7 +133,15 @@ public class RandomTeleportManager {
 
                     int delayTicks = getTeleportDelaySecs() * 20;
                     TeleportUtil.teleportPlayer(player, loc, delayTicks, false /* we already ensured safety */)
-                            .thenAccept(tpResult -> {
+                            .whenComplete((tpResult, error) -> {
+                                if (error != null || tpResult == null) {
+                                    player.sendSystemMessage(MessageUtil.error(
+                                            "commands.bigbangessentials.teleport.misc.tpr_failed",
+                                            error == null ? "Teleport failed" : error.getMessage()));
+                                    result.complete(false);
+                                    activePlayers.remove(player.getUUID());
+                                    return;
+                                }
                                 if (tpResult.isSuccess()) {
                                     cooldowns.put(player.getUUID(), System.currentTimeMillis());
                                     player.sendSystemMessage(MessageUtil.success(
@@ -127,9 +163,11 @@ public class RandomTeleportManager {
                                             tpResult.getMessage()));
                                     result.complete(false);
                                 }
+                                activePlayers.remove(player.getUUID());
                             });
                 })
                 .exceptionally(ex -> {
+                    activePlayers.remove(player.getUUID());
                     LOGGER.error("RandomTeleport error for {}: {}", player.getName().getString(), ex.getMessage(), ex);
                     player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.misc.tpr_failed", ex.getMessage()));
                     result.complete(false);
@@ -145,19 +183,19 @@ public class RandomTeleportManager {
 
     /**
      * Returns a random safe TeleportLocation for the given named config slot.
-     * Uses cache if available, else tries to find one immediately.
+     * Uses cache if available, else queues a bounded asynchronous search.
      */
     public CompletableFuture<TeleportLocation> getRandomLocation(ServerLevel level, String name) {
         Queue<TeleportLocation> cache = getCache(level, name);
         if (!cache.isEmpty()) {
             return CompletableFuture.completedFuture(cache.poll());
         }
-        // Cache miss — find one now
+        // Cache miss — enqueue a bounded, asynchronous search.
         double[] center = getCenter(level, name);
         double minRange = getMinRange(name);
         double maxRange = getMaxRange(level, name);
         int attempts = getFindAttempts();
-        return attemptFind(level, center[0], center[1], center[2], minRange, maxRange, name, attempts);
+        return enqueueSearch(level, center[0], center[1], center[2], minRange, maxRange, name, attempts, null);
     }
 
     /**
@@ -166,52 +204,108 @@ public class RandomTeleportManager {
     public CompletableFuture<TeleportLocation> getRandomLocation(ServerLevel level,
                                                                   double cx, double cy, double cz,
                                                                   double minRange, double maxRange) {
-        return attemptFind(level, cx, cy, cz, minRange, maxRange, null, getFindAttempts());
+        return enqueueSearch(level, cx, cy, cz, minRange, maxRange, null, getFindAttempts(), null);
     }
 
     // -----------------------------------------------------------------------
     // Internal helpers
     // -----------------------------------------------------------------------
 
-    private CompletableFuture<TeleportLocation> attemptFind(ServerLevel level,
-                                                             double cx, double cy, double cz,
-                                                             double minRange, double maxRange,
-                                                             String locationName,
-                                                             int attemptsLeft) {
-        if (attemptsLeft <= 0) {
-            return CompletableFuture.completedFuture(null);
-        }
+    private CompletableFuture<TeleportLocation> enqueueSearch(ServerLevel level,
+                                                               double cx, double cy, double cz,
+                                                               double minRange, double maxRange,
+                                                               String locationName, int attemptsLeft,
+                                                               String cacheKey) {
+        CompletableFuture<TeleportLocation> result = new CompletableFuture<>();
+        pendingSearches.add(result);
+        searchQueue.add(new SearchRequest(result, level, cx, cy, cz, minRange, maxRange,
+                locationName, Math.max(0, attemptsLeft), cacheKey));
+        return result;
+    }
 
-        double[] offset = randomOffset(minRange, maxRange);
-        double rx = cx + offset[0];
-        double rz = cz + offset[1];
-
-        // Clamp to world border
-        rx = clampToWorldBorder(level, rx, true);
-        rz = clampToWorldBorder(level, rz, false);
-
-        final double finalRx = rx;
-        final double finalRz = rz;
-
-        int chunkX = (int) finalRx >> 4;
-        int chunkZ = (int) finalRz >> 4;
-
-        CompletableFuture<Boolean> checkFuture = isOnlyPreGeneratedChunks()
-                ? isChunkGenerated(level, chunkX, chunkZ)
-                : CompletableFuture.completedFuture(true);
-
-        return checkFuture.thenCompose(generated -> {
-            if (!generated) {
-                return attemptFind(level, cx, cy, cz, minRange, maxRange, locationName, attemptsLeft - 1);
+    /** Called once per server tick by both loader integrations. */
+    public void onServerTick(MinecraftServer server) {
+        for (int started = 0; started < MAX_SEARCHES_PER_TICK; started++) {
+            SearchRequest request = searchQueue.poll();
+            if (request == null) return;
+            if (request.result().isDone()) continue;
+            if (request.attemptsLeft() <= 0) {
+                completeSearch(request, null);
+                continue;
             }
-            return CompletableFuture.supplyAsync(() -> findSafeY(level, finalRx, finalRz, locationName), level.getServer())
-                    .thenCompose(loc -> {
-                        if (loc != null && isValid(loc, locationName)) {
-                            return CompletableFuture.completedFuture(loc);
+            startSearchAttempt(server, request);
+        }
+    }
+
+    public void onServerStop() {
+        SearchRequest request;
+        while ((request = searchQueue.poll()) != null) {
+            completeSearch(request, null);
+        }
+        pendingSearches.forEach(result -> result.complete(null));
+        pendingSearches.clear();
+        activePlayers.clear();
+        pendingCacheFills.clear();
+    }
+
+    private void startSearchAttempt(MinecraftServer server, SearchRequest request) {
+        double[] offset = randomOffset(request.minRange(), request.maxRange());
+        double x = clampToWorldBorder(request.level(), request.cx() + offset[0], true);
+        double z = clampToWorldBorder(request.level(), request.cz() + offset[1], false);
+        int chunkX = (int) x >> 4;
+        int chunkZ = (int) z >> 4;
+
+        CompletableFuture<Boolean> generated = isOnlyPreGeneratedChunks()
+                ? isChunkGenerated(request.level(), chunkX, chunkZ)
+                : CompletableFuture.completedFuture(true);
+        generated.whenComplete((available, error) -> server.execute(() -> {
+            if (request.result().isDone()) return;
+            if (error != null || !Boolean.TRUE.equals(available)) {
+                retrySearch(server, request);
+                return;
+            }
+
+            requestChunkAsync(request.level(), chunkX, chunkZ)
+                    .whenComplete((chunkResult, chunkError) -> server.execute(() -> {
+                        if (request.result().isDone()) return;
+                        ChunkAccess chunk = chunkResult == null ? null : chunkResult.orElse(null);
+                        if (chunkError != null || !(chunk instanceof LevelChunk)) {
+                            retrySearch(server, request);
+                            return;
                         }
-                        return attemptFind(level, cx, cy, cz, minRange, maxRange, locationName, attemptsLeft - 1);
-                    });
-        });
+
+                        TeleportLocation location = findSafeY(request.level(), x, z, request.locationName());
+                        if (location != null && isValid(location, request.locationName())) {
+                            completeSearch(request, location);
+                        } else {
+                            retrySearch(server, request);
+                        }
+                    }));
+        }));
+    }
+
+    private void retrySearch(MinecraftServer server, SearchRequest request) {
+        if (request.attemptsLeft() <= 1) {
+            completeSearch(request, null);
+            return;
+        }
+        searchQueue.add(request.withAttemptsLeft(request.attemptsLeft() - 1));
+    }
+
+    private void completeSearch(SearchRequest request, TeleportLocation location) {
+        pendingSearches.remove(request.result());
+        if (request.cacheKey() != null) {
+            if (location != null) getCache(request.level(), request.locationName()).add(location);
+            pendingCacheFills.computeIfPresent(request.cacheKey(), (key, count) -> count <= 1 ? null : count - 1);
+        }
+        request.result().complete(location);
+    }
+
+    private CompletableFuture<ChunkResult<ChunkAccess>> requestChunkAsync(ServerLevel level, int chunkX, int chunkZ) {
+        boolean allowGeneration = !isOnlyPreGeneratedChunks();
+        return CompletableFuture.supplyAsync(
+                () -> level.getChunkSource().getChunkFuture(chunkX, chunkZ, ChunkStatus.FULL, allowGeneration),
+                CHUNK_REQUEST_EXECUTOR).thenCompose(future -> future);
     }
 
     /**
@@ -220,11 +314,6 @@ public class RandomTeleportManager {
      */
     private TeleportLocation findSafeY(ServerLevel level, double x, double z, String locationName) {
         try {
-            // Force-load the chunk
-            int chunkX = (int) x >> 4;
-            int chunkZ = (int) z >> 4;
-            LevelChunk chunk = level.getChunk(chunkX, chunkZ);
-
             boolean isNether = level.dimensionType().ultraWarm(); // ultrawarm == nether-like
 
             int ix = (int) Math.floor(x);
@@ -388,32 +477,35 @@ public class RandomTeleportManager {
     }
 
     private void prewarmCache(ServerLevel level, String name) {
+        String key = cacheKey(level.dimension().location().toString(), name);
         int threshold = getCacheThreshold();
         int current = getCache(level, name).size();
-        if (current >= threshold) return;
+        int pending = pendingCacheFills.getOrDefault(key, 0);
+        if (current + pending >= threshold) return;
 
-        int toFill = threshold - current;
+        int toFill = threshold - current - pending;
         double[] center = getCenter(level, name);
         double minRange = getMinRange(name);
         double maxRange = getMaxRange(level, name);
+        pendingCacheFills.merge(key, toFill, Integer::sum);
 
         for (int i = 0; i < toFill; i++) {
-            attemptFind(level, center[0], center[1], center[2], minRange, maxRange, name, getFindAttempts())
-                    .thenAccept(loc -> {
-                        if (loc != null) {
-                            getCache(level, name).add(loc);
-                        }
-                    });
+            enqueueSearch(level, center[0], center[1], center[2], minRange, maxRange,
+                    name, getFindAttempts(), key);
         }
     }
 
     public void clearCache() {
         locationCache.clear();
+        pendingCacheFills.clear();
+        searchQueue.removeIf(request -> request.cacheKey() != null);
     }
 
     public void clearCache(String name) {
         String suffix = "\u0000" + name;
         locationCache.keySet().removeIf(key -> key.endsWith(suffix));
+        pendingCacheFills.keySet().removeIf(key -> key.endsWith(suffix));
+        searchQueue.removeIf(request -> request.cacheKey() != null && request.cacheKey().endsWith(suffix));
     }
 
     // -----------------------------------------------------------------------
@@ -636,5 +728,18 @@ public class RandomTeleportManager {
         net.minecraft.world.level.ChunkPos chunkPos = new net.minecraft.world.level.ChunkPos(chunkX, chunkZ);
         return level.getChunkSource().chunkMap.read(chunkPos)
                 .thenApply(opt -> opt.isPresent());
+    }
+
+    private record SearchRequest(CompletableFuture<TeleportLocation> result,
+                                 ServerLevel level,
+                                 double cx, double cy, double cz,
+                                 double minRange, double maxRange,
+                                 String locationName,
+                                 int attemptsLeft,
+                                 String cacheKey) {
+        private SearchRequest withAttemptsLeft(int attempts) {
+            return new SearchRequest(result, level, cx, cy, cz, minRange, maxRange,
+                    locationName, attempts, cacheKey);
+        }
     }
 }
