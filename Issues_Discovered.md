@@ -653,3 +653,18 @@
     Permission Suggestions: When a command is denied, suggest the required permission node in the error message.
     Fine-Grained Command Control: Allow per-argument or per-subcommand permissions (e.g., /home set vs /home delete).
     Custom Permission Conditions: Allow custom logic for permission checks (e.g., based on player stats, inventory, or server state).
+---
+
+- **LuckPerms integration — `registerPermissions()` does not register anything with LuckPerms**
+  *(Discovered: 2026-08-04 — separate issue, not fixed by shutdown fix)*
+
+  **Root cause:** `LuckPermsAdapter.registerPermissions(Set<String>)` only iterates the permission names and logs them. It never calls any LuckPerms API to persist/announce the permissions. LuckPerms does not expose a public "register permission definition" API; it auto-discovers permissions through Verbose / runtime checks. As a result the claim in the log ("Registered X permissions with LuckPerms") is misleading; permissions do **not** appear in the LuckPerms web editor or autocomplete purely because of this method.
+
+  **Scope:** Independent of the shutdown deadlock fix. Not patched here to avoid mixing concerns.
+
+  **Suggested fix (future):**
+  - Either remove the misleading log messages and document that BigBangEssentials permissions are auto-discovered by LuckPerms Verbose,
+  - Or, if explicit registration is desired, write a definition node on a well-known group (e.g. `default`) using `api.getGroupManager().getGroup("default").data().add(Node.builder("bigbangessentials.<perm>").build())` followed by `saveGroup` — though this would actually grant the permission, which is undesirable for definitions only.
+  - Long-term: contribute a `PermissionDefinitionRegistry` to LuckPerms upstream.
+
+  **Risk of leaving unfixed:** Cosmetic only (misleading log). No functional impact on permission checks, prefix/suffix, primary group, or cache invalidation.

@@ -40,6 +40,11 @@ public class BigBangEssentials {
         return serverStopping;
     }
 
+    /** Test-only setter. Production code must never call this. */
+    public static void setServerStoppingForTest(boolean value) {
+        serverStopping = value;
+    }
+
     public static void init() {
         instance = new BigBangEssentials();
     }

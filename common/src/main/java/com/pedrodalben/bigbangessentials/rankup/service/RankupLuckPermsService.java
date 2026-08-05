@@ -144,7 +144,11 @@ public class RankupLuckPermsService {
                     return ladderGroups.contains(groupName.toLowerCase());
                 });
 
+                if (com.pedrodalben.bigbangessentials.BigBangEssentials.isServerStopping()) {
+                    return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("Server is shutting down"));
+                }
                 return api.getUserManager().saveUser(user)
+                        .orTimeout(USER_LOAD_TIMEOUT, TimeUnit.SECONDS)
                         .thenApply(v -> RankupGroupMutationResult.ok())
                         .exceptionally(e -> {
                             LOGGER.error("Failed to save LuckPerms user {}", uuid, e);
@@ -198,7 +202,11 @@ public class RankupLuckPermsService {
                     user.setPrimaryGroup(fallbackGroup);
                 }
 
+                if (com.pedrodalben.bigbangessentials.BigBangEssentials.isServerStopping()) {
+                    return CompletableFuture.completedFuture(RankupGroupMutationResult.failure("Server is shutting down"));
+                }
                 return api.getUserManager().saveUser(user)
+                        .orTimeout(USER_LOAD_TIMEOUT, TimeUnit.SECONDS)
                         .thenApply(v -> RankupGroupMutationResult.ok())
                         .exceptionally(e -> {
                             LOGGER.error("Failed to save LuckPerms user during revert {}", uuid, e);
@@ -223,6 +231,9 @@ public class RankupLuckPermsService {
     }
 
     private ExternalPermissionAdapter getExternalPermissionAdapter() {
+        if (com.pedrodalben.bigbangessentials.BigBangEssentials.isServerStopping()) {
+            return null;
+        }
         ExternalPermissionAdapter adapter = PermissionAPI.getExternalAdapter();
         if (adapter != null) {
             return adapter;

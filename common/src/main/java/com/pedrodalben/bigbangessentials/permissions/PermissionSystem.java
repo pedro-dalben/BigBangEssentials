@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 public class PermissionSystem {
     private static final Logger LOGGER = LoggerFactory.getLogger(PermissionSystem.class);
     private static boolean initialized = false;
+    private static boolean shutdownCalled = false;
     private static PermissionManager manager;
     private static boolean usingExternal = false;
 
@@ -305,15 +306,36 @@ public class PermissionSystem {
     }
 
     /**
-     * Shutdown the permission system (save data).
+     * Shutdown the permission system (save data). Idempotent.
      */
     public static void shutdown() {
+        if (shutdownCalled) {
+            return;
+        }
+        shutdownCalled = true;
         if (!initialized) {
             return;
         }
 
         try {
             LOGGER.info("Shutting down permission system...");
+
+            // Close the external adapter (e.g. LuckPerms) BEFORE the engine shuts down
+            // so no listener callback remains attached to its worker pool.
+            ExternalPermissionAdapter adapter = null;
+            try {
+                adapter = PermissionAPI.getExternalAdapter();
+            } catch (Throwable t) {
+                LOGGER.debug("Could not obtain external adapter during shutdown: {}", t.getMessage());
+            }
+            if (adapter instanceof LuckPermsAdapter lp) {
+                try {
+                    lp.shutdown();
+                } catch (Exception e) {
+                    LOGGER.error("Failed to shutdown LuckPerms adapter", e);
+                }
+            }
+
             // Save internal manager data
             if (manager != null) {
                 try {

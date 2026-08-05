@@ -40,6 +40,18 @@ dependencies {
     modCompileOnly 'net.luckperms:api:5.4'
     modCompileOnly 'curse.maven:architectury-api-419699:5786327' // Architectury API Fabric
     modCompileOnly "maven.modrinth:cobblemon:${cobblemon_fabric_version_id}"
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+    testImplementation project(':common')
+    testCompileOnly 'net.luckperms:api:5.4'
+    testRuntimeOnly 'net.luckperms:api:5.4'
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
 }
 
 // Copy build_number.txt to resources

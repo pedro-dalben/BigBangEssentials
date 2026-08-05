@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.permissions;
 
 import com.pedrodalben.bigbangessentials.api.permissions.PermissionRegistry;
+import com.pedrodalben.bigbangessentials.BigBangEssentials;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -8,6 +9,8 @@ import java.util.concurrent.TimeUnit;
 import com.pedrodalben.bigbangessentials.util.Platform;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.event.EventSubscription;
+import net.luckperms.api.event.user.UserDataRecalculateEvent;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.query.QueryOptions;
 import net.luckperms.api.util.Tristate;
@@ -21,7 +24,9 @@ import org.slf4j.LoggerFactory;
 public class LuckPermsAdapter implements ExternalPermissionAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuckPermsAdapter.class);
     private final boolean luckPermsLoaded;
-    private LuckPerms luckPermsApi;
+    private volatile LuckPerms luckPermsApi;
+    private volatile EventSubscription<UserDataRecalculateEvent> eventSubscription;
+    private volatile boolean shutdownRequested = false;
     private static final long USER_LOAD_TIMEOUT = 5; // seconds
 
     public LuckPermsAdapter() {
@@ -33,8 +38,16 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
         }
     }
 
+    /** Test-only constructor. */
+    public LuckPermsAdapter(boolean loadedForTest) {
+        this.luckPermsLoaded = loadedForTest;
+    }
+
     @Override
     public boolean hasPermission(UUID uuid, String permission) {
+        if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+            return false;
+        }
         if (!luckPermsLoaded) {
             return false;
         }
@@ -95,6 +108,9 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
 
     @Override
     public boolean hasExactPermission(UUID uuid, String permission) {
+        if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+            return false;
+        }
         if (!luckPermsLoaded || permission == null || permission.isBlank()) {
             return false;
         }
@@ -179,6 +195,9 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
 
     @Override
     public String getPrefix(UUID uuid) {
+        if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+            return null;
+        }
         LOGGER.debug("=== LUCKPERMS PREFIX REQUEST ===");
         LOGGER.debug("UUID: {}", uuid);
         LOGGER.debug("LuckPerms loaded: {}", luckPermsLoaded);
@@ -266,6 +285,9 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
 
     @Override
     public String getSuffix(UUID uuid) {
+        if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+            return null;
+        }
         if (!luckPermsLoaded) {
             return null;
         }
@@ -321,6 +343,9 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
 
     @Override
     public String getPrimaryGroup(UUID uuid) {
+        if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+            return null;
+        }
         if (!luckPermsLoaded) {
             return null;
         }
@@ -357,6 +382,9 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
 
     @Override
     public java.util.Set<String> getInheritedGroups(UUID uuid) {
+        if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+            return java.util.Set.of();
+        }
         if (!luckPermsLoaded) {
             return java.util.Set.of();
         }
@@ -415,6 +443,9 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
     
     @Override
     public boolean isAvailable() {
+        if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+            return false;
+        }
         LOGGER.debug("LuckPerms availability check: loaded={}, api={}",
             luckPermsLoaded, (luckPermsApi != null));
         return luckPermsLoaded;
@@ -427,6 +458,10 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
      * @param permissions Set of permission nodes to register
      */
     public void registerPermissions(java.util.Set<String> permissions) {
+        if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+            LOGGER.debug("Cannot register permissions - adapter shutting down");
+            return;
+        }
         if (!luckPermsLoaded) {
             LOGGER.debug("Cannot register permissions - LuckPerms not available");
             return;
@@ -465,10 +500,16 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
      * @return LuckPerms API instance or null if not available
      */
     public LuckPerms getApi() {
+        if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+            return null;
+        }
         return resolveApi();
     }
 
     public boolean setupPlayerAsVip(UUID uuid, String playerName) {
+        if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+            return false;
+        }
         if (!luckPermsLoaded) return false;
         LuckPerms api = resolveApi();
         if (api == null) return false;
@@ -489,6 +530,9 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
         if (!luckPermsLoaded) {
             return null;
         }
+        if (shutdownRequested) {
+            return null;
+        }
 
         if (luckPermsApi != null) {
             return luckPermsApi;
@@ -498,25 +542,15 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
             if (luckPermsApi != null) {
                 return luckPermsApi;
             }
+            if (shutdownRequested) {
+                return null;
+            }
 
             try {
                 luckPermsApi = LuckPermsProvider.get();
                 LOGGER.info("LuckPerms API resolved successfully");
                 
-                try {
-                    luckPermsApi.getEventBus().subscribe(net.luckperms.api.event.user.UserDataRecalculateEvent.class, e -> {
-                        UUID uuid = e.getUser().getUniqueId();
-                        com.pedrodalben.bigbangessentials.teleportation.HomeManager.getInstance().invalidateMaxHomesCache(uuid);
-                        com.pedrodalben.bigbangessentials.teleportation.Warp.WarpManager.getInstance().invalidateMaxPlayerWarpsCache(uuid);
-                        try {
-                            com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().invalidatePlayerData(uuid);
-                        } catch (Exception ignored) {}
-                        LOGGER.debug("Invalidated home/warp/rankup cache for user {} due to LuckPerms recalculation", uuid);
-                    });
-                    LOGGER.info("Successfully registered LuckPerms event listener for cache invalidation");
-                } catch (Exception e) {
-                    LOGGER.debug("Could not register LuckPerms event listener for cache invalidation: {}", e.getMessage());
-                }
+                registerEventBusListenerForTest(luckPermsApi);
             } catch (IllegalStateException e) {
                 LOGGER.debug("LuckPerms API is not ready yet: {}", e.getMessage());
             } catch (Exception e) {
@@ -524,6 +558,85 @@ public class LuckPermsAdapter implements ExternalPermissionAdapter {
             }
 
             return luckPermsApi;
+        }
+    }
+
+    /**
+     * Shutdown the adapter: unsubscribe the LuckPerms event listener and release the cached API
+     * reference. Must be called BEFORE LuckPerms starts its own shutdown so that no listener
+     * callback is left dangling into theLuckPerms worker pool. Idempotent.
+     */
+    public synchronized void shutdown() {
+        if (shutdownRequested) {
+            return;
+        }
+        shutdownRequested = true;
+
+        EventSubscription<UserDataRecalculateEvent> sub = eventSubscription;
+        eventSubscription = null;
+        if (sub != null) {
+            try {
+                if (sub.isActive()) {
+                    sub.close();
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Error closing LuckPerms event subscription: {}", e.getMessage());
+            }
+        }
+
+        luckPermsApi = null;
+        LOGGER.info("LuckPermsAdapter shutdown complete");
+    }
+
+    /** Test-only injection hook. Production code must never call this. */
+    public void setLuckPermsApiForTest(LuckPerms api) {
+        this.luckPermsApi = api;
+        this.shutdownRequested = false;
+        this.eventSubscription = null;
+    }
+
+    /** Test-only accessor. */
+    public EventSubscription<UserDataRecalculateEvent> getEventSubscriptionForTest() {
+        return eventSubscription;
+    }
+
+    /** Test-only accessor. */
+    public boolean isShutdownRequestedForTest() {
+        return shutdownRequested;
+    }
+
+    /** Public-visible (test-only) hook that registers the event-bus listener against an injected API. */
+    public void registerEventBusListenerForTest(LuckPerms api) {
+        if (api == null || shutdownRequested || BigBangEssentials.isServerStopping()) {
+            return;
+        }
+        try {
+            eventSubscription = api.getEventBus().subscribe(
+                UserDataRecalculateEvent.class, e -> {
+                    if (shutdownRequested || BigBangEssentials.isServerStopping()) {
+                        return;
+                    }
+                    UUID uuid = e.getUser().getUniqueId();
+                    try {
+                        com.pedrodalben.bigbangessentials.teleportation.HomeManager.getInstance().invalidateMaxHomesCache(uuid);
+                    } catch (Exception ex) {
+                        LOGGER.debug("Home cache invalidation failed for {}: {}", uuid, ex.getMessage());
+                    }
+                    try {
+                        com.pedrodalben.bigbangessentials.teleportation.Warp.WarpManager.getInstance().invalidateMaxPlayerWarpsCache(uuid);
+                    } catch (Exception ex) {
+                        LOGGER.debug("Warp cache invalidation failed for {}: {}", uuid, ex.getMessage());
+                    }
+                    try {
+                        com.pedrodalben.bigbangessentials.rankup.RankupManager.getInstance().invalidatePlayerData(uuid);
+                    } catch (Exception ex) {
+                        LOGGER.debug("Rankup cache invalidation failed for {}: {}", uuid, ex.getMessage());
+                    }
+                    LOGGER.debug("Invalidated home/warp/rankup cache for user {} due to LuckPerms recalculation", uuid);
+                });
+            LOGGER.info("Successfully registered LuckPerms event listener for cache invalidation");
+        } catch (Exception e) {
+            LOGGER.debug("Could not register LuckPerms event listener for cache invalidation: {}", e.getMessage());
         }
     }
 }
