@@ -99,6 +99,7 @@ public class NeoForgeMenuContainer extends AbstractContainerMenu {
     }
 
     private void handleMenuSlotClick(ServerPlayer player, int slotId, MenuClickType clickType) {
+        if (session.isClosed()) return;
         Optional<MenuDefinition> menuOpt = MenuSystem.getInstance().getMenuService().getMenu(session.getMenuId());
         if (menuOpt.isEmpty()) return;
 

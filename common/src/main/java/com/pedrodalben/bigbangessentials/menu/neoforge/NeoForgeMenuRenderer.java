@@ -46,9 +46,10 @@ public class NeoForgeMenuRenderer {
         
         SimpleContainer inv = container.getMenuInventory();
         inv.clearContent();
-
-        // Clear and render paginated items first if enabled
         session.getSlotPlaceholderOverrides().clear();
+
+        renderStaticPage(player, session, menu, context);
+
         if (menu.pagination() != null && menu.pagination().enabled()) {
             String source = menu.pagination().source();
             com.pedrodalben.bigbangessentials.menu.pagination.MenuDataProvider provider = 
@@ -59,62 +60,31 @@ public class NeoForgeMenuRenderer {
                 int pageIdx = session.getCurrentPageIndex();
                 com.pedrodalben.bigbangessentials.menu.pagination.PaginationRequest request = 
                     new com.pedrodalben.bigbangessentials.menu.pagination.PaginationRequest(pageIdx, contentSlotsSize);
-                
+
                 try {
-                    com.pedrodalben.bigbangessentials.menu.pagination.MenuDataResult result = 
-                        awaitStage(provider.provide(player, context, request), player, "pagination provider '" + source + "'");
-                    
-                    if (result != null && result.items() != null) {
-                        List<?> items = result.items();
-                        for (int i = 0; i < contentSlotsSize; i++) {
-                            if (i >= items.size()) break;
-                            
-                            int slot = menu.pagination().contentSlots().get(i);
-                            if (slot >= 0 && slot < inv.getContainerSize()) {
-                                Object rawItemData = items.get(i);
-                                if (!(rawItemData instanceof Map<?, ?>)) {
-                                    LOGGER.error("Ignoring invalid paginated item at index {} from '{}': {}",
-                                        i, source, rawItemData == null ? "null" : rawItemData.getClass().getName());
-                                    continue;
-                                }
-                                Map<?, ?> itemData = (Map<?, ?>) rawItemData;
-                                Map<String, String> stringOverrides = new java.util.HashMap<>();
-                                for (Map.Entry<?, ?> entry : itemData.entrySet()) {
-                                    if (entry.getKey() != null) {
-                                        stringOverrides.put(String.valueOf(entry.getKey()),
-                                            entry.getValue() != null ? entry.getValue().toString() : "");
-                                    }
-                                }
-                                
-                                session.getSlotPlaceholderOverrides().put(slot, stringOverrides);
-                                MenuItemDefinition template = menu.pagination().dynamicItemTemplate();
-                                
-                                Map<String, String> mergedOverrides = new java.util.HashMap<>();
-                                if (context.placeholderOverrides() != null) {
-                                    mergedOverrides.putAll(context.placeholderOverrides());
-                                }
-                                mergedOverrides.putAll(stringOverrides);
-                                
-                                MenuContext itemContext = new MenuContext(
-                                    context.playerId(), context.locale(), context.values(),
-                                    mergedOverrides, context.sourceModule(), context.sourceCommand(),
-                                    context.correlationId()
-                                );
-                                
-                                if (checkPermissionSpec(template.viewPermission(), player, itemContext) &&
-                                    checkConditions(template.renderConditions(), player, itemContext)) {
-                                    ItemStack stack = buildItemStack(template, player, itemContext);
-                                    inv.setItem(slot, stack);
-                                }
-                            }
+                    CompletionStage<com.pedrodalben.bigbangessentials.menu.pagination.MenuDataResult> dataStage = provider.provide(player, context, request);
+                    if (dataStage == null) return;
+                    long revision = session.getRevision();
+                    String pageId = session.getCurrentPageId();
+                    dataStage.whenComplete((result, error) -> player.getServer().execute(() -> {
+                        if (!isCurrentRender(player, session, menu, pageId, pageIdx, revision)) return;
+                        if (error != null) {
+                            LOGGER.error("Failed to render paginated menu items from '{}'", source, error);
+                            return;
                         }
-                    }
+                        applyPaginatedItems(player, session, menu, context, result, source);
+                    }));
                 } catch (Exception e) {
-                    LOGGER.error("Failed to render paginated menu items: " + e.getMessage(), e);
+                    LOGGER.error("Failed to start paginated menu provider '{}'", source, e);
                 }
             }
         }
+    }
 
+    private void renderStaticPage(ServerPlayer player, MenuSession session, MenuDefinition menu, MenuContext context) {
+        NeoForgeMenuContainer container = (NeoForgeMenuContainer) session.getContainerMenu();
+        if (container == null) return;
+        SimpleContainer inv = container.getMenuInventory();
         MenuPageDefinition page = menu.pages().get(session.getCurrentPageId());
         if (page != null) {
             page.items().forEach((id, itemDef) -> {
@@ -135,6 +105,63 @@ public class NeoForgeMenuRenderer {
                     }
                 }
             });
+        }
+    }
+
+    private boolean isCurrentRender(ServerPlayer player, MenuSession session, MenuDefinition menu,
+                                    String pageId, int pageIndex, long revision) {
+        return !session.isClosed()
+            && session.getRevision() == revision
+            && menu.id().equals(session.getMenuId())
+            && pageId.equals(session.getCurrentPageId())
+            && session.getCurrentPageIndex() == pageIndex
+            && session.getContainerMenu() instanceof NeoForgeMenuContainer
+            && session.getContainerMenu() == player.containerMenu;
+    }
+
+    private void applyPaginatedItems(ServerPlayer player, MenuSession session, MenuDefinition menu, MenuContext context,
+                                     com.pedrodalben.bigbangessentials.menu.pagination.MenuDataResult result, String source) {
+        NeoForgeMenuContainer container = (NeoForgeMenuContainer) session.getContainerMenu();
+        if (container == null || result == null || result.items() == null) return;
+        SimpleContainer inv = container.getMenuInventory();
+        for (int slot : menu.pagination().contentSlots()) {
+            if (slot >= 0 && slot < inv.getContainerSize()) {
+                inv.setItem(slot, ItemStack.EMPTY);
+                session.getSlotPlaceholderOverrides().remove(slot);
+            }
+        }
+
+        List<?> items = result.items();
+        int contentSlotsSize = menu.pagination().contentSlots().size();
+        for (int i = 0; i < contentSlotsSize && i < items.size(); i++) {
+            int slot = menu.pagination().contentSlots().get(i);
+            if (slot < 0 || slot >= inv.getContainerSize()) continue;
+            Object rawItemData = items.get(i);
+            if (!(rawItemData instanceof Map<?, ?> itemData)) {
+                LOGGER.error("Ignoring invalid paginated item at index {} from '{}': {}",
+                    i, source, rawItemData == null ? "null" : rawItemData.getClass().getName());
+                continue;
+            }
+
+            Map<String, String> stringOverrides = new HashMap<>();
+            for (Map.Entry<?, ?> entry : itemData.entrySet()) {
+                if (entry.getKey() != null) {
+                    stringOverrides.put(String.valueOf(entry.getKey()), entry.getValue() == null ? "" : entry.getValue().toString());
+                }
+            }
+            session.getSlotPlaceholderOverrides().put(slot, stringOverrides);
+            MenuItemDefinition template = menu.pagination().dynamicItemTemplate();
+            Map<String, String> mergedOverrides = new HashMap<>();
+            if (context.placeholderOverrides() != null) mergedOverrides.putAll(context.placeholderOverrides());
+            mergedOverrides.putAll(stringOverrides);
+            MenuContext itemContext = new MenuContext(
+                context.playerId(), context.locale(), context.values(), mergedOverrides,
+                context.sourceModule(), context.sourceCommand(), context.correlationId()
+            );
+            if (checkPermissionSpec(template.viewPermission(), player, itemContext)
+                && checkConditions(template.renderConditions(), player, itemContext)) {
+                inv.setItem(slot, buildItemStack(template, player, itemContext));
+            }
         }
     }
 
