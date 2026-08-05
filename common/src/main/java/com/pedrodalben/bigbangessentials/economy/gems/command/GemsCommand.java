@@ -40,6 +40,18 @@ public class GemsCommand {
             .requires(GemsCommand::canUseGemsRoot)
             .executes(ctx -> executeBalanceSelf(ctx));
 
+        // Subcommand: top
+        gemsBuilder.then(net.minecraft.commands.Commands.literal("top")
+            .executes(ctx -> {
+                var player = ctx.getSource().getPlayerOrException();
+                com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
+                    player, "gems_top_menu",
+                    new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, null, null, null)
+                );
+                return 1;
+            })
+        );
+
         // Subcommand: balance / bal (Self or Other)
         gemsBuilder.then(net.minecraft.commands.Commands.literal("balance")
             .requires(GemsCommand::canUseGemsBalanceBranch)
@@ -230,11 +242,21 @@ public class GemsCommand {
 
         dispatcher.register(gemsBuilder);
 
-        // /gemas shares its root with /gemas shop, so it cannot be a redirect.
         for (String alias : aliases) {
             dispatcher.register(net.minecraft.commands.Commands.literal(alias)
                 .requires(GemsCommand::canUseGemsRoot)
-                .executes(GemsCommand::executeBalanceSelf));
+                .executes(GemsCommand::executeBalanceSelf)
+                .then(net.minecraft.commands.Commands.literal("top")
+                    .executes(ctx -> {
+                        var player = ctx.getSource().getPlayerOrException();
+                        com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
+                            player, "gems_top_menu",
+                            new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, null, null, null)
+                        );
+                        return 1;
+                    })
+                )
+            );
         }
     }
 

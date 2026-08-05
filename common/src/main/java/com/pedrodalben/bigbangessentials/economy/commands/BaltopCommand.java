@@ -42,20 +42,24 @@ public class BaltopCommand {
 
     // ── Registration ─────────────────────────────────────────────────────────
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        for (String name : new String[]{"baltop", "balancetop", "btop"}) {
-            dispatcher.register(Commands.literal(name)
-                .requires(src -> {
-                    var player = src.getPlayer();
-                    return player == null
-                        || com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI
-                            .hasPermission(player.getUUID(), "bigbangessentials.economy.baltop");
+        dispatcher.register(Commands.literal("money")
+            .requires(src -> {
+                var player = src.getPlayer();
+                return player == null
+                    || com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI
+                        .hasPermission(player.getUUID(), "bigbangessentials.economy.baltop");
+            })
+            .then(Commands.literal("top")
+                .executes(ctx -> {
+                    var player = ctx.getSource().getPlayerOrException();
+                    com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
+                        player, "money_top_menu",
+                        new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, null, null, null)
+                    );
+                    return 1;
                 })
-                .executes(ctx -> execute(ctx.getSource(), 1))
-                .then(Commands.argument("page", IntegerArgumentType.integer(1))
-                    .executes(ctx -> execute(ctx.getSource(),
-                        IntegerArgumentType.getInteger(ctx, "page"))))
-            );
-        }
+            )
+        );
     }
 
     // ── Command handler ───────────────────────────────────────────────────────
