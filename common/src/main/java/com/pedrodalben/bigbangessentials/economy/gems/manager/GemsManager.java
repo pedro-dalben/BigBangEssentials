@@ -172,6 +172,23 @@ public class GemsManager {
         }
     }
 
+    public Map<UUID, Long> getAllBalances() {
+        DatabaseGemsService database = databaseBackend();
+        if (database != null) return database.getAllBalances();
+        stateLock.readLock().lock();
+        try {
+            Map<UUID, Long> allBalances = new ConcurrentHashMap<>();
+            for (Map.Entry<String, Long> entry : currentState.balances.entrySet()) {
+                try {
+                    allBalances.put(UUID.fromString(entry.getKey()), entry.getValue());
+                } catch (IllegalArgumentException ignored) {}
+            }
+            return allBalances;
+        } finally {
+            stateLock.readLock().unlock();
+        }
+    }
+
     public List<GemReservation> getActiveReservations(UUID playerUuid) {
         DatabaseGemsService database = databaseBackend();
         if (database != null) return database.getActiveReservations(playerUuid);

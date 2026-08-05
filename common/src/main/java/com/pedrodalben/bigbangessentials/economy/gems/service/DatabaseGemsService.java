@@ -174,6 +174,15 @@ public final class DatabaseGemsService implements GemsService {
         return database.getExecutor().queryList("gems.history", "SELECT id,player_uuid,operation_type,amount,reservation_id,actor_uuid,source,purpose,idempotency_key,external_reference,metadata_json,created_at,balance_before,balance_after,held_before,held_after FROM bbe_gem_operations WHERE player_uuid=? ORDER BY created_at DESC LIMIT ? OFFSET ?", s -> { s.setString(1, playerUuid.toString()); s.setInt(2, safeSize); s.setInt(3, (safePage - 1) * safeSize); }, this::mapTransaction).join();
     }
 
+    public Map<UUID, Long> getAllBalances() {
+        return database.getExecutor().queryList("gems.all_balances", "SELECT player_uuid, balance_minor FROM bbe_gem_accounts", null, r -> new AbstractMap.SimpleEntry<>(UUID.fromString(r.getString(1)), r.getLong(2)))
+            .thenApply(list -> {
+                Map<UUID, Long> map = new java.util.concurrent.ConcurrentHashMap<>();
+                for (Map.Entry<UUID, Long> entry : list) map.put(entry.getKey(), entry.getValue());
+                return map;
+            }).join();
+    }
+
     public String format(long amount) {
         String separator = config.display.thousandsSeparator;
         String value = String.format(Locale.US, "%,d", amount).replace(",", separator == null ? "," : separator);
