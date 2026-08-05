@@ -738,4 +738,8 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
             LOGGER.error("Failed to create backup for {}: {}", originalFile.getName(), e.getMessage());
         }
     }
+
+    public UUID getMagnata() {
+        return com.pedrodalben.bigbangessentials.economy.magnata.MagnataManager.getInstance().getCurrentMagnataUuid();
+    }
 }

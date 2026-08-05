@@ -230,6 +230,14 @@ public class DefaultPlaceholderExpansion extends PlaceholderExpansion {
 
         try {
             String prefix = PermissionAPI.getPrefix(player.getUUID());
+            if (prefix == null) prefix = "";
+            com.pedrodalben.bigbangessentials.economy.magnata.MagnataManager mm = com.pedrodalben.bigbangessentials.economy.magnata.MagnataManager.getInstance();
+            if (mm.isEnabled()) {
+                java.util.UUID magnata = mm.getCurrentMagnataUuid();
+                if (magnata != null && magnata.equals(player.getUUID())) {
+                    prefix = "§2[Magnata]§r " + prefix;
+                }
+            }
             if (debugEnabled) {
                 LOGGER.debug(">>> PermissionAPI returned prefix: [{}]", prefix);
                 LOGGER.debug(">>> Returning prefix: [{}]", prefix);
