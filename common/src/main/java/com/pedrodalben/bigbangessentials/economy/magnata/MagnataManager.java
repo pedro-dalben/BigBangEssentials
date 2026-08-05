@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.pedrodalben.bigbangessentials.economy.EconomyPlayerUtil;
 import com.pedrodalben.bigbangessentials.economy.managers.EconomyManager;
 import com.pedrodalben.bigbangessentials.util.ChatComponentUtil;
 import com.pedrodalben.bigbangessentials.util.ResourceUtil;
@@ -243,10 +244,15 @@ public class MagnataManager {
 
         String topName = resolvePlayerName(topUuid);
 
-        // If top player is the current Magnata, update balance and do nothing else
+        // If top player is the current Magnata, update balance and resolve name if it was previously saved as UUID
         if (currentMagnataUuid != null && currentMagnataUuid.equals(topUuid)) {
             this.currentMagnataBalance = maxBalance;
-            this.currentMagnataName = topName;
+            if (currentMagnataName == null || isUuidString(currentMagnataName)) {
+                String resolved = resolvePlayerName(topUuid);
+                if (!isUuidString(resolved)) {
+                    this.currentMagnataName = resolved;
+                }
+            }
             saveHistoryData();
             return;
         }
@@ -299,16 +305,27 @@ public class MagnataManager {
     }
 
     private String resolvePlayerName(UUID uuid) {
+        if (uuid == null) return "Ninguém";
         if (server != null) {
-            ServerPlayer online = server.getPlayerList().getPlayer(uuid);
-            if (online != null) {
-                return online.getGameProfile().getName();
+            Optional<String> nameOpt = EconomyPlayerUtil.getNameByUUID(server, uuid);
+            if (nameOpt.isPresent() && nameOpt.get() != null && !nameOpt.get().isEmpty()) {
+                return nameOpt.get();
             }
         }
-        if (uuid.equals(currentMagnataUuid) && currentMagnataName != null) {
+        if (uuid.equals(currentMagnataUuid) && currentMagnataName != null && !isUuidString(currentMagnataName)) {
             return currentMagnataName;
         }
         return uuid.toString();
+    }
+
+    private boolean isUuidString(String str) {
+        if (str == null || str.length() != 36) return false;
+        try {
+            UUID.fromString(str);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     public boolean isEnabled() {
@@ -320,6 +337,15 @@ public class MagnataManager {
     }
 
     public String getCurrentMagnataName() {
+        if (currentMagnataName == null || isUuidString(currentMagnataName)) {
+            if (currentMagnataUuid != null) {
+                String resolved = resolvePlayerName(currentMagnataUuid);
+                if (!isUuidString(resolved)) {
+                    currentMagnataName = resolved;
+                    saveHistoryData();
+                }
+            }
+        }
         return currentMagnataName;
     }
 
@@ -332,11 +358,15 @@ public class MagnataManager {
     }
 
     public String getMagnataInfoMessage() {
-        if (currentMagnataUuid == null || currentMagnataName == null) {
+        if (currentMagnataUuid == null) {
             return noMagnataMessage;
         }
+        String name = getCurrentMagnataName();
+        if (name == null || isUuidString(name)) {
+            name = currentMagnataUuid.toString();
+        }
         return magnataCommandInfo
-                .replace("%player%", currentMagnataName)
+                .replace("%player%", name)
                 .replace("%balance%", DECIMAL_FORMAT.format(currentMagnataBalance));
     }
 }
