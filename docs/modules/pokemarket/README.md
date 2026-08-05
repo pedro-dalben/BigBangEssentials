@@ -20,7 +20,13 @@ registros pessoais.
 
 O valor de publicação e os limites de preço podem ser digitados no chat
 temporariamente. A entrada é privada, expira automaticamente, aceita `cancel`
-e nunca movimenta Pokémon ou dinheiro sem a confirmação no menu.
+e fecha o menu durante a digitação. Preços inválidos solicitam nova entrada e
+nunca movimentam Pokémon ou dinheiro sem a confirmação no menu.
+
+No menu padrão, **Anunciar venda** usa dinheiro e **Anunciar troca** abre os
+requisitos de troca sem pedir preço. Menus customizados antigos são preservados
+pela migração: confirme que `party`/`pc` usam `mode: money` e `trade_party` usa
+`mode: trade` antes de recarregar os menus.
 
 Os menus padrão são copiados para `config/bigbangessentials/menus/` somente
 quando ainda não existem e podem ser customizados e recarregados com
