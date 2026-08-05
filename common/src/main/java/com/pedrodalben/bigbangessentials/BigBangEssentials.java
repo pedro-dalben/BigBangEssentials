@@ -317,6 +317,7 @@ public class BigBangEssentials {
             try {
                 LOGGER.info("⚙ Initializing New Menu System...");
                 com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().initialize();
+                new com.pedrodalben.bigbangessentials.menu.integration.economy.EconomyMenuIntegration().initialize();
                 LOGGER.info("✓ New Menu System initialized");
             } catch (Exception e) {
                 LOGGER.error("✗ Menu System failed to initialize: {}", e.getMessage(), e);
@@ -540,6 +541,13 @@ public class BigBangEssentials {
                 LOGGER.error("Failed to apply player nicknames on server start", e);
             }
 
+            // Initialize MagnataManager
+            try {
+                com.pedrodalben.bigbangessentials.economy.magnata.MagnataManager.getInstance().init(server);
+            } catch (Exception e) {
+                LOGGER.error("Failed to initialize MagnataManager", e);
+            }
+
             // Initialize Tablist system
             if (ModuleManager.getInstance().prepare("tablist")) try {
                 com.pedrodalben.bigbangessentials.tablist.TablistModule tablist = new com.pedrodalben.bigbangessentials.tablist.TablistModule();
@@ -577,6 +585,7 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.chat.MsgToggleManager.refreshFromDatabase(player);
                 com.pedrodalben.bigbangessentials.chat.SocialSpyManager.refreshFromDatabase(player);
                 com.pedrodalben.bigbangessentials.tags.TagManager.getInstance().loadSelectedTagNameAsync(player.getUUID());
+                com.pedrodalben.bigbangessentials.economy.magnata.MagnataManager.getInstance().onPlayerJoin(player, player.getServer());
                 if (ModuleManager.getInstance().isActive("pokemarket") && com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager.getInstance().isInitialized()) {
                     var notifications = com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager.getInstance().notificationRepository();
                     notifications.markDelivered(player.getUUID()).thenCompose(ignored -> notifications.unread(player.getUUID())).thenAccept(count -> {
@@ -726,6 +735,13 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.chat.AfkManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown AFK Manager", e);
+            }
+
+            try {
+                LOGGER.info("Shutting down Magnata Manager...");
+                com.pedrodalben.bigbangessentials.economy.magnata.MagnataManager.getInstance().shutdown();
+            } catch (Exception e) {
+                LOGGER.error("Failed to shutdown Magnata Manager", e);
             }
 
             // Shutdown Moderation Managers
