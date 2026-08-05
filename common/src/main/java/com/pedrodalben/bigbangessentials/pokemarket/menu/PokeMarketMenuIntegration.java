@@ -17,6 +17,7 @@ import com.pedrodalben.bigbangessentials.pokemarket.model.PokeMarketNotification
 import com.pedrodalben.bigbangessentials.pokemarket.model.ListingSearch;
 import com.pedrodalben.bigbangessentials.pokemarket.service.MarketPricingService;
 import com.pedrodalben.bigbangessentials.rankup.admin.RankupAdminChatInputHandler;
+import com.pedrodalben.bigbangessentials.menu.model.MenuCloseReason;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.math.BigDecimal;
@@ -170,16 +171,17 @@ public final class PokeMarketMenuIntegration {
             if (player == null || rawUuid == null) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Pokémon indisponível"));
             UUID pokemon;
             try { pokemon = UUID.fromString(rawUuid); } catch (IllegalArgumentException e) { return CompletableFuture.completedFuture(ActionExecutionResult.failed("UUID inválido")); }
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§eDigite o preço no chat ou §ccancel§e. O anúncio só será criado após a confirmação no menu."));
-            RankupAdminChatInputHandler.getInstance().request(player, "§ePreço: ", RankupAdminChatInputHandler.InputType.DOUBLE, rawPrice -> {
-                BigDecimal price;
-                try { price = MarketPricingService.normalize(new BigDecimal(rawPrice)); }
-                catch (Exception e) { player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cPreço inválido: " + e.getMessage())); return; }
+            closeCurrentMenu(player, context.menu().id());
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§eDigite o preço no chat ou §ccancel§e. O anúncio só será criado após a confirmação."));
+            requestPrice(player, price -> {
                 Map<String, Object> values = new HashMap<>();
                 values.put("pokemon_uuid", pokemon.toString());
                 values.put("price", price.toPlainString());
                 MenuContext next = new MenuContext(player.getUUID(), "pt_BR", values, null, "pokemarket", "sell", UUID.randomUUID());
-                MenuSystem.getInstance().getMenuService().openMenu(player, "pokemarket_sell_confirm", next);
+                MenuSystem.getInstance().getMenuService().openMenu(player, "pokemarket_sell_confirm", next)
+                    .thenAccept(result -> {
+                        if (!result.success()) player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cNão foi possível abrir a confirmação: " + result.error()));
+                    });
             });
             return CompletableFuture.completedFuture(ActionExecutionResult.success());
         }
@@ -371,12 +373,12 @@ public final class PokeMarketMenuIntegration {
         @Override public String type() { return "pokemarket_filter_price"; }
         @Override public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
             String bound = context.param("bound", String.class);
+            closeCurrentMenu(context.player(), context.menu().id());
             context.player().sendSystemMessage(net.minecraft.network.chat.Component.literal("§eDigite o preço " + ("max".equals(bound) ? "máximo" : "mínimo") + " ou §ccancel§e."));
-            RankupAdminChatInputHandler.getInstance().request(context.player(), "§6Valor: ", RankupAdminChatInputHandler.InputType.DOUBLE, raw -> {
-                try {
-                    BigDecimal price = MarketPricingService.normalize(new BigDecimal(raw)); Map<String, Object> values = copyValues(context.context());
-                    values.put("max".equals(bound) ? "max_price" : "min_price", price.toPlainString()); openBrowse(context.player(), context.context(), values);
-                } catch (Exception e) { context.player().sendSystemMessage(net.minecraft.network.chat.Component.literal("§cPreço inválido: " + e.getMessage())); }
+            requestPrice(context.player(), price -> {
+                Map<String, Object> values = copyValues(context.context());
+                values.put("max".equals(bound) ? "max_price" : "min_price", price.toPlainString());
+                openBrowse(context.player(), context.context(), values);
             });
             return CompletableFuture.completedFuture(ActionExecutionResult.success());
         }
@@ -497,7 +499,8 @@ public final class PokeMarketMenuIntegration {
                 if (found.isEmpty()) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Anúncio não encontrado"));
                 ListingRecord row = found.get();
                 Map<String, Object> values = new HashMap<>();
-                values.put("listing_id", row.id().toString()); values.put("species", row.species()); values.put("seller", row.sellerName());
+                values.put("listing_id", row.id().toString()); values.put("seller_uuid", row.seller().toString());
+                values.put("species", row.species()); values.put("seller", row.sellerName());
                 values.put("level", row.level()); values.put("shiny", row.shiny() ? "Sim" : "Não"); values.put("perfect_ivs", row.perfectIvs());
                 values.put("price", row.price() == null ? "Troca" : row.price().toPlainString());
                 values.put("listing_kind", row.type() == ListingType.POKEMON_TRADE ? "Troca" : "Venda");
@@ -519,6 +522,7 @@ public final class PokeMarketMenuIntegration {
                 if (found.isEmpty()) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Anúncio não encontrado"));
                 ListingRecord row = found.get();
                 if (row.type() != ListingType.MONEY) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Este anúncio é uma troca"));
+                if (row.seller().equals(context.player().getUUID())) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Você pode visualizar seu anúncio, mas não pode comprá-lo"));
                 Map<String, Object> values = new HashMap<>(); values.put("listing_id", id.toString()); values.put("species", row.species());
                 values.put("price", row.price() == null ? "-" : row.price().toPlainString()); values.put("seller", row.sellerName());
                 return MenuSystem.getInstance().getMenuService().openMenu(context.player(), "pokemarket_buy_confirm",
@@ -596,12 +600,37 @@ public final class PokeMarketMenuIntegration {
             catch (Exception e) { return CompletableFuture.completedFuture(ActionExecutionResult.failed("Preço inválido: " + e.getMessage())); }
             var ref = PokeMarketManager.getInstance().bridge().findOwnedPokemon(player, pokemon);
             if (ref.isEmpty()) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Pokémon não está mais sob sua posse"));
+            closeCurrentMenu(player, context.menu().id());
             return PokeMarketManager.getInstance().listingService().create(player, ref.get(), price, java.time.Duration.ofDays(3).toMillis())
                 .thenApply(id -> {
                     player.getServer().execute(() -> player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§aAnúncio criado: " + id)));
                     return ActionExecutionResult.success();
-                }).exceptionally(error -> ActionExecutionResult.failed("Falha ao anunciar: " + rootMessage(error)));
+                }).exceptionally(error -> {
+                    String message = "Falha ao anunciar: " + rootMessage(error);
+                    player.getServer().execute(() -> player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§c" + message)));
+                    return ActionExecutionResult.failed(message);
+                });
         }
+    }
+
+    private static void closeCurrentMenu(ServerPlayer player, String menuId) {
+        if (player != null && menuId != null) {
+            MenuSystem.getInstance().getMenuService().closeMenu(player, menuId, MenuCloseReason.PLUGIN_CLOSE);
+        }
+    }
+
+    private static void requestPrice(ServerPlayer player, java.util.function.Consumer<BigDecimal> callback) {
+        RankupAdminChatInputHandler.getInstance().request(player, "§6Valor: ", RankupAdminChatInputHandler.InputType.DOUBLE, raw -> {
+            BigDecimal price;
+            try {
+                price = MarketPricingService.normalize(new BigDecimal(raw));
+            } catch (Exception error) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cPreço inválido: " + error.getMessage()));
+                requestPrice(player, callback);
+                return;
+            }
+            callback.accept(price);
+        });
     }
 
     private static String rootMessage(Throwable error) {
