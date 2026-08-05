@@ -183,7 +183,10 @@ public final class HologramPersistenceService {
      * Force-writes all pending index updates immediately.
      */
     public void flush() {
-        processPendingSaves();
+        if (!pendingSaves.isEmpty()) {
+            pendingSaves.clear();
+            writeIndex();
+        }
     }
 
     /**

@@ -164,7 +164,7 @@ public final class ShopInteractionService {
                     "§cThis legacy shop has no owner UUID. Ask an admin to recreate it."));
             case RECOVERY_REQUIRED -> player.sendSystemMessage(Component.literal(
                     "§cThis transaction requires administrative recovery. Do not retry it. §7(" + result.message + ")"));
-            default -> player.sendSystemMessage(Component.literal("§cTransaction failed (internal error)."));
+            default -> player.sendSystemMessage(Component.literal("§cTransaction could not be completed. Please try again."));
         }
     }
 

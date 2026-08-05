@@ -98,10 +98,7 @@ public final class ShopTransaction {
                         ? EconomyManager.getInstance().debitAsync(buyer.getUUID(), price, financialKey, "ChestShop admin purchase", metadata(transactionId))
                         : EconomyManager.getInstance().commercialTransferAsync(buyer.getUUID(), shop.ownerUUID, price, financialKey, "chestshop");
                 return money.thenCompose(receipt -> {
-                    if (!moneySucceeded(receipt)) {
-                        return journal.checkpointDurable(transactionId, "CANCELLED", "PENDING", "REJECTED", economyError(receipt))
-                                .thenApply(ignored -> economyFailure(receipt, transactionId));
-                    }
+                    if (!moneySucceeded(receipt)) return recordMoneyFailure(journal, transactionId, receipt);
                     return journal.checkpointDurable(transactionId, "MONEY_COMPLETED", "PENDING", "COMPLETED", null)
                             .thenCompose(checkpointed -> {
                         if (!checkpointed) return journal.recoveryDurable(transactionId, "Money committed but checkpoint failed")
@@ -154,8 +151,7 @@ public final class ShopTransaction {
                         ? EconomyManager.getInstance().creditAsync(seller.getUUID(), price, financialKey, "ChestShop admin sale", metadata(transactionId))
                         : EconomyManager.getInstance().commercialTransferAsync(shop.ownerUUID, seller.getUUID(), price, financialKey, "chestshop");
                 return money.thenCompose(receipt -> {
-                    if (!moneySucceeded(receipt)) return journal.checkpointDurable(transactionId, "CANCELLED", "PENDING", "REJECTED", economyError(receipt))
-                            .thenApply(ignored -> economyFailure(receipt, transactionId));
+                    if (!moneySucceeded(receipt)) return recordMoneyFailure(journal, transactionId, receipt);
                     return journal.checkpointDurable(transactionId, "MONEY_COMPLETED", "PENDING", "COMPLETED", null)
                             .thenCompose(checkpointed -> {
                         if (!checkpointed) return journal.recoveryDurable(transactionId, "Money committed but checkpoint failed")
@@ -202,6 +198,31 @@ public final class ShopTransaction {
                     operation, transactionId, checkpointError);
             return CompletableFuture.completedFuture(recovery(transactionId));
         }
+    }
+
+    private static CompletableFuture<TransactionResult> recordMoneyFailure(
+            ChestShopTransactionJournal journal, String transactionId, Object receipt) {
+        String status = economyStatus(receipt);
+        String error = economyError(receipt);
+        if (requiresEconomyReconciliation(receipt)) {
+            LOGGER.error("[ChestShop] Economy transfer requires reconciliation: tx={} status={} error={}",
+                    transactionId, status, error);
+            return journal.recoveryDurable(transactionId, error).thenApply(persisted -> {
+                if (!persisted) LOGGER.error("[ChestShop] Could not persist recovery state: tx={}", transactionId);
+                return recovery(transactionId);
+            });
+        }
+        return journal.checkpointDurable(transactionId, "CANCELLED", "PENDING", "REJECTED", error)
+                .thenApply(cancelled -> {
+                    if (cancelled) {
+                        LOGGER.warn("[ChestShop] Economy transfer cancelled: tx={} status={} error={}",
+                                transactionId, status, error);
+                    } else {
+                        LOGGER.error("[ChestShop] Could not persist cancelled transfer: tx={} status={} error={}",
+                                transactionId, status, error);
+                    }
+                    return classifyEconomyFailure(receipt, transactionId, cancelled);
+                });
     }
 
     private static ItemOutcome applyBuyItems(ServerPlayer buyer, ShopData shop, ServerLevel level, ItemStack template, ItemStack item, BigDecimal price) {
@@ -262,12 +283,26 @@ public final class ShopTransaction {
         return "Unknown economy result";
     }
 
-    private static TransactionResult economyFailure(Object receipt, String transactionId) {
+    private static String economyStatus(Object receipt) {
+        if (receipt instanceof CommercialTransferReceipt commercial) return commercial.status().name();
+        if (receipt instanceof EconomyOperationReceipt economy) return economy.status().name();
+        return "UNKNOWN";
+    }
+
+    static boolean requiresEconomyReconciliation(Object receipt) {
+        return receipt instanceof CommercialTransferReceipt commercial
+                && commercial.status() == CommercialTransferStatus.RECONCILIATION_REQUIRED
+                || receipt instanceof EconomyOperationReceipt economy
+                && economy.status() == EconomyOperationStatus.RECONCILIATION_REQUIRED;
+    }
+
+    static TransactionResult classifyEconomyFailure(Object receipt, String transactionId, boolean cancellationPersisted) {
+        if (!cancellationPersisted || requiresEconomyReconciliation(receipt)) return recovery(transactionId);
         String error = economyError(receipt);
         if (error.contains("Insufficient") || error.equals(CommercialTransferStatus.INSUFFICIENT_FUNDS.name())) return fail(ResultType.NOT_ENOUGH_MONEY);
         if (error.contains("Maximum") || error.equals(CommercialTransferStatus.MAXIMUM_BALANCE.name())) return fail(ResultType.MAXIMUM_BALANCE);
         if (error.contains("IDEMPOTENCY")) return fail(ResultType.IDEMPOTENCY_CONFLICT);
-        return recovery(transactionId);
+        return fail(ResultType.ERROR, "tx=" + transactionId);
     }
 
     private static <T> CompletableFuture<T> onServerThread(ServerPlayer player, Supplier<T> action) {

@@ -1,6 +1,7 @@
 package com.pedrodalben.bigbangessentials.database;
 
 import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
+import com.pedrodalben.bigbangessentials.api.economy.CommercialTransferStatus;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationStatus;
 import com.pedrodalben.bigbangessentials.economy.gems.api.*;
 import com.pedrodalben.bigbangessentials.economy.gems.config.GemConfig;
@@ -85,6 +86,18 @@ class MySqlIntegrationTest {
             assertTrue(crossed.stream().allMatch(java.util.concurrent.CompletableFuture::join));
             assertEquals(new BigDecimal("100.00"), economy.getBalanceDecimal(left));
             assertEquals(new BigDecimal("100.00"), economy.getBalanceDecimal(right));
+
+            String commerceKey = "mysql:commerce:" + left;
+            var commerce = economy.commercialTransfer(left, right, new BigDecimal("12.34"), commerceKey, "chestshop").join();
+            assertEquals(CommercialTransferStatus.COMPLETED, commerce.status());
+            assertEquals(new BigDecimal("87.66"), economy.getBalanceDecimal(left));
+            assertEquals(new BigDecimal("112.34"), economy.getBalanceDecimal(right));
+            assertEquals("COMMERCE_TRANSFER", manager.getExecutor().queryOne("mysql.commerce.type",
+                    "SELECT operation_type FROM bbe_economy_operations WHERE idempotency_key=?",
+                    statement -> statement.setString(1, commerceKey), row -> row.getString(1)).join());
+            assertEquals(32L, manager.getExecutor().queryOne("mysql.commerce.type.length",
+                    "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bbe_economy_operations' AND COLUMN_NAME='operation_type'",
+                    null, row -> row.getLong(1)).join());
 
             GemConfig gemsConfig = new GemConfig();
             gemsConfig.balances.startingBalance = 0;
