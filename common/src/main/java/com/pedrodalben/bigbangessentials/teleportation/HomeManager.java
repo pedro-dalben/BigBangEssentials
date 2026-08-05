@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import com.pedrodalben.bigbangessentials.util.PlayerDataStore;
 import com.pedrodalben.bigbangessentials.util.PlayerDataMigration;
 import com.pedrodalben.bigbangessentials.util.MessageUtil;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -254,6 +256,11 @@ public class HomeManager {
                 if (debug) LOGGER.info("[DEBUG] Sethome '{}' moved to safe location.", homeName);
             }
         }
+
+        if (isOutsideBigBangRegions(location)) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.outside_regions"));
+            return false;
+        }
         // If safety is not required, allow teleportation to unsafe locations
 
         // ATOMIC: Set the home using computeIfAbsent + compute for atomic limit check
@@ -313,6 +320,32 @@ public class HomeManager {
         }
 
         return true;
+    }
+
+    private boolean isOutsideBigBangRegions(TeleportLocation location) {
+        ServerLevel level = location.getLevel();
+        if (level == null) {
+            return false;
+        }
+
+        try {
+            Class<?> regions = Class.forName("com.bigbangcraft.regions.BigBangRegions");
+            Object api = regions.getMethod("getApi").invoke(null);
+            if (api == null) {
+                return false;
+            }
+
+            BlockPos pos = BlockPos.containing(location.getX(), location.getY(), location.getZ());
+            Object allowed = api.getClass()
+                    .getMethod("canSetHome", ServerLevel.class, BlockPos.class)
+                    .invoke(api, level, pos);
+            return Boolean.FALSE.equals(allowed);
+        } catch (ClassNotFoundException e) {
+            return false;
+        } catch (ReflectiveOperationException | LinkageError e) {
+            LOGGER.warn("Could not validate home against BigBangRegions; allowing home", e);
+            return false;
+        }
     }
     
     /**

@@ -83,6 +83,7 @@
   "commands.bigbangessentials.teleport.home.not_found": "Home ''{0}'' not found.",
   "commands.bigbangessentials.teleport.home.overworld_only": "Homes can only be set in the Overworld.",
   "commands.bigbangessentials.teleport.home.restricted_world": "You cannot create homes in temporary exploration worlds.",
+  "commands.bigbangessentials.teleport.home.outside_regions": "You can only set homes inside a region in this world.",
   "commands.bigbangessentials.teleport.home.unsafe_command_blocked": "This command contains potentially dangerous operations. To use this command, enable 'allowUnsafeCommands' in your configuration.",
   "commands.bigbangessentials.teleport.home.delete_confirm": "Are you sure you want to delete the home '{HOME}'? This action cannot be undone. Click [Confirm] or [Deny].",
   "commands.bigbangessentials.teleport.home.delete_success": "Home '{HOME}' has been deleted successfully.",
