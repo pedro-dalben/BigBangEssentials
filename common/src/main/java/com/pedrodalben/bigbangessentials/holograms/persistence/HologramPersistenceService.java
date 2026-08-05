@@ -99,7 +99,7 @@ public final class HologramPersistenceService {
         index.addAll(ids);
 
         for (String id : ids) {
-            Path hologramFile = storageDir.resolve(id + JSON_EXTENSION);
+            Path hologramFile = storageDir.resolve(encodeFilename(id) + JSON_EXTENSION);
             if (!Files.exists(hologramFile)) {
                 LOGGER.warn("Hologram file missing for index entry '{}': {}", id, hologramFile);
                 index.remove(id);
@@ -171,7 +171,7 @@ public final class HologramPersistenceService {
         writeIndex();
         pendingSaves.remove(id);
 
-        Path hologramFile = storageDir.resolve(id + JSON_EXTENSION);
+        Path hologramFile = storageDir.resolve(encodeFilename(id) + JSON_EXTENSION);
         try {
             Files.deleteIfExists(hologramFile);
         } catch (IOException e) {
@@ -226,6 +226,10 @@ public final class HologramPersistenceService {
 
     // ---- internal ----
 
+    private String encodeFilename(String id) {
+        return java.net.URLEncoder.encode(id, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     private void processPendingSaves() {
         if (pendingSaves.isEmpty()) {
             return;
@@ -250,8 +254,8 @@ public final class HologramPersistenceService {
 
     private void writeHologramFile(HologramDefinition definition) {
         String id = definition.id();
-        Path hologramFile = storageDir.resolve(id + JSON_EXTENSION);
-        Path tempFile = storageDir.resolve(id + TMP_EXTENSION);
+        Path hologramFile = storageDir.resolve(encodeFilename(id) + JSON_EXTENSION);
+        Path tempFile = storageDir.resolve(encodeFilename(id) + TMP_EXTENSION);
 
         try {
             JsonObject json = writeDefinition(definition);
