@@ -13,7 +13,9 @@
     "PlayerAdvancementsMixin",
     "ResultSlotMixin",
 
-    "TextDisplayAccessor"
+    "TextDisplayAccessor",
+    "NpcInteractMixin",
+    "ServerboundInteractPacketAccessor"
   ],
   "client": [],
   "injectors": {
