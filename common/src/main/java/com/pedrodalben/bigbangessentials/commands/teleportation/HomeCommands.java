@@ -361,11 +361,8 @@ public class HomeCommands {
             return 0;
         }
         pendingSetHomeConfirmations.remove(player.getUUID());
-        if (!pendingSetHomeConfirmations.containsKey(player.getUUID())) {
-            if (homeManager.setHome(player, homeName)) {
-                player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.set", homeName, player.blockPosition().toShortString()));
-                return 1;
-            }
+        if (homeManager.setHome(player, homeName)) {
+            return 1;
         }
         return 0;
     }
@@ -389,7 +386,6 @@ public class HomeCommands {
         pendingSetHomeConfirmations.remove(player.getUUID());
         boolean success = homeManager.setHome(player, homeName);
         if (success) {
-            player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.overwrite_success", homeName));
             return 1;
         } else {
             player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.overwrite_failed", homeName));
@@ -445,11 +441,8 @@ public class HomeCommands {
             return 0;
         }
         pendingDeleteConfirmations.remove(player.getUUID());
-        if (!pendingDeleteConfirmations.containsKey(player.getUUID())) {
-            if (homeManager.deleteHome(player, homeName)) {
-                player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.delete_success", homeName));
-                return 1;
-            }
+        if (homeManager.deleteHome(player, homeName)) {
+            return 1;
         }
         return 0;
     }
@@ -468,7 +461,6 @@ public class HomeCommands {
         pendingDeleteConfirmations.remove(player.getUUID());
         boolean success = HomeManager.getInstance().deleteHome(player, pending);
         if (success) {
-            player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.delete_success", pending));
             return 1;
         }
         player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.delete_failed", pending));
@@ -518,7 +510,6 @@ public class HomeCommands {
         pendingDeleteConfirmations.remove(player.getUUID());
         boolean success = homeManager.deleteHome(player, homeName);
         if (success) {
-            player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.delete_success", homeName));
             return 1;
         } else {
             player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.delete_failed", homeName));
