@@ -35,9 +35,6 @@ import org.slf4j.LoggerFactory;
 public class WarpManager {
     private static final long PLAYER_WARP_LIMIT_CACHE_TTL_MS = TimeUnit.SECONDS.toMillis(60);
 
-    // Cooldown for setting warps (seconds) and per-player last set timestamps
-    private final Map<UUID, Long> lastWarpSetTimestamps = new ConcurrentHashMap<>();
-    private int warpSetCooldown = 0;
     // --- Persistence for player warps ---
     // private static final String PLAYER_WARPS_FILE = "playerwarps.json";
 
@@ -124,11 +121,6 @@ public class WarpManager {
                         if (warpSettings.has("maxPlayerWarps")) {
                             try {
                                 maxPlayerWarps = warpSettings.get("maxPlayerWarps").getAsInt();
-                            } catch (Exception ignored) {}
-                        }
-                        if (warpSettings.has("warpSetCooldown")) {
-                            try {
-                                warpSetCooldown = warpSettings.get("warpSetCooldown").getAsInt();
                             } catch (Exception ignored) {}
                         }
                         if (warpSettings.has("allowCrossDimensionWarps")) {
@@ -279,22 +271,6 @@ public class WarpManager {
                 floor(location.getX()), floor(location.getY()), floor(location.getZ()))) {
             player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.no_per_warp_permission", warpName));
             return false;
-        }
-        
-        // Enforce warp set cooldown per player (atomic check)
-        if (warpSetCooldown > 0) {
-            long now = System.currentTimeMillis();
-            UUID playerId = player.getUUID();
-            Long lastSet = lastWarpSetTimestamps.putIfAbsent(playerId, now);
-            if (lastSet != null && (now - lastSet < warpSetCooldown * 1000L)) {
-                long secondsLeft = (warpSetCooldown - ((now - lastSet) / 1000));
-                player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.set_cooldown", secondsLeft));
-                return false;
-            }
-            // Update timestamp atomically if cooldown passed
-            if (lastSet != null) {
-                lastWarpSetTimestamps.put(playerId, now);
-            }
         }
         
         UUID playerId = player.getUUID();
@@ -574,22 +550,6 @@ public class WarpManager {
      * Create a new warp
      */
     public boolean createWarp(ServerPlayer creator, String warpName, TeleportLocation location) {
-        // Enforce warp set cooldown per player (atomic check)
-        if (warpSetCooldown > 0) {
-            long now = System.currentTimeMillis();
-            UUID playerId = creator.getUUID();
-            Long lastSet = lastWarpSetTimestamps.putIfAbsent(playerId, now);
-            if (lastSet != null && (now - lastSet < warpSetCooldown * 1000L)) {
-                long secondsLeft = (warpSetCooldown - ((now - lastSet) / 1000));
-                creator.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.set_cooldown", secondsLeft));
-                return false;
-            }
-            // Update timestamp atomically if cooldown passed
-            if (lastSet != null) {
-                lastWarpSetTimestamps.put(playerId, now);
-            }
-        }
-        
         // Enforce cross-dimension restriction
         if (!allowCrossDimensionWarps && !isOverworld(location)) {
             creator.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.warp.cross_dimension_disabled"));
