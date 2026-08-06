@@ -74,22 +74,8 @@ public class HomeManager {
 
     // Configuration
     private int maxHomesPerPlayer = 5;
-    private int homeSetCooldownSeconds = 0;
     private int homeTeleportCooldownSeconds = 0;
-    private int homeDeleteCooldownSeconds = 0;
-
-    // Cooldown tracking: player UUID -> last setHome time (ms)
-    private final Map<UUID, Long> lastHomeSetTimestamps = new ConcurrentHashMap<>();
-    // Cooldown tracking: player UUID -> last home teleport time (ms)
-    private final Map<UUID, Long> lastHomeTeleportTimestamps = new ConcurrentHashMap<>();
-    // Cooldown tracking: player UUID -> last home delete time (ms)
-    private final Map<UUID, Long> lastHomeDeleteTimestamps = new ConcurrentHashMap<>();
-
-    /**
-     * Returns the maximum number of homes allowed for a player, considering permissions.
-     * If the player has a {@code bigbangessentials.home.<amount>} permission, that value
-     * is used as the cap. Otherwise the configured default is used.
-     */
+    private boolean allowOverworldOnly = false;
     public int getMaxHomesForPlayer(ServerPlayer player) {
         if (player == null) {
             return this.maxHomesPerPlayer;
@@ -111,7 +97,6 @@ public class HomeManager {
         maxHomesCache.put(playerId, new CachedHomeLimit(maxHomes, now));
         return maxHomes;
     }
-    private boolean allowOverworldOnly = false;
     private boolean allowCrossDimensionHomes = true;
     private boolean requireSafeLocations = true;
     private int teleportDelay = 3; // seconds
@@ -137,9 +122,7 @@ public class HomeManager {
             com.pedrodalben.bigbangessentials.config.ConfigManager configManager = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance();
             boolean safe = true;
             int maxHomes = 5;
-            int setCooldown = 0;
             int tpCooldown = 0;
-            int delCooldown = 0;
             if (configManager != null) {
                 JsonObject config = configManager.getConfig(com.pedrodalben.bigbangessentials.config.ConfigManager.MAIN_CONFIG);
                 if (config.has("teleportation")) {
@@ -159,19 +142,9 @@ public class HomeManager {
                                 allowCrossDimensionHomes = homeSettings.get("allowCrossDimensionHomes").getAsBoolean();
                             } catch (Exception ignored) {}
                         }
-                        if (homeSettings.has("homeSetCooldown")) {
-                            try {
-                                setCooldown = homeSettings.get("homeSetCooldown").getAsInt();
-                            } catch (Exception ignored) {}
-                        }
                         if (homeSettings.has("homeTeleportCooldown")) {
                             try {
                                 tpCooldown = homeSettings.get("homeTeleportCooldown").getAsInt();
-                            } catch (Exception ignored) {}
-                        }
-                        if (homeSettings.has("homeDeleteCooldown")) {
-                            try {
-                                delCooldown = homeSettings.get("homeDeleteCooldown").getAsInt();
                             } catch (Exception ignored) {}
                         }
                     }
@@ -179,9 +152,7 @@ public class HomeManager {
             }
             setRequireSafeLocations(safe);
             setMaxHomesPerPlayer(maxHomes);
-            setHomeSetCooldownSeconds(setCooldown);
             setHomeTeleportCooldownSeconds(tpCooldown);
-            setHomeDeleteCooldownSeconds(delCooldown);
         } catch (Exception e) {
             LOGGER.warn("Failed to load home config, using defaults: {}", e.getMessage());
         }
@@ -205,23 +176,6 @@ public class HomeManager {
         boolean debug = com.pedrodalben.bigbangessentials.config.ConfigManager.isDebugModeEnabled();
         if (debug) {
             LOGGER.info("[DEBUG] Home set safety: {} (from config)", requireSafe);
-        }
-
-        // Enforce set home cooldown - atomic check
-        if (homeSetCooldownSeconds > 0) {
-            long now = System.currentTimeMillis();
-            // Use putIfAbsent to atomically check and update cooldown
-            Long lastSet = lastHomeSetTimestamps.putIfAbsent(playerId, now);
-            if (lastSet != null) {
-                long elapsed = (now - lastSet) / 1000L;
-                if (elapsed < homeSetCooldownSeconds) {
-                    long wait = homeSetCooldownSeconds - elapsed;
-                    player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.cooldown", wait));
-                    return false;
-                }
-                // Update timestamp atomically
-                lastHomeSetTimestamps.put(playerId, now);
-            }
         }
 
         // Validate home name
@@ -356,23 +310,6 @@ public class HomeManager {
     public boolean deleteHome(ServerPlayer player, String homeName) {
         UUID playerId = player.getUUID();
 
-        // Enforce delete home cooldown - atomic check
-        if (homeDeleteCooldownSeconds > 0) {
-            long now = System.currentTimeMillis();
-            // Use putIfAbsent to atomically check and update cooldown
-            Long lastDelete = lastHomeDeleteTimestamps.putIfAbsent(playerId, now);
-            if (lastDelete != null) {
-                long elapsed = (now - lastDelete) / 1000L;
-                if (elapsed < homeDeleteCooldownSeconds) {
-                    long wait = homeDeleteCooldownSeconds - elapsed;
-                    player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.delete_cooldown", wait));
-                    return false;
-                }
-                // Update timestamp atomically
-                lastHomeDeleteTimestamps.put(playerId, now);
-            }
-        }
-
         // ATOMIC: Delete home using compute
         boolean[] deleted = {false};
         playerHomes.computeIfPresent(playerId, (id, homes) -> {
@@ -402,8 +339,6 @@ public class HomeManager {
 
         return true;
     }
-    public int getHomeDeleteCooldownSeconds() { return homeDeleteCooldownSeconds; }
-    public void setHomeDeleteCooldownSeconds(int seconds) { this.homeDeleteCooldownSeconds = Math.max(0, seconds); }
 
     /**
      * Rename a home for a player (Essentials: Commandrenamehome)
@@ -714,9 +649,6 @@ public class HomeManager {
 
     public int getTeleportDelay() { return teleportDelay; }
     public void setTeleportDelay(int delay) { this.teleportDelay = Math.max(0, delay); }
-
-    public int getHomeSetCooldownSeconds() { return homeSetCooldownSeconds; }
-    public void setHomeSetCooldownSeconds(int seconds) { this.homeSetCooldownSeconds = Math.max(0, seconds); }
 
     public int getHomeTeleportCooldownSeconds() { return homeTeleportCooldownSeconds; }
     public void setHomeTeleportCooldownSeconds(int seconds) { this.homeTeleportCooldownSeconds = Math.max(0, seconds); }
