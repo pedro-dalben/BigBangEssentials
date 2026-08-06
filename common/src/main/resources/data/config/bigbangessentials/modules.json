@@ -15,5 +15,6 @@
   "shopEnabled": true,
   "adminshopEnabled": true,
   "pokemarketEnabled": true,
-  "tablistEnabled": true
+  "tablistEnabled": true,
+  "npcsEnabled": true
 }
