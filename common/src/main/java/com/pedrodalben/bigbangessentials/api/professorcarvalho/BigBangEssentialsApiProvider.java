@@ -56,7 +56,7 @@ public final class BigBangEssentialsApiProvider {
                 JobsManager jobsManager = JobsManager.getInstance();
                 jobs = jobsManager != null && jobsManager.getConfig() != null ? jobsManager.loadPlayerData(playerUuid)
                         .thenApply(data -> data == null ? List.<JobProgressSnapshot>of() : data.getJobs().entrySet().stream()
-                                .map(entry -> new JobProgressSnapshot(entry.getKey(), entry.getKey(), entry.getValue().getLevel(),
+                                .map(entry -> new JobProgressSnapshot(entry.getKey(), jobsManager.getConfig().getJob(entry.getKey()) != null ? jobsManager.getConfig().getJob(entry.getKey()).displayName : entry.getKey(), entry.getValue().getLevel(),
                                         Math.round(entry.getValue().getXp())))
                                 .toList())
                         .exceptionally(ignored -> List.<JobProgressSnapshot>of()) : CompletableFuture.completedFuture(List.of());
