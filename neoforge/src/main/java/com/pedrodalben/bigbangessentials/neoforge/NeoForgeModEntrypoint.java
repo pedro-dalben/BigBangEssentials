@@ -25,6 +25,5 @@ public class NeoForgeModEntrypoint {
 
         // Register NeoForge event listeners
         NeoForge.EVENT_BUS.register(NeoForgeEvents.class);
-        NeoForge.EVENT_BUS.register(com.pedrodalben.bigbangessentials.npcs.NeoForgeNpcInteractionBridge.class);
     }
 }
