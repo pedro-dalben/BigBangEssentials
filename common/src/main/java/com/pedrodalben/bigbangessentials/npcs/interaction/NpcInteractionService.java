@@ -29,7 +29,7 @@ public class NpcInteractionService {
     }
 
     public boolean handleClick(ServerPlayer player, int entityId) {
-        NpcViewerSession session = viewerService.getSession(player);
+        NpcViewerSession session = viewerService.getSession(player.getUUID());
         if (session == null) return false;
 
         String npcId = session.entityIdToNpc().get(entityId);
