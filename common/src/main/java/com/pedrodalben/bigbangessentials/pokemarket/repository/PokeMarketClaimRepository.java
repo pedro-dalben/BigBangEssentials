@@ -43,6 +43,12 @@ public final class PokeMarketClaimRepository {
         return database.getExecutor().queryList("pokemarket.claim.owner", sql, s -> { s.setString(1, owner.toString()); s.setString(2, ClaimStatus.AVAILABLE.name()); if (type != null) s.setString(3, type.name()); }, this::map);
     }
 
+    public CompletableFuture<Optional<com.pedrodalben.bigbangessentials.pokemarket.model.ClaimRecord>> findAvailablePokemonByOwnerAndListing(UUID owner, UUID listing) {
+        return database.getExecutor().querySingle("pokemarket.claim.owner-listing",
+            "SELECT * FROM bbe_pokemarket_claims WHERE owner_uuid=? AND listing_id=? AND claim_type=? AND status=? LIMIT 1",
+            s -> { s.setString(1, owner.toString()); s.setString(2, listing.toString()); s.setString(3, ClaimType.POKEMON.name()); s.setString(4, ClaimStatus.AVAILABLE.name()); }, this::map);
+    }
+
     public CompletableFuture<Optional<com.pedrodalben.bigbangessentials.pokemarket.model.ClaimRecord>> findById(UUID id) {
         return database.getExecutor().querySingle("pokemarket.claim.find", "SELECT * FROM bbe_pokemarket_claims WHERE id=?", s -> s.setString(1, id.toString()), this::map);
     }

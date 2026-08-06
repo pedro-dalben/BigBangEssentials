@@ -84,6 +84,12 @@ public final class PokeMarketClaimService {
         });
     }
 
+    public CompletableFuture<String> claimPokemonForListing(ServerPlayer player, UUID listingId) {
+        return claims.findAvailablePokemonByOwnerAndListing(player.getUUID(), listingId)
+            .thenCompose(row -> row.map(claim -> claim(player, claim.id()))
+                .orElseGet(() -> CompletableFuture.completedFuture("unavailable")));
+    }
+
     public CompletableFuture<int[]> claimAll(ServerPlayer player, ClaimType type) {
         return claims.findAvailableByOwner(player.getUUID(), type).thenCompose(rows -> {
             int[] result = {0, 0};

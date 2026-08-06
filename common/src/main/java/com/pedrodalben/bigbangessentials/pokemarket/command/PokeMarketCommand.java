@@ -8,6 +8,7 @@ import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
 import com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager;
 import com.pedrodalben.bigbangessentials.pokemarket.cobblemon.Cobblemon173MarketBridge;
 import com.pedrodalben.bigbangessentials.pokemarket.cobblemon.OwnedPokemonReference;
+import com.pedrodalben.bigbangessentials.pokemarket.menu.PokeMarketMenuIntegration;
 import com.pedrodalben.bigbangessentials.pokemarket.model.ClaimType;
 import com.pedrodalben.bigbangessentials.pokemarket.model.ListingStatus;
 import com.pedrodalben.bigbangessentials.pokemarket.model.ListingType;
@@ -182,7 +183,23 @@ public final class PokeMarketCommand {
         catch (Exception e) { source.sendFailure(Component.literal("§cID inválido.")); return 0; }
     }
     private static int cancel(CommandSourceStack source, String rawId) {
-        try { UUID id = UUID.fromString(rawId); PokeMarketManager.getInstance().listingService().cancel(player(source), id).whenComplete((ok, error) -> player(source).getServer().execute(() -> player(source).sendSystemMessage(Component.literal(Boolean.TRUE.equals(ok) ? "§aCancelado; claim criado." : "§cNão foi possível cancelar.")))); return 1; }
+        try {
+            UUID id = UUID.fromString(rawId); ServerPlayer p = player(source);
+            PokeMarketManager.getInstance().listingService().cancel(p, id).thenCompose(ok -> Boolean.TRUE.equals(ok)
+                ? PokeMarketManager.getInstance().claimService().claimPokemonForListing(p, id)
+                : CompletableFuture.completedFuture("cancel_failed"))
+                .whenComplete((result, error) -> {
+                    if (!"cancel_failed".equals(result)) PokeMarketMenuIntegration.refreshOpenMenus();
+                    p.getServer().execute(() -> p.sendSystemMessage(Component.literal(error != null || "cancel_failed".equals(result)
+                        ? "§cNão foi possível cancelar."
+                        : switch (result) {
+                            case "success" -> "§aAnúncio cancelado e Pokémon devolvido para sua party/PC.";
+                            case "storage_full" -> "§eAnúncio cancelado; party/PC cheio. Retire o Pokémon em Claims.";
+                            default -> "§aAnúncio cancelado; Pokémon disponível em Claims.";
+                        })));
+                });
+            return 1;
+        }
         catch (Exception e) { source.sendFailure(Component.literal("§cID inválido.")); return 0; }
     }
     private static int claim(CommandSourceStack source, String rawId) {
@@ -225,7 +242,7 @@ public final class PokeMarketCommand {
 
     private static int playerListings(CommandSourceStack source, int page) {
         ServerPlayer p = player(source);
-        return queryPlayerRows(source, "listings", "SELECT id,species,status,price,expires_at FROM bbe_pokemarket_listings WHERE seller_uuid=? ORDER BY created_at DESC LIMIT ? OFFSET ?", p.getUUID(), page, r -> r.getString("id") + " " + r.getString("species") + " " + r.getString("status") + " $" + r.getBigDecimal("price") + " exp=" + r.getLong("expires_at"));
+        return queryPlayerRows(source, "listings", "SELECT id,species,status,price,expires_at FROM bbe_pokemarket_listings WHERE seller_uuid=? AND status IN ('ACTIVE','RESERVED') ORDER BY created_at DESC LIMIT ? OFFSET ?", p.getUUID(), page, r -> r.getString("id") + " " + r.getString("species") + " " + r.getString("status") + " $" + r.getBigDecimal("price") + " exp=" + r.getLong("expires_at"));
     }
 
     private static int playerPurchases(CommandSourceStack source, int page) {
