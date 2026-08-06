@@ -14,10 +14,10 @@ dynamic-item-template:
   item:
     material-id: "minecraft:paper"
     display-name: "&f{subject}"
-    lore: ["&7Status: &f{status}", "&7Valor: &6{price}", "", "&eClique para ação disponível"]
+    lore: ["&7Status: &f{status}", "&7Valor: &6{price}", "", "&e{action_hint}"]
   actions:
     - type: "pokemarket_record_action"
-      params: { record_type: "{record_type}", record_id: "{record_id}" }
+      params: { record_type: "{record_type}", record_id: "{record_id}", subject: "{subject}" }
 pages:
   main:
     default-page: true

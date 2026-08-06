@@ -18,7 +18,7 @@ pages:
         item:
           material-id: "minecraft:gold_ingot"
           display-name: "&6Publicar por {context:price}"
-          lore: ["&7O Pokémon será colocado em escrow.", "&7Duração: &f3 dias", "", "&eRevise o valor antes de confirmar."]
+          lore: ["&7Pokémon: &f{context:species} Lv.{context:level}", "&7Shiny: &f{context:shiny} &8• &7IVs: &f{context:perfect_ivs}", "&7Origem: &f{context:source}", "&7O Pokémon será colocado em escrow.", "&7Duração: &f3 dias", "", "&eRevise o valor antes de confirmar."]
       confirm:
         slot: 11
         item: { material-id: "minecraft:lime_wool", display-name: "&aPublicar anúncio" }

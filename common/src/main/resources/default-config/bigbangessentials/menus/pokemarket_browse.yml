@@ -39,44 +39,42 @@ pages:
         slot: 4
         item:
           material-id: "minecraft:hopper"
-          display-name: "&bEspécie"
+          display-name: "&bEspécie: {context:filter_species}"
           lore: ["&7Escolha pela lista A–Z."]
         actions:
           - type: "open_menu"
             params: { menu-id: "pokemarket_species" }
       type:
         slot: 1
-        item: { material-id: "minecraft:emerald", display-name: "&aTipo", lore: ["&7Alterna: todos, venda e troca."] }
+        item: { material-id: "minecraft:emerald", display-name: "&aTipo: {context:filter_type}", lore: ["&7Alterna entre todos, venda e troca."] }
         actions: [{ type: "pokemarket_filter_type" }]
       shiny:
         slot: 2
-        item: { material-id: "minecraft:glowstone", display-name: "&eShiny", lore: ["&7Alterna: todos, sim e não."] }
+        item: { material-id: "minecraft:glowstone", display-name: "&eShiny: {context:filter_shiny}", lore: ["&7Alterna entre todos, sim e não."] }
         actions: [{ type: "pokemarket_filter_shiny" }]
       levels:
         slot: 3
-        item: { material-id: "minecraft:experience_bottle", display-name: "&bNível 1–25", lore: ["&7Clique para aplicar esta faixa."] }
-        actions:
-          - type: "pokemarket_filter_level"
-            params: { range: "1-25" }
+        item: { material-id: "minecraft:experience_bottle", display-name: "&bNível: {context:filter_level}", lore: ["&7Clique para alternar as faixas."] }
+        actions: [{ type: "pokemarket_filter_level" }]
       ivs:
         slot: 5
-        item: { material-id: "minecraft:diamond", display-name: "&bIVs mínimos", lore: ["&7Alterna 0, 3 e 6 IVs perfeitos."] }
+        item: { material-id: "minecraft:diamond", display-name: "&bIVs: {context:filter_ivs}", lore: ["&7Alterna entre todos, 3 e 6 perfeitos."] }
         actions: [{ type: "pokemarket_filter_ivs" }]
       price_min:
         slot: 6
-        item: { material-id: "minecraft:gold_nugget", display-name: "&6Preço mínimo", lore: ["&7Digite um valor temporário no chat."] }
+        item: { material-id: "minecraft:gold_nugget", display-name: "&6Mínimo: {context:filter_min_price}", lore: ["&7Digite um valor no chat ou cancele."] }
         actions:
           - type: "pokemarket_filter_price"
             params: { bound: "min" }
       price_max:
         slot: 7
-        item: { material-id: "minecraft:gold_ingot", display-name: "&6Preço máximo", lore: ["&7Digite um valor temporário no chat."] }
+        item: { material-id: "minecraft:gold_ingot", display-name: "&6Máximo: {context:filter_max_price}", lore: ["&7Digite um valor no chat ou cancele."] }
         actions:
           - type: "pokemarket_filter_price"
             params: { bound: "max" }
       sort:
         slot: 8
-        item: { material-id: "minecraft:paper", display-name: "&fOrdenação", lore: ["&7Alterna recentes, preço e nível."] }
+        item: { material-id: "minecraft:paper", display-name: "&fOrdenação: {context:filter_sort}", lore: ["&7Alterna recentes, preço e nível."] }
         actions: [{ type: "pokemarket_filter_sort" }]
       clear_filters:
         slot: 47

@@ -24,7 +24,7 @@ class PokeMarketMenuParsingTest {
     @Test
     void bundledMenusAreValid() throws Exception {
         List<String> menus = List.of("pokemarket_main", "pokemarket_browse", "pokemarket_detail", "pokemarket_buy_confirm",
-            "pokemarket_sell_confirm", "pokemarket_claims", "pokemarket_notifications", "pokemarket_species", "pokemarket_records", "pokemarket_admin", "pokemarket_trade_requirements", "pokemarket_trade_accept_confirm", "pokemarket_party", "pokemarket_pc");
+            "pokemarket_sell_confirm", "pokemarket_claims", "pokemarket_notifications", "pokemarket_species", "pokemarket_records", "pokemarket_admin", "pokemarket_trade_requirements", "pokemarket_trade_accept_confirm", "pokemarket_party", "pokemarket_pc", "pokemarket_cancel_confirm", "pokemarket_sell_source", "pokemarket_account");
         YamlMenuParser parser = new YamlMenuParser();
         for (String id : menus) {
             try (InputStream input = getClass().getResourceAsStream("/default-config/bigbangessentials/menus/" + id + ".yml")) {
@@ -37,7 +37,7 @@ class PokeMarketMenuParsingTest {
     }
 
     @Test
-    void mainMenuSeparatesMoneySalesFromPokemonTrades() throws Exception {
+    void mainMenuRoutesPrimaryFlows() throws Exception {
         YamlMenuParser parser = new YamlMenuParser();
         Path file = Files.createTempFile("pokemarket-main", ".yml");
         try (InputStream input = getClass().getResourceAsStream("/default-config/bigbangessentials/menus/pokemarket_main.yml")) {
@@ -46,10 +46,11 @@ class PokeMarketMenuParsingTest {
         try {
             MenuDefinition menu = parser.parse(file);
             var items = menu.pages().get("main").items();
-            assertEquals("&aAnunciar venda", items.get("party").item().displayName());
-            assertEquals("money", items.get("party").actions().get(0).params().get("mode"));
-            assertEquals("money", items.get("pc").actions().get(0).params().get("mode"));
-            assertEquals("trade", items.get("trade_party").actions().get(0).params().get("mode"));
+            assertEquals("&aAnunciar venda", items.get("sell").item().displayName());
+            assertEquals("pokemarket_sell_source", items.get("sell").actions().get(0).params().get("menu-id"));
+            assertEquals("trade", items.get("trade").actions().get(0).params().get("mode"));
+            assertEquals("party", items.get("trade").actions().get(0).params().get("source"));
+            assertEquals("pokemarket_account", items.get("account").actions().get(0).params().get("menu-id"));
         } finally {
             Files.deleteIfExists(file);
         }

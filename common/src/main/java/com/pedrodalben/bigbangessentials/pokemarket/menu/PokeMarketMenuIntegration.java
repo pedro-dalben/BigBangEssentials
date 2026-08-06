@@ -46,7 +46,8 @@ public final class PokeMarketMenuIntegration {
         "pokemarket_main.yml", "pokemarket_browse.yml", "pokemarket_detail.yml", "pokemarket_buy_confirm.yml",
         "pokemarket_sell_confirm.yml", "pokemarket_claims.yml", "pokemarket_notifications.yml", "pokemarket_species.yml",
         "pokemarket_records.yml", "pokemarket_admin.yml", "pokemarket_trade_requirements.yml",
-        "pokemarket_trade_accept_confirm.yml", "pokemarket_party.yml", "pokemarket_pc.yml"
+        "pokemarket_trade_accept_confirm.yml", "pokemarket_party.yml", "pokemarket_pc.yml", "pokemarket_cancel_confirm.yml",
+        "pokemarket_sell_source.yml", "pokemarket_account.yml"
     };
     private static final Map<String, Set<String>> LEGACY_OFFICIAL_HASHES = Map.of(
         "pokemarket_main.yml", Set.of("2654466a89cae2c48fcee1f3ffb0fb016ffb309e71f37523659beab78c885883"),
@@ -131,9 +132,12 @@ public final class PokeMarketMenuIntegration {
         menus.getActionRegistry().registerActionHandler("pokemarket_filter_sort", new FilterAction("pokemarket_filter_sort"));
         menus.getActionRegistry().registerActionHandler("pokemarket_filter_price", new PriceFilterAction());
         menus.getActionRegistry().registerActionHandler("pokemarket_filter_clear", new FilterClearAction());
+        menus.getActionRegistry().registerActionHandler("pokemarket_browse_open", new BrowseOpenAction());
         menus.getActionRegistry().registerActionHandler("pokemarket_species_select", new SpeciesSelectAction());
         menus.getActionRegistry().registerActionHandler("pokemarket_records_open", new RecordsOpenAction());
         menus.getActionRegistry().registerActionHandler("pokemarket_record_action", new RecordAction());
+        menus.getActionRegistry().registerActionHandler("pokemarket_cancel_listing", new CancelListingAction());
+        menus.getActionRegistry().registerActionHandler("pokemarket_notification_read_all", new NotificationReadAllAction());
         menus.getActionRegistry().registerActionHandler("pokemarket_pc_box", new PcBoxAction());
     }
 
@@ -171,18 +175,31 @@ public final class PokeMarketMenuIntegration {
             if (player == null || rawUuid == null) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Pokémon indisponível"));
             UUID pokemon;
             try { pokemon = UUID.fromString(rawUuid); } catch (IllegalArgumentException e) { return CompletableFuture.completedFuture(ActionExecutionResult.failed("UUID inválido")); }
+            Map<String, Object> sourceValues = copyValues(context.context());
+            String source = text(sourceValues.get("source"));
+            if (source.isBlank()) source = context.menu() != null && context.menu().id().endsWith("_pc") ? "pc" : "party";
+            sourceValues.put("source", source);
+            sourceValues.put("listing_mode", "money");
+            putIfPresent(sourceValues, "species", context.param("species", String.class));
+            putIfPresent(sourceValues, "form", context.param("form", String.class));
+            putIfPresent(sourceValues, "level", context.param("level", String.class));
+            putIfPresent(sourceValues, "shiny", context.param("shiny", String.class));
+            putIfPresent(sourceValues, "perfect_ivs", context.param("perfect_ivs", String.class));
             closeCurrentMenu(player, context.menu().id());
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§eDigite o preço no chat ou §ccancel§e. O anúncio só será criado após a confirmação."));
-            requestPrice(player, price -> {
-                Map<String, Object> values = new HashMap<>();
+            Runnable restore = () -> openSourceMenu(player, sourceValues);
+            requestPrice(player, "§eDigite o preço no chat ou §ccancel§e.", price -> {
+                Map<String, Object> values = new HashMap<>(sourceValues);
                 values.put("pokemon_uuid", pokemon.toString());
                 values.put("price", price.toPlainString());
                 MenuContext next = new MenuContext(player.getUUID(), "pt_BR", values, null, "pokemarket", "sell", UUID.randomUUID());
                 MenuSystem.getInstance().getMenuService().openMenu(player, "pokemarket_sell_confirm", next)
                     .thenAccept(result -> {
-                        if (!result.success()) player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cNão foi possível abrir a confirmação: " + result.error()));
+                        if (!result.success()) {
+                            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cNão foi possível abrir a confirmação: " + result.error()));
+                            openSourceMenu(player, sourceValues);
+                        }
                     });
-            });
+            }, restore, restore);
             return CompletableFuture.completedFuture(ActionExecutionResult.success());
         }
     }
@@ -192,6 +209,7 @@ public final class PokeMarketMenuIntegration {
         @Override public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
             Map<String, Object> values = copyValues(context.context()); values.put("listing_mode", context.param("mode", String.class));
             String source = context.param("source", String.class);
+            values.put("source", source);
             return MenuSystem.getInstance().getMenuService().openMenu(context.player(), "pc".equals(source) ? "pokemarket_pc" : "pokemarket_party",
                 new MenuContext(context.player().getUUID(), "pt_BR", values, null, "pokemarket", "source", UUID.randomUUID()))
                 .thenApply(result -> result.success() ? ActionExecutionResult.success() : ActionExecutionResult.failed(result.error()));
@@ -247,6 +265,7 @@ public final class PokeMarketMenuIntegration {
             Integer min = integer(values.get("min_level")), max = integer(values.get("max_level")), ivs = integer(values.get("min_ivs"));
             if (min != null) req.addProperty("level_min", min); if (max != null) req.addProperty("level_max", max); if (ivs != null && ivs > 0) req.addProperty("perfect_ivs_min", ivs);
             return PokeMarketManager.getInstance().tradeService().create(player, ref.get(), req, java.time.Duration.ofDays(3).toMillis()).thenApply(id -> {
+                refreshOpenMenus();
                 player.getServer().execute(() -> player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§aAnúncio de troca criado: " + id)));
                 return ActionExecutionResult.success();
             }).exceptionally(error -> ActionExecutionResult.failed("Falha ao criar troca: " + rootMessage(error)));
@@ -270,6 +289,7 @@ public final class PokeMarketMenuIntegration {
                     case "invalid_offer" -> "§cSeu Pokémon não está mais disponível.";
                     default -> "§cTroca não concluída: " + status;
                 };
+                refreshOpenMenus();
                 player.getServer().execute(() -> player.sendSystemMessage(net.minecraft.network.chat.Component.literal(message)));
                 return ActionExecutionResult.success();
             }).exceptionally(error -> ActionExecutionResult.failed("Falha ao aceitar troca: " + rootMessage(error)));
@@ -334,8 +354,70 @@ public final class PokeMarketMenuIntegration {
     private static BigDecimal decimal(Object value) { try { return value == null ? null : new BigDecimal(String.valueOf(value)); } catch (Exception ignored) { return null; } }
     private static Map<String, Object> copyValues(MenuContext context) { return context == null || context.values() == null ? new HashMap<>() : new HashMap<>(context.values()); }
     private static CompletionStage<ActionExecutionResult> openBrowse(ServerPlayer player, MenuContext current, Map<String, Object> values) {
+        decorateBrowseValues(values);
         return MenuSystem.getInstance().getMenuService().openMenu(player, "pokemarket_browse", new MenuContext(player.getUUID(), current == null ? "pt_BR" : current.locale(), values, null, "pokemarket", "browse", UUID.randomUUID()))
             .thenApply(result -> result.success() ? ActionExecutionResult.success() : ActionExecutionResult.failed(result.error()));
+    }
+
+    private static final class BrowseOpenAction implements MenuActionHandler {
+        @Override public String type() { return "pokemarket_browse_open"; }
+        @Override public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
+            return openBrowse(context.player(), context.context(), new HashMap<>());
+        }
+    }
+
+    private static CompletionStage<ActionExecutionResult> openSourceMenu(ServerPlayer player, Map<String, Object> values) {
+        String source = text(values.get("source"));
+        return MenuSystem.getInstance().getMenuService().openMenu(player, "pc".equals(source) ? "pokemarket_pc" : "pokemarket_party",
+            new MenuContext(player.getUUID(), "pt_BR", new HashMap<>(values), null, "pokemarket", "source", UUID.randomUUID()))
+            .thenApply(result -> result.success() ? ActionExecutionResult.success() : ActionExecutionResult.failed(result.error()));
+    }
+
+    private static void putIfPresent(Map<String, Object> values, String key, String value) {
+        if (value != null && !value.isBlank()) values.put(key, value);
+    }
+
+    private static void decorateBrowseValues(Map<String, Object> values) {
+        values.put("filter_species", text(values.get("species")).isBlank() ? "Todas" : text(values.get("species")));
+        values.put("filter_type", switch (text(values.get("type"))) {
+            case "MONEY" -> "Venda";
+            case "POKEMON_TRADE" -> "Troca";
+            default -> "Todos";
+        });
+        values.put("filter_shiny", switch (text(values.get("shiny"))) {
+            case "true" -> "Sim";
+            case "false" -> "Não";
+            default -> "Todos";
+        });
+        values.put("filter_level", levelRange(values).isBlank() ? "Todos" : levelRange(values));
+        Integer ivs = integer(values.get("min_ivs"));
+        values.put("filter_ivs", ivs == null || ivs == 0 ? "Todos" : ivs + "+ perfeitos");
+        values.put("filter_min_price", text(values.get("min_price")).isBlank() ? "Qualquer" : text(values.get("min_price")));
+        values.put("filter_max_price", text(values.get("max_price")).isBlank() ? "Qualquer" : text(values.get("max_price")));
+        values.put("filter_sort", switch (text(values.get("sort"))) {
+            case "PRICE_ASC" -> "Menor preço";
+            case "PRICE_DESC" -> "Maior preço";
+            case "LEVEL_DESC" -> "Maior nível";
+            default -> "Mais recentes";
+        });
+    }
+
+    private static String levelRange(Map<String, Object> values) {
+        Integer min = integer(values.get("min_level"));
+        Integer max = integer(values.get("max_level"));
+        return min == null || max == null ? "" : min + "-" + max;
+    }
+
+    private static void setLevelRange(Map<String, Object> values, String range) {
+        values.remove("min_level");
+        values.remove("max_level");
+        switch (range) {
+            case "1-25" -> { values.put("min_level", 1); values.put("max_level", 25); }
+            case "26-50" -> { values.put("min_level", 26); values.put("max_level", 50); }
+            case "51-75" -> { values.put("min_level", 51); values.put("max_level", 75); }
+            case "76-100" -> { values.put("min_level", 76); values.put("max_level", 100); }
+            default -> { }
+        }
     }
 
     private static final class FilterAction implements MenuActionHandler {
@@ -349,13 +431,19 @@ public final class PokeMarketMenuIntegration {
             } else if (action.endsWith("shiny")) {
                 String current = text(values.get("shiny")); values.put("shiny", current.isEmpty() ? "true" : "true".equals(current) ? "false" : "");
             } else if (action.endsWith("level")) {
-                String range = text(context.param("range", String.class)); values.remove("min_level"); values.remove("max_level");
-                if ("1-25".equals(range)) { values.put("min_level", 1); values.put("max_level", 25); }
-                if ("26-50".equals(range)) { values.put("min_level", 26); values.put("max_level", 50); }
-                if ("51-75".equals(range)) { values.put("min_level", 51); values.put("max_level", 75); }
-                if ("76-100".equals(range)) { values.put("min_level", 76); values.put("max_level", 100); }
+                String range = text(context.param("range", String.class));
+                if (range.isBlank()) {
+                    range = switch (levelRange(values)) {
+                        case "" -> "1-25";
+                        case "1-25" -> "26-50";
+                        case "26-50" -> "51-75";
+                        case "51-75" -> "76-100";
+                        default -> "";
+                    };
+                }
+                setLevelRange(values, range);
             } else if (action.endsWith("ivs")) {
-                int current = integer(values.get("min_ivs")) == null ? -1 : integer(values.get("min_ivs")); values.put("min_ivs", current >= 6 ? 0 : current + 3);
+                int current = integer(values.get("min_ivs")) == null ? 0 : integer(values.get("min_ivs")); values.put("min_ivs", current >= 6 ? 0 : current + 3);
             } else if (action.endsWith("sort")) {
                 ListingSearch.Sort current; try { current = ListingSearch.Sort.valueOf(text(values.get("sort"))); } catch (Exception ignored) { current = ListingSearch.Sort.NEWEST; }
                 ListingSearch.Sort[] all = ListingSearch.Sort.values(); values.put("sort", all[(current.ordinal() + 1) % all.length].name());
@@ -373,13 +461,13 @@ public final class PokeMarketMenuIntegration {
         @Override public String type() { return "pokemarket_filter_price"; }
         @Override public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
             String bound = context.param("bound", String.class);
+            Map<String, Object> previous = copyValues(context.context());
             closeCurrentMenu(context.player(), context.menu().id());
-            context.player().sendSystemMessage(net.minecraft.network.chat.Component.literal("§eDigite o preço " + ("max".equals(bound) ? "máximo" : "mínimo") + " ou §ccancel§e."));
-            requestPrice(context.player(), price -> {
+            requestPrice(context.player(), "§eDigite o preço " + ("max".equals(bound) ? "máximo" : "mínimo") + " ou §ccancel§e.", price -> {
                 Map<String, Object> values = copyValues(context.context());
                 values.put("max".equals(bound) ? "max_price" : "min_price", price.toPlainString());
                 openBrowse(context.player(), context.context(), values);
-            });
+            }, () -> openBrowse(context.player(), context.context(), previous), () -> openBrowse(context.player(), context.context(), previous));
             return CompletableFuture.completedFuture(ActionExecutionResult.success());
         }
     }
@@ -414,7 +502,7 @@ public final class PokeMarketMenuIntegration {
             if (player == null || !PokeMarketManager.getInstance().isInitialized()) return CompletableFuture.completedFuture(new MenuDataResult(List.of(), 0));
             String type = text(context == null || context.values() == null ? null : context.values().get("record_type"));
             String sql = switch (type) {
-                case "listings" -> "SELECT id,species,status,price FROM bbe_pokemarket_listings WHERE seller_uuid=? ORDER BY created_at DESC LIMIT ? OFFSET ?";
+                case "listings" -> "SELECT id,species,status,price FROM bbe_pokemarket_listings WHERE seller_uuid=? AND status IN ('ACTIVE','RESERVED') ORDER BY created_at DESC LIMIT ? OFFSET ?";
                 case "history" -> "SELECT id,species,status,price FROM bbe_pokemarket_listings WHERE seller_uuid=? OR buyer_uuid=? ORDER BY created_at DESC LIMIT ? OFFSET ?";
                 case "purchases" -> "SELECT id,listing_id,status,gross_amount AS price FROM bbe_pokemarket_purchase_operations WHERE buyer_uuid=? ORDER BY updated_at DESC LIMIT ? OFFSET ?";
                 case "sales" -> "SELECT id,listing_id,status,seller_net_amount AS price FROM bbe_pokemarket_purchase_operations WHERE seller_uuid=? ORDER BY updated_at DESC LIMIT ? OFFSET ?";
@@ -431,6 +519,7 @@ public final class PokeMarketMenuIntegration {
                 Map<String, Object> row = new HashMap<>(); row.put("record_id", r.getString("id")); row.put("record_type", type);
                 row.put("subject", "listings".equals(type) || "history".equals(type) ? r.getString("species") : r.getString("listing_id"));
                 row.put("status", r.getString("status")); row.put("price", r.getBigDecimal("price") == null ? "-" : r.getBigDecimal("price").toPlainString());
+                row.put("action_hint", "listings".equals(type) ? "Clique para cancelar" : "Somente consulta");
                 return row;
             }).thenApply(rows -> new MenuDataResult(rows, rows.size()));
         }
@@ -440,12 +529,56 @@ public final class PokeMarketMenuIntegration {
         @Override public String type() { return "pokemarket_record_action"; }
         @Override public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
             String type = context.param("record_type", String.class); UUID id = uuid(context.param("record_id", String.class));
-            if ("listings".equals(type) && id != null) return PokeMarketManager.getInstance().listingService().cancel(context.player(), id).thenApply(ok -> {
-                context.player().getServer().execute(() -> context.player().sendSystemMessage(net.minecraft.network.chat.Component.literal(Boolean.TRUE.equals(ok) ? "§aAnúncio cancelado; claim criado." : "§cNão foi possível cancelar este anúncio.")));
-                return ActionExecutionResult.success();
-            });
+            if ("listings".equals(type) && id != null) {
+                return PokeMarketManager.getInstance().listingService().find(id).thenCompose(found -> {
+                    if (found.isEmpty() || !found.get().seller().equals(context.player().getUUID())) {
+                        return CompletableFuture.completedFuture(ActionExecutionResult.failed("Anúncio não encontrado"));
+                    }
+                    ListingRecord listing = found.get();
+                    Map<String, Object> values = copyValues(context.context());
+                    values.put("listing_id", listing.id().toString());
+                    values.put("species", listing.species());
+                    values.put("price", listing.price() == null ? "Troca" : listing.price().toPlainString());
+                    values.put("status", listing.status().name());
+                    return MenuSystem.getInstance().getMenuService().openMenu(context.player(), "pokemarket_cancel_confirm",
+                        new MenuContext(context.player().getUUID(), "pt_BR", values, null, "pokemarket", "cancel", UUID.randomUUID()))
+                        .thenApply(result -> result.success() ? ActionExecutionResult.success() : ActionExecutionResult.failed(result.error()));
+                });
+            }
             context.player().getServer().execute(() -> context.player().sendSystemMessage(net.minecraft.network.chat.Component.literal("§7Este registro é somente informativo.")));
             return CompletableFuture.completedFuture(ActionExecutionResult.success());
+        }
+    }
+
+    private static final class CancelListingAction implements MenuActionHandler {
+        @Override public String type() { return "pokemarket_cancel_listing"; }
+
+        @Override public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
+            UUID id = uuid(context.context() == null || context.context().values() == null
+                ? null : text(context.context().values().get("listing_id")));
+            if (id == null) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Anúncio inválido"));
+            ServerPlayer player = context.player();
+            return PokeMarketManager.getInstance().listingService().cancel(player, id).thenCompose(ok -> {
+                if (!Boolean.TRUE.equals(ok)) {
+                    player.getServer().execute(() -> player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cEste anúncio não está mais disponível para cancelamento.")));
+                    return CompletableFuture.completedFuture(ActionExecutionResult.success());
+                }
+                return PokeMarketManager.getInstance().claimService().claimPokemonForListing(player, id).thenApply(status -> {
+                    refreshOpenMenus();
+                    String message = switch (status) {
+                        case "success" -> "§aAnúncio cancelado e Pokémon devolvido para sua party/PC.";
+                        case "storage_full" -> "§eAnúncio cancelado; party/PC cheio. Retire o Pokémon em Claims.";
+                        default -> "§aAnúncio cancelado; Pokémon disponível em Claims.";
+                    };
+                    player.getServer().execute(() -> player.sendSystemMessage(net.minecraft.network.chat.Component.literal(message)));
+                    closeCurrentMenu(player, context.menu().id());
+                    Map<String, Object> values = copyValues(context.context());
+                    values.put("record_type", "listings");
+                    MenuSystem.getInstance().getMenuService().openMenu(player, "pokemarket_records",
+                        new MenuContext(player.getUUID(), "pt_BR", values, null, "pokemarket", "records", UUID.randomUUID()));
+                    return ActionExecutionResult.success();
+                });
+            });
         }
     }
 
@@ -464,6 +597,7 @@ public final class PokeMarketMenuIntegration {
                         for (ClaimRecord row : rows.subList(from, to)) {
                             Map<String, Object> item = new HashMap<>();
                             item.put("claim_id", row.id().toString()); item.put("claim_type", row.type().name());
+                            item.put("claim_label", row.type() == com.pedrodalben.bigbangessentials.pokemarket.model.ClaimType.MONEY ? "Saldo recebido" : "Pokémon disponível");
                             item.put("amount", row.money() == null ? "Pokémon" : row.money().toPlainString());
                             items.add(item);
                         }
@@ -481,7 +615,8 @@ public final class PokeMarketMenuIntegration {
                 List<Map<String, Object>> items = new ArrayList<>();
                 for (PokeMarketNotification row : rows) {
                     Map<String, Object> item = new HashMap<>(); item.put("notification_id", row.id().toString());
-                    item.put("type", row.type()); item.put("status", row.status().name()); item.put("reference", row.referenceId() == null ? "" : row.referenceId());
+                    item.put("type", row.type()); item.put("type_label", notificationLabel(row.type()));
+                    item.put("status", row.status().name()); item.put("status_label", notificationStatusLabel(row.status()));
                     items.add(item);
                 }
                 return new MenuDataResult(items, items.size());
@@ -505,6 +640,7 @@ public final class PokeMarketMenuIntegration {
                 values.put("price", row.price() == null ? "Troca" : row.price().toPlainString());
                 values.put("listing_kind", row.type() == ListingType.POKEMON_TRADE ? "Troca" : "Venda");
                 values.put("listing_type", row.type().name());
+                values.put("expires", formatExpiry(row.expiresAt()));
                 return MenuSystem.getInstance().getMenuService().openMenu(context.player(), "pokemarket_detail",
                     new MenuContext(context.player().getUUID(), "pt_BR", values, null, "pokemarket", "listing", UUID.randomUUID()))
                     .thenApply(result -> result.success() ? ActionExecutionResult.success() : ActionExecutionResult.failed(result.error()));
@@ -525,6 +661,7 @@ public final class PokeMarketMenuIntegration {
                 if (row.seller().equals(context.player().getUUID())) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Você pode visualizar seu anúncio, mas não pode comprá-lo"));
                 Map<String, Object> values = new HashMap<>(); values.put("listing_id", id.toString()); values.put("species", row.species());
                 values.put("price", row.price() == null ? "-" : row.price().toPlainString()); values.put("seller", row.sellerName());
+                values.put("expires", formatExpiry(row.expiresAt()));
                 return MenuSystem.getInstance().getMenuService().openMenu(context.player(), "pokemarket_buy_confirm",
                     new MenuContext(context.player().getUUID(), "pt_BR", values, null, "pokemarket", "buy", UUID.randomUUID()))
                     .thenApply(result -> result.success() ? ActionExecutionResult.success() : ActionExecutionResult.failed(result.error()));
@@ -546,7 +683,13 @@ public final class PokeMarketMenuIntegration {
                     case "economy_unavailable" -> "§cEconomia indisponível; a compra foi bloqueada com segurança.";
                     default -> "§cCompra não concluída: " + status;
                 };
+                refreshOpenMenus();
                 context.player().getServer().execute(() -> context.player().sendSystemMessage(net.minecraft.network.chat.Component.literal(message)));
+                if ("success".equals(status)) {
+                    closeCurrentMenu(context.player(), context.menu().id());
+                    MenuSystem.getInstance().getMenuService().openMenu(context.player(), "pokemarket_claims",
+                        new MenuContext(context.player().getUUID(), "pt_BR", null, null, "pokemarket", "claims", UUID.randomUUID()));
+                }
                 return ActionExecutionResult.success();
             });
         }
@@ -558,6 +701,7 @@ public final class PokeMarketMenuIntegration {
             UUID id = uuid(context.param("claim_id", String.class));
             if (id == null) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Claim inválido"));
             return PokeMarketManager.getInstance().claimService().claim(context.player(), id).thenApply(status -> {
+                refreshOpenMenus();
                 context.player().getServer().execute(() -> context.player().sendSystemMessage(net.minecraft.network.chat.Component.literal("success".equals(status) ? "§aRetirada concluída." : "§cRetirada não concluída: " + status)));
                 return ActionExecutionResult.success();
             });
@@ -568,6 +712,7 @@ public final class PokeMarketMenuIntegration {
         @Override public String type() { return "pokemarket_claim_all"; }
         @Override public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
             return PokeMarketManager.getInstance().claimService().claimAll(context.player(), null).thenApply(result -> {
+                refreshOpenMenus();
                 context.player().getServer().execute(() -> context.player().sendSystemMessage(net.minecraft.network.chat.Component.literal("§aClaims processados: " + result[0] + " concluídos, " + result[1] + " pendentes.")));
                 return ActionExecutionResult.success();
             });
@@ -580,7 +725,22 @@ public final class PokeMarketMenuIntegration {
             UUID id = uuid(context.param("notification_id", String.class));
             if (id == null) return CompletableFuture.completedFuture(ActionExecutionResult.failed("Notificação inválida"));
             return PokeMarketManager.getInstance().notificationRepository().markRead(context.player().getUUID(), id)
-                .thenApply(ignored -> ActionExecutionResult.success());
+                .thenApply(ignored -> {
+                    refreshOpenMenus();
+                    return ActionExecutionResult.success();
+                });
+        }
+    }
+
+    private static final class NotificationReadAllAction implements MenuActionHandler {
+        @Override public String type() { return "pokemarket_notification_read_all"; }
+
+        @Override public CompletionStage<ActionExecutionResult> execute(ActionContext context) {
+            return PokeMarketManager.getInstance().notificationRepository().markAllRead(context.player().getUUID()).thenApply(count -> {
+                refreshOpenMenus();
+                context.player().getServer().execute(() -> context.player().sendSystemMessage(net.minecraft.network.chat.Component.literal("§a" + count + " notificações marcadas como lidas.")));
+                return ActionExecutionResult.success();
+            });
         }
     }
 
@@ -603,11 +763,15 @@ public final class PokeMarketMenuIntegration {
             closeCurrentMenu(player, context.menu().id());
             return PokeMarketManager.getInstance().listingService().create(player, ref.get(), price, java.time.Duration.ofDays(3).toMillis())
                 .thenApply(id -> {
+                    refreshOpenMenus();
                     player.getServer().execute(() -> player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§aAnúncio criado: " + id)));
+                    MenuSystem.getInstance().getMenuService().openMenu(player, "pokemarket_records",
+                        new MenuContext(player.getUUID(), "pt_BR", Map.of("record_type", "listings"), null, "pokemarket", "records", UUID.randomUUID()));
                     return ActionExecutionResult.success();
                 }).exceptionally(error -> {
                     String message = "Falha ao anunciar: " + rootMessage(error);
                     player.getServer().execute(() -> player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§c" + message)));
+                    openSourceMenu(player, copyValues(context.context()));
                     return ActionExecutionResult.failed(message);
                 });
         }
@@ -619,24 +783,63 @@ public final class PokeMarketMenuIntegration {
         }
     }
 
-    private static void requestPrice(ServerPlayer player, java.util.function.Consumer<BigDecimal> callback) {
-        RankupAdminChatInputHandler.getInstance().request(player, "§6Valor: ", RankupAdminChatInputHandler.InputType.DOUBLE, raw -> {
+    public static void refreshOpenMenus() {
+        var menus = MenuSystem.getInstance().getMenuService();
+        menus.refreshSessionsUsingSource("pokemarket.listings");
+        menus.refreshSessionsUsingSource("pokemarket.records");
+        menus.refreshSessionsUsingSource("pokemarket.claims");
+        menus.refreshSessionsUsingSource("pokemarket.notifications");
+        menus.refreshSessionsUsingSource("pokemarket.party");
+        menus.refreshSessionsUsingSource("pokemarket.pc");
+    }
+
+    private static void requestPrice(ServerPlayer player, String prompt, java.util.function.Consumer<BigDecimal> callback,
+                                     Runnable onCancel, Runnable onTimeout) {
+        RankupAdminChatInputHandler.getInstance().request(player, prompt, RankupAdminChatInputHandler.InputType.DOUBLE, raw -> {
             BigDecimal price;
             try {
                 price = MarketPricingService.normalize(new BigDecimal(raw));
             } catch (Exception error) {
                 player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cPreço inválido: " + error.getMessage()));
-                requestPrice(player, callback);
+                requestPrice(player, prompt, callback, onCancel, onTimeout);
                 return;
             }
             callback.accept(price);
-        });
+        }, onCancel, onTimeout);
     }
 
     private static String rootMessage(Throwable error) {
         Throwable current = error;
         while (current.getCause() != null) current = current.getCause();
         return current.getMessage() == null ? "erro desconhecido" : current.getMessage();
+    }
+
+    private static String formatExpiry(long expiresAt) {
+        if (expiresAt <= System.currentTimeMillis()) return "indisponível";
+        long seconds = Math.max(0, (expiresAt - System.currentTimeMillis()) / 1000);
+        if (seconds < 60) return "menos de 1 minuto";
+        if (seconds < 3600) return (seconds / 60) + " min";
+        if (seconds < 86400) return (seconds / 3600) + " h";
+        return (seconds / 86400) + " dias";
+    }
+
+    private static String notificationLabel(String type) {
+        return switch (type == null ? "" : type) {
+            case "LISTING_CREATED" -> "Anúncio criado";
+            case "LISTING_CANCELLED" -> "Anúncio cancelado";
+            case "POKEMON_CLAIM_AVAILABLE" -> "Pokémon disponível para retirada";
+            case "PURCHASE_COMPLETED" -> "Compra concluída";
+            case "TRADE_COMPLETED" -> "Troca concluída";
+            default -> "Atualização do PokéMarket";
+        };
+    }
+
+    private static String notificationStatusLabel(com.pedrodalben.bigbangessentials.pokemarket.model.NotificationStatus status) {
+        return switch (status) {
+            case UNREAD -> "Não lida";
+            case DELIVERED -> "Entregue";
+            case READ -> "Lida";
+        };
     }
 
     private static UUID uuid(String raw) {

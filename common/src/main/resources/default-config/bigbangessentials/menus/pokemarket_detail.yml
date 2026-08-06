@@ -18,7 +18,7 @@ pages:
         item:
           material-id: "minecraft:player_head"
           display-name: "&b{context:species}"
-          lore: ["&7Nível: &f{context:level}", "&7Shiny: &f{context:shiny}", "&7IVs perfeitos: &f{context:perfect_ivs}", "&7Vendedor: &f{context:seller}"]
+          lore: ["&7Nível: &f{context:level}", "&7Shiny: &f{context:shiny}", "&7IVs perfeitos: &f{context:perfect_ivs}", "&7Vendedor: &f{context:seller}", "&7Expira em: &f{context:expires}"]
       value:
         slot: 31
         item:

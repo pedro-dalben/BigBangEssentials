@@ -1,7 +1,7 @@
-id: pokemarket_buy_confirm
+id: pokemarket_cancel_confirm
 schema-version: 2
 size: 27
-title: "&8&lConfirmar compra"
+title: "&8&lCancelar anúncio"
 flags:
   cache-rendered-items: false
   close-on-world-change: true
@@ -16,13 +16,13 @@ pages:
       summary:
         slot: 13
         item:
-          material-id: "minecraft:gold_ingot"
-          display-name: "&6Comprar {context:species}"
-          lore: ["&7Vendedor: &f{context:seller}", "&7Preço: &6{context:price}", "&7Expira em: &f{context:expires}", "", "&eO Pokémon ficará disponível em Claims", "&eapós a compra ser concluída."]
+          material-id: "minecraft:paper"
+          display-name: "&cCancelar {context:species}"
+          lore: ["&7Status: &f{context:status}", "&7Valor: &6{context:price}", "", "&eO Pokémon será devolvido para party/PC.", "&7Se não houver espaço, ficará em Claims."]
       confirm:
         slot: 11
-        item: { material-id: "minecraft:lime_wool", display-name: "&aConfirmar compra" }
-        actions: [{ type: "pokemarket_buy" }]
+        item: { material-id: "minecraft:lime_wool", display-name: "&aConfirmar cancelamento" }
+        actions: [{ type: "pokemarket_cancel_listing" }]
       cancel:
         slot: 15
         item: { material-id: "minecraft:red_wool", display-name: "&cVoltar" }

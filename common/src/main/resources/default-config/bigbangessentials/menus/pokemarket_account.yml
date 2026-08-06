@@ -1,0 +1,51 @@
+id: pokemarket_account
+schema-version: 2
+size: 27
+title: "&8&lPokéMarket &7• &eMinha área"
+flags:
+  cache-rendered-items: false
+  close-on-world-change: true
+  prevent-item-take: true
+pages:
+  main:
+    default-page: true
+    items:
+      frame:
+        slots: [0,1,2,3,4,5,6,7,8,24,26]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
+      listings:
+        slot: 10
+        item: { material-id: "minecraft:map", display-name: "&bMeus anúncios", lore: ["&7Gerencie e cancele anúncios ativos."] }
+        actions: [{ type: "pokemarket_records_open", params: { record_type: "listings" } }]
+      purchases:
+        slot: 11
+        item: { material-id: "minecraft:emerald", display-name: "&aMinhas compras" }
+        actions: [{ type: "pokemarket_records_open", params: { record_type: "purchases" } }]
+      sales:
+        slot: 12
+        item: { material-id: "minecraft:gold_ingot", display-name: "&6Minhas vendas" }
+        actions: [{ type: "pokemarket_records_open", params: { record_type: "sales" } }]
+      history:
+        slot: 13
+        item: { material-id: "minecraft:book", display-name: "&fHistórico" }
+        actions: [{ type: "pokemarket_records_open", params: { record_type: "history" } }]
+      trades:
+        slot: 14
+        item: { material-id: "minecraft:amethyst_shard", display-name: "&dMinhas trocas" }
+        actions: [{ type: "pokemarket_records_open", params: { record_type: "trades" } }]
+      claims:
+        slot: 15
+        item: { material-id: "minecraft:hopper", display-name: "&dClaims", lore: ["&7Retire Pokémon e saldos pendentes."] }
+        actions: [{ type: "open_menu", params: { menu-id: "pokemarket_claims" } }]
+      notifications:
+        slot: 16
+        item: { material-id: "minecraft:bell", display-name: "&6Notificações" }
+        actions: [{ type: "open_menu", params: { menu-id: "pokemarket_notifications" } }]
+      back:
+        slot: 22
+        item: { material-id: "minecraft:arrow", display-name: "&cVoltar" }
+        actions: [{ type: "back_menu" }]
+      close:
+        slot: 23
+        item: { material-id: "minecraft:barrier", display-name: "&cFechar" }
+        actions: [{ type: "close_menu" }]

@@ -14,7 +14,8 @@ class PokeMarketMenuMigrationTest {
         "pokemarket_main.yml", "pokemarket_browse.yml", "pokemarket_detail.yml", "pokemarket_buy_confirm.yml",
         "pokemarket_sell_confirm.yml", "pokemarket_claims.yml", "pokemarket_notifications.yml", "pokemarket_species.yml",
         "pokemarket_records.yml", "pokemarket_admin.yml", "pokemarket_trade_requirements.yml",
-        "pokemarket_trade_accept_confirm.yml", "pokemarket_party.yml", "pokemarket_pc.yml"
+        "pokemarket_trade_accept_confirm.yml", "pokemarket_party.yml", "pokemarket_pc.yml", "pokemarket_cancel_confirm.yml",
+        "pokemarket_sell_source.yml", "pokemarket_account.yml"
     );
 
     @Test

@@ -13,8 +13,8 @@ pagination:
 dynamic-item-template:
   item:
     material-id: "minecraft:bell"
-    display-name: "&6{type}"
-    lore: ["&7Status: &f{status}", "&7Referência: &f{reference}", "", "&eClique para marcar como lida"]
+    display-name: "&6{type_label}"
+    lore: ["&7Status: &f{status_label}", "", "&eClique para marcar como lida"]
   actions:
     - type: "pokemarket_notification_read"
       params: { notification_id: "{notification_id}" }
@@ -29,8 +29,7 @@ pages:
         slot: 4
         item: { material-id: "minecraft:book", display-name: "&aMarcar tudo como lido" }
         actions:
-          - type: "send_message"
-            params: { message: "&7Use a aba de notificações para revisar cada evento do mercado." }
+          - type: "pokemarket_notification_read_all"
       previous:
         slot: 45
         item: { material-id: "minecraft:arrow", display-name: "&ePágina anterior" }

@@ -26,6 +26,11 @@ dynamic-item-template:
       params:
         party_slot: "{party_slot}"
         pokemon_uuid: "{pokemon_uuid}"
+        species: "{species}"
+        form: "{form}"
+        level: "{level}"
+        shiny: "{shiny}"
+        perfect_ivs: "{perfect_ivs}"
       clicks: ["LEFT"]
 pages:
   main:

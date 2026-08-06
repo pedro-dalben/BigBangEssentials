@@ -19,85 +19,34 @@ pages:
           material-id: "minecraft:compass"
           display-name: "&bExplorar anúncios"
           lore: ["&7Veja Pokémon disponíveis", "&7e abra os detalhes antes de comprar.", "", "&eClique para abrir"]
-        actions:
-          - type: "open_menu"
-            params: { menu-id: "pokemarket_browse" }
-      party:
+        actions: [{ type: "pokemarket_browse_open" }]
+      sell:
         slot: 12
         item:
-          material-id: "minecraft:player_head"
+          material-id: "minecraft:gold_ingot"
           display-name: "&aAnunciar venda"
-          lore: ["&7Venda um Pokémon da sua party", "&7por dinheiro e confirme o preço"]
-        actions:
-          - type: "pokemarket_source_open"
-            params: { mode: "money", source: "party" }
-      pc:
+          lore: ["&7Escolha um Pokémon da Party", "&7ou do PC e defina o preço."]
+        actions: [{ type: "open_menu", params: { menu-id: "pokemarket_sell_source" } }]
+      trade:
         slot: 14
-        item:
-          material-id: "minecraft:chest"
-          display-name: "&bAnunciar venda do PC"
-          lore: ["&7Venda um Pokémon do PC", "&7e confirme o preço"]
-        actions:
-          - type: "pokemarket_source_open"
-            params: { mode: "money", source: "pc" }
-      trade_party:
-        slot: 13
-        item: { material-id: "minecraft:emerald", display-name: "&dAnunciar troca", lore: ["&7Escolha seu Pokémon e defina", "&7os requisitos em etapas."] }
-        actions:
-          - type: "pokemarket_source_open"
-            params: { mode: "trade", source: "party" }
-      browse_history:
-        slot: 15
-        item: { material-id: "minecraft:book", display-name: "&fHistórico" }
-        actions:
-          - type: "send_message"
-            params: { message: "&7O histórico visual será aberto nesta mesma central." }
-      my_listings:
-        slot: 17
-        item: { material-id: "minecraft:map", display-name: "&bMeus anúncios" }
-        actions: [{ type: "pokemarket_records_open", params: { record_type: "listings" } }]
-      purchases:
-        slot: 18
-        item: { material-id: "minecraft:emerald", display-name: "&aMinhas compras" }
-        actions: [{ type: "pokemarket_records_open", params: { record_type: "purchases" } }]
-      sales:
-        slot: 19
-        item: { material-id: "minecraft:gold_ingot", display-name: "&6Minhas vendas" }
-        actions: [{ type: "pokemarket_records_open", params: { record_type: "sales" } }]
-      notifications:
-        slot: 20
-        item: { material-id: "minecraft:bell", display-name: "&6Notificações" }
-        actions:
-          - type: "open_menu"
-            params: { menu-id: "pokemarket_notifications" }
-      help:
-        slot: 21
-        item: { material-id: "minecraft:paper", display-name: "&eAjuda" }
-        actions:
-          - type: "send_message"
-            params: { message: "&bPokéMarket &7— escolha uma ação. Compras e anúncios sempre pedem confirmação." }
-      claims:
+        item: { material-id: "minecraft:emerald", display-name: "&dAnunciar troca", lore: ["&7Escolha seu Pokémon e defina", "&7os requisitos da troca."] }
+        actions: [{ type: "pokemarket_source_open", params: { mode: "trade", source: "party" } }]
+      account:
         slot: 16
-        item:
-          material-id: "minecraft:hopper"
-          display-name: "&dMinhas retiradas"
-          lore: ["&7Retire Pokémon e dinheiro", "&7com segurança."]
+        item: { material-id: "minecraft:chest", display-name: "&eMinha área", lore: ["&7Anúncios, compras, vendas", "&7Claims e notificações."] }
+        actions: [{ type: "open_menu", params: { menu-id: "pokemarket_account" } }]
+      help:
+        slot: 18
+        item: { material-id: "minecraft:paper", display-name: "&eAjuda", lore: ["&7Compre, venda ou troque Pokémon", "&7com confirmação e Claims."] }
         actions:
-          - type: "open_menu"
-            params: { menu-id: "pokemarket_claims" }
-      trades:
-        slot: 23
-        item: { material-id: "minecraft:amethyst_shard", display-name: "&dMinhas trocas" }
-        actions: [{ type: "pokemarket_records_open", params: { record_type: "trades" } }]
-      admin:
-        slot: 25
-        item: { material-id: "minecraft:command_block", display-name: "&cPainel Staff", lore: ["&7Health, estatísticas, listagens", "&7e operações administrativas."] }
-        view-permission: "bigbangessentials.pokemarket.admin"
-        actions: [{ type: "open_menu", params: { menu-id: "pokemarket_admin" } }]
+          - type: "send_message"
+            params: { message: "&bPokéMarket &7— explore anúncios, confirme compras e retire Pokémon em Minha área > Claims." }
       close:
         slot: 22
-        item:
-          material-id: "minecraft:barrier"
-          display-name: "&cFechar"
-        actions:
-          - type: "close_menu"
+        item: { material-id: "minecraft:barrier", display-name: "&cFechar" }
+        actions: [{ type: "close_menu" }]
+      admin:
+        slot: 25
+        item: { material-id: "minecraft:command_block", display-name: "&cPainel Staff", lore: ["&7Health, estatísticas e operações."] }
+        view-permission: "bigbangessentials.pokemarket.admin"
+        actions: [{ type: "open_menu", params: { menu-id: "pokemarket_admin" } }]

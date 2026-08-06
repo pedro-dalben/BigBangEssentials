@@ -13,7 +13,7 @@ pagination:
 dynamic-item-template:
   item:
     material-id: "minecraft:hopper"
-    display-name: "&d{claim_type}"
+    display-name: "&d{claim_label}"
     lore: ["&7Valor/conteúdo: &f{amount}", "", "&eClique para retirar"]
   actions:
     - type: "pokemarket_claim"

@@ -1,0 +1,31 @@
+id: pokemarket_sell_source
+schema-version: 2
+size: 27
+title: "&8&lPokéMarket &7• &aOrigem da venda"
+flags:
+  cache-rendered-items: false
+  close-on-world-change: true
+  prevent-item-take: true
+pages:
+  main:
+    default-page: true
+    items:
+      frame:
+        slots: [0,1,2,3,4,5,6,7,8,18,19,20,21,24,25,26]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
+      party:
+        slot: 11
+        item: { material-id: "minecraft:player_head", display-name: "&aEscolher da Party", lore: ["&7Venda um Pokémon que está", "&7na sua Party."] }
+        actions: [{ type: "pokemarket_source_open", params: { mode: "money", source: "party" } }]
+      pc:
+        slot: 15
+        item: { material-id: "minecraft:chest", display-name: "&bEscolher do PC", lore: ["&7Venda um Pokémon guardado", "&7no seu PC."] }
+        actions: [{ type: "pokemarket_source_open", params: { mode: "money", source: "pc" } }]
+      back:
+        slot: 22
+        item: { material-id: "minecraft:arrow", display-name: "&cVoltar" }
+        actions: [{ type: "back_menu" }]
+      close:
+        slot: 23
+        item: { material-id: "minecraft:barrier", display-name: "&cFechar" }
+        actions: [{ type: "close_menu" }]
