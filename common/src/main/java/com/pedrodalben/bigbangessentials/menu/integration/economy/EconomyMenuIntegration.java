@@ -7,6 +7,7 @@ import com.pedrodalben.bigbangessentials.util.Platform;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +38,17 @@ public class EconomyMenuIntegration {
             for (String menu : TOP_MENUS) {
                 Path destination = menusDir.resolve(menu);
                 if (Files.exists(destination)) {
-                    continue;
+                    // Migration: existing copies without a 'pages:' block are broken
+                    // (validate rejects them — menu would not open). Back them up and
+                    // reset to current default.
+                    String content = Files.readString(destination);
+                    if (!content.contains("pages:")) {
+                        Path bak = destination.resolveSibling(menu + ".bak");
+                        Files.move(destination, bak, StandardCopyOption.REPLACE_EXISTING);
+                        LOGGER.warn("Menu {} missing 'pages:' block — regenerating default. Backup at {}", menu, bak);
+                    } else {
+                        continue;
+                    }
                 }
                 try (var input = getClass().getResourceAsStream("/default-config/bigbangessentials/menus/" + menu)) {
                     if (input != null) {

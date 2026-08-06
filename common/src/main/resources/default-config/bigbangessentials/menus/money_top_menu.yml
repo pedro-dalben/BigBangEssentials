@@ -15,3 +15,15 @@ dynamic-item-template:
     display-name: "<yellow>#{money_top_rank} - {money_top_name}"
     lore:
       - "<gray>Money: <green>{money_top_balance}"
+
+pages:
+  main:
+    default-page: true
+    items:
+      close_btn:
+        slot: 22
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "<red>Fechar"
+        actions:
+          - type: "close_menu"

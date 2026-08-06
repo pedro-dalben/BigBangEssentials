@@ -15,3 +15,15 @@ dynamic-item-template:
     display-name: "<green>#{gems_top_rank} - {gems_top_name}"
     lore:
       - "<gray>Gemas: <green>{gems_top_balance}"
+
+pages:
+  main:
+    default-page: true
+    items:
+      close_btn:
+        slot: 22
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "<red>Fechar"
+        actions:
+          - type: "close_menu"
