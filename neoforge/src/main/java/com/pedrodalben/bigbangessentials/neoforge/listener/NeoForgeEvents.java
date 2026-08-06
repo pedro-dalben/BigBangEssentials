@@ -66,6 +66,7 @@ public class NeoForgeEvents {
     public static void onPlayerChangedDimension(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             com.pedrodalben.bigbangessentials.tablist.integration.WorldTabIntegration.onWorldChange(player);
+            com.pedrodalben.bigbangessentials.npcs.service.NpcManager.getInstance().onPlayerDimensionChange(player);
         }
     }
 
@@ -102,6 +103,7 @@ public class NeoForgeEvents {
         com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
         com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerTick(server);
         com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().tick();
+        com.pedrodalben.bigbangessentials.npcs.service.NpcManager.getInstance().tick();
         if (server != null) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 RankupEventListener.onPlayerTick(player);

@@ -219,6 +219,10 @@ public class BigBangEssentials {
             com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.class,
             com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager::getInstance);
 
+        registry.registerManager("NpcManager", "npcs",
+            com.pedrodalben.bigbangessentials.npcs.service.NpcManager.class,
+            com.pedrodalben.bigbangessentials.npcs.service.NpcManager::getInstance);
+
         // RankUp Manager
         registry.registerManager("RankupManager", "rankup",
             com.pedrodalben.bigbangessentials.rankup.RankupManager.class);
@@ -240,6 +244,7 @@ public class BigBangEssentials {
         modules.register("rankup", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("rankup"), "economy", "database");
         modules.register("crates", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("crates"), "database");
         modules.register("holograms", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("holograms"));
+        modules.register("npcs", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("npcs"), "holograms");
         modules.register("shop", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("shop"), "economy", "database");
         modules.register("adminshop", () -> com.pedrodalben.bigbangessentials.config.ConfigManager.isModuleEnabled("adminshop"), "economy", "database");
         modules.register("cobblemon", com.pedrodalben.bigbangessentials.pokemarket.PokeMarketManager::isCobblemonPresent);
@@ -437,6 +442,18 @@ public class BigBangEssentials {
                 LOGGER.error("✗ BigBangHolograms failed to initialize: {}", e.getMessage(), e);
                 ManagerRegistry.getInstance().markFailed("BigBangHologramsManager", e.getMessage());
                 ModuleManager.getInstance().failed("holograms", e);
+            }
+
+            if (ModuleManager.getInstance().prepare("npcs")) try {
+                LOGGER.info("⚙ Initializing NPC Module...");
+                com.pedrodalben.bigbangessentials.npcs.service.NpcManager.getInstance().initialize();
+                ManagerRegistry.getInstance().markInitialized("NpcManager");
+                ModuleManager.getInstance().started("npcs", 0);
+                LOGGER.info("✓ NPC Module initialized successfully");
+            } catch (Exception e) {
+                LOGGER.error("✗ NPC Module failed to initialize: {}", e.getMessage(), e);
+                ManagerRegistry.getInstance().markFailed("NpcManager", e.getMessage());
+                ModuleManager.getInstance().failed("npcs", e);
             }
 
             // Initialize FakePlayerIntegration
@@ -640,6 +657,10 @@ public class BigBangEssentials {
                     }
                 }
             }
+
+            if (ModuleManager.getInstance().isActive("npcs")) {
+                com.pedrodalben.bigbangessentials.npcs.service.NpcManager.getInstance().onPlayerJoin(player);
+            }
         }
 
         public static void onPlayerLoggedOut(net.minecraft.server.level.ServerPlayer player) {
@@ -653,6 +674,10 @@ public class BigBangEssentials {
                     .cancelAllForPlayer(player.getUUID(), player.getName().getString());
             } catch (Exception e) {
                 LOGGER.debug("Failed to persist database-backed player state for {}: {}", player.getName().getString(), e.getMessage(), e);
+            }
+
+            if (ModuleManager.getInstance().isActive("npcs")) {
+                com.pedrodalben.bigbangessentials.npcs.service.NpcManager.getInstance().onPlayerLeave(player);
             }
         }
 
@@ -781,6 +806,13 @@ public class BigBangEssentials {
                 com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().shutdown();
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown BigBangHolograms", e);
+            }
+
+            if (ModuleManager.getInstance().isActive("npcs")) try {
+                LOGGER.info("Shutting down NPC Module...");
+                com.pedrodalben.bigbangessentials.npcs.service.NpcManager.getInstance().shutdown();
+            } catch (Exception e) {
+                LOGGER.error("Failed to shutdown NPC Module", e);
             }
 
             // Shutdown FakeTpaManager
@@ -1376,6 +1408,11 @@ public class BigBangEssentials {
         if (ModuleManager.getInstance().isActive("holograms")) {
             registry.registerCommand("hologram", "Manage holograms", "holograms");
             com.pedrodalben.bigbangessentials.holograms.command.HologramCommand.register(dispatcher);
+        }
+
+        if (ModuleManager.getInstance().isActive("npcs")) {
+            registry.registerCommand("npc", "Manage virtual NPCs", "npcs");
+            com.pedrodalben.bigbangessentials.npcs.command.NpcCommand.register(dispatcher);
         }
 
         // ========== TABLIST MODULE ==========

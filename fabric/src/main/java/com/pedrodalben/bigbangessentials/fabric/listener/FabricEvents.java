@@ -29,6 +29,7 @@ public class FabricEvents {
             com.pedrodalben.bigbangessentials.menu.integration.kits.KitMenuIntegration.onTick();
             com.pedrodalben.bigbangessentials.tablist.TablistEventHandler.onServerTick(server);
             com.pedrodalben.bigbangessentials.holograms.service.BigBangHologramsManager.getInstance().tick();
+            com.pedrodalben.bigbangessentials.npcs.service.NpcManager.getInstance().tick();
             ShopSignRegistrationService.tick();
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 RankupEventListener.onPlayerTick(player);
@@ -71,6 +72,7 @@ public class FabricEvents {
         ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> {
             if (player instanceof ServerPlayer serverPlayer) {
                 com.pedrodalben.bigbangessentials.tablist.integration.WorldTabIntegration.onWorldChange(serverPlayer);
+                com.pedrodalben.bigbangessentials.npcs.service.NpcManager.getInstance().onPlayerDimensionChange(serverPlayer);
             }
         });
 
@@ -98,6 +100,7 @@ public class FabricEvents {
 
         FabricCrateEvents.register();
         FabricShopEvents.register();
+        com.pedrodalben.bigbangessentials.npcs.FabricNpcInteractionBridge.register();
 
         // USE-MAGIC session tracking: marks player session for enchanting/brewing completion detection
         UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
