@@ -14,17 +14,17 @@ Módulo completo de mercado virtual de Pokémon com suporte a venda por dinheiro
 
 `/pokemarket`, `/gts` e `/pm` abrem a central visual do módulo. A central
 oferece exploração paginada, filtros por tipo, espécie, shiny, nível, IVs,
-faixa de preço e ordenação, detalhes do anúncio, compra com confirmação,
-party/PC para publicação, construtor guiado de trocas, claims, notificações e
-registros pessoais.
+faixa de preço e ordenação, detalhes do anúncio e compra com confirmação.
+`Minha área` reúne anúncios, compras, vendas, histórico, trocas, Claims e
+notificações. A publicação começa por uma escolha única entre Party e PC.
 
 O valor de publicação e os limites de preço podem ser digitados no chat
 temporariamente. A entrada é privada, expira automaticamente, aceita `cancel`
-e fecha o menu durante a digitação. Preços inválidos solicitam nova entrada e
-nunca movimentam Pokémon ou dinheiro sem a confirmação no menu.
+e retorna à tela anterior ao cancelar ou expirar. Preços inválidos solicitam
+nova entrada e nunca movimentam Pokémon ou dinheiro sem a confirmação no menu.
 
-No menu padrão, **Anunciar venda** usa dinheiro e **Anunciar troca** abre os
-requisitos de troca sem pedir preço. Menus customizados antigos são preservados
+No menu padrão, **Anunciar venda** primeiro escolhe Party ou PC e
+**Anunciar troca** abre os requisitos de troca sem pedir preço. Menus customizados antigos são preservados
 pela migração: confirme que `party`/`pc` usam `mode: money` e `trade_party` usa
 `mode: trade` antes de recarregar os menus.
 

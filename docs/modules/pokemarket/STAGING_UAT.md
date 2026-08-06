@@ -4,6 +4,8 @@ Preencher uma linha por execução. Um cenário só é `PASS` com evidência ane
 
 | cenário | pré-condições | passos | resultado esperado | resultado obtido | PASS/FAIL | evidências | observações |
 |---|---|---|---|---|---|---|---|
+| GUI: Central e Minha área | jogador Cobblemon real | abrir `/pokemarket`, navegar pela Central e submenu | ações primárias claras, todas as áreas pessoais acessíveis |  |  |  |  |
+| GUI: preço e filtros | anúncio e listagens ativas | cancelar preço, usar filtros e limpar estado | retorno correto, filtros visíveis e sem anúncio criado por cancelamento |  |  |  |  |
 | Economia: migration JSON/dry-run/import | fixture aprovada, backup | executar dry-run e import | totais iguais, sem duplicação |  |  |  |  |
 | Economia: débito/crédito/replay | conta com saldo | repetir mesma chave | um receipt, um efeito |  |  |  |  |
 | Economia: export/reconcile/restart | banco saudável | exportar, reiniciar, reconciliar | nenhuma divergência |  |  |  |  |
