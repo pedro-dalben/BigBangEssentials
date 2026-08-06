@@ -53,12 +53,13 @@ public final class BigBangEssentialsApiProvider {
             }
             CompletableFuture<List<JobProgressSnapshot>> jobs;
             try {
-                jobs = JobsManager.getInstance().loadPlayerData(playerUuid)
+                JobsManager jobsManager = JobsManager.getInstance();
+                jobs = jobsManager != null && jobsManager.getConfig() != null ? jobsManager.loadPlayerData(playerUuid)
                         .thenApply(data -> data == null ? List.<JobProgressSnapshot>of() : data.getJobs().entrySet().stream()
                                 .map(entry -> new JobProgressSnapshot(entry.getKey(), entry.getKey(), entry.getValue().getLevel(),
                                         Math.round(entry.getValue().getXp())))
                                 .toList())
-                        .exceptionally(ignored -> List.<JobProgressSnapshot>of());
+                        .exceptionally(ignored -> List.<JobProgressSnapshot>of()) : CompletableFuture.completedFuture(List.of());
             } catch (RuntimeException ignored) {
                 jobs = CompletableFuture.completedFuture(List.of());
             }
@@ -80,7 +81,7 @@ public final class BigBangEssentialsApiProvider {
         }
 
         private boolean jobsAvailable() {
-            try { return JobsManager.getInstance() != null; }
+            try { return JobsManager.getInstance() != null && JobsManager.getInstance().getConfig() != null; }
             catch (RuntimeException ignored) { return false; }
         }
     }
