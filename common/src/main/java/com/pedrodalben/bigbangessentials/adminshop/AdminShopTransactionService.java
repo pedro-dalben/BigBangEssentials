@@ -32,6 +32,8 @@ public final class AdminShopTransactionService {
     private final GemsServiceImpl gems = new GemsServiceImpl();
     private final Map<String, Object> productLocks = new ConcurrentHashMap<>();
 
+    private final Map<String, CompletableFuture<?>> productQueues = new ConcurrentHashMap<>();
+
     public static AdminShopTransactionService getInstance() { return INSTANCE; }
     static String currencyPermission(String currency) { return "bigbangessentials.adminshop." + currency; }
 
@@ -41,6 +43,45 @@ public final class AdminShopTransactionService {
 
     public CompletableFuture<Result> executeAsync(ServerPlayer player, String productId, Operation operation, int quantity) {
         if (player == null) return CompletableFuture.completedFuture(fail("§cJogador indisponível."));
+        if (manager.getStateStatus() == AdminShopManager.StateStatus.ERROR || manager.getStateStatus() == AdminShopManager.StateStatus.DATABASE_UNAVAILABLE) {
+            return CompletableFuture.completedFuture(fail("§cO AdminShop está indisponível no momento."));
+        }
+
+        CompletableFuture<Result> resultFuture = new CompletableFuture<>();
+
+        productQueues.compute(productId, (id, currentQueue) -> {
+            CompletableFuture<?> previous = (currentQueue != null) ? currentQueue : CompletableFuture.completedFuture(null);
+
+            CompletableFuture<Void> myTurn = previous.handle((ignored, err) -> null)
+                    .thenCompose(ignored -> runSingleTransactionPipeline(player, productId, operation, quantity))
+                    .handle((res, err) -> {
+                        if (err != null) {
+                            Throwable cause = err instanceof CompletionException && err.getCause() != null ? err.getCause() : err;
+                            if (cause instanceof com.pedrodalben.bigbangessentials.adminshop.exception.AdminShopConcurrencyException) {
+                                resultFuture.complete(fail("§cConflito de transação simultânea. Por favor, tente novamente."));
+                            } else if (cause instanceof com.pedrodalben.bigbangessentials.adminshop.exception.AdminShopUnavailableException) {
+                                resultFuture.complete(fail("§cO AdminShop está temporariamente indisponível."));
+                            } else {
+                                String msg = cause.getMessage();
+                                resultFuture.complete(fail(msg != null && msg.startsWith("§") ? msg : "§cA transação falhou. ID do produto: " + productId));
+                            }
+                        } else {
+                            resultFuture.complete(res);
+                        }
+                        return null;
+                    });
+
+            return myTurn;
+        });
+
+        resultFuture.whenComplete((res, err) -> {
+            productQueues.computeIfPresent(productId, (id, queueFuture) -> queueFuture.isDone() ? null : queueFuture);
+        });
+
+        return resultFuture;
+    }
+
+    private CompletableFuture<Result> runSingleTransactionPipeline(ServerPlayer player, String productId, Operation operation, int quantity) {
         return onServer(player, () -> prepare(player, productId, operation, quantity)).thenCompose(prepared -> {
             if (prepared == null) return CompletableFuture.completedFuture(fail("§cOperação indisponível."));
             return manager.sql.startAuditAsync(prepared.tx, player.getUUID(), productId, operation.name(), prepared.currency,
@@ -181,6 +222,7 @@ public final class AdminShopTransactionService {
                 .thenCompose(logged -> logged ? manager.sql.updateAuditAsync(p.tx, AdminShopAuditStatus.COMPLETED, finance.receipt,
                         "APPLIED", p.stockStage, "APPLIED", "APPLIED", null).thenApply(done -> {
                             if (!done) throw new SagaFailure("§cA auditoria final não pôde ser gravada.");
+                            manager.state.processed.remove(p.tx);
                             return new Result(true, "§aTransação concluída: §f" + (p.product.displayName == null ? p.productId : p.product.displayName) + " §7(x" + p.quantity + " " + p.price + " " + p.currency + ")");
                         }) : failed(new SagaFailure("§cO registro da transação não pôde ser gravado.")));
     }
@@ -194,6 +236,7 @@ public final class AdminShopTransactionService {
             boolean ok = Boolean.TRUE.equals(item.getNow(false)) && Boolean.TRUE.equals(state.getNow(false)) && Boolean.TRUE.equals(money.getNow(false));
             AdminShopAuditStatus status = ok ? AdminShopAuditStatus.ROLLED_BACK : AdminShopAuditStatus.RECONCILIATION_REQUIRED;
             String reason = error == null || error.getMessage() == null ? "transaction_failed" : error.getMessage();
+            LOGGER.error("AdminShop transaction compensation [tx={} player={} product={} op={}]: status={} failure={}", p.tx, p.player.getUUID(), p.productId, p.operation, status, reason, error);
             return manager.sql.updateAuditAsync(p.tx, status, finance == null ? null : finance.receipt,
                     ok ? "ROLLED_BACK" : "RECONCILIATION_REQUIRED", p.stockStage, "ROLLED_BACK", "ROLLED_BACK", reason)
                     .thenApply(audited -> ok && audited ? fail(reason) : fail("§cA transação falhou e requer reconciliação. ID: " + p.tx));
@@ -238,27 +281,46 @@ public final class AdminShopTransactionService {
 
     private CompletableFuture<Boolean> restorePrepared(Prepared p, boolean persisted) {
         return onServer(p.player, () -> {
-            Object lock = p.lock;
-            synchronized (lock) {
-                String key = p.player.getUUID() + ":" + p.productId;
-                long currentRemaining = manager.state.remaining.getOrDefault(p.productId, p.oldRemaining);
-                long currentUsed = manager.state.limits.getOrDefault(key, p.oldUsed);
-                long currentDemand = manager.state.demand.getOrDefault(p.productId, p.oldDemand);
-                boolean currentHasRemaining = manager.state.remaining.containsKey(p.productId);
-                boolean currentHasLimit = manager.state.limits.containsKey(key);
-                boolean currentHasDemand = manager.state.demand.containsKey(p.productId);
-                restore(manager.state.remaining, p.productId, p.oldRemaining, p.hadRemaining);
-                restore(manager.state.limits, key, p.oldUsed, p.hadLimit);
-                restore(manager.state.demand, p.productId, p.oldDemand, p.hadDemand);
-                manager.state.processed.remove(p.tx);
-                if (!persisted) return CompletableFuture.completedFuture(true);
-                return CompletableFuture.supplyAsync(() -> {
-                    manager.saveStateDelta(p.productId, currentRemaining, p.oldRemaining, p.player.getUUID(), currentUsed, p.oldUsed,
-                            currentDemand, p.oldDemand, currentHasRemaining, currentHasLimit, currentHasDemand,
-                            p.hadRemaining, p.hadLimit, p.hadDemand);
-                    return true;
-                });
+            String limitKey = p.player.getUUID() + ":" + p.productId;
+            long currentRemaining = manager.state.remaining.getOrDefault(p.productId, p.oldRemaining);
+            long currentUsed = manager.state.limits.getOrDefault(limitKey, p.oldUsed);
+            long currentDemand = manager.state.demand.getOrDefault(p.productId, p.oldDemand);
+            boolean currentHasRemaining = manager.state.remaining.containsKey(p.productId);
+            boolean currentHasLimit = manager.state.limits.containsKey(limitKey);
+            boolean currentHasDemand = manager.state.demand.containsKey(p.productId);
+
+            if (p.buy && p.product.stock >= 0) {
+                long curStock = manager.state.remaining.getOrDefault(p.productId, p.product.stock);
+                manager.state.remaining.put(p.productId, curStock + p.quantity);
             }
+            if (p.product.limit >= 0) {
+                long curUsed = manager.state.limits.getOrDefault(limitKey, 0L);
+                long restoredUsed = Math.max(0L, curUsed - p.quantity);
+                if (restoredUsed == 0L && !p.hadLimit) {
+                    manager.state.limits.remove(limitKey);
+                } else {
+                    manager.state.limits.put(limitKey, restoredUsed);
+                }
+            }
+            manager.state.processed.remove(p.tx);
+
+            if (!persisted) return CompletableFuture.completedFuture(true);
+
+            long targetRemaining = p.buy && p.product.stock >= 0 ? currentRemaining + p.quantity : currentRemaining;
+            long targetUsed = p.product.limit >= 0 ? Math.max(0L, currentUsed - p.quantity) : currentUsed;
+
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    manager.saveStateDelta(p.productId, currentRemaining, targetRemaining, p.player.getUUID(),
+                            currentUsed, targetUsed, currentDemand, p.oldDemand,
+                            currentHasRemaining, currentHasLimit, currentHasDemand,
+                            p.hadRemaining, targetUsed > 0 || p.hadLimit, p.hadDemand);
+                    return true;
+                } catch (Exception e) {
+                    LOGGER.error("Failed to persist state compensation delta for tx={}", p.tx, e);
+                    return false;
+                }
+            });
         }).thenCompose(value -> value);
     }
 
