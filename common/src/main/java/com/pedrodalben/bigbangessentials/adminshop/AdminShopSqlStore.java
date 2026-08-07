@@ -5,18 +5,42 @@ import com.pedrodalben.bigbangessentials.database.execution.DatabaseExecutor;
 import com.pedrodalben.bigbangessentials.api.economy.EconomyOperationReceipt;
 import com.google.gson.Gson;
 import com.pedrodalben.bigbangessentials.util.ResourceUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /** SQL backend for admin shop state. JSON remains the migration/fallback backend. */
 final class AdminShopSqlStore {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AdminShopSqlStore.class);
     private final DatabaseManager database = DatabaseManager.getInstance();
     private final Gson gson = new Gson();
     private final java.nio.file.Path jsonPath = ResourceUtil.getDataPath("adminshop_audits.json");
     private final Map<String, JsonAudit> jsonAudits = new LinkedHashMap<>();
     private boolean jsonLoaded;
+
+    public enum LoadResult {
+        LOADED,
+        EMPTY,
+        UNAVAILABLE,
+        ERROR
+    }
+
+    public enum DeltaResult {
+        SUCCESS,
+        CONFLICT,
+        UNAVAILABLE,
+        ERROR
+    }
+
+    static final class OptimisticLockConflictException extends RuntimeException {
+        OptimisticLockConflictException(String message) { super(message); }
+    }
+
     private Optional<DatabaseExecutor> executor() {
         if (!database.isReady()) return Optional.empty();
         try { return Optional.of(database.getExecutor()); } catch (Exception e) { return Optional.empty(); }
@@ -43,9 +67,9 @@ final class AdminShopSqlStore {
         } catch (Exception e) { return false; }
     }
 
-    boolean load(AdminShopManager.State state) {
+    LoadResult loadResult(AdminShopManager.State state) {
         Optional<DatabaseExecutor> optional = executor();
-        if (optional.isEmpty()) return false;
+        if (optional.isEmpty()) return LoadResult.UNAVAILABLE;
         try {
             DatabaseExecutor db = optional.get();
             List<Map.Entry<String, Long>> stocks = db.queryList("adminshop stocks", "SELECT product_id, remaining FROM adminshop_state", null, rs -> Map.entry(rs.getString(1), rs.getLong(2))).join();
@@ -57,9 +81,17 @@ final class AdminShopSqlStore {
                 stocks.forEach(e -> state.remaining.put(e.getKey(), e.getValue()));
                 limits.forEach(e -> state.limits.put(e.key, e.value));
                 demand.forEach(e -> state.demand.put(e.getKey(), e.getValue()));
+                return LoadResult.LOADED;
             }
-            return hasRows;
-        } catch (Exception e) { return false; }
+            return LoadResult.EMPTY;
+        } catch (Exception e) {
+            LOGGER.error("Failed to load admin shop state from database", e);
+            return LoadResult.ERROR;
+        }
+    }
+
+    boolean load(AdminShopManager.State state) {
+        return loadResult(state) == LoadResult.LOADED;
     }
 
     void save(AdminShopManager.State state) {
@@ -75,21 +107,39 @@ final class AdminShopSqlStore {
         }).join();
     }
 
-    boolean saveDelta(String productId, long oldRemaining, long remaining, UUID player,
-                      long oldUsed, long used, long oldDemand, long demand,
-                      boolean hadRemaining, boolean hadLimit, boolean hadDemand,
-                      boolean hasRemaining, boolean hasLimit, boolean hasDemand) {
-        Optional<DatabaseExecutor> optional = executor(); if (optional.isEmpty()) return true;
+    DeltaResult saveDelta(String productId, long oldRemaining, long remaining, UUID player,
+                          long oldUsed, long used, long oldDemand, long demand,
+                          boolean hadRemaining, boolean hadLimit, boolean hadDemand,
+                          boolean hasRemaining, boolean hasLimit, boolean hasDemand) {
+        Optional<DatabaseExecutor> optional = executor(); if (optional.isEmpty()) return DeltaResult.UNAVAILABLE;
         try {
-            return optional.get().transaction("adminshop state delta", c ->
-                updateLong(c, "adminshop_state", "product_id", productId, "remaining",
-                    oldRemaining, remaining, hadRemaining, hasRemaining)
-                && updateLong(c, "adminshop_limits", "player_uuid", player.toString(), "product_id", productId,
-                    "used", oldUsed, used, hadLimit, hasLimit)
-                && updateLong(c, "adminshop_demand", "product_id", productId, "demand",
-                    oldDemand, demand, hadDemand, hasDemand)
-            ).join();
-        } catch (Exception ignored) { return false; }
+            boolean ok = optional.get().transaction("adminshop state delta", c -> {
+                if (!updateLong(c, "adminshop_state", "product_id", productId, "remaining",
+                        oldRemaining, remaining, hadRemaining, hasRemaining)) {
+                    throw new OptimisticLockConflictException("Conflict on adminshop_state for product " + productId);
+                }
+                if (!updateLong(c, "adminshop_limits", "player_uuid", player.toString(), "product_id", productId,
+                        "used", oldUsed, used, hadLimit, hasLimit)) {
+                    throw new OptimisticLockConflictException("Conflict on adminshop_limits for player " + player + " product " + productId);
+                }
+                if (!updateLong(c, "adminshop_demand", "product_id", productId, "demand",
+                        oldDemand, demand, hadDemand, hasDemand)) {
+                    throw new OptimisticLockConflictException("Conflict on adminshop_demand for product " + productId);
+                }
+                return true;
+            }).join();
+            return ok ? DeltaResult.SUCCESS : DeltaResult.ERROR;
+        } catch (CompletionException e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            if (cause instanceof OptimisticLockConflictException) {
+                return DeltaResult.CONFLICT;
+            }
+            LOGGER.error("SQL error saving AdminShop state delta for product {} [tx_player={}]", productId, player, cause);
+            return DeltaResult.ERROR;
+        } catch (Exception e) {
+            LOGGER.error("Unexpected error saving AdminShop state delta for product {} [tx_player={}]", productId, player, e);
+            return DeltaResult.ERROR;
+        }
     }
 
     private boolean updateLong(Connection c, String table, String keyColumn, String key, String valueColumn,

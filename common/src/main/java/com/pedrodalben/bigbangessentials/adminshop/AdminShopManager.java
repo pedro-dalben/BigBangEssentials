@@ -15,20 +15,62 @@ import java.util.*;
 import java.nio.file.StandardOpenOption;
 
 public final class AdminShopManager {
+    public enum StateStatus { READY, READ_ONLY, DATABASE_UNAVAILABLE, ERROR }
+
     private static final Logger LOGGER = LoggerFactory.getLogger(AdminShopManager.class);
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final AdminShopManager INSTANCE = new AdminShopManager();
     private AdminShopConfig config = new AdminShopConfig();
     final State state = new State();
     final AdminShopSqlStore sql = new AdminShopSqlStore();
+    private volatile StateStatus stateStatus = StateStatus.READY;
+
     private AdminShopManager() {}
     public static AdminShopManager getInstance() { return INSTANCE; }
     public synchronized void initialize() { reload(); }
-    public synchronized void reload() { config = AdminShopConfig.load(); loadState(); if (!sql.load(state)) sql.save(state); }
+    public synchronized void reload() {
+        config = AdminShopConfig.load();
+        loadState();
+        com.pedrodalben.bigbangessentials.database.DatabaseManager db = com.pedrodalben.bigbangessentials.database.DatabaseManager.getInstance();
+        boolean dbConfigured = db.getConfig() != null && db.getConfig().isEnabled();
+        if (dbConfigured) {
+            if (!db.isReady()) {
+                LOGGER.warn("AdminShop database is enabled but not ready during reload. Disabling persistence operations.");
+                stateStatus = StateStatus.DATABASE_UNAVAILABLE;
+            } else {
+                AdminShopSqlStore.LoadResult result = sql.loadResult(state);
+                switch (result) {
+                    case LOADED -> stateStatus = StateStatus.READY;
+                    case EMPTY -> {
+                        if (!state.remaining.isEmpty() || !state.limits.isEmpty() || !state.demand.isEmpty()) {
+                            sql.save(state);
+                        }
+                        stateStatus = StateStatus.READY;
+                    }
+                    case UNAVAILABLE -> {
+                        LOGGER.warn("AdminShop SQL store is unavailable during reload. Disabling persistence operations.");
+                        stateStatus = StateStatus.DATABASE_UNAVAILABLE;
+                    }
+                    case ERROR -> {
+                        LOGGER.error("AdminShop SQL store load failed with error during reload. Refusing DB overwrite or JSON fallback.");
+                        stateStatus = StateStatus.ERROR;
+                    }
+                }
+            }
+        } else {
+            stateStatus = StateStatus.READY;
+        }
+    }
+
+    public StateStatus getStateStatus() { return stateStatus; }
     public AdminShopConfig config() { return config; }
     public List<String> reconcile() { return sql.reconcile(); }
     public Path statePath() { return ResourceUtil.getDataPath("adminshop_state.json"); }
+
     synchronized void saveState() {
+        if (stateStatus == StateStatus.ERROR || stateStatus == StateStatus.DATABASE_UNAVAILABLE) {
+            throw new com.pedrodalben.bigbangessentials.adminshop.exception.AdminShopUnavailableException("AdminShop store is unavailable (status=" + stateStatus + ")");
+        }
         try {
             Files.createDirectories(statePath().getParent());
             Path tmp = statePath().resolveSibling("adminshop_state.json.tmp");
@@ -36,27 +78,33 @@ public final class AdminShopManager {
             sql.save(state);
             Files.move(tmp, statePath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         }
-        catch (Exception e) { throw new IllegalStateException("Could not persist admin shop state", e); }
+        catch (Exception e) { throw new com.pedrodalben.bigbangessentials.adminshop.exception.AdminShopPersistenceException("Could not persist admin shop state", e); }
     }
 
     synchronized void saveStateDelta(String productId, long oldRemaining, long remaining, UUID player,
                                       long oldUsed, long used, long oldDemand, long demand,
                                       boolean hadRemaining, boolean hadLimit, boolean hadDemand,
                                       boolean hasRemaining, boolean hasLimit, boolean hasDemand) {
+        if (stateStatus == StateStatus.ERROR || stateStatus == StateStatus.DATABASE_UNAVAILABLE) {
+            throw new com.pedrodalben.bigbangessentials.adminshop.exception.AdminShopUnavailableException("AdminShop store is unavailable (status=" + stateStatus + ")");
+        }
+        AdminShopSqlStore.DeltaResult result = sql.saveDelta(productId, oldRemaining, remaining, player, oldUsed, used, oldDemand, demand,
+                hadRemaining, hadLimit, hadDemand, hasRemaining, hasLimit, hasDemand);
+        if (result == AdminShopSqlStore.DeltaResult.CONFLICT) {
+            throw new com.pedrodalben.bigbangessentials.adminshop.exception.AdminShopConcurrencyException("Concurrent AdminShop state change for product " + productId);
+        } else if (result == AdminShopSqlStore.DeltaResult.UNAVAILABLE) {
+            throw new com.pedrodalben.bigbangessentials.adminshop.exception.AdminShopUnavailableException("AdminShop database service is unavailable");
+        } else if (result == AdminShopSqlStore.DeltaResult.ERROR) {
+            throw new com.pedrodalben.bigbangessentials.adminshop.exception.AdminShopPersistenceException("Database error while persisting AdminShop state delta");
+        }
+
         try {
-            if (!sql.saveDelta(productId, oldRemaining, remaining, player, oldUsed, used, oldDemand, demand,
-                    hadRemaining, hadLimit, hadDemand, hasRemaining, hasLimit, hasDemand)) {
-                throw new IllegalStateException("Concurrent AdminShop state change");
-            }
             Files.createDirectories(statePath().getParent());
             Path tmp = statePath().resolveSibling("adminshop_state.json.tmp");
             try (Writer w = Files.newBufferedWriter(tmp)) { GSON.toJson(state, w); }
             Files.move(tmp, statePath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (Exception e) {
-            try { sql.saveDelta(productId, remaining, oldRemaining, player, used, oldUsed, demand, oldDemand,
-                    hasRemaining, hasLimit, hasDemand, hadRemaining, hadLimit, hadDemand); }
-            catch (Exception ignored) { }
-            throw new IllegalStateException("Could not persist admin shop state delta", e);
+            LOGGER.error("Failed to write local adminshop_state.json snapshot", e);
         }
     }
 
@@ -172,5 +220,10 @@ public final class AdminShopManager {
         try { if (!Files.exists(statePath())) return; try (Reader r = Files.newBufferedReader(statePath())) { State loaded = GSON.fromJson(r, State.class); if (loaded != null) { if (loaded.remaining != null) state.remaining.putAll(loaded.remaining); if (loaded.limits != null) state.limits.putAll(loaded.limits); if (loaded.demand != null) state.demand.putAll(loaded.demand); if (loaded.processed != null) state.processed.addAll(loaded.processed); } } }
         catch (Exception e) { LOGGER.error("Failed to load admin shop state; starting with empty runtime state", e); }
     }
-    static final class State { Map<String, Long> remaining = new HashMap<>(); Map<String, Long> limits = new HashMap<>(); Map<String, Long> demand = new HashMap<>(); Set<String> processed = new HashSet<>(); }
+    static final class State {
+        final Map<String, Long> remaining = new java.util.concurrent.ConcurrentHashMap<>();
+        final Map<String, Long> limits = new java.util.concurrent.ConcurrentHashMap<>();
+        final Map<String, Long> demand = new java.util.concurrent.ConcurrentHashMap<>();
+        final Set<String> processed = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    }
 }
