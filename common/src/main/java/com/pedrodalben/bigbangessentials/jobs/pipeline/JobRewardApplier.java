@@ -53,30 +53,25 @@ public class JobRewardApplier {
             BigDecimal payout;
             try { payout = BigDecimal.valueOf(allowedPayout); }
             catch (RuntimeException e) { return false; }
-            var receipt = EconomyManager.getInstance().credit(playerId, payout,
-                    "jobs:reward:" + action.actionId() + ":" + jobId, "Jobs reward",
-                    java.util.Map.of("source", "jobs", "reference", action.actionId().toString(), "job", jobId));
-            moneyApplied = receipt != null && receipt.status() == EconomyOperationStatus.COMPLETED;
-            if (moneyApplied) {
-                double currentEarnings = data.getDailyEarnings(jobId);
-                double newEarnings = currentEarnings + allowedPayout;
-                data.setDailyEarnings(jobId, newEarnings);
-                if (repository != null) {
-                    repository.savePlayerJobEarnings(playerId, jobId, data.getCurrentCycleStart(), newEarnings);
-                }
 
-                com.pedrodalben.bigbangessentials.util.Platform.postEvent(new JobRewardPaidEvent(playerId, jobId, allowedPayout));
+            JobRewardBatcher.getInstance().addPendingReward(playerId, jobId, payout);
+            String rewardKey = "jobs:reward:" + action.actionId() + ":" + jobId;
+            moneyApplied = true;
 
-                if (config.isDailyLimitEnabled()) {
-                    double dailyLimit = JobDailyLimitService.getInstance().getDailyLimit(jobDef, config, player);
-                    if (dailyLimit > 0.0) {
-                        JobMessageService.getInstance().checkDailyLimitWarnings(player, data, jobId, newEarnings, dailyLimit);
-                    }
+            double currentEarnings = data.getDailyEarnings(jobId);
+            double newEarnings = currentEarnings + allowedPayout;
+            data.setDailyEarnings(jobId, newEarnings);
+            if (repository != null) {
+                repository.savePlayerJobEarnings(playerId, jobId, data.getCurrentCycleStart(), newEarnings);
+            }
+
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(new JobRewardPaidEvent(playerId, jobId, allowedPayout));
+
+            if (config.isDailyLimitEnabled()) {
+                double dailyLimit = JobDailyLimitService.getInstance().getDailyLimit(jobDef, config, player);
+                if (dailyLimit > 0.0) {
+                    JobMessageService.getInstance().checkDailyLimitWarnings(player, data, jobId, newEarnings, dailyLimit);
                 }
-            } else {
-                LOGGER.error("Failed to deposit jobs reward of {} for player {}", allowedPayout, player.getName().getString());
-                cancelDiscoveryIfPending(playerId, action);
-                return false;
             }
         }
 

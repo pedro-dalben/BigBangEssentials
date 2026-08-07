@@ -153,6 +153,7 @@ public class JobsManager {
             LOGGER.error("Error waiting for player jobs data to save on shutdown", e);
         }
 
+        com.pedrodalben.bigbangessentials.jobs.pipeline.JobRewardBatcher.getInstance().shutdown();
         BlockProtectionManager.getInstance().shutdown();
         com.pedrodalben.bigbangessentials.jobs.progression.JobRankMilestoneService.getInstance().shutdown();
         com.pedrodalben.bigbangessentials.jobs.license.JobLicenseService.getInstance().shutdown();
