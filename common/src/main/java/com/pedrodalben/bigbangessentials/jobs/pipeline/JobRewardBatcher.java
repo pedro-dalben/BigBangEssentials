@@ -12,10 +12,12 @@ import java.util.concurrent.*;
 /**
  * Batches micro-rewards per player to prevent database connection starvation
  * during high-frequency jobs actions (e.g. fast mining or mob farming).
+ * Failed credits are re-enqueued for a retry on the next flush tick.
  */
 public final class JobRewardBatcher {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobRewardBatcher.class);
     private static final JobRewardBatcher INSTANCE = new JobRewardBatcher();
+    private static final long SHUTDOWN_TIMEOUT_SECONDS = 8;
 
     private final Map<UUID, Map<String, BigDecimal>> pendingPayouts = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -57,11 +59,13 @@ public final class JobRewardBatcher {
                             Map.of("source", "jobs", "reference", key, "job", jobId))
                     .thenAccept(receipt -> {
                         if (receipt == null || receipt.status() != EconomyOperationStatus.COMPLETED) {
-                            LOGGER.error("Failed to deposit batched jobs reward of {} for player {} in job {}", amount, playerId, jobId);
+                            LOGGER.error("Failed to deposit batched jobs reward of {} for player {} in job {}. Re-enqueuing.", amount, playerId, jobId);
+                            addPendingReward(playerId, jobId, amount);
                         }
                     })
                     .exceptionally(err -> {
-                        LOGGER.error("Error depositing batched jobs reward of {} for player {} in job {}", amount, playerId, jobId, err);
+                        LOGGER.error("Error depositing batched jobs reward of {} for player {} in job {}. Re-enqueuing.", amount, playerId, jobId, err);
+                        addPendingReward(playerId, jobId, amount);
                         return null;
                     });
             futures.add(future);
@@ -69,26 +73,32 @@ public final class JobRewardBatcher {
         return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
     }
 
-    public void flushAll() {
+    public CompletableFuture<Void> flushAll() {
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
         Set<UUID> playerIds = new HashSet<>(pendingPayouts.keySet());
         for (UUID playerId : playerIds) {
             try {
-                flushPlayer(playerId);
+                futures.add(flushPlayer(playerId));
             } catch (Exception e) {
                 LOGGER.error("Error flushing pending job rewards for player {}", playerId, e);
             }
         }
+        return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
     }
 
     public void shutdown() {
         try {
-            flushAll();
+            flushAll().join();
+        } catch (Exception e) {
+            LOGGER.error("Error flushing pending job rewards on shutdown", e);
+        }
+        try {
             scheduler.shutdown();
-            if (!scheduler.awaitTermination(3, TimeUnit.SECONDS)) {
+            if (!scheduler.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 scheduler.shutdownNow();
             }
         } catch (Exception e) {
-            LOGGER.error("Error shutting down JobRewardBatcher", e);
+            LOGGER.error("Error shutting down JobRewardBatcher scheduler", e);
         }
     }
 }

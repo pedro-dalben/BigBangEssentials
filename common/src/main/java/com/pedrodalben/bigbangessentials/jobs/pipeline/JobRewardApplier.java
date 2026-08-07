@@ -55,7 +55,6 @@ public class JobRewardApplier {
             catch (RuntimeException e) { return false; }
 
             JobRewardBatcher.getInstance().addPendingReward(playerId, jobId, payout);
-            String rewardKey = "jobs:reward:" + action.actionId() + ":" + jobId;
             moneyApplied = true;
 
             double currentEarnings = data.getDailyEarnings(jobId);
@@ -152,15 +151,5 @@ public class JobRewardApplier {
         if (src.equals("EXPLORATION_DIMENSION")) return "DIMENSION";
         if (action.context().getBiome() != null && !action.context().getBiome().isEmpty()) return "BIOME";
         return "";
-    }
-
-    private void cancelDiscoveryIfPending(UUID playerId, JobAction action) {
-        if (action.type() == JobActionType.EXPLORE && action.context() != null && action.context().isFirstDiscovery()) {
-            String type = determineDiscoveryType(action);
-            if (!type.isEmpty() && action.targetId() != null && !action.targetId().isEmpty()) {
-                com.pedrodalben.bigbangessentials.jobs.antiexploit.ExplorationDiscoveryService.getInstance()
-                        .cancelDiscovery(playerId, type, action.targetId());
-            }
-        }
     }
 }
