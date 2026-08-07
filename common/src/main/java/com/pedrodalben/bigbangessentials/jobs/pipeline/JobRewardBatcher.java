@@ -55,19 +55,26 @@ public final class JobRewardBatcher {
             if (amount.signum() <= 0) continue;
 
             String key = "jobs:reward:batch:" + UUID.randomUUID();
-            CompletableFuture<?> future = EconomyManager.getInstance().creditAsync(playerId, amount, key, "Jobs batched rewards",
-                            Map.of("source", "jobs", "reference", key, "job", jobId))
-                    .thenAccept(receipt -> {
-                        if (receipt == null || receipt.status() != EconomyOperationStatus.COMPLETED) {
-                            LOGGER.error("Failed to deposit batched jobs reward of {} for player {} in job {}. Re-enqueuing.", amount, playerId, jobId);
+            final CompletableFuture<?> future;
+            try {
+                future = EconomyManager.getInstance().creditAsync(playerId, amount, key, "Jobs batched rewards",
+                                Map.of("source", "jobs", "reference", key, "job", jobId))
+                        .thenAccept(receipt -> {
+                            if (receipt == null || receipt.status() != EconomyOperationStatus.COMPLETED) {
+                                LOGGER.error("Failed to deposit batched jobs reward of {} for player {} in job {}. Re-enqueuing.", amount, playerId, jobId);
+                                addPendingReward(playerId, jobId, amount);
+                            }
+                        })
+                        .exceptionally(err -> {
+                            LOGGER.error("Error depositing batched jobs reward of {} for player {} in job {}. Re-enqueuing.", amount, playerId, jobId, err);
                             addPendingReward(playerId, jobId, amount);
-                        }
-                    })
-                    .exceptionally(err -> {
-                        LOGGER.error("Error depositing batched jobs reward of {} for player {} in job {}. Re-enqueuing.", amount, playerId, jobId, err);
-                        addPendingReward(playerId, jobId, amount);
-                        return null;
-                    });
+                            return null;
+                        });
+            } catch (Exception e) {
+                LOGGER.error("Error submitting batched jobs reward of {} for player {} in job {}. Re-enqueuing.", amount, playerId, jobId, e);
+                addPendingReward(playerId, jobId, amount);
+                continue;
+            }
             futures.add(future);
         }
         return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
@@ -88,7 +95,9 @@ public final class JobRewardBatcher {
 
     public void shutdown() {
         try {
-            flushAll().join();
+            flushAll().get(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            LOGGER.error("Timed out after {}s waiting for pending job rewards; re-enqueued rewards will be retried on next run cycle.", SHUTDOWN_TIMEOUT_SECONDS);
         } catch (Exception e) {
             LOGGER.error("Error flushing pending job rewards on shutdown", e);
         }
