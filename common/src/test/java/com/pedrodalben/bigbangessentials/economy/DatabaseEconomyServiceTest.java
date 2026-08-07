@@ -85,4 +85,21 @@ class DatabaseEconomyServiceTest {
             assertEquals(0, economy.getBalanceDecimal(player).compareTo(new java.math.BigDecimal("90.00")));
         } finally { manager.shutdown(); }
     }
+
+    @Test void hasAccountReturnsFastAndCachesKnownAccounts() throws Exception {
+        Path config = temp.resolve("database-hasaccount.json");
+        Path dbFile = temp.resolve("economy-hasaccount.db");
+        Files.writeString(config, "{\"enabled\":true,\"required\":true,\"type\":\"SQLITE\",\"sqlite\":{\"file\":\"" + dbFile.toString().replace("\\", "\\\\") + "\"}}");
+        DatabaseManager manager = DatabaseManager.getInstance();
+        manager.shutdown();
+        try (MockedStatic<ResourceUtil> ignored = Mockito.mockStatic(ResourceUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            ignored.when(() -> ResourceUtil.getConfigFile("database.json")).thenReturn(config.toFile());
+            manager.initialize();
+            DatabaseEconomyService economy = new DatabaseEconomyService(manager);
+            UUID player = UUID.randomUUID();
+            assertFalse(economy.hasAccount(player));
+            economy.createAccount(player, "test:create:" + player).join();
+            assertTrue(economy.hasAccount(player));
+        } finally { manager.shutdown(); }
+    }
 }
