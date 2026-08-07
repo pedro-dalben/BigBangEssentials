@@ -82,26 +82,64 @@ public final class AdminShopTransactionService {
     }
 
     private CompletableFuture<Result> runSingleTransactionPipeline(ServerPlayer player, String productId, Operation operation, int quantity) {
-        return onServer(player, () -> prepare(player, productId, operation, quantity)).thenCompose(prepared -> {
-            if (prepared == null) return CompletableFuture.completedFuture(fail("§cOperação indisponível."));
-            return manager.sql.startAuditAsync(prepared.tx, player.getUUID(), productId, operation.name(), prepared.currency,
-                            prepared.quantity, prepared.price, prepared.economicKey, prepared.stockStage, "RESERVED")
-                    .handle((audited, error) -> error == null && Boolean.TRUE.equals(audited))
-                    .thenCompose(audited -> {
-                        if (!audited) return rollbackPrepared(prepared, false).thenApply(ignored -> fail("§cA auditoria da transação está indisponível."));
-                        CompletableFuture<Long> oldGems = "gems".equals(prepared.currency)
-                                ? gems.getBalanceAsync(player.getUUID()).thenApply(balance -> balance.totalBalance())
-                                : CompletableFuture.completedFuture(0L);
-                        return oldGems.thenCompose(balance -> finance(prepared, balance))
-                                .thenCompose(finance -> {
-                                    AtomicBoolean statePersisted = new AtomicBoolean();
-                                    return onServer(player, () -> applyItems(prepared))
-                                            .thenCompose(items -> finish(prepared, finance, items, statePersisted)
-                                                    .exceptionallyCompose(error -> compensate(prepared, finance, items, statePersisted.get(), error)));
-                                })
-                                .exceptionallyCompose(error -> compensate(prepared, financeFrom(error), null, false, error));
-                    });
-        });
+        if (productId == null || operation == null) return CompletableFuture.completedFuture(fail("§cOperação indisponível."));
+        AdminShopConfig.Product product = manager.config().product(productId);
+        if (product == null) return CompletableFuture.completedFuture(fail("§cProduto não encontrado."));
+
+        int q = quantity > 0 ? quantity : product.quantity;
+        q = Math.max(1, Math.min(q, product.maxQuantity > 0 ? product.maxQuantity : 64));
+        final int finalQuantity = q;
+
+        boolean buy = operation == Operation.BUY;
+        BigDecimal unitPrice = price(product, buy, productId);
+        if ((buy && !product.buyEnabled) || (!buy && (!product.sellEnabled || product.isCommand())) || unitPrice == null)
+            return CompletableFuture.completedFuture(fail("§cOperação não disponível para este produto."));
+
+        BigDecimal totalPrice = unitPrice.multiply(BigDecimal.valueOf(finalQuantity))
+                .setScale(ConfigManager.getEconomyCurrencyScale(), ConfigManager.getEconomyRoundingMode());
+
+        String currency = manager.config().currency(productId);
+        if (currency == null || !PermissionAPI.hasPermission(player.getUUID(), currencyPermission(currency))
+                || product.permission != null && !product.permission.isBlank() && !PermissionAPI.hasPermission(player.getUUID(), product.permission))
+            return CompletableFuture.completedFuture(fail("§cPermissão insuficiente."));
+
+        ItemStack stack = product.stack(finalQuantity);
+        if (!product.isCommand() && (stack.isEmpty() || buy && !hasRoom(player, stack) || !buy && count(player, stack) < finalQuantity))
+            return CompletableFuture.completedFuture(fail(buy ? "§cEspaço insuficiente no inventário." : "§cItens insuficientes no inventário."));
+        if (product.isCommand() && (product.command == null || !product.command.contains("{transaction}")))
+            return CompletableFuture.completedFuture(fail("§cComando inválido."));
+
+        String tx = UUID.randomUUID().toString();
+        String economicKey = "adminshop:" + (buy ? "buy:" : "sell:") + tx;
+
+        return manager.sql.reserveTransactionAsync(tx, player.getUUID(), productId, operation, finalQuantity, totalPrice, currency, economicKey, product.stock, product.limit)
+                .thenCompose(reserve -> {
+                    if (!reserve.success()) {
+                        return CompletableFuture.completedFuture(fail(reserve.reason()));
+                    }
+
+                    if (product.stock >= 0 && reserve.remaining() >= 0) manager.state.remaining.put(productId, reserve.remaining());
+                    if (product.limit >= 0 && reserve.used() >= 0) manager.state.limits.put(player.getUUID() + ":" + productId, reserve.used());
+                    if (reserve.demand() != -1) manager.state.demand.put(productId, reserve.demand());
+
+                    Prepared prepared = new Prepared(player, productId, product, operation, buy, currency, totalPrice, stack.copy(), tx,
+                            economicKey, reserve.used(), reserve.remaining(), reserve.demand(),
+                            product.limit >= 0, product.stock >= 0, true,
+                            product.stock >= 0 ? "RESERVED" : "NOT_APPLICABLE", new Object(), finalQuantity);
+
+                    CompletableFuture<Long> oldGems = "gems".equals(currency)
+                            ? gems.getBalanceAsync(player.getUUID()).thenApply(balance -> balance.totalBalance())
+                            : CompletableFuture.completedFuture(0L);
+
+                    return oldGems.thenCompose(balance -> finance(prepared, balance))
+                            .thenCompose(finance -> {
+                                AtomicBoolean statePersisted = new AtomicBoolean(true);
+                                return onServer(player, () -> applyItems(prepared))
+                                        .thenCompose(items -> finish(prepared, finance, items, statePersisted)
+                                                .exceptionallyCompose(error -> compensate(prepared, finance, items, statePersisted.get(), error)));
+                            })
+                            .exceptionallyCompose(error -> compensate(prepared, financeFrom(error), null, false, error));
+                });
     }
 
     private Prepared prepare(ServerPlayer player, String productId, Operation operation, int rawQuantity) {
@@ -211,14 +249,8 @@ public final class AdminShopTransactionService {
     private CompletableFuture<Result> finish(Prepared p, Finance finance, ItemOutcome items, AtomicBoolean statePersisted) {
         if (!items.success) return failed(new SagaFailure("§cO item não pôde ser aplicado."));
         return manager.sql.updateAuditAsync(p.tx, p.buy ? AdminShopAuditStatus.MONEY_APPLIED : AdminShopAuditStatus.ITEM_APPLIED,
-                        finance.receipt, "APPLIED", p.stockStage, "RESERVED", "PENDING", null)
-                .thenCompose(audited -> audited ? onServer(p.player, () -> {
-                    long demand = manager.state.demand.getOrDefault(p.productId, p.oldDemand);
-                    manager.state.demand.put(p.productId, Math.max(-1000, Math.min(1000, demand + (p.buy ? (long) p.quantity : -(long) p.quantity))));
-                    return true;
-                }) : failed(new SagaFailure("§cA auditoria da transação falhou.")))
-                .thenCompose(ignored -> persistState(p).thenApply(done -> { statePersisted.set(true); return done; }))
-                .thenCompose(ignored -> manager.sql.logAsync(p.tx, p.player.getUUID(), p.productId, p.operation.name(), p.currency, p.price))
+                        finance.receipt, "APPLIED", p.stockStage, "RESERVED", "RESERVED", null)
+                .thenCompose(audited -> audited ? manager.sql.logAsync(p.tx, p.player.getUUID(), p.productId, p.operation.name(), p.currency, p.price) : failed(new SagaFailure("§cA auditoria da transação falhou.")))
                 .thenCompose(logged -> logged ? manager.sql.updateAuditAsync(p.tx, AdminShopAuditStatus.COMPLETED, finance.receipt,
                         "APPLIED", p.stockStage, "APPLIED", "APPLIED", null).thenApply(done -> {
                             if (!done) throw new SagaFailure("§cA auditoria final não pôde ser gravada.");
@@ -229,13 +261,15 @@ public final class AdminShopTransactionService {
 
     private CompletableFuture<Result> compensate(Prepared p, Finance finance, ItemOutcome items, boolean statePersisted, Throwable failure) {
         Throwable error = failure instanceof CompletionException && failure.getCause() != null ? failure.getCause() : failure;
+        String reason = error == null || error.getMessage() == null ? "transaction_failed" : error.getMessage();
+
         CompletableFuture<Boolean> item = restoreItems(p, items);
-        CompletableFuture<Boolean> state = restorePrepared(p, statePersisted);
         CompletableFuture<Boolean> money = compensateAsync(p, finance);
+        CompletableFuture<Boolean> state = manager.sql.releaseTransactionAsync(p.tx, p.player.getUUID(), p.productId, p.operation, p.quantity, p.product.stock, p.product.limit, reason);
+
         return CompletableFuture.allOf(item, state, money).thenCompose(ignored -> {
             boolean ok = Boolean.TRUE.equals(item.getNow(false)) && Boolean.TRUE.equals(state.getNow(false)) && Boolean.TRUE.equals(money.getNow(false));
             AdminShopAuditStatus status = ok ? AdminShopAuditStatus.ROLLED_BACK : AdminShopAuditStatus.RECONCILIATION_REQUIRED;
-            String reason = error == null || error.getMessage() == null ? "transaction_failed" : error.getMessage();
             LOGGER.error("AdminShop transaction compensation [tx={} player={} product={} op={}]: status={} failure={}", p.tx, p.player.getUUID(), p.productId, p.operation, status, reason, error);
             return manager.sql.updateAuditAsync(p.tx, status, finance == null ? null : finance.receipt,
                     ok ? "ROLLED_BACK" : "RECONCILIATION_REQUIRED", p.stockStage, "ROLLED_BACK", "ROLLED_BACK", reason)
