@@ -118,6 +118,7 @@ public class DatabaseManager {
 
             state = DatabaseState.READY;
             runLegacyImport();
+            com.pedrodalben.bigbangessentials.database.maintenance.DatabaseMaintenanceService.getInstance();
             LOGGER.info("DatabaseManager initialized successfully. Type: {}, State: {}", type, state);
 
         } catch (Throwable e) {
@@ -145,6 +146,7 @@ public class DatabaseManager {
         LOGGER.info("Shutting down DatabaseManager...");
         state = DatabaseState.STOPPING;
 
+        com.pedrodalben.bigbangessentials.database.maintenance.DatabaseMaintenanceService.getInstance().shutdown();
         closeResourcesSafely();
 
         state = DatabaseState.STOPPED;
