@@ -15,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 /** SQL backend for admin shop state. JSON remains the migration/fallback backend. */
-final class AdminShopSqlStore {
+public final class AdminShopSqlStore {
     private static final Logger LOGGER = LoggerFactory.getLogger(AdminShopSqlStore.class);
     private final DatabaseManager database = DatabaseManager.getInstance();
     private final Gson gson = new Gson();
@@ -528,6 +528,14 @@ final class AdminShopSqlStore {
         }
         try { return optional.get().queryList("adminshop audit.player", "SELECT * FROM adminshop_transaction_audit WHERE player_uuid=? ORDER BY created_at DESC LIMIT " + Math.max(1, Math.min(100, limit)), s -> s.setString(1, player.toString()), this::mapAudit).join(); }
         catch (Exception e) { return List.of(); }
+    }
+
+    public CompletableFuture<Integer> purgeOldAuditsAsync(long cutoffMillis) {
+        Optional<DatabaseExecutor> optional = executor();
+        if (optional.isEmpty()) return CompletableFuture.completedFuture(0);
+        return optional.get().executeUpdate("adminshop audit.purge",
+                "DELETE FROM adminshop_transaction_audit WHERE created_at < ? AND status IN ('COMPLETED','ROLLED_BACK','CANCELLED')",
+                s -> s.setLong(1, cutoffMillis));
     }
 
     CompletableFuture<List<AuditRow>> forPlayerAsync(UUID player, int limit) {

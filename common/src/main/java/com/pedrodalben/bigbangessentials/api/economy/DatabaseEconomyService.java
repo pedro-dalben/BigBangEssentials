@@ -486,6 +486,13 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
                 r.getLong("created_at"), r.getString("source_module"), r.getString("source_reference"));
     }
 
+    public CompletableFuture<Integer> purgeOldOperationsAsync(long cutoffMillis) {
+        if (!database.isReady()) return CompletableFuture.completedFuture(0);
+        return database.getExecutor().executeUpdate("economy.operations.purge",
+                "DELETE FROM bbe_economy_operations WHERE created_at < ? AND status IN ('COMPLETED','REJECTED','IDEMPOTENCY_CONFLICT')",
+                s -> s.setLong(1, cutoffMillis));
+    }
+
     private BigDecimal decimal(long minor) { return BigDecimal.valueOf(minor, scale()); }
     private EconomyOperationReceipt rejected(UUID player, BigDecimal amount, String key) {
         return new EconomyOperationReceipt(UUID.randomUUID(), player, amount, EconomyOperationStatus.REJECTED, null, null, key, null,
