@@ -103,18 +103,13 @@ public class EconomyServiceImpl implements EconomyService, IdempotentEconomyServ
 
     @Override
     public boolean hasAccount(UUID playerId) {
-        // Check if player has a balance in EconomyManager's cache
-        return EconomyManager.getInstance().getAllBalances().containsKey(playerId);
+        return EconomyManager.getInstance().hasAccount(playerId);
     }
 
     @Override
     public boolean createAccount(UUID playerId) {
-        // Check if already exists
         if (hasAccount(playerId)) return false;
-        
-        // Create by setting starting balance
-        BigDecimal startingBalance = BigDecimal.valueOf(com.pedrodalben.bigbangessentials.config.ConfigManager.getEconomyStartingBalance());
-        return EconomyManager.getInstance().setBalanceChecked(playerId, startingBalance);
+        return EconomyManager.getInstance().createAccount(playerId);
     }
 
     @Override

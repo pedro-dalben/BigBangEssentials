@@ -60,8 +60,7 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
     @Override
     public boolean hasAccount(UUID playerId) {
         try {
-            // An account exists if the player is already in the balance cache
-            return EconomyManager.getInstance().getAllBalances().containsKey(playerId);
+            return EconomyManager.getInstance().hasAccount(playerId);
         } catch (Exception e) {
             LOGGER.error("VaultEconomy: hasAccount error for {}: {}", playerId, e.getMessage());
             return false;
@@ -71,10 +70,7 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
     @Override
     public boolean createPlayerAccount(UUID playerId) {
         try {
-            if (hasAccount(playerId)) return true;
-            // Initialise with the configured starting balance — same as EconomyServiceImpl.createAccount()
-            BigDecimal start = BigDecimal.valueOf(ConfigManager.getEconomyStartingBalance());
-            return EconomyManager.getInstance().setBalanceChecked(playerId, start);
+            return EconomyManager.getInstance().createAccount(playerId);
         } catch (Exception e) {
             LOGGER.error("VaultEconomy: createPlayerAccount error for {}: {}", playerId, e.getMessage());
             return false;
@@ -115,7 +111,8 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
                 return fail(amount, playerId, "Insufficient funds");
             // Fire the same event the rest of the mod uses
             com.pedrodalben.bigbangessentials.util.Platform.postEvent(new EconomyWithdrawEvent(playerId, amount));
-            return new EconomyResponse(amount, getBalance(playerId), EconomyResponse.ResponseType.SUCCESS, "");
+            double newBalance = receipt.balanceAfter() != null ? receipt.balanceAfter().doubleValue() : getBalance(playerId);
+            return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
         } catch (Exception e) {
             LOGGER.error("VaultEconomy: withdrawPlayer error for {}: {}", playerId, e.getMessage());
             return fail(amount, playerId, e.getMessage());
@@ -138,7 +135,8 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
                 return fail(amount, playerId, "Deposit rejected (max balance reached?)");
             // Fire the same event the rest of the mod uses
             com.pedrodalben.bigbangessentials.util.Platform.postEvent(new EconomyDepositEvent(playerId, amount));
-            return new EconomyResponse(amount, getBalance(playerId), EconomyResponse.ResponseType.SUCCESS, "");
+            double newBalance = receipt.balanceAfter() != null ? receipt.balanceAfter().doubleValue() : getBalance(playerId);
+            return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
         } catch (Exception e) {
             LOGGER.error("VaultEconomy: depositPlayer error for {}: {}", playerId, e.getMessage());
             return fail(amount, playerId, e.getMessage());
