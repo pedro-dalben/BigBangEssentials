@@ -90,11 +90,12 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
 
     public CompletableFuture<Boolean> createAccount(UUID playerId, String ignoredKey) {
         if (playerId == null) return CompletableFuture.completedFuture(false);
-        return executor().transaction("economy.account.create", c -> {
-            boolean created = insertAccountIfAbsent(c, playerId, starting(), System.currentTimeMillis()) == 1;
-            if (created) knownAccounts.add(playerId);
-            return created;
-        });
+        return executor().transaction("economy.account.create", c ->
+                insertAccountIfAbsent(c, playerId, starting(), System.currentTimeMillis()) == 1)
+                .thenApply(created -> {
+                    if (created) knownAccounts.add(playerId);
+                    return created;
+                });
     }
 
     @Override public CompletableFuture<EconomyOperationReceipt> debit(UUID playerId, BigDecimal amount, String key, String reason, Map<String, String> metadata) {
@@ -222,7 +223,6 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
                 safeMetadata.getOrDefault("source", "economy"), safeMetadata.get("reference"), safeMetadata);
         if (type.equals("CREDIT") && findAccount(c, playerId).isEmpty()) insertAccountIfAbsent(c, playerId, starting(), System.currentTimeMillis());
         Optional<Account> account = lockAccount(c, playerId);
-        if (account.isPresent()) knownAccounts.add(playerId);
         long before = account.map(Account::balance).orElse(starting());
         Optional<EconomyOperationReceipt> old = existing(c, key);
         if (old.isPresent()) return compatible(old.get(), fingerprint, playerId, value.decimal());
