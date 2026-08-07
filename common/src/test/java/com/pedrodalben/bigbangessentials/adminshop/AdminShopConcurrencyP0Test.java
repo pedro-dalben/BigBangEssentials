@@ -182,4 +182,50 @@ class AdminShopConcurrencyP0Test {
         assertFalse(result.success());
         assertTrue(result.message().contains("indisponível"));
     }
+
+    @Test
+    void test11_sqlReservationAndReleaseIdempotency() {
+        AdminShopSqlStore store = new AdminShopSqlStore();
+        UUID player = UUID.randomUUID();
+        String txId = UUID.randomUUID().toString();
+
+        AdminShopSqlStore.ReserveResult res = store.reserveTransactionAsync(
+                txId, player, "emerald", AdminShopTransactionService.Operation.BUY,
+                5, java.math.BigDecimal.TEN, "money", "adminshop:buy:" + txId, 20L, 10L
+        ).join();
+
+        assertTrue(res.success());
+        assertEquals(15L, res.remaining());
+        assertEquals(5L, res.used());
+
+        String txId2 = UUID.randomUUID().toString();
+        AdminShopSqlStore.ReserveResult res2 = store.reserveTransactionAsync(
+                txId2, player, "emerald", AdminShopTransactionService.Operation.BUY,
+                6, java.math.BigDecimal.TEN, "money", "adminshop:buy:" + txId2, 20L, 10L
+        ).join();
+
+        assertFalse(res2.success());
+        assertTrue(res2.reason().contains("Limite"));
+
+        boolean released = store.releaseTransactionAsync(txId, player, "emerald", AdminShopTransactionService.Operation.BUY, 5, 20L, 10L, "test_cancel").join();
+        assertTrue(released);
+    }
+
+    @Test
+    void test12_legacyJsonAutoMigrationOnStartup() throws Exception {
+        Path legacyJson = temp.resolve("adminshop_state.json");
+        Files.writeString(legacyJson, "{\"remaining\":{\"legacy_item\":50},\"limits\":{\"uuid123:legacy_item\":2},\"demand\":{\"legacy_item\":5}}");
+
+        AdminShopSqlStore store = new AdminShopSqlStore();
+        store.migrateLegacyJsonIfNeeded();
+
+        assertFalse(Files.exists(legacyJson));
+        assertTrue(Files.exists(temp.resolve("adminshop_state.json.migrated")));
+
+        AdminShopManager.State state = new AdminShopManager.State();
+        assertEquals(AdminShopSqlStore.LoadResult.LOADED, store.loadResult(state));
+        assertEquals(50L, state.remaining.get("legacy_item"));
+        assertEquals(2L, state.limits.get("uuid123:legacy_item"));
+        assertEquals(5L, state.demand.get("legacy_item"));
+    }
 }
