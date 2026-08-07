@@ -14,21 +14,25 @@ class EconomyAuditCharacterizationTest {
     void adminShopDoesNotDropValidClicksWithAFixedDebounce() throws IOException {
         String source = source("com/pedrodalben/bigbangessentials/adminshop/AdminShopTransactionService.java");
 
-        assertTrue(source.contains("productLocks"));
+        // Per-product serialization moved from productLocks (synchronized) to
+        // productQueues (async FIFO chain); clicks still queue instead of dropping.
+        assertTrue(source.contains("productQueues"));
         assertTrue(!source.contains("Aguarde a conclusão da transação."));
     }
 
     @Test
     void auditTargetsExposeTheirCurrentMoneyBoundaries() throws IOException {
         String sell = source("com/pedrodalben/bigbangessentials/economy/worth/SellCommand.java");
-        String jobs = source("com/pedrodalben/bigbangessentials/jobs/pipeline/JobRewardApplier.java");
+        String jobs = source("com/pedrodalben/bigbangessentials/jobs/pipeline/JobRewardBatcher.java");
         String crates = source("com/pedrodalben/bigbangessentials/crates/service/CrateOpeningService.java");
         String rankup = source("com/pedrodalben/bigbangessentials/rankup/service/RankupPromotionService.java");
         String pay = source("com/pedrodalben/bigbangessentials/api/EconomyAPI.java");
 
         assertTrue(sell.indexOf("EconomyManager.getInstance().credit(player.getUUID(), earned")
                 < sell.indexOf("int removed = removeFromInventory(player, template, toSell)"));
-        assertTrue(jobs.contains("jobs:reward:"));
+        // Jobs rewards are batched: per-action idempotent keys moved to the batcher
+        // (one aggregated credit per player/job per flush window).
+        assertTrue(jobs.contains("jobs:reward:batch:"));
         assertTrue(crates.contains("crate:refund:"));
         assertTrue(rankup.contains("rankup:refund:"));
         assertTrue(pay.contains("return manager.transfer(sender, receiver, amount, fee, requestKey)"));
