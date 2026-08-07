@@ -12,6 +12,7 @@ import org.mockito.Mockito;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -237,6 +238,21 @@ class AdminShopConcurrencyP0Test {
         AdminShopManager.State afterState = new AdminShopManager.State();
         store.loadResult(afterState);
         assertEquals(0L, afterState.demand.getOrDefault("ruby", 0L));
+    }
+
+    @Test
+    void test14_reservedRowsDoNotBreakHistoryOrReconciliation() {
+        AdminShopSqlStore store = new AdminShopSqlStore();
+        UUID player = UUID.randomUUID();
+        String txId = UUID.randomUUID().toString();
+
+        store.reserveTransactionAsync(txId, player, "sapphire", AdminShopTransactionService.Operation.BUY,
+                2, java.math.BigDecimal.valueOf(50), "money", "adminshop:buy:" + txId, 10L, 5L).join();
+
+        assertDoesNotThrow(() -> store.forPlayer(player, 5));
+
+        List<String> findings = store.reconcile();
+        assertTrue(findings.stream().anyMatch(f -> f.contains("PENDENCIA") && f.contains(txId)));
     }
 
     @Test
