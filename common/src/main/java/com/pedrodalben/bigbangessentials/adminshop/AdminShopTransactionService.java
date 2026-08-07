@@ -267,6 +267,8 @@ public final class AdminShopTransactionService {
         CompletableFuture<Boolean> money = compensateAsync(p, finance);
         CompletableFuture<Boolean> state = manager.sql.releaseTransactionAsync(p.tx, p.player.getUUID(), p.productId, p.operation, p.quantity, p.product.stock, p.product.limit, reason);
 
+        rollbackRamState(p);
+
         return CompletableFuture.allOf(item, state, money).thenCompose(ignored -> {
             boolean ok = Boolean.TRUE.equals(item.getNow(false)) && Boolean.TRUE.equals(state.getNow(false)) && Boolean.TRUE.equals(money.getNow(false));
             AdminShopAuditStatus status = ok ? AdminShopAuditStatus.ROLLED_BACK : AdminShopAuditStatus.RECONCILIATION_REQUIRED;
@@ -275,6 +277,30 @@ public final class AdminShopTransactionService {
                     ok ? "ROLLED_BACK" : "RECONCILIATION_REQUIRED", p.stockStage, "ROLLED_BACK", "ROLLED_BACK", reason)
                     .thenApply(audited -> ok && audited ? fail(reason) : fail("§cA transação falhou e requer reconciliação. ID: " + p.tx));
         });
+    }
+
+    void rollbackRamState(Prepared p) {
+        String limitKey = p.player.getUUID() + ":" + p.productId;
+        if (p.buy && p.product.stock >= 0) {
+            long curStock = manager.state.remaining.getOrDefault(p.productId, p.product.stock);
+            manager.state.remaining.put(p.productId, curStock + p.quantity);
+        }
+        if (p.product.limit >= 0) {
+            long curUsed = manager.state.limits.getOrDefault(limitKey, 0L);
+            long restoredUsed = Math.max(0L, curUsed - p.quantity);
+            if (restoredUsed == 0L && !p.hadLimit) {
+                manager.state.limits.remove(limitKey);
+            } else {
+                manager.state.limits.put(limitKey, restoredUsed);
+            }
+        }
+        long curDemand = manager.state.demand.getOrDefault(p.productId, p.oldDemand);
+        long restoredDemand = p.buy ? curDemand - p.quantity : curDemand + p.quantity;
+        if (restoredDemand != 0 || p.hadDemand) {
+            manager.state.demand.put(p.productId, restoredDemand);
+        } else {
+            manager.state.demand.remove(p.productId);
+        }
     }
 
     private static Finance financeFrom(Throwable error) {
@@ -382,7 +408,7 @@ public final class AdminShopTransactionService {
 
     private static Map<String, String> metadata(String tx) { return Map.of("source", "adminshop", "reference", tx); }
 
-    private record Prepared(ServerPlayer player, String productId, AdminShopConfig.Product product, Operation operation, boolean buy,
+    record Prepared(ServerPlayer player, String productId, AdminShopConfig.Product product, Operation operation, boolean buy,
                             String currency, BigDecimal price, ItemStack stack, String tx, String economicKey, long oldUsed,
                             long oldRemaining, long oldDemand, boolean hadLimit, boolean hadRemaining, boolean hadDemand,
                             String stockStage, Object lock, int quantity) {}
