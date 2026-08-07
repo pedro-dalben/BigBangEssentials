@@ -272,4 +272,28 @@ class AdminShopConcurrencyP0Test {
         assertEquals(2L, state.limits.get("uuid123:legacy_item"));
         assertEquals(5L, state.demand.get("legacy_item"));
     }
+
+    @Test
+    void test16_legacyMigrationDoesNotClobberExistingSqlData() throws Exception {
+        AdminShopSqlStore store = new AdminShopSqlStore();
+        AdminShopManager.State existing = new AdminShopManager.State();
+        existing.remaining.put("existing_item", 100L);
+        existing.limits.put(UUID.randomUUID() + ":existing_item", 3L);
+        existing.demand.put("existing_item", 7L);
+        store.save(existing);
+
+        Path legacyJson = temp.resolve("adminshop_state.json");
+        Files.writeString(legacyJson, "{\"remaining\":{\"existing_item\":999},\"limits\":{},\"demand\":{}}");
+
+        store.migrateLegacyJsonIfNeeded();
+
+        assertFalse(Files.exists(legacyJson));
+        assertTrue(Files.exists(temp.resolve("adminshop_state.json.migrated")));
+
+        AdminShopManager.State state = new AdminShopManager.State();
+        store.loadResult(state);
+        assertEquals(100L, state.remaining.get("existing_item"));
+        assertEquals(3L, state.limits.values().iterator().next());
+        assertEquals(7L, state.demand.get("existing_item"));
+    }
 }

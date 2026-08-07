@@ -405,9 +405,24 @@ public final class AdminShopSqlStore {
         if (!java.nio.file.Files.exists(legacyJson)) return;
 
         try {
-            java.io.Reader reader = java.nio.file.Files.newBufferedReader(legacyJson);
-            AdminShopManager.State loaded = gson.fromJson(reader, AdminShopManager.State.class);
-            reader.close();
+            boolean sqlHasData = optional.get().querySingle("adminshop.migration.check",
+                    "SELECT 1 FROM adminshop_state LIMIT 1", null, rs -> true).join().orElse(false)
+                    || optional.get().querySingle("adminshop.migration.check",
+                    "SELECT 1 FROM adminshop_limits LIMIT 1", null, rs -> true).join().orElse(false)
+                    || optional.get().querySingle("adminshop.migration.check",
+                    "SELECT 1 FROM adminshop_demand LIMIT 1", null, rs -> true).join().orElse(false);
+
+            if (sqlHasData) {
+                java.nio.file.Path migratedJson = legacyJson.resolveSibling(legacyJson.getFileName().toString() + ".migrated");
+                java.nio.file.Files.move(legacyJson, migratedJson, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                LOGGER.info("AdminShop SQL store already populated; legacy adminshop_state.json renamed without overwrite.");
+                return;
+            }
+
+            AdminShopManager.State loaded;
+            try (java.io.Reader reader = java.nio.file.Files.newBufferedReader(legacyJson)) {
+                loaded = gson.fromJson(reader, AdminShopManager.State.class);
+            }
             if (loaded != null) {
                 optional.get().transaction("adminshop.migrate_legacy_json", conn -> {
                     if (loaded.remaining != null) {
