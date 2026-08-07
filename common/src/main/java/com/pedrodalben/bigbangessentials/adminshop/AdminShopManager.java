@@ -38,6 +38,7 @@ public final class AdminShopManager {
                 LOGGER.warn("AdminShop database is enabled but not ready during reload. Disabling persistence operations.");
                 stateStatus = StateStatus.DATABASE_UNAVAILABLE;
             } else {
+                sql.migrateLegacyJsonIfNeeded();
                 AdminShopSqlStore.LoadResult result = sql.loadResult(state);
                 switch (result) {
                     case LOADED -> stateStatus = StateStatus.READY;
