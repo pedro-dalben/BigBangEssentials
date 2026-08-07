@@ -1,14 +1,13 @@
 package com.pedrodalben.bigbangessentials.database.maintenance;
 
-import com.pedrodalben.bigbangessentials.adminshop.AdminShopSqlStore;
-import com.pedrodalben.bigbangessentials.api.economy.DatabaseEconomyService;
 import com.pedrodalben.bigbangessentials.crates.persistence.JdbcCrateAuditRepository;
 import com.pedrodalben.bigbangessentials.database.DatabaseManager;
 import com.pedrodalben.bigbangessentials.database.execution.DatabaseExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Optional;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.*;
 
 /**
@@ -45,29 +44,31 @@ public final class DatabaseMaintenanceService {
         long opsCutoff = System.currentTimeMillis() - RETENTION_OPERATIONS_MS;
         LOGGER.info("[DatabaseMaintenance] Starting periodic audit purge (audit cutoff: {}, operations cutoff: {})...", auditCutoff, opsCutoff);
 
+        purgeBatched("adminshop_transaction_audit", "tx_id",
+                "created_at < ? AND status IN ('COMPLETED','ROLLED_BACK','CANCELLED')",
+                auditCutoff, "AdminShop audit");
+
+        purgeBatched("bbe_economy_operations", "id",
+                "created_at < ? AND status IN ('COMPLETED','REJECTED','FAILED','IDEMPOTENCY_CONFLICT')",
+                opsCutoff, "economy operations");
+
         try {
-            purgeBatched("adminshop_transaction_audit", "tx_id",
-                    "created_at < ? AND status IN ('COMPLETED','ROLLED_BACK','CANCELLED')",
-                    auditCutoff, "AdminShop audit");
-
-            purgeBatched("bbe_economy_operations", "id",
-                    "created_at < ? AND status IN ('COMPLETED','REJECTED','IDEMPOTENCY_CONFLICT')",
-                    opsCutoff, "economy operations");
-
-            CompletableFuture.runAsync(() -> {
-                try {
-                    new JdbcCrateAuditRepository().deleteOlderThan(java.time.Instant.ofEpochMilli(auditCutoff));
-                    LOGGER.info("[DatabaseMaintenance] Purged old Crate audit records.");
-                } catch (Exception e) {
-                    LOGGER.error("[DatabaseMaintenance] Error purging Crate audit logs", e);
-                }
-            }).exceptionally(e -> { LOGGER.error("[DatabaseMaintenance] Error purging Crate audit logs", e); return null; });
-
+            new JdbcCrateAuditRepository(); // ensure crate_audit_log exists before purging
         } catch (Exception e) {
-            LOGGER.error("[DatabaseMaintenance] Error executing maintenance task", e);
+            LOGGER.warn("[DatabaseMaintenance] Crate audit table unavailable; skipping Crate audit purge", e);
+            return;
         }
+        purgeBatched("crate_audit_log", "id",
+                "timestamp < ? AND status IN ('COMPLETED','ROLLED_BACK','CANCELLED','COMPENSATION_FAILED')",
+                auditCutoff, "Crate audit");
     }
 
+    /**
+     * Deletes rows in batches of {@link #BATCH_SIZE} using an explicit
+     * select-then-delete-by-primary-key pattern. Portable across MySQL
+     * (including 5.7, which rejects LIMIT inside IN subqueries), MariaDB
+     * and SQLite.
+     */
     private void purgeBatched(String table, String pkColumn, String condition, long cutoffMillis, String label) {
         DatabaseManager db = DatabaseManager.getInstance();
         if (!db.isReady()) {
@@ -75,22 +76,43 @@ public final class DatabaseMaintenanceService {
             return;
         }
         DatabaseExecutor executor = db.getExecutor();
-        String sql = "DELETE FROM " + table + " WHERE " + pkColumn + " IN "
-                + "(SELECT " + pkColumn + " FROM " + table + " WHERE " + condition + " LIMIT " + BATCH_SIZE + ")";
+        String selectSql = "SELECT " + pkColumn + " FROM " + table + " WHERE " + condition + " LIMIT " + BATCH_SIZE;
         int totalDeleted = 0;
+        int batches = 0;
         for (int i = 0; i < MAX_BATCH_ITERATIONS; i++) {
+            final List<String> batch;
             try {
-                int deleted = executor.executeUpdate(label + ".purge", sql, s -> s.setLong(1, cutoffMillis)).join();
+                batch = executor.queryList(label + ".purge.select", selectSql,
+                        s -> s.setLong(1, cutoffMillis), rs -> rs.getString(1)).join();
+            } catch (Exception e) {
+                LOGGER.error("[DatabaseMaintenance] Error selecting {} purge batch {}: {}", label, i, e.getMessage());
+                break;
+            }
+            if (batch.isEmpty()) break;
+
+            String placeholders = String.join(",", Collections.nCopies(batch.size(), "?"));
+            String deleteSql = "DELETE FROM " + table + " WHERE " + pkColumn + " IN (" + placeholders + ")";
+            try {
+                int deleted = executor.executeUpdate(label + ".purge", deleteSql, s -> {
+                    for (int j = 0; j < batch.size(); j++) s.setString(j + 1, batch.get(j));
+                }).join();
                 totalDeleted += deleted;
-                if (deleted < BATCH_SIZE) break;
-                Thread.sleep(BATCH_SLEEP_MS);
+                batches++;
             } catch (Exception e) {
                 LOGGER.error("[DatabaseMaintenance] Error during {} purge batch {}: {}", label, i, e.getMessage());
                 break;
             }
+            if (batch.size() < BATCH_SIZE) break;
+            try {
+                Thread.sleep(BATCH_SLEEP_MS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
-        LOGGER.info("[DatabaseMaintenance] Purged {} total {} records ({} batches).", totalDeleted, label,
-                (totalDeleted + BATCH_SIZE - 1) / Math.max(BATCH_SIZE, 1));
+        if (totalDeleted > 0 || batches > 0) {
+            LOGGER.info("[DatabaseMaintenance] Purged {} total {} records ({} batches).", totalDeleted, label, batches);
+        }
     }
 
     public void shutdown() {
