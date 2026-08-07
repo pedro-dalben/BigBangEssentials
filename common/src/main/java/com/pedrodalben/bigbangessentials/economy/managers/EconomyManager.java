@@ -571,6 +571,23 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
         return new EconomyOperationReceipt(UUID.randomUUID(), player, amount, EconomyOperationStatus.FAILED, balance, balance, key);
     }
 
+    public boolean hasAccount(UUID playerId) {
+        if (playerId == null) return false;
+        if (databaseMode) {
+            return databaseBackend != null && databaseBackend.hasAccount(playerId);
+        }
+        return balancesCache.containsKey(playerId);
+    }
+
+    public boolean createAccount(UUID playerId) {
+        if (playerId == null) return false;
+        if (databaseMode) {
+            return databaseBackend != null && databaseBackend.createAccount(playerId);
+        }
+        BigDecimal startingBalance = BigDecimal.valueOf(ConfigManager.getEconomyStartingBalance());
+        return setBalanceChecked(playerId, startingBalance);
+    }
+
     public Map<UUID, BigDecimal> getAllBalances() {
         if (databaseMode) return databaseBackend == null ? Map.of() : databaseBackend.getAllBalances();
         return new ConcurrentHashMap<>(balancesCache);

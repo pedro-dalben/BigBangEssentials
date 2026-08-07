@@ -72,10 +72,16 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
         } catch (RuntimeException e) { return false; }
     }
 
+    private final java.util.Set<UUID> knownAccounts = ConcurrentHashMap.newKeySet();
+
     @Override public boolean resetBalance(UUID playerId) { return setBalance(playerId, 0.0); }
     @Override public boolean hasAccount(UUID playerId) {
-        return executor().querySingle("economy.account.exists", "SELECT 1 FROM bbe_economy_accounts WHERE player_uuid=?",
-                s -> s.setString(1, playerId.toString()), r -> true).join().isPresent();
+        if (playerId == null) return false;
+        if (knownAccounts.contains(playerId)) return true;
+        boolean exists = executor().querySingle("economy.account.exists", "SELECT 1 FROM bbe_economy_accounts WHERE player_uuid=?",
+                s -> s.setString(1, playerId.toString()), r -> true).join().orElse(false);
+        if (exists) knownAccounts.add(playerId);
+        return exists;
     }
     @Override public boolean createAccount(UUID playerId) { return createAccount(playerId, "api:create:" + UUID.randomUUID()).join(); }
     @Override public boolean deleteAccount(UUID playerId) { return setBalance(playerId, 0.0); }
@@ -84,7 +90,11 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
 
     public CompletableFuture<Boolean> createAccount(UUID playerId, String ignoredKey) {
         if (playerId == null) return CompletableFuture.completedFuture(false);
-        return executor().transaction("economy.account.create", c -> insertAccountIfAbsent(c, playerId, starting(), System.currentTimeMillis()) == 1);
+        return executor().transaction("economy.account.create", c -> {
+            boolean created = insertAccountIfAbsent(c, playerId, starting(), System.currentTimeMillis()) == 1;
+            if (created) knownAccounts.add(playerId);
+            return created;
+        });
     }
 
     @Override public CompletableFuture<EconomyOperationReceipt> debit(UUID playerId, BigDecimal amount, String key, String reason, Map<String, String> metadata) {
@@ -212,6 +222,7 @@ public final class DatabaseEconomyService implements EconomyService, IdempotentE
                 safeMetadata.getOrDefault("source", "economy"), safeMetadata.get("reference"), safeMetadata);
         if (type.equals("CREDIT") && findAccount(c, playerId).isEmpty()) insertAccountIfAbsent(c, playerId, starting(), System.currentTimeMillis());
         Optional<Account> account = lockAccount(c, playerId);
+        if (account.isPresent()) knownAccounts.add(playerId);
         long before = account.map(Account::balance).orElse(starting());
         Optional<EconomyOperationReceipt> old = existing(c, key);
         if (old.isPresent()) return compatible(old.get(), fingerprint, playerId, value.decimal());
