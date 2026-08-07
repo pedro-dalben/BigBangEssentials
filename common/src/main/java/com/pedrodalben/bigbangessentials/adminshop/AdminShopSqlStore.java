@@ -374,8 +374,8 @@ public final class AdminShopSqlStore {
             }
 
             String updDemand = database.getType() == com.pedrodalben.bigbangessentials.database.DatabaseType.MYSQL
-                    ? "INSERT INTO adminshop_demand(product_id, demand) VALUES (?, ?) ON DUPLICATE KEY UPDATE demand=demand-?"
-                    : "INSERT INTO adminshop_demand(product_id, demand) VALUES (?, ?) ON CONFLICT(product_id) DO UPDATE SET demand=demand-?";
+                    ? "INSERT INTO adminshop_demand(product_id, demand) VALUES (?, ?) ON DUPLICATE KEY UPDATE demand=demand+?"
+                    : "INSERT INTO adminshop_demand(product_id, demand) VALUES (?, ?) ON CONFLICT(product_id) DO UPDATE SET demand=demand+?";
             try (PreparedStatement ps = conn.prepareStatement(updDemand)) {
                 ps.setString(1, productId);
                 long change = buy ? -quantity : quantity;

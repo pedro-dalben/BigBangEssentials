@@ -209,6 +209,34 @@ class AdminShopConcurrencyP0Test {
 
         boolean released = store.releaseTransactionAsync(txId, player, "emerald", AdminShopTransactionService.Operation.BUY, 5, 20L, 10L, "test_cancel").join();
         assertTrue(released);
+
+        AdminShopManager.State afterState = new AdminShopManager.State();
+        store.loadResult(afterState);
+        assertEquals(20L, afterState.remaining.get("emerald"));
+        assertEquals(0, afterState.limits.size());
+        assertEquals(0L, afterState.demand.getOrDefault("emerald", 0L));
+    }
+
+    @Test
+    void test13_sellReservationAndReleaseRestoresDemand() {
+        AdminShopSqlStore store = new AdminShopSqlStore();
+        UUID player = UUID.randomUUID();
+        String txId = UUID.randomUUID().toString();
+
+        AdminShopSqlStore.ReserveResult res = store.reserveTransactionAsync(
+                txId, player, "ruby", AdminShopTransactionService.Operation.SELL,
+                3, java.math.BigDecimal.ONE, "money", "adminshop:sell:" + txId, 100L, 50L
+        ).join();
+
+        assertTrue(res.success());
+        assertEquals(-3L, res.demand());
+
+        boolean released = store.releaseTransactionAsync(txId, player, "ruby", AdminShopTransactionService.Operation.SELL, 3, 100L, 50L, "test_cancel").join();
+        assertTrue(released);
+
+        AdminShopManager.State afterState = new AdminShopManager.State();
+        store.loadResult(afterState);
+        assertEquals(0L, afterState.demand.getOrDefault("ruby", 0L));
     }
 
     @Test
