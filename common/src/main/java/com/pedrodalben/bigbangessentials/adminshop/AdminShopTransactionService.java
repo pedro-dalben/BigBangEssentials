@@ -30,8 +30,6 @@ public final class AdminShopTransactionService {
     private static final AdminShopTransactionService INSTANCE = new AdminShopTransactionService();
     private final AdminShopManager manager = AdminShopManager.getInstance();
     private final GemsServiceImpl gems = new GemsServiceImpl();
-    private final Map<String, Object> productLocks = new ConcurrentHashMap<>();
-
     private final Map<String, CompletableFuture<?>> productQueues = new ConcurrentHashMap<>();
 
     public static AdminShopTransactionService getInstance() { return INSTANCE; }
@@ -140,54 +138,6 @@ public final class AdminShopTransactionService {
                             })
                             .exceptionallyCompose(error -> compensate(prepared, financeFrom(error), null, false, error));
                 });
-    }
-
-    private Prepared prepare(ServerPlayer player, String productId, Operation operation, int rawQuantity) {
-        if (productId == null || operation == null) return null;
-        AdminShopConfig.Product product = manager.config().product(productId);
-        if (product == null) return null;
-
-        int quantity = rawQuantity > 0 ? rawQuantity : product.quantity;
-        quantity = Math.max(1, Math.min(quantity, product.maxQuantity > 0 ? product.maxQuantity : 64));
-
-        boolean buy = operation == Operation.BUY;
-        BigDecimal unitPrice = price(product, buy, productId);
-        if ((buy && !product.buyEnabled) || (!buy && (!product.sellEnabled || product.isCommand())) || unitPrice == null) return null;
-
-        BigDecimal totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity))
-                .setScale(ConfigManager.getEconomyCurrencyScale(), ConfigManager.getEconomyRoundingMode());
-
-        String currency = manager.config().currency(productId);
-        if (currency == null || !PermissionAPI.hasPermission(player.getUUID(), currencyPermission(currency))
-                || product.permission != null && !product.permission.isBlank() && !PermissionAPI.hasPermission(player.getUUID(), product.permission)) return null;
-
-        long used = manager.state.limits.getOrDefault(player.getUUID() + ":" + productId, 0L);
-        long remaining = manager.state.remaining.getOrDefault(productId, product.stock);
-        ItemStack stack = product.stack(quantity);
-
-        if (product.limit >= 0 && (used > product.limit || quantity > product.limit - used)) return null;
-        if (buy && product.stock >= 0 && remaining < quantity) return null;
-        if (!product.isCommand() && (stack.isEmpty() || buy && !hasRoom(player, stack) || !buy && count(player, stack) < quantity)) return null;
-        if (product.isCommand() && (product.command == null || !product.command.contains("{transaction}"))) return null;
-
-        Object lock = productLocks.computeIfAbsent(productId, ignored -> new Object());
-        synchronized (lock) {
-            used = manager.state.limits.getOrDefault(player.getUUID() + ":" + productId, 0L);
-            remaining = manager.state.remaining.getOrDefault(productId, product.stock);
-            if (product.limit >= 0 && (used > product.limit || quantity > product.limit - used)) return null;
-            if (buy && product.stock >= 0 && remaining < quantity) return null;
-            boolean hadLimit = manager.state.limits.containsKey(player.getUUID() + ":" + productId);
-            boolean hadRemaining = manager.state.remaining.containsKey(productId);
-            boolean hadDemand = manager.state.demand.containsKey(productId);
-            long demand = manager.state.demand.getOrDefault(productId, 0L);
-            String tx = UUID.randomUUID().toString();
-            if (buy && product.stock >= 0) manager.state.remaining.put(productId, remaining - quantity);
-            manager.state.limits.put(player.getUUID() + ":" + productId, used + quantity);
-            manager.state.processed.add(tx);
-            return new Prepared(player, productId, product, operation, buy, currency, totalPrice, stack.copy(), tx,
-                    "adminshop:" + (buy ? "buy:" : "sell:") + tx, used, remaining, demand, hadLimit, hadRemaining, hadDemand,
-                    buy && product.stock >= 0 ? "RESERVED" : "NOT_APPLICABLE", lock, quantity);
-        }
     }
 
     private CompletableFuture<Finance> finance(Prepared p, long oldGems) {
@@ -395,7 +345,6 @@ public final class AdminShopTransactionService {
         return before - remaining.getCount();
     }
 
-    private static CompletableFuture<Prepared> failedPreparation() { return CompletableFuture.failedFuture(new SagaFailure("§cOperação indisponível.")); }
     private static <T> CompletableFuture<T> failed(Throwable error) { return CompletableFuture.failedFuture(error); }
     private static <T> CompletableFuture<T> onServer(ServerPlayer player, Supplier<T> action) {
         if (player.getServer() == null || player.getServer().isSameThread()) {
