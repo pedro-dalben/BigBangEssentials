@@ -6,6 +6,7 @@ import com.pedrodalben.bigbangessentials.config.ConfigManager;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.Locale;
 
 public class CrateEconomyIntegration {
@@ -42,6 +43,14 @@ public class CrateEconomyIntegration {
         return EconomyManager.getInstance().debit(playerId, BigDecimal.valueOf(amount), idempotencyKey, reason, Map.of("source", "crates", "reference", idempotencyKey)).status() == EconomyOperationStatus.COMPLETED;
     }
 
+    public CompletableFuture<Boolean> withdrawAsync(UUID playerId, double amount, String reason, String idempotencyKey) {
+        if (!Double.isFinite(amount)) return CompletableFuture.completedFuture(false);
+        if (!isEnabled()) return CompletableFuture.completedFuture(amount <= 0);
+        if (amount <= 0) return CompletableFuture.completedFuture(true);
+        return EconomyManager.getInstance().debitAsync(playerId, BigDecimal.valueOf(amount), idempotencyKey, reason, Map.of("source", "crates", "reference", idempotencyKey))
+                .thenApply(receipt -> receipt != null && receipt.status() == EconomyOperationStatus.COMPLETED);
+    }
+
     /**
      * Deposit an amount to a player's balance.
      */
@@ -53,6 +62,14 @@ public class CrateEconomyIntegration {
         if (!isEnabled()) return false;
         if (amount <= 0) return false;
         return EconomyManager.getInstance().credit(playerId, BigDecimal.valueOf(amount), idempotencyKey, reason, Map.of("source", "crates", "reference", idempotencyKey)).status() == EconomyOperationStatus.COMPLETED;
+    }
+
+    public CompletableFuture<Boolean> depositAsync(UUID playerId, double amount, String reason, String idempotencyKey) {
+        if (!Double.isFinite(amount)) return CompletableFuture.completedFuture(false);
+        if (!isEnabled()) return CompletableFuture.completedFuture(false);
+        if (amount <= 0) return CompletableFuture.completedFuture(false);
+        return EconomyManager.getInstance().creditAsync(playerId, BigDecimal.valueOf(amount), idempotencyKey, reason, Map.of("source", "crates", "reference", idempotencyKey))
+                .thenApply(receipt -> receipt != null && receipt.status() == EconomyOperationStatus.COMPLETED);
     }
 
     /**
