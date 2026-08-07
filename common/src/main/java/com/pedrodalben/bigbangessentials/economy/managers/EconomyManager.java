@@ -581,6 +581,7 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
 
     public boolean createAccount(UUID playerId) {
         if (playerId == null) return false;
+        if (hasAccount(playerId)) return false;
         if (databaseMode) {
             return databaseBackend != null && databaseBackend.createAccount(playerId);
         }

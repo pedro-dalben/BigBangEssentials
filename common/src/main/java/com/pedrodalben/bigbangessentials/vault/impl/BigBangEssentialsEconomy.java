@@ -70,6 +70,7 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
     @Override
     public boolean createPlayerAccount(UUID playerId) {
         try {
+            if (hasAccount(playerId)) return true;
             return EconomyManager.getInstance().createAccount(playerId);
         } catch (Exception e) {
             LOGGER.error("VaultEconomy: createPlayerAccount error for {}: {}", playerId, e.getMessage());
