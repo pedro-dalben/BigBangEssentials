@@ -39,12 +39,12 @@ public class RankupPromoteAction implements MenuActionHandler {
         }
 
         UUID uuid = player.getUUID();
-        LOGGER.info("[RANKUP-ACTION] player_uuid={} stage=ACTION_STARTED", uuid);
+        LOGGER.debug("[RANKUP-ACTION] player_uuid={} stage=ACTION_STARTED", uuid);
 
         RankupManager mgr = RankupManager.getInstance();
 
         if (mgr.getPromotionService().isPromotionInProgress(uuid)) {
-            LOGGER.info("[RANKUP-ACTION] player_uuid={} stage=DENIED_PROMOTION_ACTIVE", uuid);
+            LOGGER.debug("[RANKUP-ACTION] player_uuid={} stage=DENIED_PROMOTION_ACTIVE", uuid);
             player.sendSystemMessage(Component.literal("§cUma promoção já está em andamento. Aguarde."));
             return CompletableFuture.completedFuture(ActionExecutionResult.denied("Promotion already active"));
         }
@@ -52,7 +52,7 @@ public class RankupPromoteAction implements MenuActionHandler {
         long now = System.currentTimeMillis();
         Long lastAction = ACTION_LOCKS.put(uuid, now);
         if (lastAction != null && (now - lastAction) < ACTION_LOCK_TTL_MS) {
-            LOGGER.info("[RANKUP-ACTION] player_uuid={} stage=DENIED_DEBOUNCED age_ms={}", uuid, now - lastAction);
+            LOGGER.debug("[RANKUP-ACTION] player_uuid={} stage=DENIED_DEBOUNCED age_ms={}", uuid, now - lastAction);
             return CompletableFuture.completedFuture(ActionExecutionResult.denied("Please wait before clicking again"));
         }
 
@@ -60,21 +60,21 @@ public class RankupPromoteAction implements MenuActionHandler {
         RankupRank next = snapshot.nextRank();
 
         if (next == null) {
-            LOGGER.info("[RANKUP-ACTION] player_uuid={} stage=DENIED_MAX_RANK", uuid);
+            LOGGER.debug("[RANKUP-ACTION] player_uuid={} stage=DENIED_MAX_RANK", uuid);
             player.sendSystemMessage(Component.literal("§cYou have already reached the highest rank."));
             ACTION_LOCKS.remove(uuid);
             return CompletableFuture.completedFuture(ActionExecutionResult.denied("Already at max rank"));
         }
 
         if (!snapshot.isReadyForPromotion()) {
-            LOGGER.info("[RANKUP-ACTION] player_uuid={} stage=DENIED state={}", uuid, snapshot.state().name());
+            LOGGER.debug("[RANKUP-ACTION] player_uuid={} stage=DENIED state={}", uuid, snapshot.state().name());
             player.sendSystemMessage(Component.literal("§c" + snapshot.state().defaultStatusText()));
             MenuSystem.getInstance().getMenuService().refreshCurrentPage(player);
             ACTION_LOCKS.remove(uuid);
             return CompletableFuture.completedFuture(ActionExecutionResult.denied(snapshot.state().defaultStatusText()));
         }
 
-        LOGGER.info("[RANKUP-ACTION] player_uuid={} target_rank={} stage=CALLING_PROMOTE", uuid, next.id());
+        LOGGER.debug("[RANKUP-ACTION] player_uuid={} target_rank={} stage=CALLING_PROMOTE", uuid, next.id());
 
         MinecraftServer server = player.getServer();
 
@@ -106,7 +106,7 @@ public class RankupPromoteAction implements MenuActionHandler {
                             refreshMenu(server, uuid);
                         });
                     } else if (result != null && result.success()) {
-                        LOGGER.info("[RANKUP-ACTION] player_uuid={} transaction_id={} stage=PROMOTE_SUCCESS", uuid, result.transactionId());
+                        LOGGER.debug("[RANKUP-ACTION] player_uuid={} transaction_id={} stage=PROMOTE_SUCCESS", uuid, result.transactionId());
                         actionResult = ActionExecutionResult.success();
                         scheduleOnServer(server, uuid, () -> {
                             ServerPlayer onlinePlayer = resolvePlayer(server, uuid);

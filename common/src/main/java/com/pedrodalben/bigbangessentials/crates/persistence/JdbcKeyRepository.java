@@ -118,7 +118,8 @@ public class JdbcKeyRepository extends JdbcRepository implements KeyRepository {
         }
     }
 
-    private void invalidateCache() {
+    @Override
+    public void invalidateCache() {
         cacheLoaded = false;
         cache.clear();
     }

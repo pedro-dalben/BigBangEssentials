@@ -170,10 +170,10 @@ public class RankupPromotionService {
         }
 
         UUID uuid = player.getUUID();
-        LOGGER.info("[RANKUP-PROMOTION] player_uuid={} target_rank={} stage=PROMOTE_ENTERED thread={}",
+        LOGGER.debug("[RANKUP-PROMOTION] player_uuid={} target_rank={} stage=PROMOTE_ENTERED thread={}",
                 uuid, targetRank != null ? targetRank.id() : "null", Thread.currentThread().getName());
 
-        LOGGER.info("[RANKUP-PROMOTION] player_uuid={} stage=PREFLIGHT_SYNC_STARTED", uuid);
+        LOGGER.debug("[RANKUP-PROMOTION] player_uuid={} stage=PREFLIGHT_SYNC_STARTED", uuid);
         RankupEligibilitySnapshot preflight;
         try {
             preflight = preflightSnapshot(uuid);
@@ -183,7 +183,7 @@ public class RankupPromotionService {
                     RankupPromotionResult.failure("Erro interno ao iniciar a promoção: " + preflightError.getMessage(),
                             RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.INTERNAL_ERROR));
         }
-        LOGGER.info("[RANKUP-PROMOTION] player_uuid={} stage=PREFLIGHT_SYNC_COMPLETED state={}", uuid, preflight.state().name());
+        LOGGER.debug("[RANKUP-PROMOTION] player_uuid={} stage=PREFLIGHT_SYNC_COMPLETED state={}", uuid, preflight.state().name());
         if (preflight.nextRank() == null) {
             return CompletableFuture.completedFuture(RankupPromotionResult.failure("Already at maximum rank", RankupTransactionStatus.FAILED, null, RankupPromotionResultCode.ALREADY_MAX_RANK));
         }
@@ -286,7 +286,7 @@ public class RankupPromotionService {
                                 RankupTransaction transaction = opt.get();
                                 if (transaction.status() == RankupTransactionStatus.COMPLETED) {
                                     // Transaction already completed — skip the entire pipeline
-                                    LOGGER.info("[RANKUP-PROMOTION] player_uuid={} transaction_id={} stage=IDEMPOTENCY_ALREADY_COMPLETED", uuid, transaction.transactionId());
+                                    LOGGER.debug("[RANKUP-PROMOTION] player_uuid={} transaction_id={} stage=IDEMPOTENCY_ALREADY_COMPLETED", uuid, transaction.transactionId());
                                     RankupPromotionResult alreadyDone = RankupPromotionResult.success("Promoted to " + targetRank.displayName() + " (transaction already completed)", transaction.transactionId());
                                     throw new PromotionPipelineException(alreadyDone);
                                 }
@@ -309,7 +309,7 @@ public class RankupPromotionService {
                                 }
                                 // For any other active status (MONEY_DEBITED, GEMS_DEBITED, LUCKPERMS_UPDATED),
                                 // resume the pipeline from where it left off
-                                LOGGER.info("[RANKUP-PROMOTION] player_uuid={} transaction_id={} stage=IDEMPOTENCY_RESUMING status={}", uuid, transaction.transactionId(), transaction.status());
+                                LOGGER.debug("[RANKUP-PROMOTION] player_uuid={} transaction_id={} stage=IDEMPOTENCY_RESUMING status={}", uuid, transaction.transactionId(), transaction.status());
                                 return CompletableFuture.completedFuture(transaction);
                             } else {
                                 RankupTransaction newTx = new RankupTransaction(
@@ -636,7 +636,7 @@ public class RankupPromotionService {
         execution.stage = stage;
         long elapsed = System.currentTimeMillis() - execution.startedAtMs;
         String errorText = error != null ? error.getClass().getSimpleName() + ":" + error.getMessage() : "";
-        LOGGER.info("[RANKUP-PROMOTION] player_uuid={} transaction_id={} target_rank={} stage={} thread={} elapsed_ms={} result={} error={}",
+        LOGGER.debug("[RANKUP-PROMOTION] player_uuid={} transaction_id={} target_rank={} stage={} thread={} elapsed_ms={} result={} error={}",
                 execution.playerUuid,
                 execution.transactionId,
                 execution.targetRankId,
@@ -685,7 +685,7 @@ public class RankupPromotionService {
             return CompletableFuture.completedFuture(transaction);
         }
 
-        LOGGER.info("[RANKUP-COMPENSATION] Starting compensation for transaction {} (status={})", transaction.transactionId(), transaction.status());
+        LOGGER.debug("[RANKUP-COMPENSATION] Starting compensation for transaction {} (status={})", transaction.transactionId(), transaction.status());
 
         RankupConfig config = manager.getConfig();
         RankupRank fromRank = config != null ? config.getRank(transaction.fromRankId()) : null;
@@ -758,7 +758,7 @@ public class RankupPromotionService {
                 compensatedTx = compensatedTx.withStatus(RankupTransactionStatus.RECOVERY_REQUIRED);
             }
             RankupTransaction finalTx = compensatedTx;
-            LOGGER.info("[RANKUP-COMPENSATION] Compensation result for transaction {}: fullyCompensated={}", finalTx.transactionId(), fullyCompensated);
+            LOGGER.debug("[RANKUP-COMPENSATION] Compensation result for transaction {}: fullyCompensated={}", finalTx.transactionId(), fullyCompensated);
             return manager.getRepository().saveTransaction(finalTx)
                     .orTimeout(databaseTimeoutSeconds(), TimeUnit.SECONDS)
                     .thenApply(v -> finalTx);

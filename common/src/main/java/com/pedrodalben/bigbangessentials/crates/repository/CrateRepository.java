@@ -16,4 +16,5 @@ public interface CrateRepository {
     void deleteByKey(String key);
     boolean existsByKey(String key);
     long count();
+    default void invalidateCache() {}
 }

@@ -69,7 +69,8 @@ public class JdbcCrateRepository extends JdbcRepository implements CrateReposito
         }
     }
 
-    private void invalidateCache() {
+    @Override
+    public void invalidateCache() {
         cacheLoaded = false;
         keyCache.clear();
         idCache.clear();

@@ -273,6 +273,8 @@ public class CrateService {
     }
 
     public void reload() {
+        if (crateRepo != null) crateRepo.invalidateCache();
+        if (keyRepo != null) keyRepo.invalidateCache();
         CrateHologramManager.getInstance().reconcileAll();
     }
 }

@@ -38,9 +38,9 @@ public class JobRankMilestoneService implements JobRankProgressionProvider {
     }
 
     private void onRankTransition(RankTransitionCompletedEvent event) {
-        LOGGER.info("Rank changed for player {}, synchronizing milestones...", event.playerId());
+        LOGGER.debug("Rank changed for player {}, synchronizing milestones...", event.playerId());
         synchronizeMilestones(event.playerId()).thenAccept(milestones -> {
-            LOGGER.info("Synchronized milestones for player {}: {}", event.playerId(), milestones);
+            LOGGER.debug("Synchronized milestones for player {}: {}", event.playerId(), milestones);
         });
     }
 

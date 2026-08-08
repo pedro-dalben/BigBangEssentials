@@ -2,6 +2,8 @@
 
 Módulo completo de mercado virtual de Pokémon com suporte a venda por dinheiro e troca Pokémon-por-Pokémon.
 
+> 📖 **Guia Prático / Manual do Usuário:** Consulte também o [Manual do Usuário](MANUAL_USUARIO.md) para um passo a passo completo ilustrado e explicado para os jogadores.
+
 ## Requisitos
 
 - Cobblemon 1.7.3+1.21.1 (Fabric ou NeoForge)

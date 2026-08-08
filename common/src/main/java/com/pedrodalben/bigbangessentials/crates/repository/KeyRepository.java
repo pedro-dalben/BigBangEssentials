@@ -15,4 +15,5 @@ public interface KeyRepository {
     void deleteById(String id);
     boolean existsById(String id);
     long count();
+    default void invalidateCache() {}
 }
