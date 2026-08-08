@@ -222,7 +222,11 @@ public final class AdminShopTransactionService {
         return CompletableFuture.allOf(item, state, money).thenCompose(ignored -> {
             boolean ok = Boolean.TRUE.equals(item.getNow(false)) && Boolean.TRUE.equals(state.getNow(false)) && Boolean.TRUE.equals(money.getNow(false));
             AdminShopAuditStatus status = ok ? AdminShopAuditStatus.ROLLED_BACK : AdminShopAuditStatus.RECONCILIATION_REQUIRED;
-            LOGGER.error("AdminShop transaction compensation [tx={} player={} product={} op={}]: status={} failure={}", p.tx, p.player.getUUID(), p.productId, p.operation, status, reason, error);
+            if (ok) {
+                LOGGER.info("AdminShop transaction compensation [tx={} player={} product={} op={}]: status={} failure={}", p.tx, p.player.getUUID(), p.productId, p.operation, status, reason);
+            } else {
+                LOGGER.error("AdminShop transaction compensation [tx={} player={} product={} op={}]: status={} failure={}", p.tx, p.player.getUUID(), p.productId, p.operation, status, reason, error);
+            }
             return manager.sql.updateAuditAsync(p.tx, status, finance == null ? null : finance.receipt,
                     ok ? "ROLLED_BACK" : "RECONCILIATION_REQUIRED", p.stockStage, "ROLLED_BACK", "ROLLED_BACK", reason)
                     .thenApply(audited -> ok && audited ? fail(reason) : fail("§cA transação falhou e requer reconciliação. ID: " + p.tx));
