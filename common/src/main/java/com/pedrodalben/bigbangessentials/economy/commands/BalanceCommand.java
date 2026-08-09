@@ -33,19 +33,26 @@ public class BalanceCommand {
         );
         dispatcher.register(
             net.minecraft.commands.Commands.literal("bal")
-                .requires(src -> PermissionValidator.validatePermission(
-                    src, "bigbangessentials.economy.balance").hasPermission())
+                .requires(src -> PermissionValidator.validateAnyPermission(
+                    src,
+                    "bigbangessentials.economy.balance",
+                    "bigbangessentials.economy.balance.others"
+                ).hasPermission())
                 .executes(ctx -> execute(ctx))
-        );
-        dispatcher.register(
-            net.minecraft.commands.Commands.literal("money")
-                .requires(src -> PermissionValidator.validatePermission(
-                    src, "bigbangessentials.economy.balance").hasPermission())
-                .executes(ctx -> execute(ctx))
+                .then(net.minecraft.commands.Commands.argument("player", StringArgumentType.word())
+                    .requires(src -> PermissionValidator.validateExactPermission(
+                        src, "bigbangessentials.economy.balance.others").hasPermission())
+                    .suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
+                        ctx.getSource().getServer().getPlayerList().getPlayers().stream()
+                            .map(p -> p.getGameProfile().getName()),
+                        builder
+                    ))
+                    .executes(ctx -> executeOther(ctx))
+                )
         );
     }
 
-    private static int execute(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
+    public static int execute(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
         if (!EconomyManager.getInstance().isEnabled()) {
             ctx.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.eco.disabled"));
             return 0;
@@ -68,7 +75,7 @@ public class BalanceCommand {
         return 1;
     }
 
-    private static int executeOther(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
+    public static int executeOther(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
         if (!EconomyManager.getInstance().isEnabled()) return 0;
         ServerPlayer sender = null;
         try {

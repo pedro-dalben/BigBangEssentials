@@ -999,6 +999,7 @@ public class BigBangEssentials {
 
         // ========== ECONOMY COMMANDS ==========
         if (ModuleManager.getInstance().isActive("economy")) {
+            registry.registerCommand("money", "Main money and economy command", "m");
             registry.registerCommand("pay", "Send money to another player");
             registry.registerCommand("balance", "Check your balance");
             registry.registerCommand("bal", "Check your balance (alias)");

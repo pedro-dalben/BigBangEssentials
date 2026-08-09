@@ -19,6 +19,7 @@
     "language_comment": "Language code for in-game messages and custom language files. Examples: en_us, pt_br, es_es"
   },
   "commands": {
+    "money": true,
     "balance": true,
     "pay": true,
     "paytoggle": true,

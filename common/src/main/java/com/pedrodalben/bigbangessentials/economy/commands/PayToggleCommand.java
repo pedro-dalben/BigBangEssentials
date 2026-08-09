@@ -28,12 +28,12 @@ public class PayToggleCommand {
         );
     }
 
-    private static boolean hasPayTogglePermission(java.util.UUID uuid) {
+    public static boolean hasPayTogglePermission(java.util.UUID uuid) {
         return com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(uuid, "bigbangessentials.economy.pay.toggle")
             || com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasPermission(uuid, "bigbangessentials.economy.paytoggle");
     }
 
-    private static int execute(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+    public static int execute(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         try {
             ServerPlayer player = ctx.getSource().getPlayerOrException();
             java.util.UUID uuid = player.getUUID();

@@ -37,6 +37,7 @@
 
 | Command | Syntax | Permission | Default | Description |
 |---|---|---|---|---|
+| `/money` | `/money [player\|pay\|top\|toggle\|help]` | `bigbangessentials.economy.balance` / `.pay` / `.baltop` | ✅ | Main economy command |
 | `/balance` | `/balance [player]` | `bigbangessentials.economy.balance` / `.balance.others` | ✅ | Check own or another player's balance |
 | `/bal` | alias for `/balance` | same | ✅ | Alias |
 | `/pay` | `/pay <player> <amount>` | `bigbangessentials.economy.pay` | ✅ | Send money to an online player |

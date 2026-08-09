@@ -56,7 +56,7 @@ public class PayCommand {
         );
     }
 
-    private static int execute(CommandContext<CommandSourceStack> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+    public static int execute(CommandContext<CommandSourceStack> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         // Validate permission first
         com.pedrodalben.bigbangessentials.util.PermissionValidator.PermissionResult permResult = 
             com.pedrodalben.bigbangessentials.util.PermissionValidator.validatePermission(ctx.getSource(), "bigbangessentials.economy.pay");

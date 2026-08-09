@@ -32,6 +32,16 @@ public class EconomyCommands {
             }
         }
         
+        // Register money command
+        if (config.isCommandEnabled("money") || config.isCommandEnabled("balance")) {
+            try {
+                MoneyCommand.register(dispatcher);
+                LOGGER.info("Money command registered");
+            } catch (Exception e) {
+                LOGGER.error("Failed to register money command", e);
+            }
+        }
+        
         // Register pay command
         if (config.isCommandEnabled("pay")) {
             try {
