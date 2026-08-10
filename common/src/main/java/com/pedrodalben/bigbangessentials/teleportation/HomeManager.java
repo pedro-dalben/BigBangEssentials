@@ -689,6 +689,47 @@ public class HomeManager {
     }
 
     /**
+     * Purge all homes that are located outside regions in any world where BigBangRegions prohibits homes.
+     * Checks all player homes across all players against BigBangRegionsApi.canSetHome.
+     *
+     * @return Number of invalid homes removed
+     */
+    public int purgeInvalidHomes() {
+        int totalPurged = 0;
+        Set<UUID> allPlayerIds = playerDataStore.getAllPlayerIds();
+        for (UUID playerId : allPlayerIds) {
+            Map<String, TeleportLocation> homes = getOrLoadPlayerHomes(playerId);
+            if (homes.isEmpty()) continue;
+
+            boolean modified = false;
+            Iterator<Map.Entry<String, TeleportLocation>> it = homes.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, TeleportLocation> entry = it.next();
+                TeleportLocation loc = entry.getValue();
+                if (isOutsideBigBangRegions(loc)) {
+                    it.remove();
+                    totalPurged++;
+                    modified = true;
+                    LOGGER.info("Purged invalid home '{}' for player {} at pos ({}, {}, {}) in world {}",
+                            entry.getKey(), playerId, loc.getX(), loc.getY(), loc.getZ(), loc.getWorldName());
+                }
+            }
+
+            if (modified) {
+                if (homes.isEmpty()) {
+                    playerHomes.remove(playerId);
+                }
+                savePlayerHomes(playerId);
+            }
+        }
+
+        if (totalPurged > 0) {
+            LOGGER.info("Purged {} total invalid homes outside regions", totalPurged);
+        }
+        return totalPurged;
+    }
+
+    /**
      * Clear all homes (for testing/admin purposes)
      */
     public void clearAllHomes() {

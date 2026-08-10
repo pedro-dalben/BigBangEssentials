@@ -11,6 +11,7 @@ import com.pedrodalben.bigbangessentials.util.MessageUtil;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Map;
@@ -94,6 +95,7 @@ public class HomeCommands {
             if (config.isCommandEnabled("renamehome")) {
                 registerRenameHomeCommand(dispatcher);
             }
+            registerPurgeInvalidHomesCommand(dispatcher);
         }
     }
     
@@ -629,5 +631,18 @@ public class HomeCommands {
             }
         }
         return HomeManager.getInstance().renameHome(target, oldName.toLowerCase(), newName.toLowerCase()) ? 1 : 0;
+    }
+
+    private static void registerPurgeInvalidHomesCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(Commands.literal("purgeinvalidhomes")
+            .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.admin.purgeinvalidhomes"))
+            .executes(ctx -> {
+                CommandSourceStack src = ctx.getSource();
+                src.sendSuccess(() -> Component.literal("§eIniciando expurgo de homes fora de regiões..."), true);
+                int purged = HomeManager.getInstance().purgeInvalidHomes();
+                src.sendSuccess(() -> Component.literal("§aExpurgo concluído: §f" + purged + " §ahomes fora de regiões foram removidas."), true);
+                return purged;
+            })
+        );
     }
 }

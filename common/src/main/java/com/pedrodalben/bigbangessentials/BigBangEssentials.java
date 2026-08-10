@@ -956,6 +956,7 @@ public class BigBangEssentials {
         registry.registerCommand("delhome", "Delete your home");
         registry.registerCommand("deletehome", "Delete your home (alias)");
         registry.registerCommand("homes", "List your homes");
+        registry.registerCommand("purgeinvalidhomes", "Purge player homes that are outside regions");
         com.pedrodalben.bigbangessentials.commands.teleportation.HomeCommands.register(dispatcher);
         
         // Register spawn commands
