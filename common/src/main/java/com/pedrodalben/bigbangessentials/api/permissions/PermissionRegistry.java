@@ -246,6 +246,7 @@ public class PermissionRegistry {
         register("bigbangessentials.pokemarket.claim", "Claim PokéMarket rewards", PermissionCategory.ECONOMY, true);
         register("bigbangessentials.pokemarket.history", "View PokéMarket history", PermissionCategory.ECONOMY, true);
         register("bigbangessentials.pokemarket.notifications", "View PokéMarket notifications", PermissionCategory.ECONOMY, true);
+        register("bigbangessentials.pokemarket.limit.unlimited", "Unlimited active PokéMarket listings", PermissionCategory.ECONOMY, false);
         register("bigbangessentials.pokemarket.admin", "PokéMarket administration", PermissionCategory.ECONOMY, false);
         register("bigbangessentials.pokemarket.admin.health", "View PokéMarket health", PermissionCategory.ECONOMY, false);
         register("bigbangessentials.pokemarket.admin.inspect", "Inspect PokéMarket records", PermissionCategory.ECONOMY, false);

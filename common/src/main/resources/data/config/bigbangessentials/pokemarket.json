@@ -1,6 +1,28 @@
 {
-  "_configVersion": 1,
+  "_configVersion": 3,
+  "maxActiveListings": 5,
   "saleTaxPercentage": 5.0,
-  "price": { "min": 0.01, "max": 1000000.00 },
+  "price": {
+    "min": 0.01,
+    "max": 1000000.00,
+    "minLegendary": 100.00,
+    "minMythical": 100.00,
+    "minUltraBeast": 50.00,
+    "minShiny": 50.00,
+    "minByPerfectIvs": {
+      "0": 0.01,
+      "1": 0.01,
+      "2": 0.01,
+      "3": 0.01,
+      "4": 0.01,
+      "5": 10.00,
+      "6": 20.00
+    },
+    "minBySpecies": {
+      "mewtwo": 500.00,
+      "rayquaza": 500.00
+    }
+  },
   "recovery": { "reservedTimeoutMinutes": 5 }
 }
+

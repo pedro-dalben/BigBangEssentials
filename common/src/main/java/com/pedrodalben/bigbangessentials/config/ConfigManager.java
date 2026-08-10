@@ -1285,7 +1285,7 @@ public class ConfigManager {
         put(DISCORD_AUTH_CONFIG, 6);
         put(TABLIST_CONFIG, 2);
         put(MODULES_CONFIG, 3);
-        put(POKEMARKET_CONFIG, 1);
+        put(POKEMARKET_CONFIG, 3);
     }};
 
     private ConfigManager() {
@@ -1730,6 +1730,17 @@ public class ConfigManager {
         return pokeMarketDecimal("saleTaxPercentage", "5.0");
     }
 
+    /** Maximum active listings allowed per player from pokemarket.json (maxActiveListings). Defaults to 5. -1 means unlimited. */
+    public static int getPokeMarketMaxActiveListings() {
+        JsonObject config = getInstance().getConfig(POKEMARKET_CONFIG);
+        try {
+            if (config.has("maxActiveListings")) {
+                return config.get("maxActiveListings").getAsInt();
+            }
+        } catch (Exception ignored) {}
+        return 5;
+    }
+
     /** PokéMarket minimum listing price from pokemarket.json (price.min). Defaults to 0.01. */
     public static java.math.BigDecimal getPokeMarketMinPriceDecimal() {
         return pokeMarketNestedDecimal("price", "min", "0.01");
@@ -1738,6 +1749,57 @@ public class ConfigManager {
     /** PokéMarket maximum listing price from pokemarket.json (price.max). Defaults to 1000000.00. */
     public static java.math.BigDecimal getPokeMarketMaxPriceDecimal() {
         return pokeMarketNestedDecimal("price", "max", "1000000.00");
+    }
+
+    /** Minimum listing price for Legendary Pokémon from pokemarket.json (price.minLegendary). Defaults to 0.00. */
+    public static java.math.BigDecimal getPokeMarketMinLegendaryPriceDecimal() {
+        return pokeMarketNestedDecimal("price", "minLegendary", "0.00");
+    }
+
+    /** Minimum listing price for Mythical Pokémon from pokemarket.json (price.minMythical). Defaults to 0.00. */
+    public static java.math.BigDecimal getPokeMarketMinMythicalPriceDecimal() {
+        return pokeMarketNestedDecimal("price", "minMythical", "0.00");
+    }
+
+    /** Minimum listing price for Ultra Beast Pokémon from pokemarket.json (price.minUltraBeast). Defaults to 0.00. */
+    public static java.math.BigDecimal getPokeMarketMinUltraBeastPriceDecimal() {
+        return pokeMarketNestedDecimal("price", "minUltraBeast", "0.00");
+    }
+
+    /** Minimum listing price for Shiny Pokémon from pokemarket.json (price.minShiny). Defaults to 0.00. */
+    public static java.math.BigDecimal getPokeMarketMinShinyPriceDecimal() {
+        return pokeMarketNestedDecimal("price", "minShiny", "0.00");
+    }
+
+    /** Minimum listing price by perfect IV count from pokemarket.json (price.minByPerfectIvs.<count>). Defaults to 0.00. */
+    public static java.math.BigDecimal getPokeMarketMinPriceByPerfectIvsDecimal(int perfectIvs) {
+        JsonObject config = getInstance().getConfig(POKEMARKET_CONFIG);
+        try {
+            if (config.has("price") && config.getAsJsonObject("price").has("minByPerfectIvs")) {
+                JsonObject map = config.getAsJsonObject("price").getAsJsonObject("minByPerfectIvs");
+                String key = String.valueOf(perfectIvs);
+                if (map.has(key)) {
+                    return new java.math.BigDecimal(map.get(key).getAsString());
+                }
+            }
+        } catch (Exception ignored) {}
+        return java.math.BigDecimal.ZERO;
+    }
+
+    /** Minimum listing price by Pokémon species from pokemarket.json (price.minBySpecies.<species>). Defaults to 0.00. */
+    public static java.math.BigDecimal getPokeMarketMinPriceBySpeciesDecimal(String species) {
+        if (species == null || species.isBlank()) return java.math.BigDecimal.ZERO;
+        JsonObject config = getInstance().getConfig(POKEMARKET_CONFIG);
+        try {
+            if (config.has("price") && config.getAsJsonObject("price").has("minBySpecies")) {
+                JsonObject map = config.getAsJsonObject("price").getAsJsonObject("minBySpecies");
+                String key = species.trim().toLowerCase(java.util.Locale.ROOT);
+                if (map.has(key)) {
+                    return new java.math.BigDecimal(map.get(key).getAsString());
+                }
+            }
+        } catch (Exception ignored) {}
+        return java.math.BigDecimal.ZERO;
     }
 
     /** PokéMarket stale reservation timeout in milliseconds from pokemarket.json (recovery.reservedTimeoutMinutes). Defaults to 300000. */
