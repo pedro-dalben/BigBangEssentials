@@ -29,12 +29,27 @@ public final class PokeMarketListingService {
     }
 
     public CompletableFuture<String> create(ServerPlayer player, OwnedPokemonReference reference, BigDecimal price, long durationMs) {
-        BigDecimal normalized = MarketPricingService.validateBounds(price);
+        int maxActive = PokeMarketPermissionService.getInstance().getMaxActiveListings(player);
+        if (maxActive != -1) {
+            return listings.countActiveBySeller(player.getUUID()).thenCompose(currentCount -> {
+                if (currentCount >= maxActive) {
+                    return CompletableFuture.failedFuture(new IllegalStateException("Você atingiu o limite de anúncios ativos (" + maxActive + ")"));
+                }
+                return createInternal(player, reference, price, durationMs);
+            });
+        }
+        return createInternal(player, reference, price, durationMs);
+    }
+
+    private CompletableFuture<String> createInternal(ServerPlayer player, OwnedPokemonReference reference, BigDecimal price, long durationMs) {
         SerializedPokemon serialized = bridge.serialize(player, reference);
+        BigDecimal normalized = MarketPricingService.validateBounds(price, serialized.summary());
         JsonObject summary = new JsonObject();
         summary.addProperty("uuid", serialized.summary().uuid().toString()); summary.addProperty("species", serialized.summary().species());
         summary.addProperty("form", serialized.summary().form()); summary.addProperty("shiny", serialized.summary().shiny());
         summary.addProperty("level", serialized.summary().level()); summary.addProperty("perfectIvs", serialized.summary().perfectIvs());
+        summary.addProperty("isLegendary", serialized.summary().isLegendary()); summary.addProperty("isMythical", serialized.summary().isMythical());
+        summary.addProperty("isUltraBeast", serialized.summary().isUltraBeast());
         UUID id = UUID.randomUUID();
         ListingRecord row = new ListingRecord(id, player.getUUID(), player.getName().getString(), reference.uuid(), serialized.payload(), summary.toString(), serialized.summary().species(), serialized.summary().shiny(), serialized.summary().level(), serialized.summary().perfectIvs(), ListingType.MONEY, normalized, ListingStatus.PREPARING, System.currentTimeMillis() + durationMs);
         return listings.createEscrow(id, reference.uuid(), serialized.payload()).thenCompose(escrow -> {
