@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.api.storage.party.PartyStore;
 import com.cobblemon.mod.common.api.storage.pc.PCBox;
 import com.cobblemon.mod.common.api.storage.pc.PCStore;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.cobblemon.mod.common.pokemon.Species;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
@@ -118,7 +119,41 @@ public final class Cobblemon173MarketBridge implements CobblemonMarketBridge {
 
     @Override public PokemonSummary createSummary(OwnedPokemonReference reference) {
         Pokemon p = reference.pokemon();
-        return new PokemonSummary(p.getUuid(), p.getSpecies().getName(), p.getForm().getName(), p.getShiny(), p.getLevel(), perfectIvs(p));
+        Species species = p.getSpecies();
+        boolean legendary = extractLegendary(species);
+        boolean mythical = extractMythical(species);
+        boolean ultraBeast = extractUltraBeast(species);
+        return new PokemonSummary(p.getUuid(), species.getName(), p.getForm().getName(), p.getShiny(), p.getLevel(), perfectIvs(p), legendary, mythical, ultraBeast);
+    }
+
+    private static boolean extractLegendary(Species species) {
+        if (species == null) return false;
+        try {
+            java.lang.reflect.Method m = species.getClass().getMethod("isLegendary");
+            if (Boolean.TRUE.equals(m.invoke(species))) return true;
+        } catch (Throwable ignored) {}
+        try { if (species.getLabels().contains("legendary")) return true; } catch (Throwable ignored) {}
+        return false;
+    }
+
+    private static boolean extractMythical(Species species) {
+        if (species == null) return false;
+        try {
+            java.lang.reflect.Method m = species.getClass().getMethod("isMythical");
+            if (Boolean.TRUE.equals(m.invoke(species))) return true;
+        } catch (Throwable ignored) {}
+        try { if (species.getLabels().contains("mythical")) return true; } catch (Throwable ignored) {}
+        return false;
+    }
+
+    private static boolean extractUltraBeast(Species species) {
+        if (species == null) return false;
+        try {
+            java.lang.reflect.Method m = species.getClass().getMethod("isUltraBeast");
+            if (Boolean.TRUE.equals(m.invoke(species))) return true;
+        } catch (Throwable ignored) {}
+        try { if (species.getLabels().contains("ultrabeast") || species.getLabels().contains("ultra_beast")) return true; } catch (Throwable ignored) {}
+        return false;
     }
 
     private static int perfectIvs(Pokemon pokemon) {
