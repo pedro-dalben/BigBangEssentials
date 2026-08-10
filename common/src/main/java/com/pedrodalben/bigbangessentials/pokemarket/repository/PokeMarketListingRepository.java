@@ -100,6 +100,13 @@ public final class PokeMarketListingRepository {
         return database.getExecutor().queryList("pokemarket.listing.status", "SELECT id FROM bbe_pokemarket_listings WHERE status=?", s -> s.setString(1, status.name()), r -> UUID.fromString(r.getString(1)));
     }
 
+    public CompletableFuture<Integer> countActiveBySeller(UUID sellerUuid) {
+        return database.getExecutor().queryOne("pokemarket.listing.count-seller",
+            "SELECT COUNT(*) FROM bbe_pokemarket_listings WHERE seller_uuid=? AND status IN ('PREPARING','ACTIVE','RESERVED') AND expires_at>?",
+            s -> { s.setString(1, sellerUuid.toString()); s.setLong(2, System.currentTimeMillis()); },
+            r -> r.getInt(1)).thenApply(count -> count == null ? 0 : count);
+    }
+
     private ListingRecord map(ResultSet r) throws java.sql.SQLException {
         return new ListingRecord(UUID.fromString(r.getString("id")), UUID.fromString(r.getString("seller_uuid")), r.getString("seller_name_snapshot"), UUID.fromString(r.getString("pokemon_uuid")), r.getBytes("pokemon_data"), r.getString("pokemon_summary_json"), r.getString("species"), r.getBoolean("shiny"), r.getInt("level"), r.getInt("perfect_iv_count"), ListingType.valueOf(r.getString("listing_type")), r.getBigDecimal("price"), ListingStatus.valueOf(r.getString("status")), r.getLong("expires_at"));
     }
