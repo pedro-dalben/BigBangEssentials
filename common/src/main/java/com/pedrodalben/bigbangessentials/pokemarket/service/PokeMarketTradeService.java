@@ -52,6 +52,19 @@ public final class PokeMarketTradeService {
 
     /** Create a POKEMON_TRADE listing. Requirements encoded in requested_pokemon_json. */
     public CompletableFuture<String> create(ServerPlayer player, OwnedPokemonReference reference, JsonObject requirements, long durationMs) {
+        int maxActive = PokeMarketPermissionService.getInstance().getMaxActiveListings(player);
+        if (maxActive != -1) {
+            return listings.countActiveBySeller(player.getUUID()).thenCompose(currentCount -> {
+                if (currentCount >= maxActive) {
+                    return CompletableFuture.failedFuture(new IllegalStateException("Você atingiu o limite de anúncios ativos (" + maxActive + ")"));
+                }
+                return createInternal(player, reference, requirements, durationMs);
+            });
+        }
+        return createInternal(player, reference, requirements, durationMs);
+    }
+
+    private CompletableFuture<String> createInternal(ServerPlayer player, OwnedPokemonReference reference, JsonObject requirements, long durationMs) {
         CobblemonMarketBridge bridge = new Cobblemon173MarketBridge();
         SerializedPokemon serialized = bridge.serialize(player, reference);
         PokemonSummary summary = serialized.summary();
