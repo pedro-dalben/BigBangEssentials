@@ -155,7 +155,7 @@ public class InventoryViewCommands {
 
     private static void openOwnEnderChest(ServerPlayer viewer) {
         viewer.openMenu(new SimpleMenuProvider(
-            (id, playerInventory, player) -> ChestMenu.threeRows(id, playerInventory, viewer.getEnderChestInventory()),
+            (id, playerInventory, player) -> new PersistentEnderChestMenu(id, playerInventory, viewer),
             Component.translatable("container.enderchest")
         ));
     }
@@ -276,6 +276,63 @@ public class InventoryViewCommands {
         @Override
         public void clicked(int slotId, int button, ClickType clickType, Player player) {
             // This menu displays a disposable snapshot; no click may mutate it or the viewer inventory.
+        }
+    }
+
+    static final class PersistentEnderChestMenu extends ChestMenu {
+        private final ServerPlayer owner;
+
+        PersistentEnderChestMenu(int id, Inventory playerInventory, ServerPlayer owner) {
+            super(net.minecraft.world.inventory.MenuType.GENERIC_9x3, id, playerInventory, owner.getEnderChestInventory(), 3);
+            this.owner = owner;
+        }
+
+        @Override
+        public void clicked(int slotId, int button, ClickType clickType, Player player) {
+            ItemStack[] before = snapshotSlots();
+            ItemStack carriedBefore = getCarried().copy();
+            super.clicked(slotId, button, clickType, player);
+
+            if (shouldPersistAfterClick(stateChanged(before, carriedBefore), getCarried().isEmpty())) {
+                saveOwner();
+            }
+        }
+
+        @Override
+        public void removed(Player player) {
+            boolean carried = !getCarried().isEmpty();
+            super.removed(player);
+            if (carried) {
+                saveOwner();
+            }
+        }
+
+        static boolean shouldPersistAfterClick(boolean stateChanged, boolean cursorEmpty) {
+            return stateChanged && cursorEmpty;
+        }
+
+        private ItemStack[] snapshotSlots() {
+            ItemStack[] snapshot = new ItemStack[slots.size()];
+            for (int index = 0; index < slots.size(); index++) {
+                snapshot[index] = slots.get(index).getItem().copy();
+            }
+            return snapshot;
+        }
+
+        private boolean stateChanged(ItemStack[] before, ItemStack carriedBefore) {
+            if (!ItemStack.matches(carriedBefore, getCarried())) {
+                return true;
+            }
+            for (int index = 0; index < slots.size(); index++) {
+                if (!ItemStack.matches(before[index], slots.get(index).getItem())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void saveOwner() {
+            ((PlayerListSaveInvoker) owner.getServer().getPlayerList()).bigbangessentials$save(owner);
         }
     }
 }

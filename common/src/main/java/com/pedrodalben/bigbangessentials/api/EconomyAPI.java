@@ -134,10 +134,10 @@ public class EconomyAPI {
 
     private static boolean isValidAmount(BigDecimal amount) {
         try {
-            if (amount.signum() <= 0) return false;
+            if (amount == null || amount.signum() <= 0) return false;
             int scale = ConfigManager.getEconomyCurrencyScale();
-            amount.setScale(scale, java.math.RoundingMode.UNNECESSARY);
-            return amount.compareTo(ConfigManager.getInstance().getMaxEconomyAmount()) <= 0;
+            BigDecimal scaled = amount.setScale(scale, ConfigManager.getEconomyRoundingMode());
+            return scaled.compareTo(ConfigManager.getInstance().getMaxEconomyAmount()) <= 0;
         } catch (RuntimeException e) { return false; }
     }
 }

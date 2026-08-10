@@ -560,7 +560,7 @@ private final ScheduledExecutorService saveExecutor = Executors.newSingleThreadS
     private BigDecimal normalize(BigDecimal amount) {
         int scale = ConfigManager.getEconomyCurrencyScale();
         if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("Invalid monetary amount");
-        BigDecimal normalized = amount.setScale(scale, java.math.RoundingMode.UNNECESSARY);
+        BigDecimal normalized = amount.setScale(scale, ConfigManager.getEconomyRoundingMode());
         if (normalized.compareTo(BigDecimal.valueOf(ConfigManager.getMaxBalance())) > 0) throw new IllegalArgumentException("Amount too large");
         return normalized;
     }

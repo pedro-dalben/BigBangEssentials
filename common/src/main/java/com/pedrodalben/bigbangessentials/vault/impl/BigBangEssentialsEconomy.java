@@ -106,7 +106,7 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
         if (!Double.isFinite(amount) || amount <= 0)
             return fail(amount, playerId, "Cannot withdraw a negative amount");
         try {
-            BigDecimal amt = BigDecimal.valueOf(amount).setScale(ConfigManager.getEconomyCurrencyScale(), RoundingMode.UNNECESSARY);
+            BigDecimal amt = BigDecimal.valueOf(amount).setScale(ConfigManager.getEconomyCurrencyScale(), ConfigManager.getEconomyRoundingMode());
             var receipt = EconomyManager.getInstance().debit(playerId, amt, "vault:withdraw:" + UUID.randomUUID(), "Vault withdrawal", java.util.Map.of("source", "vault"));
             if (receipt.status() != EconomyOperationStatus.COMPLETED)
                 return fail(amount, playerId, "Insufficient funds");
@@ -130,7 +130,7 @@ public class BigBangEssentialsEconomy extends VaultEconomy {
             return fail(amount, playerId, "Cannot deposit a negative amount");
         try {
             if (!hasAccount(playerId)) createPlayerAccount(playerId);
-            BigDecimal amt = BigDecimal.valueOf(amount).setScale(ConfigManager.getEconomyCurrencyScale(), RoundingMode.UNNECESSARY);
+            BigDecimal amt = BigDecimal.valueOf(amount).setScale(ConfigManager.getEconomyCurrencyScale(), ConfigManager.getEconomyRoundingMode());
             var receipt = EconomyManager.getInstance().credit(playerId, amt, "vault:deposit:" + UUID.randomUUID(), "Vault deposit", java.util.Map.of("source", "vault"));
             if (receipt.status() != EconomyOperationStatus.COMPLETED)
                 return fail(amount, playerId, "Deposit rejected (max balance reached?)");

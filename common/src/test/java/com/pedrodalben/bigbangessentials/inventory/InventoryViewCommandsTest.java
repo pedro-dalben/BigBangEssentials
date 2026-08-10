@@ -43,6 +43,13 @@ class InventoryViewCommandsTest {
     }
 
     @Test
+    void persistentEnderChestSavesOnlyCompletedTransfers() {
+        assertFalse(InventoryViewCommands.PersistentEnderChestMenu.shouldPersistAfterClick(false, true));
+        assertFalse(InventoryViewCommands.PersistentEnderChestMenu.shouldPersistAfterClick(true, false));
+        assertTrue(InventoryViewCommands.PersistentEnderChestMenu.shouldPersistAfterClick(true, true));
+    }
+
+    @Test
     void enderChestCommandsRequireTheirExactCanonicalPermissions() {
         UUID playerId = UUID.randomUUID();
 

@@ -11,6 +11,7 @@
     "FurnaceResultSlotMixin",
     "MobMixin",
     "PlayerAdvancementsMixin",
+    "PlayerListSaveInvokerMixin",
     "ResultSlotMixin",
 
     "TextDisplayAccessor",
