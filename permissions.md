@@ -94,8 +94,11 @@ aliases `/gts` and `/pm` redirect to the same command tree.
 | `bigbangessentials.pokemarket.admin.refund` | false | Refund operations |
 | `bigbangessentials.pokemarket.admin.reconcile` | false | Reconcile operations |
 
+| `bigbangessentials.pokemarket.limit.<N>` | true | Set max active listings to `<N>` (e.g. `limit.10`) |
+| `bigbangessentials.pokemarket.limit.unlimited` | false | Unlimited active PokéMarket listings |
+
 The granular player nodes are also registered (`browse`, `sell`, `buy`,
-`trade`, `cancel`, `claim`, `history`, and `notifications`) with the same
+`trade`, `cancel`, `claim`, `history`, `notifications`, and `limit.<N>`) with the same
 default as `pokemarket.use`; the root node remains the compatibility gate.
 
 ---

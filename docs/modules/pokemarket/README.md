@@ -41,6 +41,8 @@ Pokémon para o servidor.
 - Escrow do Pokémon durante o anúncio
 - Compra atômica via transação JDBC (reserva, débito, claims)
 - Taxa de venda (5%) calculada automaticamente
+- Controle de preço mínimo dinâmico por IVs perfeitos (F5, F6), raridade (Lendário, Mítico, Ultra Beast), Shiny e espécie
+- Limite configurável de anúncios ativos por jogador com ampliação via permissões (`pokemarket.limit.<N>`)
 - Claims de Pokémon para o comprador e dinheiro para o vendedor
 - Histórico de transações
 
