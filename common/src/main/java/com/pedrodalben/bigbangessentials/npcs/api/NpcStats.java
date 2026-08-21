@@ -20,6 +20,10 @@ public final class NpcStats {
     private final int skinRequestsInFlight;
     private final int skinRequestFailures;
     private final int hologramsActive;
+    private final int pendingSpawns;
+    private final int failedSpawns;
+    private final int packetFailures;
+    private final int reskinsApplied;
     private final long lastReloadMillis;
     private final long lastSaveMillis;
 
@@ -28,6 +32,7 @@ public final class NpcStats {
                     int lookUpdatesLastTick, int lookUpdatesDropped, int skinMemCacheEntries,
                     int skinCacheHits, int skinCacheMisses, int skinStaleHits, int skinNegativeHits,
                     int skinRequestsInFlight, int skinRequestFailures, int hologramsActive,
+                    int pendingSpawns, int failedSpawns, int packetFailures, int reskinsApplied,
                     long lastReloadMillis, long lastSaveMillis) {
         this.definitions = definitions;
         this.enabled = enabled;
@@ -48,12 +53,16 @@ public final class NpcStats {
         this.skinRequestsInFlight = skinRequestsInFlight;
         this.skinRequestFailures = skinRequestFailures;
         this.hologramsActive = hologramsActive;
+        this.pendingSpawns = pendingSpawns;
+        this.failedSpawns = failedSpawns;
+        this.packetFailures = packetFailures;
+        this.reskinsApplied = reskinsApplied;
         this.lastReloadMillis = lastReloadMillis;
         this.lastSaveMillis = lastSaveMillis;
     }
 
     public static NpcStats empty() {
-        return new NpcStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        return new NpcStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     public int definitions() { return definitions; }
@@ -75,6 +84,10 @@ public final class NpcStats {
     public int skinRequestsInFlight() { return skinRequestsInFlight; }
     public int skinRequestFailures() { return skinRequestFailures; }
     public int hologramsActive() { return hologramsActive; }
+    public int pendingSpawns() { return pendingSpawns; }
+    public int failedSpawns() { return failedSpawns; }
+    public int packetFailures() { return packetFailures; }
+    public int reskinsApplied() { return reskinsApplied; }
     public long lastReloadMillis() { return lastReloadMillis; }
     public long lastSaveMillis() { return lastSaveMillis; }
 }

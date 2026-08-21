@@ -30,22 +30,37 @@ public class NpcInteractionService {
 
     public boolean handleClick(ServerPlayer player, int entityId) {
         NpcViewerSession session = viewerService.getSession(player.getUUID());
-        if (session == null) return false;
+        if (session == null) {
+            LOGGER.debug("NPC click denied (no viewer session) player={} entityId={}", player.getGameProfile().getName(), entityId);
+            return false;
+        }
 
         String npcId = session.entityIdToNpc().get(entityId);
-        if (npcId == null) return false;
+        if (npcId == null) {
+            LOGGER.debug("NPC click denied (unknown virtual entity id) player={} entityId={}", player.getGameProfile().getName(), entityId);
+            return false;
+        }
 
         NpcRenderService.NpcRenderState state = renderService.getState(npcId);
         if (state == null) return false;
 
         NpcDefinition npc = state.definition();
-        if (!npc.enabled()) return false;
+        if (!npc.enabled()) {
+            LOGGER.debug("NPC click denied (disabled) npc={}", npcId);
+            return false;
+        }
 
-        if (!player.level().dimension().equals(npc.location().dimension())) return false;
+        if (!player.level().dimension().location().equals(npc.location().dimension())) {
+            LOGGER.debug("NPC click denied (dimension) npc={}", npcId);
+            return false;
+        }
 
         double distSq = player.distanceToSqr(npc.location().x(), npc.location().y(), npc.location().z());
         double maxDist = npc.interaction().distance();
-        if (distSq > maxDist * maxDist) return false;
+        if (distSq > maxDist * maxDist) {
+            LOGGER.debug("NPC click denied (distance {})", Math.sqrt(distSq));
+            return false;
+        }
 
         if (npc.interaction().hasPermission()) {
             if (!player.hasPermissions(4) && !PermissionAPI.hasPermission(player.getUUID(), npc.interaction().permission())) {
@@ -59,6 +74,7 @@ public class NpcInteractionService {
         Map<String, Long> playerCooldowns = cooldowns.computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>());
         long lastClick = playerCooldowns.getOrDefault(npcId, 0L);
         if (now - lastClick < npc.interaction().cooldownMillis()) {
+            LOGGER.debug("NPC click denied (cooldown) npc={}", npcId);
             return false;
         }
 

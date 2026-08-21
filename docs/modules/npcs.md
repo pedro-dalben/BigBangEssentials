@@ -11,14 +11,58 @@ Virtual NPC objects with player appearance — skins, holograms, player tracking
 
 2. Restart or `/bigbangessentials reload`
 
+## Quick Start
+
+1. Habilite os módulos `holograms` e `npcs`.
+2. Entre no servidor e vá até onde deseja o NPC.
+3. Execute:
+
+```
+/npc create loja Dalbesmr
+```
+
+4. Configure:
+
+```
+/npc name loja Loja
+/npc command loja shop
+```
+
+5. Pronto. O NPC aparece com a skin da conta Minecraft Java `Dalbesmr`,
+   com holograma opcional acima, olhando para quem se aproxima e executando
+   `/shop` ao ser clicado.
+
+## Como funciona a skin?
+
+A skin é definida **pelo nome de uma conta Minecraft Java válida** — nunca por
+URL, arquivo PNG ou base64.
+
+- Correto:
+  ```
+  /npc create loja Dalbesmr
+  /npc skin loja Notch
+  ```
+- Errado:
+  ```
+  https://textures.minecraft.net/...
+  skin.png
+  base64...
+  ```
+
+Fluxo: `playerName → Mojang profile API (UUID) → sessionserver (textures) →
+cache → GameProfile do NPC`. Se a conta não existir ou a Mojang estiver
+indisponível, o NPC aparece com a skin padrão (Steve) e troca para a skin real
+assim que ela for resolvida. Use `/npc info <id>` para ver o status
+(`Skin status`, `Skin cache status`).
+
 ## Commands
 
 | Command | Permission | Description |
 |---------|-----------|-------------|
-| `/npc create <id> <skin>` | `bigbangessentials.npcs.create` | Create NPC at your position |
+| `/npc create <id> <playerName>` | `bigbangessentials.npcs.create` | Create NPC at your position with a Minecraft player skin |
 | `/npc remove <id>` | `bigbangessentials.npcs.remove` | Delete an NPC |
 | `/npc movehere <id>` | `bigbangessentials.npcs.move` | Move NPC to your position |
-| `/npc skin <id> <name>` | `bigbangessentials.npcs.edit` | Change NPC skin |
+| `/npc skin <id> <playerName>` | `bigbangessentials.npcs.edit` | Change NPC skin (Minecraft player name) |
 | `/npc name <id> <text>` | `bigbangessentials.npcs.edit` | Set display name |
 | `/npc command <id> <cmd>` | `bigbangessentials.npcs.edit` | Set click command (player) |
 | `/npc consolecommand <id> <cmd>` | `bigbangessentials.npcs.consolecommand` | Set click command (console) |

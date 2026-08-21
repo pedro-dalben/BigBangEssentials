@@ -23,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -99,7 +98,7 @@ public final class HologramPersistenceService {
         index.addAll(ids);
 
         for (String id : ids) {
-            Path hologramFile = storageDir.resolve(encodeFilename(id) + JSON_EXTENSION);
+            Path hologramFile = resolveExistingFile(id);
             if (!Files.exists(hologramFile)) {
                 LOGGER.warn("Hologram file missing for index entry '{}': {}", id, hologramFile);
                 index.remove(id);
@@ -119,10 +118,20 @@ public final class HologramPersistenceService {
                 definitions.add(definition);
 
                 int fileVersion = json.has("schemaVersion") ? json.get("schemaVersion").getAsInt() : 0;
+                boolean legacyFile = hologramFile.equals(legacyHologramFile(id));
                 if (fileVersion < CURRENT_SCHEMA_VERSION) {
                     LOGGER.info("Migrating hologram '{}' from schema v{} to v{}", id, fileVersion, CURRENT_SCHEMA_VERSION);
                     backupFile(hologramFile);
                     writeHologramFile(definition);
+                    if (legacyFile) {
+                        try {
+                            Files.deleteIfExists(hologramFile);
+                        } catch (IOException e) {
+                            LOGGER.warn("Failed to remove legacy hologram file '{}': {}", id, e.getMessage());
+                        }
+                    }
+                } else if (legacyFile) {
+                    migrateLegacyFile(hologramFile, id);
                 }
             } catch (Exception e) {
                 LOGGER.warn("Failed to load hologram '{}', quarantining: {}", id, e.getMessage());
@@ -171,9 +180,10 @@ public final class HologramPersistenceService {
         writeIndex();
         pendingSaves.remove(id);
 
-        Path hologramFile = storageDir.resolve(encodeFilename(id) + JSON_EXTENSION);
+        Path hologramFile = hologramFile(id);
         try {
             Files.deleteIfExists(hologramFile);
+            Files.deleteIfExists(legacyHologramFile(id));
         } catch (IOException e) {
             LOGGER.warn("Failed to delete hologram file '{}': {}", id, e.getMessage());
         }
@@ -194,14 +204,11 @@ public final class HologramPersistenceService {
      * Index file is excluded.
      */
     public void backupAll() {
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(storageDir, "*" + JSON_EXTENSION)) {
-            for (Path file : stream) {
-                String fileName = file.getFileName().toString();
-                if (INDEX_FILE_NAME.equals(fileName)) {
-                    continue;
-                }
-                backupFile(file);
-            }
+        try (var files = Files.walk(storageDir)) {
+            files.filter(Files::isRegularFile)
+                .filter(file -> file.getFileName().toString().endsWith(JSON_EXTENSION))
+                .filter(file -> !file.equals(indexFile))
+                .forEach(this::backupFile);
             LOGGER.info("Backup of all hologram files completed.");
         } catch (IOException e) {
             LOGGER.warn("Failed to create backup of hologram files: {}", e.getMessage(), e);
@@ -226,8 +233,50 @@ public final class HologramPersistenceService {
 
     // ---- internal ----
 
-    private String encodeFilename(String id) {
+    private Path resolveExistingFile(String id) {
+        Path current = hologramFile(id);
+        return Files.exists(current) ? current : legacyHologramFile(id);
+    }
+
+    private Path hologramFile(String id) {
+        int separator = id.indexOf(':');
+        if (separator <= 0 || separator == id.length() - 1) {
+            throw new IllegalArgumentException("Invalid hologram id: " + id);
+        }
+        Path root = storageDir.toAbsolutePath().normalize();
+        Path file = root.resolve(id.substring(0, separator))
+            .resolve(id.substring(separator + 1) + JSON_EXTENSION)
+            .normalize();
+        if (!file.startsWith(root)) {
+            throw new IllegalArgumentException("Invalid hologram path: " + id);
+        }
+        return file;
+    }
+
+    private Path legacyHologramFile(String id) {
+        return storageDir.toAbsolutePath().normalize().resolve(legacyFilename(id) + JSON_EXTENSION);
+    }
+
+    private String legacyFilename(String id) {
         return java.net.URLEncoder.encode(id, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private void migrateLegacyFile(Path legacyFile, String id) {
+        Path currentFile = hologramFile(id);
+        try {
+            Files.createDirectories(currentFile.getParent());
+            Files.move(legacyFile, currentFile, StandardCopyOption.ATOMIC_MOVE);
+            LOGGER.info("Migrated hologram file '{}' to {}", id, currentFile.getFileName());
+        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            try {
+                Files.move(legacyFile, currentFile);
+                LOGGER.info("Migrated hologram file '{}' to {}", id, currentFile.getFileName());
+            } catch (IOException moveFailure) {
+                LOGGER.warn("Failed to migrate hologram file '{}': {}", id, moveFailure.getMessage());
+            }
+        } catch (IOException e) {
+            LOGGER.warn("Failed to migrate hologram file '{}': {}", id, e.getMessage());
+        }
     }
 
     private void processPendingSaves() {
@@ -254,10 +303,11 @@ public final class HologramPersistenceService {
 
     private void writeHologramFile(HologramDefinition definition) {
         String id = definition.id();
-        Path hologramFile = storageDir.resolve(encodeFilename(id) + JSON_EXTENSION);
-        Path tempFile = storageDir.resolve(encodeFilename(id) + TMP_EXTENSION);
+        Path hologramFile = hologramFile(id);
+        Path tempFile = hologramFile.resolveSibling(hologramFile.getFileName() + TMP_EXTENSION);
 
         try {
+            Files.createDirectories(hologramFile.getParent());
             JsonObject json = writeDefinition(definition);
             String jsonContent = GSON.toJson(json);
             Files.writeString(tempFile, jsonContent);

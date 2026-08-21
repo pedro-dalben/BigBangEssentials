@@ -73,15 +73,15 @@ public final class NpcCommand {
         return ctx.getSource().getPlayerOrException();
     }
 
-    // /npc create <id> <skin>
+    // /npc create <id> <playerName>
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> createCmd() {
         return Commands.literal("create")
             .then(Commands.argument("id", StringArgumentType.word())
-                .then(Commands.argument("skin", StringArgumentType.word())
+                .then(Commands.argument("playerName", StringArgumentType.word())
                     .executes(ctx -> {
                         ServerPlayer p = player(ctx);
                         String id = StringArgumentType.getString(ctx, "id");
-                        String skinName = StringArgumentType.getString(ctx, "skin");
+                        String skinName = StringArgumentType.getString(ctx, "playerName");
 
                         NpcLocation loc = new NpcLocation(p.level().dimension().location(),
                             p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot());
@@ -89,8 +89,12 @@ public final class NpcCommand {
                             NpcAction.none(), NpcHologramConfig.defaults(id), NpcLookSettings.defaults(), 48.0, 56.0, NpcInteractionConfig.defaults());
                         api().create(def);
 
-                        p.sendSystemMessage(Component.literal("§aNPC '" + id + "' criado com sucesso."));
-                        p.sendSystemMessage(Component.literal("§7Use:"));
+                        p.sendSystemMessage(Component.literal("§aNPC '" + id + "' criado."));
+                        p.sendSystemMessage(Component.literal("§7Skin:"));
+                        p.sendSystemMessage(Component.literal("§7- tipo: Minecraft Player"));
+                        p.sendSystemMessage(Component.literal("§7- jogador: " + skinName));
+                        p.sendSystemMessage(Component.literal("§7- status: resolvendo..."));
+                        p.sendSystemMessage(Component.literal("§7Próximos comandos:"));
                         p.sendSystemMessage(Component.literal("§7- /npc name " + id + " <nome>"));
                         p.sendSystemMessage(Component.literal("§7- /npc command " + id + " warp end"));
                         p.sendSystemMessage(Component.literal("§7- /npc hologram " + id + " setline 1 <texto>"));
@@ -135,22 +139,22 @@ public final class NpcCommand {
                 }));
     }
 
-    // /npc skin <id> <player>
+    // /npc skin <id> <playerName>
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> skinCmd() {
         return Commands.literal("skin")
             .then(Commands.argument("id", StringArgumentType.word())
                 .suggests(NpcCommand::suggestNpcIds)
-                .then(Commands.argument("player", StringArgumentType.word())
+                .then(Commands.argument("playerName", StringArgumentType.word())
                     .executes(ctx -> {
                         String id = StringArgumentType.getString(ctx, "id");
-                        String skinName = StringArgumentType.getString(ctx, "player");
+                        String skinName = StringArgumentType.getString(ctx, "playerName");
                         Optional<NpcDefinition> opt = api().find(id);
                         if (opt.isEmpty()) {
                             ctx.getSource().sendSystemMessage(Component.literal("§cNPC não encontrado."));
                             return 0;
                         }
                         api().update(opt.get().withSkin(NpcSkin.unresolved(skinName)));
-                        ctx.getSource().sendSystemMessage(Component.literal("§aSkin do NPC '" + id + "' alterada para '" + skinName + "'."));
+                        ctx.getSource().sendSystemMessage(Component.literal("§aSkin do NPC '" + id + "' alterada para o jogador '" + skinName + "'."));
                         return 1;
                     })));
     }
@@ -387,15 +391,30 @@ public final class NpcCommand {
                     if (opt.isEmpty()) { ctx.getSource().sendSystemMessage(Component.literal("§cNPC não encontrado.")); return 0; }
                     NpcDefinition npc = opt.get();
                     NpcLocation loc = npc.location();
+                    NpcManager manager = NpcManager.getInstance();
+                    ServerPlayer requester = ctx.getSource().getPlayer();
+                    NpcManager.NpcRenderDiagnostics render = manager.renderDiagnostics(npc.id(), requester != null ? requester.getUUID() : null);
                     ctx.getSource().sendSystemMessage(Component.literal("§6=== NPC: " + npc.id() + " ==="));
-                    ctx.getSource().sendSystemMessage(Component.literal("§7Nome: " + npc.displayName()));
+                    ctx.getSource().sendSystemMessage(Component.literal("§7ID: " + npc.id()));
                     ctx.getSource().sendSystemMessage(Component.literal("§7Ativo: " + (npc.enabled() ? "§aSim" : "§cNão")));
-                    ctx.getSource().sendSystemMessage(Component.literal("§7Local: " + loc.dimension() + " " + String.format("%.1f %.1f %.1f", loc.x(), loc.y(), loc.z())));
-                    ctx.getSource().sendSystemMessage(Component.literal("§7Skin: " + npc.skin().playerName() + (npc.skin().isResolved() ? " §a(resolvida)" : " §7(pendente)")));
+                    ctx.getSource().sendSystemMessage(Component.literal("§7Nome: " + npc.displayName()));
+                    ctx.getSource().sendSystemMessage(Component.literal("§7Dimensão: " + loc.dimension()));
+                    ctx.getSource().sendSystemMessage(Component.literal("§7Posição: " + String.format("%.1f %.1f %.1f  yaw=%.1f pitch=%.1f", loc.x(), loc.y(), loc.z(), loc.yaw(), loc.pitch())));
+                    ctx.getSource().sendSystemMessage(Component.literal("§7View distance: " + npc.viewDistance() + " | despawn: " + npc.despawnDistance()));
+                    ctx.getSource().sendSystemMessage(Component.literal("§7Render state: " + render.renderState() + (render.viewers() > 0 ? " (visível para " + render.viewers() + " viewer(s))" : "")));
+                    ctx.getSource().sendSystemMessage(Component.literal("§7Entity ID: " + render.entityId()));
+                    ctx.getSource().sendSystemMessage(Component.literal("§7Skin playerName: " + npc.skin().playerName()));
+                    ctx.getSource().sendSystemMessage(Component.literal("§7Skin status: " + (npc.skin().isResolved() ? "§aREADY" : "§7FALLBACK/PENDING")
+                        + " | modelo: " + npc.skin().model()
+                        + " | cache: " + manager.skinStatus(npc.skin().playerName())));
                     ctx.getSource().sendSystemMessage(Component.literal("§7Ação: " + npc.action().type() + " /" + npc.action().command()));
                     ctx.getSource().sendSystemMessage(Component.literal("§7Holograma: " + (npc.hologram().enabled() ? "§aAtivo" : "§7Desativado") + " (" + npc.hologram().lines().size() + " linhas)"));
                     ctx.getSource().sendSystemMessage(Component.literal("§7Olhar: " + (npc.lookSettings().enabled() ? "§aAtivo" : "§7Desativado")));
-                    ctx.getSource().sendSystemMessage(Component.literal("§7Permissão: " + (npc.interaction().hasPermission() ? npc.interaction().permission() : "§7Nenhuma")));
+                    ctx.getSource().sendSystemMessage(Component.literal("§7Interação: distância=" + npc.interaction().distance() + " cooldown=" + npc.interaction().cooldownMillis()
+                        + " permissão=" + (npc.interaction().hasPermission() ? npc.interaction().permission() : "nenhuma")));
+                    if (render.lastError() != null) {
+                        ctx.getSource().sendSystemMessage(Component.literal("§cÚltimo erro de render: " + render.lastError()));
+                    }
                     return 1;
                 }));
     }
@@ -443,6 +462,7 @@ public final class NpcCommand {
             ctx.getSource().sendSystemMessage(Component.literal("§7Look updates (tick): " + s.lookUpdatesLastTick() + " | Dropped: " + s.lookUpdatesDropped()));
             ctx.getSource().sendSystemMessage(Component.literal("§7Skin cache: " + s.skinMemCacheEntries() + " entries | Hits: " + s.skinCacheHits() + " | Misses: " + s.skinCacheMisses() + " | Stale: " + s.skinStaleHits() + " | Neg: " + s.skinNegativeHits()));
             ctx.getSource().sendSystemMessage(Component.literal("§7Skin in-flight: " + s.skinRequestsInFlight() + " | Failures: " + s.skinRequestFailures()));
+            ctx.getSource().sendSystemMessage(Component.literal("§7Spawns pendentes: " + s.pendingSpawns() + " | Falhas: " + s.failedSpawns() + " | Packet failures: " + s.packetFailures() + " | Reskins: " + s.reskinsApplied()));
             ctx.getSource().sendSystemMessage(Component.literal("§7Hologramas: " + s.hologramsActive()));
             ctx.getSource().sendSystemMessage(Component.literal("§7Reload: " + s.lastReloadMillis() + "ms | Save: " + s.lastSaveMillis() + "ms"));
             return 1;

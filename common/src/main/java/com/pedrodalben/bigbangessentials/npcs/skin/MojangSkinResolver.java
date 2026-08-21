@@ -11,13 +11,22 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 
-public class MojangSkinResolver {
+/**
+ * Resolves skins through the official Mojang APIs:
+ * {@code api.mojang.com/users/profiles/minecraft/<name>} (UUID) and
+ * {@code sessionserver.mojang.com/session/minecraft/profile/<uuid>} (textures).
+ *
+ * <p>The skin is always identified by a Minecraft Java player name — never a
+ * URL or a PNG/base64 value.</p>
+ */
+public class MojangSkinResolver implements SkinResolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(MojangSkinResolver.class);
     private static final String UUID_API = "https://api.mojang.com/users/profiles/minecraft/";
     private static final String PROFILE_API = "https://sessionserver.mojang.com/session/minecraft/profile/";
+    private static final long NEGATIVE_TTL_MILLIS = 600_000;
 
-    private int connectTimeoutMillis;
-    private int requestTimeoutMillis;
+    private volatile int connectTimeoutMillis;
+    private volatile int requestTimeoutMillis;
 
     public MojangSkinResolver(int connectTimeoutMillis, int requestTimeoutMillis) {
         this.connectTimeoutMillis = connectTimeoutMillis;
@@ -29,13 +38,14 @@ public class MojangSkinResolver {
         this.requestTimeoutMillis = requestTimeoutMillis;
     }
 
+    @Override
     public SkinCacheEntry resolve(String playerName) {
         String normalizedName = SkinCache.normalize(playerName);
 
         String uuid = resolveUuid(playerName);
         if (uuid == null || uuid.isEmpty()) {
             LOGGER.warn("Could not resolve UUID for player '{}'", playerName);
-            return SkinCacheEntry.negative(normalizedName, 600_000);
+            return SkinCacheEntry.negative(normalizedName, NEGATIVE_TTL_MILLIS);
         }
 
         try {
@@ -45,19 +55,20 @@ public class MojangSkinResolver {
             conn.setReadTimeout(requestTimeoutMillis);
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/json");
+            conn.setRequestProperty("User-Agent", "BigBangEssentials/1.0 (NPC skin resolver)");
 
             int status = conn.getResponseCode();
             if (status != 200) {
                 LOGGER.warn("Mojang profile API returned {} for uuid {}", status, uuid);
                 conn.disconnect();
-                return SkinCacheEntry.negative(normalizedName, 600_000);
+                return SkinCacheEntry.negative(normalizedName, NEGATIVE_TTL_MILLIS);
             }
 
             try (InputStreamReader reader = new InputStreamReader(conn.getInputStream())) {
                 JsonObject profile = JsonParser.parseReader(reader).getAsJsonObject();
                 JsonArray properties = profile.getAsJsonArray("properties");
                 if (properties == null) {
-                    return SkinCacheEntry.negative(normalizedName, 600_000);
+                    return SkinCacheEntry.negative(normalizedName, NEGATIVE_TTL_MILLIS);
                 }
 
                 String textureValue = null;
@@ -95,17 +106,16 @@ public class MojangSkinResolver {
                 conn.disconnect();
 
                 if (textureValue == null) {
-                    return SkinCacheEntry.negative(normalizedName, 600_000);
+                    return SkinCacheEntry.negative(normalizedName, NEGATIVE_TTL_MILLIS);
                 }
 
-                long freshTtlMillis = 24 * 3600_000L;
                 return SkinCacheEntry.resolved(normalizedName, playerName, uuid,
                     textureValue, textureSignature != null ? textureSignature : "",
-                    model, freshTtlMillis);
+                    model, 24 * 3600_000L);
             }
         } catch (Exception e) {
             LOGGER.warn("Failed to fetch skin profile for '{}': {}", playerName, e.getMessage());
-            return SkinCacheEntry.negative(normalizedName, 600_000);
+            return SkinCacheEntry.negative(normalizedName, NEGATIVE_TTL_MILLIS);
         }
     }
 
@@ -117,6 +127,7 @@ public class MojangSkinResolver {
             conn.setReadTimeout(requestTimeoutMillis);
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/json");
+            conn.setRequestProperty("User-Agent", "BigBangEssentials/1.0 (NPC skin resolver)");
 
             int status = conn.getResponseCode();
             if (status != 200) {

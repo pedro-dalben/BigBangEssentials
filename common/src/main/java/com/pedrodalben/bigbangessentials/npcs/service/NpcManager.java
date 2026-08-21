@@ -17,9 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
-public final class NpcManager implements NpcService {
+public final class NpcManager implements NpcService, NpcRenderService.NpcRenderGate {
     private static final Logger LOGGER = LoggerFactory.getLogger(NpcManager.class);
     private static final NpcManager INSTANCE = new NpcManager();
 
@@ -38,6 +37,8 @@ public final class NpcManager implements NpcService {
     private int viewerRoundRobinIndex;
     private int lookRoundRobinIndex;
     private long tickCounter;
+    private int spawnsThisCycle;
+    private int despawnsThisCycle;
     private int lookUpdatesThisTick;
     private int lookUpdatesDropped;
     private long lastReloadMillis;
@@ -67,6 +68,7 @@ public final class NpcManager implements NpcService {
             config.freshTtlHours(), config.staleTtlDays(), config.negativeCacheMinutes(),
             config.maxConcurrentRequests(), config.connectTimeoutMillis(), config.requestTimeoutMillis());
         this.renderService = new NpcRenderService(viewerService, skinCache);
+        this.renderService.setGate(this);
         this.interactionService = new NpcInteractionService(viewerService, renderService);
 
         for (NpcDefinition def : config.npcs().values()) {
@@ -77,7 +79,7 @@ public final class NpcManager implements NpcService {
 
         initialized = true;
         lastReloadMillis = System.currentTimeMillis() - start;
-        LOGGER.info("NPC Manager initialized with {} NPC(s) in {}ms", npcs.size(), lastReloadMillis);
+        LOGGER.info("NPC Module RUNNING with {} NPC(s) in {}ms", npcs.size(), lastReloadMillis);
     }
 
     public synchronized void tick() {
@@ -85,11 +87,17 @@ public final class NpcManager implements NpcService {
         tickCounter++;
         lookUpdatesThisTick = 0;
         lookUpdatesDropped = 0;
+        spawnsThisCycle = 0;
+        despawnsThisCycle = 0;
 
         if (tickCounter % config.visibilityScanIntervalTicks() == 0) {
             syncViewers();
         }
         syncLookAtPlayers();
+
+        if (skinCache != null) {
+            skinCache.persistIfDirtyDebounced();
+        }
 
         if (saveScheduled && tickCounter % 20 == 0) {
             saveScheduled = false;
@@ -98,7 +106,7 @@ public final class NpcManager implements NpcService {
     }
 
     public synchronized void onPlayerJoin(ServerPlayer player) {
-        if (!initialized) return;
+        if (!initialized || shuttingDown) return;
         viewerService.getSession(player);
         syncViewer(player);
     }
@@ -106,11 +114,8 @@ public final class NpcManager implements NpcService {
     public synchronized void onPlayerLeave(ServerPlayer player) {
         NpcViewerSession session = viewerService.removeSession(player.getUUID());
         if (session == null) return;
-        for (String npcId : session.visibleNpcIds()) {
-            NpcDefinition npc = npcs.get(npcId);
-            if (npc != null) renderService.despawn(player, npc);
-        }
         interactionService.clearCooldowns(player.getUUID());
+        // The client is gone — no despawn packets are required.
     }
 
     public synchronized void onPlayerDimensionChange(ServerPlayer player) {
@@ -126,6 +131,45 @@ public final class NpcManager implements NpcService {
 
     public NpcInteractionService getInteractionService() {
         return interactionService;
+    }
+
+    /** Per-name skin cache status for /npc info diagnostics. */
+    public String skinStatus(String playerName) {
+        return skinCache == null ? "UNAVAILABLE" : skinCache.describeCacheStatus(playerName);
+    }
+
+    /** Render diagnostics for /npc info, scoped to the requesting viewer. */
+    public NpcRenderDiagnostics renderDiagnostics(String id, UUID viewerUuid) {
+        NpcViewerSession session = viewerService.getSession(viewerUuid);
+        NpcRenderService.NpcRenderState state = renderService != null ? renderService.getState(id) : null;
+        int viewers = 0;
+        for (NpcViewerSession s : viewerService.allSessions()) {
+            if (s.visibleNpcIds().contains(id)) viewers++;
+        }
+        if (state == null) return new NpcRenderDiagnostics("UNREGISTERED", 0, null, viewers);
+        String renderState = "NOT_VISIBLE";
+        String lastError = null;
+        if (session != null) {
+            NpcViewerSession.NpcViewState vs = session.getStateIfPresent(id);
+            if (vs != null) {
+                renderState = vs.renderState().name();
+                lastError = vs.lastError();
+            }
+        }
+        return new NpcRenderDiagnostics(renderState, state.entityId(), lastError, viewers);
+    }
+
+    public record NpcRenderDiagnostics(String renderState, int entityId, String lastError, int viewers) {}
+
+    public int lookUpdatesThisTick() {
+        return lookUpdatesThisTick;
+    }
+
+    // ---- NpcRenderGate ----
+
+    @Override
+    public boolean npcModuleActive() {
+        return initialized && !shuttingDown;
     }
 
     @Override
@@ -162,16 +206,11 @@ public final class NpcManager implements NpcService {
         hologramService.createOrUpdate(definition);
 
         if (!old.skin().playerName().equals(definition.skin().playerName())) {
-            String skinName = definition.skin().playerName();
-            skinCache.resolve(skinName).thenAccept(entry -> {
-                NpcDefinition withSkin = npcs.get(id).withSkin(
-                    new NpcSkin(skinName, entry.uuid(), entry.textureValue(), entry.textureSignature(), entry.model(), entry.fetchedAt()));
-                npcs.put(id, withSkin);
-                invalidateViewersForNpc(id);
-            });
+            refreshSkinResolution(id, definition.skin().playerName());
         }
 
-        if (old.location().equals(definition.location()) && old.enabled() == definition.enabled()) {
+        if (old.location().equals(definition.location()) && old.enabled() == definition.enabled()
+            && old.skin().playerName().equals(definition.skin().playerName())) {
             scheduleSave();
             return definition;
         }
@@ -262,8 +301,8 @@ public final class NpcManager implements NpcService {
         hologramService.cleanupOrphans(npcs);
         lastReloadMillis = System.currentTimeMillis() - start;
 
-        LOGGER.info("NPC reload complete: {} added, {} removed, {} updated, {} unchanged, {} invalid in {}ms",
-            added.size(), removed.size(), updated, unchanged, 0, lastReloadMillis);
+        LOGGER.info("NPC reload complete: {} added, {} removed, {} updated, {} unchanged in {}ms",
+            added.size(), removed.size(), updated, unchanged, lastReloadMillis);
     }
 
     @Override
@@ -305,26 +344,36 @@ public final class NpcManager implements NpcService {
             skinCache != null ? skinCache.inflightCount() : 0,
             skinCache != null ? skinCache.failures() : 0,
             hologramService.countActive(),
+            renderService.pendingSpawnCount(),
+            renderService.failedSpawns(),
+            renderService.packetFailures(),
+            renderService.reskinsApplied(),
             lastReloadMillis, lastSaveMillis
         );
     }
 
     public synchronized void shutdown() {
+        if (!initialized) return;
         shuttingDown = true;
-        if (skinCache != null) skinCache.shutdown();
-        viewerService.clear();
+        renderService.shutdown();
 
         MinecraftServer server = Platform.getCurrentServer();
         if (server != null) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 onPlayerLeave(player);
             }
+        } else {
+            viewerService.clear();
         }
 
+        skinCache.persist();
         configStore.save(config.withNpcs(new LinkedHashMap<>(npcs)));
+        skinCache.shutdown();
         initialized = false;
         LOGGER.info("NPC Manager shutdown complete");
     }
+
+    // ---- internal ----
 
     private void registerNpc(NpcDefinition def) {
         npcs.put(def.id(), def);
@@ -335,6 +384,33 @@ public final class NpcManager implements NpcService {
     private void scheduleSave() {
         if (saveScheduled) return;
         saveScheduled = true;
+    }
+
+    /**
+     * Resolves a skin in the background and, on the server thread, stores the
+     * resolved state on the definition and refreshes viewers — but only if the
+     * NPC still exists and its skin name did not change again meanwhile.
+     */
+    private void refreshSkinResolution(String npcId, String skinName) {
+        if (skinCache == null) return;
+        skinCache.resolve(skinName).thenAccept(entry -> {
+            MinecraftServer server = Platform.getCurrentServer();
+            if (server == null) return;
+            server.execute(() -> {
+                synchronized (NpcManager.this) {
+                    if (!initialized || shuttingDown) return;
+                    NpcDefinition current = npcs.get(npcId);
+                    if (current == null || !current.skin().playerName().equals(skinName)) return;
+                    NpcDefinition withSkin = current.withSkin(new NpcSkin(skinName, entry.uuid(),
+                        entry.textureValue(), entry.textureSignature(), entry.model(), entry.fetchedAt()));
+                    npcs.put(npcId, withSkin);
+                    invalidateViewersForNpc(npcId);
+                }
+            });
+        }).exceptionally(e -> {
+            LOGGER.debug("Skin resolution callback failed for '{}': {}", skinName, e.getMessage());
+            return null;
+        });
     }
 
     private void syncViewers() {
@@ -355,7 +431,7 @@ public final class NpcManager implements NpcService {
         NpcViewerSession session = viewerService.getSession(player);
         if (session == null) return;
 
-        int radius = (int) Math.ceil(Math.max(config.defaultViewDistance(), 64.0));
+        int radius = (int) Math.ceil(scanRadius());
         Set<String> candidates = spatialIndex.query(
             player.serverLevel().dimension().location(), player.getX(), player.getZ(), radius);
 
@@ -363,7 +439,7 @@ public final class NpcManager implements NpcService {
         for (String id : candidates) {
             NpcDefinition npc = npcs.get(id);
             if (npc == null || !npc.enabled()) continue;
-            if (!player.level().dimension().equals(npc.location().dimension())) continue;
+            if (!player.level().dimension().location().equals(npc.location().dimension())) continue;
 
             double distSq = player.distanceToSqr(npc.location().x(), npc.location().y(), npc.location().z());
             double viewDist = npc.viewDistance();
@@ -371,34 +447,51 @@ public final class NpcManager implements NpcService {
             if (session.visibleNpcIds().contains(id)) {
                 if (distSq <= npc.despawnDistance() * npc.despawnDistance()) {
                     shouldSee.add(id);
-                    continue;
                 }
-            } else {
-                if (distSq <= viewDist * viewDist) {
-                    shouldSee.add(id);
-                }
+            } else if (distSq <= viewDist * viewDist) {
+                shouldSee.add(id);
             }
         }
 
         for (String id : new ArrayList<>(session.visibleNpcIds())) {
             if (!shouldSee.contains(id)) {
+                if (despawnsThisCycle >= config.maxDespawnsPerTick()) break;
                 NpcDefinition npc = npcs.get(id);
-                if (npc != null) renderService.despawn(player, npc);
+                if (npc != null) {
+                    renderService.despawn(player, npc);
+                    despawnsThisCycle++;
+                }
             }
         }
 
-        int spawns = 0;
         for (String id : shouldSee) {
-            if (session.visibleNpcIds().contains(id)) continue;
-            if (spawns >= config.maxSpawnsPerTick()) break;
+            if (session.visibleNpcIds().contains(id)) {
+                // Already visible: if it spawned with the fallback skin, try to
+                // apply the real skin now that it may be available.
+                NpcDefinition npc = npcs.get(id);
+                if (npc != null) {
+                    renderService.tryReskin(player, npc, session.getState(id));
+                }
+                continue;
+            }
+            if (spawnsThisCycle >= config.maxSpawnsPerTick()) break;
             NpcDefinition npc = npcs.get(id);
             if (npc != null) {
                 renderService.spawn(player, npc);
-                spawns++;
+                spawnsThisCycle++;
             }
         }
 
         session.setLastSyncTick(tickCounter);
+    }
+
+    /** Query radius covering every NPC's individual view distance (bounded). */
+    private double scanRadius() {
+        double max = config.defaultViewDistance();
+        for (NpcDefinition npc : npcs.values()) {
+            if (npc.enabled() && npc.viewDistance() > max) max = npc.viewDistance();
+        }
+        return Math.max(32.0, Math.min(max, 192.0));
     }
 
     private void syncLookAtPlayers() {
@@ -407,20 +500,23 @@ public final class NpcManager implements NpcService {
         List<ServerPlayer> players = server.getPlayerList().getPlayers();
         if (players.isEmpty()) return;
 
+        int budget = config.maxLookUpdatesPerTick();
         int updates = 0;
-        for (ServerPlayer player : players) {
+        int dropped = 0;
+        int start = players.size() == 0 ? 0 : (int) (lookRoundRobinIndex % players.size());
+
+        outer:
+        for (int i = 0; i < players.size(); i++) {
+            ServerPlayer player = players.get((start + i) % players.size());
             NpcViewerSession session = viewerService.getSession(player.getUUID());
             if (session == null || session.visibleNpcIds().isEmpty()) continue;
 
             for (String npcId : session.visibleNpcIds()) {
-                if (updates >= config.maxLookUpdatesPerTick()) {
-                    lookUpdatesDropped++;
-                    continue;
-                }
+                if (updates >= budget) break outer;
 
                 NpcDefinition npc = npcs.get(npcId);
                 if (npc == null || !npc.lookSettings().enabled()) continue;
-                if (!player.level().dimension().equals(npc.location().dimension())) continue;
+                if (!player.level().dimension().location().equals(npc.location().dimension())) continue;
 
                 NpcLookSettings look = npc.lookSettings();
                 if (tickCounter % look.updateIntervalTicks() != 0) continue;
@@ -465,7 +561,9 @@ public final class NpcManager implements NpcService {
                 updates++;
             }
         }
+        lookRoundRobinIndex = (lookRoundRobinIndex + 1) % Math.max(1, players.size());
         lookUpdatesThisTick = updates;
+        lookUpdatesDropped = dropped;
     }
 
     private void invalidateViewersForNpc(String npcId) {

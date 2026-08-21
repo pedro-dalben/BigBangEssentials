@@ -656,7 +656,9 @@ public final class BigBangHologramsManager implements HologramService {
 
     private List<ServerPlayer> onlinePlayers() {
         MinecraftServer server = Platform.getCurrentServer();
-        return server == null ? List.of() : server.getPlayerList().getPlayers();
+        return server == null || server.getPlayerList() == null
+            ? List.of()
+            : server.getPlayerList().getPlayers();
     }
 
     private static double distanceSq(HologramRegistry.ManagedHologram hologram, ServerPlayer player) {
