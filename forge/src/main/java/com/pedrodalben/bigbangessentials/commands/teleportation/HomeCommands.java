@@ -1,0 +1,648 @@
+package com.pedrodalben.bigbangessentials.commands.teleportation;
+
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
+import com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI;
+import com.pedrodalben.bigbangessentials.config.ConfigManager;
+import com.pedrodalben.bigbangessentials.teleportation.HomeManager;
+import com.pedrodalben.bigbangessentials.util.MessageUtil;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Commands for the home teleportation system:
+ * - /home [name] - Teleport to home
+ * - /sethome <name> - Set a home
+ * - /delhome <name> - Delete a home  
+ * - /homes - List all homes
+ */
+
+public class HomeCommands {
+    // Track pending delete confirmations: player UUID -> home name
+    private static final Map<UUID, String> pendingDeleteConfirmations = new ConcurrentHashMap<>();
+    
+    // Track pending sethome overwrite confirmations: player UUID -> home name
+    private static final Map<UUID, String> pendingSetHomeConfirmations = new ConcurrentHashMap<>();
+
+    // Permission nodes for home commands (matching PermissionRegistry)
+    private static final String PERMISSION_HOME = "bigbangessentials.teleport.home";
+    private static final String PERMISSION_SETHOME = "bigbangessentials.teleport.home.set";
+    private static final String PERMISSION_DELHOME = "bigbangessentials.teleport.home.delete";
+    private static final String PERMISSION_HOMES = "bigbangessentials.teleport.home.list";
+    private static final String PERMISSION_RENAMEHOME = "bigbangessentials.renamehome";
+    private static final String PERMISSION_RENAMEHOME_OTHERS = "bigbangessentials.renamehome.others";
+    private static final String[] PERMISSION_HOME_COMPAT = {
+        PERMISSION_HOME,
+        "bigbangessentials.home",
+        "bigbangessentials.teleportation.home"
+    };
+    private static final String[] PERMISSION_SETHOME_COMPAT = {
+        PERMISSION_SETHOME,
+        "bigbangessentials.home.set",
+        "bigbangessentials.teleport.sethome"
+    };
+    private static final String[] PERMISSION_DELHOME_COMPAT = {
+        PERMISSION_DELHOME,
+        "bigbangessentials.home.delete",
+        "bigbangessentials.teleport.delhome"
+    };
+    private static final String[] PERMISSION_HOMES_COMPAT = {
+        PERMISSION_HOMES,
+        "bigbangessentials.home.list",
+        "bigbangessentials.teleport.homes"
+    };
+
+    private static final SuggestionProvider<CommandSourceStack> HOME_SUGGESTIONS = (context, builder) -> {
+        if (context.getSource().getEntity() instanceof ServerPlayer player) {
+            HomeManager homeManager = HomeManager.getInstance();
+            java.util.List<String> homeNames = homeManager.getHomeNames(player);
+            // Debug logging for home suggestions
+            if (com.pedrodalben.bigbangessentials.config.ConfigManager.isDebugModeEnabled()) {
+                System.out.println("[DEBUG] Home suggestions for " + player.getName().getString() + ": " + homeNames);
+            }
+            return SharedSuggestionProvider.suggest(homeNames, builder);
+        }
+        return builder.buildFuture();
+    };
+    
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        ConfigManager config = ConfigManager.getInstance();
+        
+        // Only register if teleportation module is enabled
+        if (config.isTeleportationEnabled()) {
+            // Register individual commands based on their command settings
+            if (config.isCommandEnabled("home")) {
+                registerHomeCommand(dispatcher);
+            }
+            if (config.isCommandEnabled("sethome")) {
+                registerSetHomeCommand(dispatcher);
+            }
+            if (config.isCommandEnabled("delhome")) {
+                registerDelHomeCommand(dispatcher);
+            }
+            if (config.isCommandEnabled("listhomes")) {
+                registerHomesCommand(dispatcher);
+            }
+            if (config.isCommandEnabled("renamehome")) {
+                registerRenameHomeCommand(dispatcher);
+            }
+            registerPurgeInvalidHomesCommand(dispatcher);
+        }
+    }
+    
+    /**
+     * Register /home [name] command
+     */
+    private static void registerHomeCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
+        // Register main command
+        registerHomeCommandWithName(dispatcher, "home");
+        // Register alias
+        registerHomeCommandWithName(dispatcher, "h");
+    }
+    
+    private static void registerHomeCommandWithName(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
+        dispatcher.register(Commands.literal(commandName)
+            .requires(source -> {
+                if (source.getEntity() instanceof ServerPlayer player) {
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_HOME_COMPAT);
+                }
+                return false; // Console can't use homes
+            })
+            .executes(HomeCommands::executeHomeDefault)
+            .then(Commands.argument("name", StringArgumentType.word())
+                .suggests(HOME_SUGGESTIONS)
+                .executes(HomeCommands::executeHome)
+            )
+        );
+    }
+    
+    /**
+     * Register /sethome <name> command with aliases
+     */
+    private static void registerSetHomeCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
+        registerSetHomeCommandWithName(dispatcher, "sethome");
+        registerSetHomeCommandWithName(dispatcher, "createhome");
+    }
+    
+    private static void registerSetHomeCommandWithName(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
+        dispatcher.register(Commands.literal(commandName)
+            .requires(source -> {
+                if (source.getEntity() instanceof ServerPlayer player) {
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_SETHOME_COMPAT);
+                }
+                return false; // Console can't use homes
+            })
+            .then(Commands.argument("name", StringArgumentType.word())
+                .executes(HomeCommands::executeSetHome)
+                .then(Commands.literal("confirm")
+                    .executes(HomeCommands::executeSetHomeConfirm)
+                )
+                .then(Commands.literal("deny")
+                    .executes(HomeCommands::executeSetHomeDeny)
+                )
+            )
+        );
+    }
+    
+    /**
+     * Register /delhome <name> command with aliases
+     */
+    private static void registerDelHomeCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
+        registerDelHomeCommandWithName(dispatcher, "delhome");
+        registerDelHomeCommandWithName(dispatcher, "deletehome");
+        registerDelHomeCommandWithName(dispatcher, "removehome");
+        registerDelHomeCommandWithName(dispatcher, "rhome");
+    }
+    
+    private static void registerDelHomeCommandWithName(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
+        dispatcher.register(Commands.literal(commandName)
+            .requires(source -> {
+                if (source.getEntity() instanceof ServerPlayer player) {
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_DELHOME_COMPAT);
+                }
+                return false; // Console can't use homes
+            })
+            .then(Commands.literal("confirm")
+                .executes(HomeCommands::executePendingDelHomeConfirm)
+            )
+            .then(Commands.literal("deny")
+                .executes(HomeCommands::executePendingDelHomeDeny)
+            )
+            .then(Commands.argument("name", StringArgumentType.word())
+                .suggests(HOME_SUGGESTIONS)
+                .executes(HomeCommands::executeDelHome)
+                .then(Commands.literal("confirm")
+                    .executes(HomeCommands::executeDelHomeConfirm)
+                )
+                .then(Commands.literal("deny")
+                    .executes(HomeCommands::executeDelHomeDeny)
+                )
+            )
+        );
+    }
+    
+    /**
+     * Register /homes command with aliases
+     */
+    private static void registerHomesCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
+        registerHomesCommandWithName(dispatcher, "homes");
+        registerHomesCommandWithName(dispatcher, "listhomes");
+        registerHomesCommandWithName(dispatcher, "homelist");
+    }
+    
+    private static void registerHomesCommandWithName(CommandDispatcher<CommandSourceStack> dispatcher, String commandName) {
+        dispatcher.register(Commands.literal(commandName)
+            .requires(source -> {
+                if (source.getEntity() instanceof ServerPlayer player) {
+                    return PermissionAPI.hasAnyPermission(player.getUUID(), PERMISSION_HOMES_COMPAT);
+                }
+                return false; // Console can't use homes
+            })
+            .executes(HomeCommands::executeHomes)
+        );
+    }
+    
+    private static boolean shouldOpenMenu(ServerPlayer player, String commandType) {
+        if (player == null || !com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.isEnabled()) {
+            return false;
+        }
+        
+        boolean enabled = true;
+        com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode mode;
+
+        if (com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.isAllowPlayerPreferences()) {
+            com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuPreferenceService.PlayerPreference pref =
+                com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuPreferenceService.getInstance().getPreferences(player.getUUID());
+            enabled = pref.teleportMenusEnabled();
+            if ("warps".equals(commandType)) {
+                mode = pref.warpsDisplayMode();
+            } else if ("homes".equals(commandType)) {
+                mode = pref.homesDisplayMode();
+            } else {
+                mode = pref.pwarpsDisplayMode();
+            }
+        } else {
+            if ("warps".equals(commandType)) {
+                mode = com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.getWarpsCommandMode();
+            } else if ("homes".equals(commandType)) {
+                mode = com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.getHomesCommandMode();
+            } else {
+                mode = com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.getPwarpsCommandMode();
+            }
+        }
+
+        if (!enabled) {
+            return false;
+        }
+
+        return mode == com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode.MENU ||
+               mode == com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode.BOTH;
+    }
+
+    /**
+     * Execute /home (go to default home)
+     */
+    private static int executeHomeDefault(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("This command can only be used by players."));
+            return 0;
+        }
+        HomeManager homeManager = HomeManager.getInstance();
+
+        if (shouldOpenMenu(player, "homes") && homeManager.getHomeNames(player).size() > 1) {
+            String menuId = com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.getHomesMenuId();
+            UUID correlationId = UUID.randomUUID();
+            try {
+                com.pedrodalben.bigbangessentials.menu.api.MenuOpenResult res = com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
+                    player,
+                    menuId,
+                    new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, null, null, correlationId)
+                ).toCompletableFuture().join();
+                
+                if (res != null && res.success()) {
+                    com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode mode =
+                        com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuPreferenceService.getInstance().getPreferences(player.getUUID()).homesDisplayMode();
+                    if (mode == com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode.MENU) {
+                        return 1;
+                    }
+                } else {
+                    String reason = res != null ? res.error() : "Unknown failure";
+                    com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuIntegration.logMenuFailure(
+                        player.getUUID(), menuId, "/homes", reason, correlationId, null
+                    );
+                }
+            } catch (Exception e) {
+                com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuIntegration.logMenuFailure(
+                    player.getUUID(), menuId, "/homes", "Exception during menu open", correlationId, e
+                );
+                if (!com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.isFallbackToChatIfMenuFails()) {
+                    return 0;
+                }
+            }
+        }
+        // Jail escape prevention
+        com.pedrodalben.bigbangessentials.config.ConfigManager config = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance();
+        com.pedrodalben.bigbangessentials.moderation.JailManager jailManager = com.pedrodalben.bigbangessentials.moderation.JailManager.getInstance();
+        if (config.isPreventJailEscapeEnabled() && jailManager.isPlayerJailed(player.getUUID())) {
+            context.getSource().sendFailure(com.pedrodalben.bigbangessentials.util.MessageUtil.error("commands.bigbangessentials.jail.prevent_escape"));
+            return 0;
+        }
+        if (!homeManager.hasHomes(player)) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.teleport.home.none_set"));
+            return 0;
+        }
+        
+        homeManager.teleportToDefaultHome(player);
+        return 1;
+    }
+    
+    /**
+     * Execute /home <name>
+     */
+    private static int executeHome(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("This command can only be used by players."));
+            return 0;
+        }
+        String homeName = StringArgumentType.getString(context, "name");
+        HomeManager homeManager = HomeManager.getInstance();
+        // Jail escape prevention
+        com.pedrodalben.bigbangessentials.config.ConfigManager config = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance();
+        com.pedrodalben.bigbangessentials.moderation.JailManager jailManager = com.pedrodalben.bigbangessentials.moderation.JailManager.getInstance();
+        if (config.isPreventJailEscapeEnabled() && jailManager.isPlayerJailed(player.getUUID())) {
+            context.getSource().sendFailure(com.pedrodalben.bigbangessentials.util.MessageUtil.error("commands.bigbangessentials.jail.prevent_escape"));
+            return 0;
+        }
+        homeManager.teleportToHome(player, homeName);
+        return 1;
+    }
+    
+    /**
+     * Execute /sethome <name>
+     */
+    private static int executeSetHome(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.command.player_only"));
+            return 0;
+        }
+        String homeName = StringArgumentType.getString(context, "name");
+        HomeManager homeManager = HomeManager.getInstance();
+        // Enforce dynamic home limit
+        int maxHomes = homeManager.getMaxHomesForPlayer(player);
+        int currentHomes = homeManager.getHomeNames(player).size();
+        if (homeManager.getHome(player, homeName) == null && currentHomes >= maxHomes) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.limit_reached", maxHomes));
+            return 0;
+        }
+        // If home exists, require confirmation
+        if (homeManager.getHome(player, homeName) != null) {
+            String pending = pendingSetHomeConfirmations.get(player.getUUID());
+            if (pending != null && pending.equals(homeName)) {
+                player.sendSystemMessage(MessageUtil.warning("commands.bigbangessentials.teleport.home.overwrite_already_pending", homeName));
+                return 0;
+            }
+            pendingSetHomeConfirmations.put(player.getUUID(), homeName);
+            player.sendSystemMessage(MessageUtil.homeConfirmComponent(
+                homeName,
+                "overwrite",
+                "/sethome " + homeName + " confirm",
+                "/sethome " + homeName + " deny"
+            ));
+            return 0;
+        }
+        pendingSetHomeConfirmations.remove(player.getUUID());
+        if (homeManager.setHome(player, homeName)) {
+            return 1;
+        }
+        return 0;
+    }
+
+    /**
+     * Execute /sethome <name> confirm
+     */
+    private static int executeSetHomeConfirm(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.command.player_only"));
+            return 0;
+        }
+        String homeName = StringArgumentType.getString(context, "name");
+        HomeManager homeManager = HomeManager.getInstance();
+        String pending = pendingSetHomeConfirmations.get(player.getUUID());
+        if (pending == null || !pending.equals(homeName)) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.no_pending_overwrite", homeName));
+            return 0;
+        }
+        pendingSetHomeConfirmations.remove(player.getUUID());
+        boolean success = homeManager.setHome(player, homeName);
+        if (success) {
+            return 1;
+        } else {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.overwrite_failed", homeName));
+            return 0;
+        }
+    }
+
+    /**
+     * Execute /sethome <name> deny
+     */
+    private static int executeSetHomeDeny(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.command.player_only"));
+            return 0;
+        }
+        String homeName = StringArgumentType.getString(context, "name");
+        String pending = pendingSetHomeConfirmations.get(player.getUUID());
+        if (pending != null && pending.equals(homeName)) {
+            pendingSetHomeConfirmations.remove(player.getUUID());
+            player.sendSystemMessage(MessageUtil.info("commands.bigbangessentials.teleport.home.overwrite_cancelled", homeName));
+            return 1;
+        }
+        player.sendSystemMessage(MessageUtil.warning("commands.bigbangessentials.teleport.home.no_pending_overwrite", homeName));
+        return 0;
+    }
+
+    /**
+     * Execute /delhome <name>
+     */
+    private static int executeDelHome(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.command.player_only"));
+            return 0;
+        }
+        String homeName = StringArgumentType.getString(context, "name");
+        HomeManager homeManager = HomeManager.getInstance();
+        ConfigManager config = ConfigManager.getInstance();
+        if (config.isRequireConfirmationForDeleteEnabled()) {
+            String pending = pendingDeleteConfirmations.get(player.getUUID());
+            if (pending != null && pending.equals(homeName)) {
+                player.sendSystemMessage(MessageUtil.warning("commands.bigbangessentials.teleport.home.delete_already_pending", homeName));
+                return 0;
+            }
+            pendingDeleteConfirmations.put(player.getUUID(), homeName);
+            player.sendSystemMessage(MessageUtil.homeConfirmComponent(
+                homeName,
+                "delete",
+                "/delhome confirm",
+                "/delhome deny"
+            ));
+            return 0;
+        }
+        pendingDeleteConfirmations.remove(player.getUUID());
+        if (homeManager.deleteHome(player, homeName)) {
+            return 1;
+        }
+        return 0;
+    }
+
+    private static int executePendingDelHomeConfirm(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.command.player_only"));
+            return 0;
+        }
+        String pending = pendingDeleteConfirmations.get(player.getUUID());
+        if (pending == null || pending.isBlank()) {
+            player.sendSystemMessage(MessageUtil.warning("commands.bigbangessentials.teleport.home.no_pending_delete", ""));
+            return 0;
+        }
+        pendingDeleteConfirmations.remove(player.getUUID());
+        boolean success = HomeManager.getInstance().deleteHome(player, pending);
+        if (success) {
+            return 1;
+        }
+        player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.delete_failed", pending));
+        return 0;
+    }
+
+    private static int executePendingDelHomeDeny(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.command.player_only"));
+            return 0;
+        }
+        String pending = pendingDeleteConfirmations.remove(player.getUUID());
+        if (pending != null && !pending.isBlank()) {
+            player.sendSystemMessage(MessageUtil.info("commands.bigbangessentials.teleport.home.delete_cancelled", pending));
+            return 1;
+        }
+        player.sendSystemMessage(MessageUtil.warning("commands.bigbangessentials.teleport.home.no_pending_delete", ""));
+        return 0;
+    }
+
+    /**
+     * Execute /delhome <name> confirm
+     */
+    private static int executeDelHomeConfirm(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.command.player_only"));
+            return 0;
+        }
+        String homeName = StringArgumentType.getString(context, "name");
+        HomeManager homeManager = HomeManager.getInstance();
+        ConfigManager config = ConfigManager.getInstance();
+        // Guard: Only allow a single confirm, do not allow repeated confirm arguments
+        String pending = pendingDeleteConfirmations.get(player.getUUID());
+        if (!config.isRequireConfirmationForDeleteEnabled()) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.delete_no_confirm_required"));
+            return 0;
+        }
+        if (pending == null || !pending.equals(homeName)) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.no_pending_delete", homeName));
+            // Always clear any accidental stacking
+            pendingDeleteConfirmations.remove(player.getUUID());
+            return 0;
+        }
+        // Remove pending confirmation before attempting deletion to prevent stacking
+        pendingDeleteConfirmations.remove(player.getUUID());
+        boolean success = homeManager.deleteHome(player, homeName);
+        if (success) {
+            return 1;
+        } else {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.delete_failed", homeName));
+            return 0;
+        }
+    }
+
+    /**
+     * Execute /homes
+     */
+    private static int executeHomes(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("This command can only be used by players."));
+            return 0;
+        }
+
+        if (shouldOpenMenu(player, "homes")) {
+            try {
+                com.pedrodalben.bigbangessentials.menu.api.MenuOpenResult res = com.pedrodalben.bigbangessentials.menu.MenuSystem.getInstance().getMenuService().openMenu(
+                    player,
+                    com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.getHomesMenuId(),
+                    new com.pedrodalben.bigbangessentials.menu.session.MenuContext(player.getUUID(), "pt_BR", null, null, null, null, null)
+                ).toCompletableFuture().join();
+                
+                if (res != null && res.success()) {
+                    com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode mode =
+                        com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuPreferenceService.getInstance().getPreferences(player.getUUID()).homesDisplayMode();
+                    if (mode == com.pedrodalben.bigbangessentials.menu.integration.teleportation.CommandDisplayMode.MENU) {
+                        return 1;
+                    }
+                }
+            } catch (Exception e) {
+                if (!com.pedrodalben.bigbangessentials.menu.integration.teleportation.TeleportMenuConfig.isFallbackToChatIfMenuFails()) {
+                    return 0;
+                }
+            }
+        }
+
+        HomeManager homeManager = HomeManager.getInstance();
+        
+        String homesList = homeManager.getFormattedHomesList(player);
+        player.sendSystemMessage(MessageUtil.component(homesList));
+        return 1;
+    }
+
+    // Add handler for /delhome <name> deny
+    private static int executeDelHomeDeny(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = (ServerPlayer) context.getSource().getEntity();
+        if (player == null) {
+            context.getSource().sendFailure(MessageUtil.error("commands.bigbangessentials.command.player_only"));
+            return 0;
+        }
+        String homeName = StringArgumentType.getString(context, "name");
+        String pending = pendingDeleteConfirmations.get(player.getUUID());
+        if (pending != null && pending.equals(homeName)) {
+            pendingDeleteConfirmations.remove(player.getUUID());
+            player.sendSystemMessage(MessageUtil.info("commands.bigbangessentials.teleport.home.delete_cancelled", homeName));
+            return 1;
+        }
+        player.sendSystemMessage(MessageUtil.warning("commands.bigbangessentials.teleport.home.no_pending_delete", homeName));
+        return 0;
+    }
+
+    // ── /renamehome <old> <new> ───────────────────────────────────────────────
+    // Essentials: Commandrenamehome — rename an existing home.
+    // Supports "player:home new" admin format.
+    private static void registerRenameHomeCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(Commands.literal("renamehome")
+            .requires(src -> src.getPlayer() == null
+                || PermissionAPI.hasPermission(src.getPlayer().getUUID(), PERMISSION_RENAMEHOME))
+            // /renamehome <old> <new>
+            .then(Commands.argument("oldname", StringArgumentType.word())
+                .then(Commands.argument("newname", StringArgumentType.word())
+                    .executes(ctx -> executeRenameHome(ctx,
+                        StringArgumentType.getString(ctx, "oldname"),
+                        StringArgumentType.getString(ctx, "newname"),
+                        null))
+                )
+            )
+            // /renamehome <player:old> <new>  — admin format
+            .then(Commands.argument("playercolon", StringArgumentType.word())
+                .requires(src -> src.getPlayer() == null
+                    || PermissionAPI.hasTargetPermission(src.getPlayer().getUUID(), PERMISSION_RENAMEHOME_OTHERS))
+                .then(Commands.argument("newname2", StringArgumentType.word())
+                    .executes(ctx -> {
+                        String arg = StringArgumentType.getString(ctx, "playercolon");
+                        String newName = StringArgumentType.getString(ctx, "newname2");
+                        if (arg.contains(":")) {
+                            String[] parts = arg.split(":", 2);
+                            return executeRenameHome(ctx, parts[1], newName, parts[0]);
+                        }
+                        return executeRenameHome(ctx, arg, newName, null);
+                    })
+                )
+            )
+        );
+    }
+
+    private static int executeRenameHome(CommandContext<CommandSourceStack> ctx,
+            String oldName, String newName, String targetPlayerName) {
+        var src = ctx.getSource();
+        ServerPlayer target;
+        if (targetPlayerName != null) {
+            target = src.getServer().getPlayerList().getPlayerByName(targetPlayerName);
+            if (target == null) {
+                src.sendFailure(com.pedrodalben.bigbangessentials.util.MessageUtil.error(
+                    "commands.bigbangessentials.general.player_not_found", targetPlayerName));
+                return 0;
+            }
+        } else {
+            target = src.getPlayer();
+            if (target == null) {
+                src.sendFailure(com.pedrodalben.bigbangessentials.util.MessageUtil.error(
+                    "commands.bigbangessentials.general.player_only"));
+                return 0;
+            }
+        }
+        return HomeManager.getInstance().renameHome(target, oldName.toLowerCase(), newName.toLowerCase()) ? 1 : 0;
+    }
+
+    private static void registerPurgeInvalidHomesCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(Commands.literal("purgeinvalidhomes")
+            .requires(src -> src.getPlayer() == null || PermissionAPI.hasPermission(src.getPlayer().getUUID(), "bigbangessentials.admin.purgeinvalidhomes"))
+            .executes(ctx -> {
+                CommandSourceStack src = ctx.getSource();
+                src.sendSuccess(() -> Component.literal("§eIniciando expurgo de homes fora de regiões..."), true);
+                int purged = HomeManager.getInstance().purgeInvalidHomes();
+                src.sendSuccess(() -> Component.literal("§aExpurgo concluído: §f" + purged + " §ahomes fora de regiões foram removidas."), true);
+                return purged;
+            })
+        );
+    }
+}
