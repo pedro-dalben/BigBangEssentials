@@ -1,0 +1,318 @@
+package com.pedrodalben.bigbangessentials.rankup;
+
+import com.pedrodalben.bigbangessentials.api.EconomyAPI;
+import com.pedrodalben.bigbangessentials.economy.gems.manager.GemsManager;
+import com.pedrodalben.bigbangessentials.rankup.bridge.CobblemonBridge;
+import com.pedrodalben.bigbangessentials.rankup.bridge.CobblemonBridgeFactory;
+import com.pedrodalben.bigbangessentials.rankup.config.RankupConfig;
+import com.pedrodalben.bigbangessentials.rankup.database.RankupRepository;
+import com.pedrodalben.bigbangessentials.rankup.domain.*;
+import com.pedrodalben.bigbangessentials.rankup.service.*;
+import com.pedrodalben.bigbangessentials.util.Platform;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+
+public class RankupManager {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RankupManager.class);
+    private static final RankupManager INSTANCE = new RankupManager();
+
+    private RankupConfig config;
+    private RankupConfig draftConfig;
+    private final RankupRepository repository = new RankupRepository();
+    private final Map<UUID, RankupPlayerData> playerDataCache = new ConcurrentHashMap<>();
+    private final RankupLuckPermsService luckPermsService = new RankupLuckPermsService();
+    private final RankupPromotionService promotionService;
+    private final RankupTaskProgressService taskProgressService = RankupTaskProgressService.getInstance();
+    private final RankupPlaceholderService placeholderService = new RankupPlaceholderService();
+    private final RankTransitionService transitionService;
+    private final RankProgressionApiImpl progressionApi;
+    private CobblemonBridge cobblemonBridge = CobblemonBridgeFactory.create();
+
+    private RankupManager() {
+        this.promotionService = new RankupPromotionService(this);
+        this.transitionService = new RankTransitionService(this);
+        this.progressionApi = new RankProgressionApiImpl(this, this.transitionService);
+        com.pedrodalben.bigbangessentials.api.rankup.RankupAPI.setProvider(this.progressionApi);
+    }
+
+    public static RankupManager getInstance() {
+        return INSTANCE;
+    }
+
+    public RankupConfig getConfig() {
+        return config;
+    }
+
+    public RankupConfig getDraftConfig() {
+        return draftConfig;
+    }
+
+    public void setDraftConfig(RankupConfig draft) {
+        this.draftConfig = draft;
+    }
+
+    public RankupRepository getRepository() {
+        return repository;
+    }
+
+    public RankupLuckPermsService getLuckPermsService() {
+        return luckPermsService;
+    }
+
+    public RankupPromotionService getPromotionService() {
+        return promotionService;
+    }
+
+    public RankupTaskProgressService getTaskProgressService() {
+        return taskProgressService;
+    }
+
+    public RankupPlaceholderService getPlaceholderService() {
+        return placeholderService;
+    }
+
+    public RankTransitionService getTransitionService() {
+        return transitionService;
+    }
+
+    public CobblemonBridge getCobblemonBridge() {
+        return cobblemonBridge;
+    }
+
+    public boolean reload() {
+        try {
+            RankupConfig newConfig = RankupConfig.loadAndValidate();
+            this.config = newConfig;
+            this.draftConfig = newConfig.copy();
+            int rankCount = config.getRanks().size();
+            int taskCount = config.getRanks().values().stream()
+                    .mapToInt(r -> r.requirements().tasks().size()).sum();
+            boolean lpAvailable = Platform.isModLoaded("luckperms");
+            boolean cobblemonAvailable = Platform.isModLoaded("cobblemon");
+            
+            try {
+                this.cobblemonBridge = CobblemonBridgeFactory.create();
+                if (this.cobblemonBridge.isAvailable()) {
+                    this.cobblemonBridge.register();
+                }
+            } catch (Exception e) {
+                LOGGER.warn("[RankUp] Failed to initialize Cobblemon bridge: {}", e.getMessage());
+            }
+
+            LOGGER.info("[RankUp] Module initialized.");
+            LOGGER.info("[RankUp] Loaded {} ranks ({} tasks total).", rankCount, taskCount);
+            LOGGER.info("[RankUp] LuckPerms integration available: {}.", lpAvailable);
+            LOGGER.info("[RankUp] Cobblemon integration available: {}.", cobblemonAvailable);
+            
+            promotionService.recoverTransactions();
+            
+            return true;
+        } catch (Exception e) {
+            LOGGER.error("Failed to load RankUp configuration. Previous configuration kept.", e);
+            return false;
+        }
+    }
+
+    public boolean saveDraft() {
+        if (draftConfig == null) {
+            LOGGER.error("No RankUp draft to save");
+            return false;
+        }
+        RankupValidationResult validation = com.pedrodalben.bigbangessentials.rankup.config.RankupConfigurationValidator.validate(draftConfig);
+        if (!validation.isValid()) {
+            LOGGER.error("RankUp draft validation failed: {}", String.join("; ", validation.getErrors()));
+            return false;
+        }
+        try {
+            RankupConfig.save(draftConfig);
+            this.config = draftConfig.copy();
+            LOGGER.info("RankUp configuration saved and activated.");
+            return true;
+        } catch (Exception e) {
+            LOGGER.error("Failed to save RankUp configuration", e);
+            return false;
+        }
+    }
+
+    public void discardDraft() {
+        if (config != null) {
+            this.draftConfig = config.copy();
+        }
+    }
+
+    public RankupPlayerData getPlayerData(UUID uuid) {
+        return playerDataCache.get(uuid);
+    }
+
+    public RankupPlayerData getOrCreatePlayerData(UUID uuid) {
+        return playerDataCache.computeIfAbsent(uuid, RankupPlayerData::new);
+    }
+
+    public void invalidatePlayerData(UUID uuid) {
+        if (uuid != null && placeholderService != null) {
+            placeholderService.refresh(uuid);
+        }
+    }
+
+    public void loadPlayerData(UUID uuid) {
+        RankupPlayerData data = playerDataCache.computeIfAbsent(uuid, RankupPlayerData::new);
+        if (config != null) {
+            data.setLoading(true);
+            taskProgressService.loadPlayerProgress(uuid, config.getLadder().id())
+                    .whenComplete((res, err) -> {
+                        data.setLoading(false);
+                        if (err != null) {
+                            LOGGER.error("Failed to load RankUp progress for {}", uuid, err);
+                        }
+                    });
+        }
+    }
+
+    public CompletableFuture<Void> savePlayerData(UUID uuid) {
+        return taskProgressService.savePlayerProgress(uuid)
+                .exceptionally(e -> {
+                    LOGGER.error("Failed to save RankUp progress for {}", uuid, e);
+                    return null;
+                });
+    }
+
+    public void onPlayerLogin(UUID uuid) {
+        loadPlayerData(uuid);
+    }
+
+    public void onPlayerLogout(UUID uuid) {
+        savePlayerData(uuid).thenRun(() -> playerDataCache.remove(uuid));
+    }
+
+    public void shutdown() {
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        for (UUID uuid : new ArrayList<>(playerDataCache.keySet())) {
+            futures.add(savePlayerData(uuid));
+        }
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            LOGGER.error("Error waiting for RankUp data to save on shutdown", e);
+        }
+        playerDataCache.clear();
+        LOGGER.info("RankUpManager shutdown complete.");
+    }
+
+    public RankupRank getCurrentRank(UUID uuid) {
+        return getEligibilitySnapshot(uuid).currentRank();
+    }
+
+    public RankupRank getNextRank(UUID uuid) {
+        return getEligibilitySnapshot(uuid).nextRank();
+    }
+
+    public RankupEligibilitySnapshot getEligibilitySnapshot(UUID uuid) {
+        return getEligibilitySnapshot(uuid, PromotionEvaluationContext.external());
+    }
+
+    public RankupEligibilitySnapshot getEligibilitySnapshot(UUID uuid, PromotionEvaluationContext evaluationContext) {
+        if (uuid == null || config == null || !config.isEnabled()) {
+            return RankupEligibilitySnapshot.noConfiguration(uuid);
+        }
+
+        // 1. Check Database availability
+        if (!com.pedrodalben.bigbangessentials.database.DatabaseManager.getInstance().isReady()) {
+            return new RankupEligibilitySnapshot(
+                    uuid, null, null, RankupEligibilityState.DATABASE_UNAVAILABLE,
+                    RankupRankResolutionResult.configurationError("Database is not ready"),
+                    List.of(), 0.0, 0, 0, false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, 0L, 0, 0L, false, false, List.of("DATABASE"), System.currentTimeMillis()
+            );
+        }
+
+        RankupPlayerData data = getOrCreatePlayerData(uuid);
+        RankupRankResolutionResult resolution = luckPermsService.resolveRankResolution(uuid, config);
+        
+        // 2. Check LuckPerms integration availability
+        if (resolution != null && resolution.status() == RankupRankResolutionResult.ResolutionStatus.INTEGRATION_UNAVAILABLE) {
+            return new RankupEligibilitySnapshot(
+                    uuid, null, null, RankupEligibilityState.LUCKPERMS_UNAVAILABLE,
+                    resolution, List.of(), 0.0, 0, 0, false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, 0L, 0, 0L, false, false, List.of("LUCKPERMS"), System.currentTimeMillis()
+            );
+        }
+
+        if (data.isLoading()) {
+            return RankupEligibilitySnapshot.loading(uuid, resolution != null ? resolution.rank() : null,
+                    resolution != null && resolution.rank() != null ? config.getNextEnabledRank(resolution.rank()) : null, resolution);
+        }
+
+        RankupRank currentRank = resolution != null ? resolution.rank() : null;
+        RankupRank nextRank = config.getNextEnabledRank(currentRank);
+        boolean promotionInProgress = promotionService.isPromotionInProgress(uuid, evaluationContext);
+
+        if (nextRank == null || !nextRank.enabled()) {
+            return RankupEligibilitySnapshot.evaluate(uuid, currentRank, null, resolution, List.of(), RankupTaskMode.ALL, BigDecimal.ZERO, 0L, promotionInProgress);
+        }
+
+        List<RankupTaskEligibility> taskEligibilities = new ArrayList<>();
+        for (RankupTask task : nextRank.requirements().tasks()) {
+            int progress = data.getTaskProgressValue(nextRank.id(), task.id());
+            taskEligibilities.add(RankupTaskEligibility.evaluate(task, progress));
+        }
+
+        // 3. Check Economy and Gems availability
+        BigDecimal moneyBalance = BigDecimal.ZERO;
+        try {
+            moneyBalance = EconomyAPI.getBalance(uuid);
+            if (moneyBalance == null) {
+                throw new Exception("Economy returned null balance");
+            }
+        } catch (Exception e) {
+            LOGGER.error("Economy unavailable for {}", uuid, e);
+            return new RankupEligibilitySnapshot(
+                    uuid, currentRank, nextRank, RankupEligibilityState.ECONOMY_UNAVAILABLE,
+                    resolution, taskEligibilities, 0.0, 0, taskEligibilities.size(), false,
+                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, 0L, 0, 0L, false, promotionInProgress, List.of("ECONOMY"), System.currentTimeMillis()
+            );
+        }
+
+        long gemsBalance = 0L;
+        try {
+            var view = GemsManager.getInstance().getBalanceView(uuid);
+            if (view == null) {
+                throw new Exception("Gems balance view is null");
+            }
+            gemsBalance = view.availableBalance();
+        } catch (Exception e) {
+            LOGGER.error("Gems system unavailable for {}", uuid, e);
+            return new RankupEligibilitySnapshot(
+                    uuid, currentRank, nextRank, RankupEligibilityState.GEMS_UNAVAILABLE,
+                    resolution, taskEligibilities, 0.0, 0, taskEligibilities.size(), false,
+                    moneyBalance, BigDecimal.ZERO, BigDecimal.ZERO, false, 0L, 0, 0L, false, promotionInProgress, List.of("GEMS"), System.currentTimeMillis()
+            );
+        }
+
+        return RankupEligibilitySnapshot.evaluate(
+                uuid, currentRank, nextRank, resolution, taskEligibilities,
+                nextRank.requirements().taskMode(), moneyBalance, gemsBalance, promotionInProgress
+        );
+    }
+
+    public boolean isReadyForPromotion(UUID uuid) {
+        return getEligibilitySnapshot(uuid).isReadyForPromotion();
+    }
+
+    public boolean isReadyForPromotion(UUID uuid, RankupRank targetRank) {
+        if (config == null || targetRank == null || uuid == null) return false;
+        RankupEligibilitySnapshot snapshot = getEligibilitySnapshot(uuid);
+        return snapshot.isReadyForPromotion() && snapshot.nextRank() != null && snapshot.nextRank().id().equalsIgnoreCase(targetRank.id());
+    }
+
+    public BigDecimal getMoneyRequired(RankupRank targetRank) {
+        return targetRank != null ? targetRank.requirements().money() : java.math.BigDecimal.ZERO;
+    }
+
+    public int getGemsRequired(RankupRank targetRank) {
+        return targetRank != null ? targetRank.requirements().gems() : 0;
+    }
+}
