@@ -1,0 +1,16 @@
+package com.pedrodalben.bigbangessentials.economy.gems.persistence;
+
+public enum GemsPersistenceFailpoint {
+    BEFORE_WRITE_TEMP,
+    AFTER_WRITE_TEMP,
+    BEFORE_ATOMIC_MOVE,
+    AFTER_ATOMIC_MOVE,
+    BEFORE_CACHE_SWAP,
+    AFTER_CACHE_SWAP,
+    BEFORE_APPEND_LEDGER,
+    AFTER_APPEND_LEDGER,
+    BEFORE_IDEMPOTENCY_REGISTRY_UPDATE,
+    AFTER_IDEMPOTENCY_REGISTRY_UPDATE,
+    BEFORE_EVENT_PUBLISH,
+    AFTER_EVENT_PUBLISH
+}
