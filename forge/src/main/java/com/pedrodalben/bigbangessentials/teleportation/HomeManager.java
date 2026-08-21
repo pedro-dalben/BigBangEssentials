@@ -1,0 +1,849 @@
+package com.pedrodalben.bigbangessentials.teleportation;
+
+import com.google.gson.JsonObject;
+import com.pedrodalben.bigbangessentials.util.PlayerDataStore;
+import com.pedrodalben.bigbangessentials.util.PlayerDataMigration;
+import com.pedrodalben.bigbangessentials.util.MessageUtil;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Manages player home locations with creation, deletion, listing, and teleportation.
+ *
+ * <p>Now uses per-player data storage for better performance and scalability:</p>
+ * <pre>
+ * bigbangessentials/playerdata/homes/
+ * ├── {uuid1}.json  (Player 1's homes)
+ * ├── {uuid2}.json  (Player 2's homes)
+ * └── {uuid3}.json  (Player 3's homes)
+ * </pre>
+ */
+@SuppressWarnings("unused") // Public API class with many getters/setters
+public class HomeManager {
+    private static final Logger LOGGER = LoggerFactory.getLogger(HomeManager.class);
+    private static final String HOMES_FILE = "homes.json"; // Legacy file (for migration)
+    private static final long MAX_HOMES_CACHE_TTL_MS = TimeUnit.SECONDS.toMillis(60);
+
+    // Singleton pattern
+    private static class SingletonHolder {
+        private static final HomeManager INSTANCE = new HomeManager();
+    }
+
+    private static HomeManager instanceOverride = null;
+
+    public static HomeManager getInstance() {
+        return instanceOverride != null ? instanceOverride : SingletonHolder.INSTANCE;
+    }
+
+    public static void setInstance(HomeManager override) {
+        if (!isTestingEnvironment()) {
+            throw new IllegalStateException("Cannot override singleton instance in production.");
+        }
+        instanceOverride = override;
+    }
+
+    private static boolean isTestingEnvironment() {
+        for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+            if (element.getClassName().startsWith("org.junit.")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // NEW: Per-player data storage
+    private final PlayerDataStore playerDataStore;
+
+    // In-memory cache for quick lookups (UUID -> homes map)
+    private final Map<UUID, Map<String, TeleportLocation>> playerHomes = new ConcurrentHashMap<>();
+    private final Map<UUID, CachedHomeLimit> maxHomesCache = new ConcurrentHashMap<>();
+
+    // Configuration
+    private int maxHomesPerPlayer = 5;
+    private int homeTeleportCooldownSeconds = 0;
+    private boolean allowOverworldOnly = false;
+    public int getMaxHomesForPlayer(ServerPlayer player) {
+        if (player == null) {
+            return this.maxHomesPerPlayer;
+        }
+        return getMaxHomesForPlayer(player.getUUID());
+    }
+
+    public int getMaxHomesForPlayer(UUID playerId) {
+        long now = System.currentTimeMillis();
+        CachedHomeLimit cached = maxHomesCache.get(playerId);
+        if (cached != null && (now - cached.timestampMs) < MAX_HOMES_CACHE_TTL_MS) {
+            return cached.maxHomes;
+        }
+
+        int configMax = this.maxHomesPerPlayer;
+        int permMax = resolvePermissionHomeLimit(playerId);
+        // Permission nodes are authoritative when present; config is only the fallback.
+        int maxHomes = permMax > 0 ? permMax : configMax;
+        maxHomesCache.put(playerId, new CachedHomeLimit(maxHomes, now));
+        return maxHomes;
+    }
+    private boolean allowCrossDimensionHomes = true;
+    private boolean requireSafeLocations = true;
+    private int teleportDelay = 3; // seconds
+
+    private HomeManager() {
+        // Initialize per-player data store
+        this.playerDataStore = new PlayerDataStore("homes");
+
+        // Perform migration from old homes.json if needed
+        if (PlayerDataMigration.needsMigration(HOMES_FILE)) {
+            LOGGER.info("Migrating homes from old storage format...");
+            PlayerDataMigration.migrateToPlayerData(HOMES_FILE, "homes");
+        }
+
+        loadConfig();
+    }
+
+    /**
+     * Load configuration values from config file
+     */
+    private void loadConfig() {
+        try {
+            com.pedrodalben.bigbangessentials.config.ConfigManager configManager = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance();
+            boolean safe = true;
+            int maxHomes = 5;
+            int tpCooldown = 0;
+            if (configManager != null) {
+                JsonObject config = configManager.getConfig(com.pedrodalben.bigbangessentials.config.ConfigManager.MAIN_CONFIG);
+                if (config.has("teleportation")) {
+                    JsonObject tp = config.getAsJsonObject("teleportation");
+                    if (tp.has("homeSettings")) {
+                        JsonObject homeSettings = tp.getAsJsonObject("homeSettings");
+                        if (homeSettings.has("enableHomeTeleportSafety")) {
+                            safe = homeSettings.get("enableHomeTeleportSafety").getAsBoolean();
+                        }
+                        if (homeSettings.has("maxHomes")) {
+                            try {
+                                maxHomes = homeSettings.get("maxHomes").getAsInt();
+                            } catch (Exception ignored) {}
+                        }
+                        if (homeSettings.has("allowCrossDimensionHomes")) {
+                            try {
+                                allowCrossDimensionHomes = homeSettings.get("allowCrossDimensionHomes").getAsBoolean();
+                            } catch (Exception ignored) {}
+                        }
+                        if (homeSettings.has("homeTeleportCooldown")) {
+                            try {
+                                tpCooldown = homeSettings.get("homeTeleportCooldown").getAsInt();
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
+            }
+            setRequireSafeLocations(safe);
+            setMaxHomesPerPlayer(maxHomes);
+            setHomeTeleportCooldownSeconds(tpCooldown);
+        } catch (Exception e) {
+            LOGGER.warn("Failed to load home config, using defaults: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Set a home for a player
+     */
+    public boolean setHome(ServerPlayer player, String homeName) {
+        return setHome(player, homeName, null);
+    }
+    
+    /**
+     * Set a home for a player at a specific location
+     */
+    public boolean setHome(ServerPlayer player, String homeName, TeleportLocation customLocation) {
+        UUID playerId = player.getUUID();
+
+        // Always check config for safety at runtime
+        boolean requireSafe = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isHomeTeleportSafetyEnabled();
+        boolean debug = com.pedrodalben.bigbangessentials.config.ConfigManager.isDebugModeEnabled();
+        if (debug) {
+            LOGGER.info("[DEBUG] Home set safety: {} (from config)", requireSafe);
+        }
+
+        // Validate home name
+        if (!isValidHomeName(homeName)) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.invalid_name", homeName));
+            return false;
+        }
+
+        // Create location
+        TeleportLocation location = customLocation != null ? customLocation : new TeleportLocation(player);
+
+        // Check BigBangWorld restriction
+        if (isHomeCreationBlockedByBigBangWorld(player, location)) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.restricted_world"));
+            return false;
+        }
+
+        // Check world restriction
+        if (!allowCrossDimensionHomes && !isOverworld(location)) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.overworld_only"));
+            return false;
+        }
+
+        // Check if location is safe (only enforce if safety is required)
+        if (requireSafe) {
+            if (!location.isSafe()) {
+                TeleportLocation safeLocation = location.findSafeLocation();
+                if (safeLocation == null) {
+                    player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.unsafe_location"));
+                    if (debug) LOGGER.info("[DEBUG] Unsafe sethome location for '{}', set blocked.", homeName);
+                    return false;
+                }
+                location = safeLocation;
+                if (debug) LOGGER.info("[DEBUG] Sethome '{}' moved to safe location.", homeName);
+            }
+        }
+
+        if (isOutsideBigBangRegions(location)) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.outside_regions"));
+            return false;
+        }
+        // If safety is not required, allow teleportation to unsafe locations
+
+        // ATOMIC: Set the home using computeIfAbsent + compute for atomic limit check
+        int allowedHomes = getMaxHomesForPlayer(player);
+        final TeleportLocation finalLocation = location;
+        
+        // Use compute to atomically check limit and add home
+        boolean[] result = new boolean[2]; // [0] = success, [1] = isNew
+        playerHomes.compute(playerId, (id, homes) -> {
+            if (homes == null) {
+                homes = new ConcurrentHashMap<>();
+            }
+            
+            // Check limit atomically
+            boolean isNew = !homes.containsKey(homeName);
+            if (isNew && homes.size() >= allowedHomes) {
+                // Limit exceeded - result[0] stays false
+                return homes;
+            }
+            
+            // Set the home
+            homes.put(homeName, finalLocation);
+            result[0] = true; // Success
+            result[1] = isNew; // Track if new
+            return homes;
+        });
+        
+        if (!result[0]) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.limit_reached", allowedHomes));
+            return false;
+        }
+        
+        boolean isNew = result[1];
+
+        // Save to file (per-player storage)
+        savePlayerHomes(playerId);
+
+        if (isNew) {
+            player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.set", homeName, location.getLocationString()));
+        } else {
+            player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.updated", homeName, location.getLocationString()));
+        }
+
+        // Log home set/update if enabled in config
+        if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isLogHomeActionsEnabled()) {
+            LOGGER.info("Player {} {} home '{}' at {}", 
+                player.getName().getString(), 
+                isNew ? "set" : "updated", 
+                homeName, 
+                location.getLocationString());
+        }
+
+        if (isNew) {
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeCreatedEvent(playerId, homeName));
+        } else {
+            com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeUpdatedEvent(playerId, homeName));
+        }
+
+        return true;
+    }
+
+    private boolean isOutsideBigBangRegions(TeleportLocation location) {
+        ServerLevel level = location.getLevel();
+        if (level == null) {
+            return false;
+        }
+
+        try {
+            Class<?> regions = Class.forName("com.bigbangcraft.regions.BigBangRegions");
+            Object api = regions.getMethod("getApi").invoke(null);
+            if (api == null) {
+                return false;
+            }
+
+            BlockPos pos = BlockPos.containing(location.getX(), location.getY(), location.getZ());
+            Object allowed = api.getClass()
+                    .getMethod("canSetHome", ServerLevel.class, BlockPos.class)
+                    .invoke(api, level, pos);
+            return Boolean.FALSE.equals(allowed);
+        } catch (ClassNotFoundException e) {
+            return false;
+        } catch (ReflectiveOperationException | LinkageError e) {
+            LOGGER.warn("Could not validate home against BigBangRegions; allowing home", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Delete a home for a player
+     */
+    public boolean deleteHome(ServerPlayer player, String homeName) {
+        UUID playerId = player.getUUID();
+
+        // ATOMIC: Delete home using compute
+        boolean[] deleted = {false};
+        playerHomes.computeIfPresent(playerId, (id, homes) -> {
+            if (homes.remove(homeName) != null) {
+                deleted[0] = true;
+                // Return null if empty to remove entry
+                return homes.isEmpty() ? null : homes;
+            }
+            return homes;
+        });
+
+        if (!deleted[0]) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.not_found", homeName));
+            return false;
+        }
+
+        // Save to file (per-player storage)
+        savePlayerHomes(playerId);
+
+        player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.deleted", homeName));
+        // Log home delete if enabled in config
+        if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isLogHomeActionsEnabled()) {
+            LOGGER.info("Player {} deleted home '{}'", player.getName().getString(), homeName);
+        }
+
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeDeletedEvent(playerId, homeName));
+
+        return true;
+    }
+
+    /**
+     * Rename a home for a player (Essentials: Commandrenamehome)
+     */
+    public boolean renameHome(ServerPlayer player, String oldName, String newName) {
+        UUID playerId = player.getUUID();
+        if (!isValidHomeName(newName)) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.invalid_name", newName));
+            return false;
+        }
+        boolean[] result = {false};
+        playerHomes.computeIfPresent(playerId, (id, homes) -> {
+            TeleportLocation loc = homes.get(oldName);
+            if (loc == null) return homes;
+            if (homes.containsKey(newName)) return homes; // new name already taken
+            homes.remove(oldName);
+            homes.put(newName, loc);
+            result[0] = true;
+            return homes;
+        });
+        if (!result[0]) {
+            boolean exists = getOrLoadPlayerHomes(playerId).containsKey(oldName);
+            if (!exists) {
+                player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.not_found", oldName));
+            } else {
+                player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.name_taken", newName));
+            }
+            return false;
+        }
+        savePlayerHomes(playerId);
+        player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.renamed", oldName, newName));
+        com.pedrodalben.bigbangessentials.util.Platform.postEvent(new com.pedrodalben.bigbangessentials.menu.integration.teleportation.event.TeleportationEvents.HomeUpdatedEvent(playerId, newName));
+        return true;
+    }
+
+    /**
+     * Get or load homes for a player (lazy loading from PlayerDataStore)
+     */
+    private Map<String, TeleportLocation> getOrLoadPlayerHomes(UUID playerId) {
+        return playerHomes.computeIfAbsent(playerId, this::loadPlayerHomes);
+    }
+
+    /**
+     * Get a specific home for a player
+     */
+    public TeleportLocation getHome(ServerPlayer player, String homeName) {
+        UUID playerId = player.getUUID();
+        Map<String, TeleportLocation> homes = getOrLoadPlayerHomes(playerId);
+        return homes.get(homeName);
+    }
+    
+    /**
+     * Get all homes for a player
+     */
+    public Map<String, TeleportLocation> getPlayerHomes(ServerPlayer player) {
+        UUID playerId = player.getUUID();
+        Map<String, TeleportLocation> homes = getOrLoadPlayerHomes(playerId);
+        return new HashMap<>(homes); // Return copy for thread safety
+    }
+    
+    /**
+     * Get list of home names for a player
+     */
+    public List<String> getHomeNames(ServerPlayer player) {
+        Map<String, TeleportLocation> homes = getPlayerHomes(player);
+        return new ArrayList<>(homes.keySet());
+    }
+    
+    /**
+     * Teleport player to their home
+     */
+    public void teleportToHome(ServerPlayer player, String homeName) {
+        TeleportLocation home = getHome(player, homeName);
+        UUID playerId = player.getUUID();
+        // Always check config for safety at runtime
+        boolean requireSafe = com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isHomeTeleportSafetyEnabled();
+        boolean debug = com.pedrodalben.bigbangessentials.config.ConfigManager.isDebugModeEnabled();
+        if (debug) {
+            LOGGER.info("[DEBUG] Home teleport safety: {} (from config)", requireSafe);
+        }
+        if (home == null) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.not_found", homeName));
+            return;
+        }
+        // If safety is required, check for safe location
+        if (requireSafe) {
+            if (!home.isSafe()) {
+                TeleportLocation safeLocation = home.findSafeLocation();
+                if (safeLocation == null) {
+                    player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.unsafe", homeName));
+                    if (debug) LOGGER.info("[DEBUG] Unsafe home location for '{}', teleport blocked.", homeName);
+                    return;
+                }
+                // Update home to safe location atomically
+                playerHomes.computeIfPresent(playerId, (id, homes) -> {
+                    homes.put(homeName, safeLocation);
+                    return homes;
+                });
+                // Save to file (per-player storage)
+                savePlayerHomes(playerId);
+                home = safeLocation;
+                player.sendSystemMessage(MessageUtil.warning("commands.bigbangessentials.teleport.home.moved_to_safety", homeName));
+                if (debug) LOGGER.info("[DEBUG] Home '{}' moved to safe location.", homeName);
+            }
+        } else {
+            // If safety is not required, allow teleportation to unsafe locations
+            if (debug) LOGGER.info("[DEBUG] Home teleport safety is disabled. Teleporting to potentially unsafe location for '{}'.", homeName);
+        }
+        // Save current location for /back command
+        com.pedrodalben.bigbangessentials.teleportation.Misc.MiscTeleportManager.getInstance().saveBackLocation(player);
+
+        // Perform teleportation — safety already resolved above, so pass findSafe=false
+        int delayTicks = teleportDelay * 20;
+        TeleportUtil.teleportPlayer(player, home, delayTicks, false).thenAccept(result -> {
+            if (result.isSuccess()) {
+                player.sendSystemMessage(MessageUtil.success("commands.bigbangessentials.teleport.home.success", homeName));
+                // Log home teleport if enabled in config
+                if (com.pedrodalben.bigbangessentials.config.ConfigManager.getInstance().isLogHomeActionsEnabled()) {
+                    LOGGER.info("Player {} teleported to home '{}'", player.getName().getString(), homeName);
+                }
+            } else {
+                player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.failed", homeName, result.getMessage()));
+                LOGGER.warn("Failed to teleport player {} to home '{}': {}", player.getName().getString(), homeName, result.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Teleport to default home (first home or "home")
+     */
+    public void teleportToDefaultHome(ServerPlayer player) {
+        Map<String, TeleportLocation> homes = getPlayerHomes(player);
+        
+        if (homes.isEmpty()) {
+            player.sendSystemMessage(MessageUtil.error("commands.bigbangessentials.teleport.home.none_set"));
+            return;
+        }
+        
+        // Try "home" first, then first alphabetically
+        String homeName = homes.containsKey("home") ? "home" : homes.keySet().iterator().next();
+        teleportToHome(player, homeName);
+    }
+    
+    /**
+     * Get formatted list of homes for display
+     */
+    public String getFormattedHomesList(ServerPlayer player) {
+        Map<String, TeleportLocation> homes = getPlayerHomes(player);
+        
+        if (homes.isEmpty()) {
+            return MessageUtil.localize("commands.bigbangessentials.teleport.home.list_empty");
+        }
+        
+        StringBuilder builder = new StringBuilder();
+    int allowedHomes = this.getMaxHomesForPlayer(player);
+    builder.append(MessageUtil.localize("commands.bigbangessentials.teleport.home.list_header", homes.size(), allowedHomes));
+        
+        List<String> sortedNames = new ArrayList<>(homes.keySet());
+        Collections.sort(sortedNames);
+        
+        for (String homeName : sortedNames) {
+            TeleportLocation location = homes.get(homeName);
+            builder.append("\n  §e").append(homeName).append("§r: ")
+                   .append(location.getLocationString());
+        }
+        
+        return builder.toString();
+    }
+    
+    /**
+     * Check if player has any homes
+     */
+    public boolean hasHomes(ServerPlayer player) {
+        UUID playerId = player.getUUID();
+        Map<String, TeleportLocation> homes = getOrLoadPlayerHomes(playerId);
+        return !homes.isEmpty();
+    }
+    
+    /**
+     * Get home count for player
+     */
+    public int getHomeCount(ServerPlayer player) {
+        Map<String, TeleportLocation> homes = getPlayerHomes(player);
+        return homes.size();
+    }
+    
+    /**
+     * Check if home name is valid
+     */
+    private boolean isValidHomeName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Check length
+        if (name.length() > 20) {
+            return false;
+        }
+        
+        // Check characters (alphanumeric, underscore, dash)
+        return name.matches("^[a-zA-Z0-9_-]+$");
+    }
+    
+    /**
+     * Check if location is in overworld
+     */
+    private boolean isOverworld(TeleportLocation location) {
+        return location.getWorldName().contains("overworld");
+    }
+    
+    /**
+     * Load homes from file (legacy - loads all players for compatibility)
+     * New code should use loadPlayerHomes(UUID) instead
+     */
+    private void loadHomes() {
+        // This method is now only called during initialization
+        // Individual player homes are loaded on-demand via getHomes()
+        LOGGER.debug("Home loading is now on-demand per player");
+    }
+
+    /**
+     * Load a specific player's homes from their data file
+     */
+    private Map<String, TeleportLocation> loadPlayerHomes(UUID playerId) {
+        try {
+            JsonObject data = playerDataStore.load(playerId);
+            Map<String, TeleportLocation> homes = new HashMap<>();
+
+            if (data.keySet().isEmpty()) {
+                LOGGER.debug("No homes found for player {}", playerId);
+                return homes;
+            }
+
+            for (String homeName : data.keySet()) {
+                try {
+                    JsonObject homeJson = data.getAsJsonObject(homeName);
+                    TeleportLocation location = TeleportLocation.fromJson(homeJson);
+                    if (location != null) {
+                        homes.put(homeName, location);
+                    }
+                } catch (Exception e) {
+                    LOGGER.warn("Failed to load home '{}' for player {}: {}",
+                        homeName, playerId, e.getMessage());
+                }
+            }
+            
+            LOGGER.debug("Loaded {} homes for player {}", homes.size(), playerId);
+            return homes;
+
+        } catch (Exception e) {
+            LOGGER.error("Failed to load homes for player {}: {}", playerId, e.getMessage(), e);
+            return new HashMap<>();
+        }
+    }
+    
+    /**
+     * Save homes to file (atomic operation)
+     * Legacy method - kept for compatibility but delegates to per-player save
+     */
+    private void saveHomes() {
+        // Save all loaded players' homes
+        for (UUID playerId : playerHomes.keySet()) {
+            savePlayerHomes(playerId);
+        }
+    }
+
+    /**
+     * Save a specific player's homes to their data file
+     */
+    private void savePlayerHomes(UUID playerId) {
+        try {
+            Map<String, TeleportLocation> homes = playerHomes.get(playerId);
+            if (homes == null || homes.isEmpty()) {
+                // No homes to save, but ensure file is created (empty data)
+                playerDataStore.save(playerId, new JsonObject());
+                return;
+            }
+
+            JsonObject data = new JsonObject();
+            for (Map.Entry<String, TeleportLocation> entry : homes.entrySet()) {
+                data.add(entry.getKey(), entry.getValue().toJson());
+            }
+            
+            playerDataStore.save(playerId, data);
+            LOGGER.debug("Saved {} homes for player {}", homes.size(), playerId);
+
+        } catch (Exception e) {
+            LOGGER.error("Failed to save homes for player {}: {}", playerId, e.getMessage(), e);
+        }
+    }
+    
+
+    // Configuration getters/setters
+    public int getMaxHomesPerPlayer() { return maxHomesPerPlayer; }
+    public void setMaxHomesPerPlayer(int max) {
+        this.maxHomesPerPlayer = Math.max(1, max);
+        clearMaxHomesCache();
+    }
+
+    public boolean isAllowOverworldOnly() { return allowOverworldOnly; }
+    public void setAllowOverworldOnly(boolean allow) { this.allowOverworldOnly = allow; }
+
+    public boolean isAllowCrossDimensionHomes() { return allowCrossDimensionHomes; }
+    public void setAllowCrossDimensionHomes(boolean allow) { this.allowCrossDimensionHomes = allow; }
+
+    public boolean isRequireSafeLocations() { return requireSafeLocations; }
+    public void setRequireSafeLocations(boolean require) { this.requireSafeLocations = require; }
+
+    public int getTeleportDelay() { return teleportDelay; }
+    public void setTeleportDelay(int delay) { this.teleportDelay = Math.max(0, delay); }
+
+    public int getHomeTeleportCooldownSeconds() { return homeTeleportCooldownSeconds; }
+    public void setHomeTeleportCooldownSeconds(int seconds) { this.homeTeleportCooldownSeconds = Math.max(0, seconds); }
+    
+    /**
+     * Delete all homes located in a specific world/dimension.
+     * Iterates all player data files (including offline players).
+     *
+     * @param worldName The dimension key string (e.g., "minecraft:overworld", "bigbangworld:exploracao")
+     * @return Number of homes deleted
+     */
+    public int deleteAllHomesInWorld(String worldName) {
+        int totalDeleted = 0;
+        Set<UUID> allPlayerIds = playerDataStore.getAllPlayerIds();
+        for (UUID playerId : allPlayerIds) {
+            Map<String, TeleportLocation> homes = getOrLoadPlayerHomes(playerId);
+            boolean modified = false;
+            Iterator<Map.Entry<String, TeleportLocation>> it = homes.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, TeleportLocation> entry = it.next();
+                if (worldName.equals(entry.getValue().getWorldName())) {
+                    it.remove();
+                    totalDeleted++;
+                    modified = true;
+                }
+            }
+            if (modified) {
+                if (homes.isEmpty()) {
+                    playerHomes.remove(playerId);
+                }
+                savePlayerHomes(playerId);
+            }
+        }
+        if (totalDeleted > 0) {
+            LOGGER.info("Deleted {} homes in world '{}' across {} players", totalDeleted, worldName, allPlayerIds.size());
+        }
+        return totalDeleted;
+    }
+
+    /**
+     * Purge all homes that are located outside regions in any world where BigBangRegions prohibits homes.
+     * Checks all player homes across all players against BigBangRegionsApi.canSetHome.
+     *
+     * @return Number of invalid homes removed
+     */
+    public int purgeInvalidHomes() {
+        int totalPurged = 0;
+        Set<UUID> allPlayerIds = playerDataStore.getAllPlayerIds();
+        for (UUID playerId : allPlayerIds) {
+            Map<String, TeleportLocation> homes = getOrLoadPlayerHomes(playerId);
+            if (homes.isEmpty()) continue;
+
+            boolean modified = false;
+            Iterator<Map.Entry<String, TeleportLocation>> it = homes.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, TeleportLocation> entry = it.next();
+                TeleportLocation loc = entry.getValue();
+                if (isOutsideBigBangRegions(loc)) {
+                    it.remove();
+                    totalPurged++;
+                    modified = true;
+                    LOGGER.info("Purged invalid home '{}' for player {} at pos ({}, {}, {}) in world {}",
+                            entry.getKey(), playerId, loc.getX(), loc.getY(), loc.getZ(), loc.getWorldName());
+                }
+            }
+
+            if (modified) {
+                if (homes.isEmpty()) {
+                    playerHomes.remove(playerId);
+                }
+                savePlayerHomes(playerId);
+            }
+        }
+
+        if (totalPurged > 0) {
+            LOGGER.info("Purged {} total invalid homes outside regions", totalPurged);
+        }
+        return totalPurged;
+    }
+
+    /**
+     * Clear all homes (for testing/admin purposes)
+     */
+    public void clearAllHomes() {
+        playerHomes.clear();
+        playerDataStore.clearAll();
+        LOGGER.info("Cleared all player homes");
+    }
+    
+    /**
+     * Get total number of homes across all players
+     */
+    public int getTotalHomesCount() {
+        return playerHomes.values().stream().mapToInt(Map::size).sum();
+    }
+    
+    /**
+     * Get homes statistics
+     */
+    public String getStatistics() {
+        int totalPlayers = playerHomes.size();
+        int totalHomes = getTotalHomesCount();
+        double avgHomesPerPlayer = totalPlayers > 0 ? (double) totalHomes / totalPlayers : 0;
+        
+        return String.format("Homes Statistics: %d players, %d total homes, %.1f avg homes per player", 
+                           totalPlayers, totalHomes, avgHomesPerPlayer);
+    }
+
+    /**
+     * Reload home data from disk
+     */
+    public void reload() {
+        LOGGER.info("Reloading home system...");
+
+        // Reload config values
+        loadConfig();
+
+        // Flush any pending saves before clearing cache
+        playerDataStore.flushAll();
+
+        // Clear permission-derived home limits - reload may change configured caps or permissions
+        clearMaxHomesCache();
+
+        // Clear cache - homes will be loaded on-demand from PlayerDataStore
+        playerHomes.clear();
+
+        LOGGER.info("Home system reloaded - {} players in storage, homes will load on-demand",
+            playerDataStore.getTotalPlayers());
+    }
+
+    public void invalidateMaxHomesCache(UUID playerId) {
+        if (playerId != null) {
+            maxHomesCache.remove(playerId);
+        }
+    }
+
+    public void clearMaxHomesCache() {
+        maxHomesCache.clear();
+    }
+
+    private int resolvePermissionHomeLimit(UUID playerId) {
+        // Check for explicit unlimited permission first
+        if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasExactPermission(playerId, "bigbangessentials.home.unlimited")) {
+            return Integer.MAX_VALUE;
+        }
+
+        int permMax = -1;
+        // Check for permissions bigbangessentials.home.<amount> from high to low (e.g., 100 down to 1)
+        for (int i = 100; i >= 1; i--) {
+            String perm = "bigbangessentials.home." + i;
+            if (com.pedrodalben.bigbangessentials.api.permissions.PermissionAPI.hasExactPermission(playerId, perm)) {
+                permMax = i;
+                break;
+            }
+        }
+        return permMax;
+    }
+
+    private boolean isHomeCreationBlockedByBigBangWorld(ServerPlayer player, TeleportLocation location) {
+        try {
+            Class<?> apiClass = Class.forName("com.pedrodalben.bigbangworld.api.BigBangWorldApi");
+            Object apiInstance = apiClass.getMethod("get").invoke(null);
+            if (apiInstance != null) {
+                net.minecraft.server.MinecraftServer server = player.getServer();
+                if (server != null) {
+                    net.minecraft.resources.ResourceLocation resLoc = net.minecraft.resources.ResourceLocation.tryParse(location.getWorldName());
+                    if (resLoc != null) {
+                        net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> key = 
+                            net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, resLoc);
+                        net.minecraft.server.level.ServerLevel level = server.getLevel(key);
+                        if (level != null) {
+                            java.lang.reflect.Method isTempMethod = apiInstance.getClass().getMethod("isTemporaryWorld", net.minecraft.server.level.ServerLevel.class);
+                            boolean isTemp = (boolean) isTempMethod.invoke(apiInstance, level);
+                            if (isTemp) {
+                                java.lang.reflect.Method isAllowedMethod = apiInstance.getClass().getMethod("isHomeCreationAllowed", ServerPlayer.class);
+                                boolean isAllowed = (boolean) isAllowedMethod.invoke(apiInstance, player);
+                                return !isAllowed;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            // BigBangWorld not installed or API method signature doesn't match
+        }
+        return false;
+    }
+
+    private static final class CachedHomeLimit {
+        final int maxHomes;
+        final long timestampMs;
+
+        private CachedHomeLimit(int maxHomes, long timestampMs) {
+            this.maxHomes = maxHomes;
+            this.timestampMs = timestampMs;
+        }
+    }
+}
