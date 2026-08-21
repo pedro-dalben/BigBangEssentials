@@ -72,7 +72,11 @@ subprojects {
     version = rootProject.version
     group = rootProject.group
 
-    java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+    if (name == 'forge') {
+        java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+    } else {
+        java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+    }
 
     repositories {
         mavenCentral()
@@ -95,9 +99,18 @@ subprojects {
             url = "https://maven.luckperms.net/"
         }
         maven {
+            name = "Architectury"
+            url = "https://maven.architectury.dev/"
+        }
+        maven {
+            name = "FTB"
+            url = "https://maven.ftb.dev/"
+        }
+        maven {
             name = "Cobblemon"
             url = "https://artefacts.cobblemon.com/releases/"
         }
+
         exclusiveContent {
             forRepository {
                 maven {

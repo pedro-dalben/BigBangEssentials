@@ -1,0 +1,118 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.107'
+}
+
+base {
+    archivesName = "${mod_id}-forge-1.20.1"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+legacyForge {
+    version = project.forge_version
+
+    parchment {
+        mappingsVersion = project.forge_parchment_mappings_version
+        minecraftVersion = project.forge_parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+        }
+
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+dependencies {
+    // External libraries packaged via jarJar
+    implementation 'org.java-websocket:Java-WebSocket:1.5.7'
+    jarJar(group: 'org.java-websocket', name: 'Java-WebSocket', version: '[1.5.7,1.6.0)')
+    additionalRuntimeClasspath 'org.java-websocket:Java-WebSocket:1.5.7'
+
+    implementation 'org.yaml:snakeyaml:2.2'
+    jarJar(group: 'org.yaml', name: 'snakeyaml', version: '[2.2,3.0)')
+    additionalRuntimeClasspath 'org.yaml:snakeyaml:2.2'
+
+    implementation 'com.zaxxer:HikariCP:5.1.0'
+    jarJar(group: 'com.zaxxer', name: 'HikariCP', version: '[5.1.0,6.0.0)')
+    additionalRuntimeClasspath 'com.zaxxer:HikariCP:5.1.0'
+
+    implementation 'org.xerial:sqlite-jdbc:3.46.0.0'
+    jarJar(group: 'org.xerial', name: 'sqlite-jdbc', version: '[3.46.0.0,3.47.0.0)')
+    additionalRuntimeClasspath 'org.xerial:sqlite-jdbc:3.46.0.0'
+
+    implementation 'com.mysql:mysql-connector-j:9.1.0'
+    jarJar(group: 'com.mysql', name: 'mysql-connector-j', version: '[9.1.0,10.0.0)')
+    additionalRuntimeClasspath 'com.mysql:mysql-connector-j:9.1.0'
+
+    // APIs
+    compileOnly 'net.luckperms:api:5.4'
+    compileOnly "maven.modrinth:cobblemon:${cobblemon_forge_version_id}"
+    compileOnly 'org.jetbrains.kotlin:kotlin-stdlib:1.9.23'
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+}
+
+// Copy build_number.txt to resources
+tasks.register("copyBuildNumber", Copy) {
+    from rootProject.file('build_number.txt')
+    into file('src/main/resources')
+}
+
+tasks.named('processResources').configure {
+    dependsOn 'copyBuildNumber'
+}
+
+// Forge mod metadata replacement task
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version          : forge_minecraft_version,
+            minecraft_version_range    : forge_minecraft_version_range,
+            forge_version              : forge_version,
+            forge_loader_version_range : forge_loader_version_range,
+            mod_id                     : mod_id,
+            mod_name                   : mod_name,
+            mod_license                : mod_license,
+            mod_version                : mod_version,
+            mod_authors                : mod_authors,
+            mod_description            : mod_description
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+
+sourceSets.main.resources.srcDir generateModMetadata
+legacyForge.ideSyncTask generateModMetadata
