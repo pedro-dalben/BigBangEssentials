@@ -1,0 +1,89 @@
+package com.pedrodalben.bigbangessentials.crates.domain;
+
+import com.google.gson.JsonObject;
+
+import java.util.Objects;
+import java.util.UUID;
+
+public class RewardRollState {
+    private final String rewardId;
+    private final Object lock = new Object();
+    private int globalCount;
+    private java.util.Map<UUID, Integer> playerCounts;
+
+    public RewardRollState(String rewardId) {
+        this(rewardId, 0, new java.util.HashMap<>());
+    }
+
+    public RewardRollState(String rewardId, int globalCount, java.util.Map<UUID, Integer> playerCounts) {
+        this.rewardId = Objects.requireNonNull(rewardId, "rewardId cannot be null");
+        this.globalCount = Math.max(0, globalCount);
+        this.playerCounts = playerCounts != null ? new java.util.HashMap<>(playerCounts) : new java.util.HashMap<>();
+    }
+
+    public String getRewardId() { return rewardId; }
+    public int getGlobalCount() { synchronized (lock) { return globalCount; } }
+    public java.util.Map<UUID, Integer> getPlayerCounts() {
+        synchronized (lock) {
+            return new java.util.HashMap<>(playerCounts);
+        }
+    }
+
+    public void incrementGlobal() {
+        synchronized (lock) {
+            this.globalCount++;
+        }
+    }
+    public void incrementPlayer(UUID playerId) {
+        synchronized (lock) {
+            playerCounts.merge(playerId, 1, Integer::sum);
+        }
+    }
+
+    public int getPlayerCount(UUID playerId) {
+        return playerCounts.getOrDefault(playerId, 0);
+    }
+
+    public void setInitialCounts(int globalCount, java.util.Map<UUID, Integer> playerCounts) {
+        synchronized (lock) {
+            this.globalCount = Math.max(0, globalCount);
+            if (playerCounts != null) {
+                this.playerCounts = new java.util.HashMap<>(playerCounts);
+            }
+        }
+    }
+
+    public boolean isGloballyExhausted(int limit) {
+        return limit > 0 && globalCount >= limit;
+    }
+
+    public boolean isPlayerExhausted(UUID playerId, int limit) {
+        return limit > 0 && getPlayerCount(playerId) >= limit;
+    }
+
+    public JsonObject toJson() {
+        JsonObject json = new JsonObject();
+        json.addProperty("rewardId", rewardId);
+        json.addProperty("globalCount", globalCount);
+
+        JsonObject players = new JsonObject();
+        for (java.util.Map.Entry<UUID, Integer> entry : playerCounts.entrySet()) {
+            players.addProperty(entry.getKey().toString(), entry.getValue());
+        }
+        json.add("playerCounts", players);
+        return json;
+    }
+
+    public static RewardRollState fromJson(JsonObject json) {
+        String rewardId = json.get("rewardId").getAsString();
+        RewardRollState state = new RewardRollState(rewardId);
+        if (json.has("globalCount")) state.globalCount = json.get("globalCount").getAsInt();
+        if (json.has("playerCounts")) {
+            JsonObject players = json.getAsJsonObject("playerCounts");
+            for (String key : players.keySet()) {
+                state.playerCounts.put(UUID.fromString(key), players.get(key).getAsInt());
+            }
+        }
+        return state;
+    }
+}
