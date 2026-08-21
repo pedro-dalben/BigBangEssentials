@@ -1,0 +1,38 @@
+id: "confirm_delete_pwarp"
+size: 27
+title: "<red>Confirmar Exclusão"
+
+pages:
+  main:
+    default-page: true
+    items:
+      text_info:
+        slot: 13
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Excluir Player Warp?"
+          lore:
+            - "<gray>Warp: <white>{context:pwarp_name}"
+            - ""
+            - "<red>Esta ação não pode ser desfeita!"
+      confirm_btn:
+        slot: 11
+        item:
+          material-id: "minecraft:green_wool"
+          display-name: "<green>Confirmar Exclusão"
+        actions:
+          - type: "delete_pwarp"
+            params:
+              pwarp-name: "{context:pwarp_name}"
+          - type: "open_menu"
+            params:
+              menu-id: "pwarps_menu"
+      cancel_btn:
+        slot: 15
+        item:
+          material-id: "minecraft:red_wool"
+          display-name: "<red>Cancelar"
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "pwarps_menu"

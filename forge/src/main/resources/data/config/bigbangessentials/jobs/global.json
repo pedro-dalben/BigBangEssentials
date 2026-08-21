@@ -1,0 +1,43 @@
+{
+  "schema-version": 3,
+  "config-version": 2,
+  "daily-limit": {
+    "enabled": true,
+    "global-limit": 50000.0,
+    "timezone": "America/Sao_Paulo",
+    "reset-time": "00:00"
+  },
+  "max-active-jobs": 2,
+  "max-in-progress-licenses": 1,
+  "afk-prevention": {
+    "prevent-earnings-while-afk": true,
+    "prevent-xp-while-afk": true,
+    "continue-xp-after-limit": false
+  },
+  "switch-cooldown-minutes": 30,
+  "categories": [
+    {"id": "COMMON", "display-name": "Profissões Comuns", "max-slots": 2},
+    {"id": "POKEMON_SPECIALIZATION", "display-name": "Especializações Pokémon", "max-slots": 1}
+  ],
+  "permissions": {
+    "prefix": "bigbangessentials.jobs",
+    "legacy-aliases": {
+      "jobs.command.jobs": "bigbangessentials.jobs.command.menu",
+      "jobs.command.list": "bigbangessentials.jobs.command.list",
+      "jobs.command.entrar": "bigbangessentials.jobs.command.join",
+      "jobs.command.sair": "bigbangessentials.jobs.command.leave",
+      "jobs.command.info": "bigbangessentials.jobs.command.info",
+      "jobs.command.ganhos": "bigbangessentials.jobs.command.earnings",
+      "jobs.command.habilidades": "bigbangessentials.jobs.command.skills",
+      "jobs.command.top": "bigbangessentials.jobs.command.top",
+      "jobs.command.license": "bigbangessentials.jobs.command.license",
+      "jobs.command.slot": "bigbangessentials.jobs.command.slot",
+      "jobs.ganhos.*": "bigbangessentials.jobs.bonus.earnings",
+      "jobs.xp.*": "bigbangessentials.jobs.bonus.xp",
+      "jobs.limitediario.*": "bigbangessentials.jobs.bonus.dailylimit",
+      "jobs.limite.*": "bigbangessentials.jobs.bonus.slots",
+      "jobs.admin.*": "bigbangessentials.jobs.admin",
+      "jobs.profissao.*": "bigbangessentials.jobs.profession"
+    }
+  }
+}

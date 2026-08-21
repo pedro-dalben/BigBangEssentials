@@ -1,0 +1,29 @@
+id: "money_top_menu"
+size: 27
+title: "<gold>Money Top"
+type: "chest"
+
+pagination:
+  enabled: true
+  source: "economy.top.money"
+  content-slots: [11, 12, 13, 14, 15] # Slots for top 5
+
+dynamic-item-template:
+  item:
+    material-id: "minecraft:player_head"
+    head-owner: "{money_top_name}"
+    display-name: "<yellow>#{money_top_rank} - {money_top_name}"
+    lore:
+      - "<gray>Money: <green>{money_top_balance}"
+
+pages:
+  main:
+    default-page: true
+    items:
+      close_btn:
+        slot: 22
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "<red>Fechar"
+        actions:
+          - type: "close_menu"

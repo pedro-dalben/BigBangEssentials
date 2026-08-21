@@ -1,0 +1,173 @@
+{
+  "id": "paleontologist",
+  "enabled": true,
+  "display-name": "Paleontólogo",
+  "short-description": "Reviva Pokémon fósseis ancestrais",
+  "description": "Profissão especializada em paleontologia Pokémon. Paleontólogos ganham dinheiro e XP escavando fósseis antigos e usando tecnologia para reviver Pokémon pré-históricos a partir de vestígios fossilizados.",
+  "icon": "minecraft:bone",
+  "category": "POKEMON_SPECIALIZATION",
+  "sort-order": 16,
+  "permission": "bigbangessentials.jobs.profession.paleontologist",
+  "visible-without-permission": true,
+  "unlocked-by-default": false,
+  "license-required": true,
+  "max-level": 100,
+  "xp-curve": {
+    "type": "polynomial",
+    "base": 150,
+    "multiplier": 1.2,
+    "exponent": 1.6
+  },
+  "max-daily-earnings": -1,
+  "money-bonus-per-level": 0.5,
+  "max-level-money-bonus": 50.0,
+  "skill-points-every": 2,
+  "reset-progress-on-leave": false,
+  "actions": {
+    "FOSSIL-REVIVED": {
+      "cobblemon:fossil_helix": {
+        "money": 80.0,
+        "xp": 130.0
+      },
+      "cobblemon:fossil_dome": {
+        "money": 80.0,
+        "xp": 130.0
+      },
+      "cobblemon:fossil_old_amber": {
+        "money": 80.0,
+        "xp": 130.0
+      },
+      "cobblemon:fossil_root": {
+        "money": 100.0,
+        "xp": 160.0
+      },
+      "cobblemon:fossil_claw": {
+        "money": 100.0,
+        "xp": 160.0
+      },
+      "cobblemon:fossil_skull": {
+        "money": 120.0,
+        "xp": 200.0
+      },
+      "cobblemon:fossil_armor": {
+        "money": 120.0,
+        "xp": 200.0
+      },
+      "cobblemon:fossil_cover": {
+        "money": 100.0,
+        "xp": 160.0
+      },
+      "cobblemon:fossil_plume": {
+        "money": 100.0,
+        "xp": 160.0
+      },
+      "cobblemon:fossil_jaw": {
+        "money": 120.0,
+        "xp": 200.0
+      },
+      "cobblemon:fossil_sail": {
+        "money": 120.0,
+        "xp": 200.0
+      },
+      "cobblemon:fossil_bird": {
+        "money": 100.0,
+        "xp": 160.0
+      },
+      "cobblemon:fossil_fish": {
+        "money": 80.0,
+        "xp": 130.0
+      },
+      "cobblemon:fossil_dino": {
+        "money": 80.0,
+        "xp": 130.0
+      },
+      "cobblemon:fossil_drake": {
+        "money": 120.0,
+        "xp": 200.0
+      },
+      "*": {
+        "money": 50.0,
+        "xp": 80.0
+      }
+    }
+  },
+  "how-to-earn": {
+    "money-header": "Como ganhar dinheiro",
+    "xp-header": "Como ganhar XP",
+    "money-lines": [
+      "Escave fósseis antigos em sítios arqueológicos.",
+      "Use máquinas de reviver para trazer Pokémon fósseis de volta à vida.",
+      "Fósseis raros como Crânio, Armadura e Mandíbula pagam recompensas maiores."
+    ],
+    "xp-lines": [
+      "Todo fóssil revivido que paga dinheiro também concede XP.",
+      "Use seu XP para subir de nível e desbloquear bônus."
+    ],
+    "example-targets": [
+      "cobblemon:fossil_skull",
+      "cobblemon:fossil_sail",
+      "cobblemon:fossil_drake"
+    ]
+  },
+  "skills": {},
+  "level-up-rewards": {},
+  "messages": {
+    "join": "&aVocê agora é um Paleontólogo! Reviva Pokémon ancestrais dos fósseis!",
+    "leave": "&cVocê deixou a profissão de Paleontólogo.",
+    "level-up": "&aParabéns! Você alcançou o nível %level% de Paleontólogo! Pontos de habilidade: +%points%"
+  },
+  "crate-rewards": [
+    {
+      "actions": [],
+      "key-id": "iniciante",
+      "key-display-name": "Chave Iniciante",
+      "chance": 0.02,
+      "amount": 1,
+      "minimum-job-level": 10,
+      "daily-limit": 3,
+      "cooldown-seconds": 3600,
+      "priority": 10,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "intermediaria",
+      "key-display-name": "Chave Intermediária",
+      "chance": 0.01,
+      "amount": 1,
+      "minimum-job-level": 25,
+      "daily-limit": 2,
+      "cooldown-seconds": 5400,
+      "priority": 20,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "avancada",
+      "key-display-name": "Chave Avançada",
+      "chance": 0.005,
+      "amount": 1,
+      "minimum-job-level": 50,
+      "daily-limit": 1,
+      "cooldown-seconds": 7200,
+      "priority": 30,
+      "one-reward-per-action": true,
+      "physical-key": false
+    },
+    {
+      "actions": [],
+      "key-id": "lendaria",
+      "key-display-name": "Chave Lendária",
+      "chance": 0.002,
+      "amount": 1,
+      "minimum-job-level": 80,
+      "daily-limit": 1,
+      "cooldown-seconds": 14400,
+      "priority": 40,
+      "one-reward-per-action": true,
+      "physical-key": false
+    }
+  ]
+}

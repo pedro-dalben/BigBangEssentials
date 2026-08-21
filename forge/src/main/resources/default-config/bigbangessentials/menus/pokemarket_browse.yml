@@ -1,0 +1,94 @@
+id: pokemarket_browse
+schema-version: 2
+size: 54
+title: "&8&lPokéMarket &7• &bExplorar"
+flags:
+  cache-rendered-items: false
+  close-on-world-change: true
+  prevent-item-take: true
+pagination:
+  enabled: true
+  source: "pokemarket.listings"
+  content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
+dynamic-item-template:
+  item:
+    material-id: "minecraft:player_head"
+    display-name: "&b{species} &7Lv.{level}"
+    lore:
+      - "&7Vendedor: &f{seller}"
+      - "&7Shiny: &f{shiny} &8• &7IVs perfeitos: &f{perfect_ivs}"
+      - "&7Tipo: &f{listing_kind}"
+      - "&7Valor: &6{price}"
+      - ""
+      - "&eClique para ver detalhes"
+  actions:
+    - type: "pokemarket_listing_detail"
+      params: { listing_id: "{listing_id}" }
+      clicks: ["LEFT"]
+pages:
+  main:
+    default-page: true
+    items:
+      frame:
+        slots: [9,17,18,26,27,35,36,44,46,48,50,51,52]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
+      header:
+        slot: 0
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
+      filters:
+        slot: 4
+        item:
+          material-id: "minecraft:hopper"
+          display-name: "&bEspécie: {context:filter_species}"
+          lore: ["&7Escolha pela lista A–Z."]
+        actions:
+          - type: "open_menu"
+            params: { menu-id: "pokemarket_species" }
+      type:
+        slot: 1
+        item: { material-id: "minecraft:emerald", display-name: "&aTipo: {context:filter_type}", lore: ["&7Alterna entre todos, venda e troca."] }
+        actions: [{ type: "pokemarket_filter_type" }]
+      shiny:
+        slot: 2
+        item: { material-id: "minecraft:glowstone", display-name: "&eShiny: {context:filter_shiny}", lore: ["&7Alterna entre todos, sim e não."] }
+        actions: [{ type: "pokemarket_filter_shiny" }]
+      levels:
+        slot: 3
+        item: { material-id: "minecraft:experience_bottle", display-name: "&bNível: {context:filter_level}", lore: ["&7Clique para alternar as faixas."] }
+        actions: [{ type: "pokemarket_filter_level" }]
+      ivs:
+        slot: 5
+        item: { material-id: "minecraft:diamond", display-name: "&bIVs: {context:filter_ivs}", lore: ["&7Alterna entre todos, 3 e 6 perfeitos."] }
+        actions: [{ type: "pokemarket_filter_ivs" }]
+      price_min:
+        slot: 6
+        item: { material-id: "minecraft:gold_nugget", display-name: "&6Mínimo: {context:filter_min_price}", lore: ["&7Digite um valor no chat ou cancele."] }
+        actions:
+          - type: "pokemarket_filter_price"
+            params: { bound: "min" }
+      price_max:
+        slot: 7
+        item: { material-id: "minecraft:gold_ingot", display-name: "&6Máximo: {context:filter_max_price}", lore: ["&7Digite um valor no chat ou cancele."] }
+        actions:
+          - type: "pokemarket_filter_price"
+            params: { bound: "max" }
+      sort:
+        slot: 8
+        item: { material-id: "minecraft:paper", display-name: "&fOrdenação: {context:filter_sort}", lore: ["&7Alterna recentes, preço e nível."] }
+        actions: [{ type: "pokemarket_filter_sort" }]
+      clear_filters:
+        slot: 47
+        item: { material-id: "minecraft:barrier", display-name: "&cLimpar filtros" }
+        actions: [{ type: "pokemarket_filter_clear" }]
+      previous:
+        slot: 45
+        item: { material-id: "minecraft:arrow", display-name: "&ePágina anterior" }
+        actions: [{ type: "previous_page" }]
+      back:
+        slot: 49
+        item: { material-id: "minecraft:oak_door", display-name: "&cVoltar" }
+        actions: [{ type: "back_menu" }]
+      next:
+        slot: 53
+        item: { material-id: "minecraft:arrow", display-name: "&ePróxima página" }
+        actions: [{ type: "next_page" }]

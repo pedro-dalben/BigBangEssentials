@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "com.pedrodalben.bigbangessentials.forge.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "NpcInteractMixin",
+    "PlayerListSaveInvokerMixin",
+    "ServerboundInteractPacketAccessor"
+  ],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

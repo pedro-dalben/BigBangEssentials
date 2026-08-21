@@ -1,0 +1,15 @@
+{
+  "schema-version": 2,
+  "menus": {
+    "main": {
+      "id": "jobs_menu",
+      "providers": [
+        {"id": "jobs.common", "description": "Todas as profissões comuns"},
+        {"id": "jobs.pokemon", "description": "Especializações Pokémon"},
+        {"id": "jobs.active", "description": "Trabalhos ativos do jogador"},
+        {"id": "jobs.available", "description": "Trabalhos disponíveis para entrar"},
+        {"id": "jobs.locked", "description": "Trabalhos bloqueados"}
+      ]
+    }
+  }
+}

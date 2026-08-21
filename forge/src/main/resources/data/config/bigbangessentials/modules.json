@@ -1,0 +1,20 @@
+{
+  "_configVersion": 2,
+  "economyEnabled": true,
+  "chatEnabled": true,
+  "moderationEnabled": true,
+  "teleportationEnabled": true,
+  "kitsEnabled": true,
+  "customCommandsEnabled": true,
+  "webDashboardEnabled": true,
+  "permissionsEnabled": true,
+  "jobsEnabled": true,
+  "rankupEnabled": true,
+  "cratesEnabled": true,
+  "hologramsEnabled": true,
+  "shopEnabled": true,
+  "adminshopEnabled": true,
+  "pokemarketEnabled": true,
+  "tablistEnabled": true,
+  "npcsEnabled": true
+}

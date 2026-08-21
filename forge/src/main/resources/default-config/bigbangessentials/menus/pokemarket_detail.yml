@@ -1,0 +1,73 @@
+id: pokemarket_detail
+schema-version: 2
+size: 54
+title: "&8&lPokéMarket &7• &bDetalhes"
+flags:
+  cache-rendered-items: false
+  close-on-world-change: true
+  prevent-item-take: true
+pages:
+  main:
+    default-page: true
+    items:
+      frame:
+        slots: [0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,45,46,47,48,50,51,52,53]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
+      pokemon:
+        slot: 22
+        item:
+          material-id: "minecraft:player_head"
+          display-name: "&b{context:species}"
+          lore: ["&7Nível: &f{context:level}", "&7Shiny: &f{context:shiny}", "&7IVs perfeitos: &f{context:perfect_ivs}", "&7Vendedor: &f{context:seller}", "&7Expira em: &f{context:expires}"]
+      value:
+        slot: 31
+        item:
+          material-id: "minecraft:gold_ingot"
+          display-name: "&6Valor: {context:price}"
+          lore: ["&7Tipo de anúncio: &f{context:listing_kind}", "", "&7Confira tudo antes de confirmar."]
+      buy:
+        slot: 24
+        item: { material-id: "minecraft:emerald", display-name: "&aComprar", lore: ["&7Abre uma revisão segura da compra."] }
+        render-conditions:
+          - type: "context_equals"
+            params: { key: "listing_type", value: "MONEY" }
+          - type: "context_not_equals"
+            params: { key: "seller_uuid", value: "{player_uuid}" }
+        actions:
+          - type: "pokemarket_buy_prepare"
+            params: { listing_id: "{context:listing_id}" }
+      trade_party:
+        slot: 23
+        item: { material-id: "minecraft:amethyst_shard", display-name: "&dOferecer Pokémon da party", lore: ["&7Escolha sua oferta para a troca."] }
+        render-conditions:
+          - type: "context_equals"
+            params: { key: "listing_type", value: "POKEMON_TRADE" }
+          - type: "context_not_equals"
+            params: { key: "seller_uuid", value: "{player_uuid}" }
+        actions:
+          - type: "pokemarket_source_open"
+            params: { mode: "accept_trade", source: "party" }
+      trade_pc:
+        slot: 25
+        item: { material-id: "minecraft:chest", display-name: "&dOferecer Pokémon do PC", lore: ["&7Escolha sua oferta para a troca."] }
+        render-conditions:
+          - type: "context_equals"
+            params: { key: "listing_type", value: "POKEMON_TRADE" }
+          - type: "context_not_equals"
+            params: { key: "seller_uuid", value: "{player_uuid}" }
+        actions:
+          - type: "pokemarket_source_open"
+            params: { mode: "accept_trade", source: "pc" }
+      own_listing:
+        slot: 34
+        item:
+          material-id: "minecraft:paper"
+          display-name: "&eSeu anúncio"
+          lore: ["&7Você pode visualizar este Pokémon", "&7na lista, mas não pode comprá-lo."]
+        render-conditions:
+          - type: "context_equals"
+            params: { key: "seller_uuid", value: "{player_uuid}" }
+      back:
+        slot: 49
+        item: { material-id: "minecraft:arrow", display-name: "&cVoltar" }
+        actions: [{ type: "back_menu" }]

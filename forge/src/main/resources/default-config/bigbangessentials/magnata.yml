@@ -1,0 +1,18 @@
+# Configuration for Magnata module in BigBangEssentials
+enabled: true
+
+# Interval in seconds to check for new Magnata (300 seconds = 5 minutes)
+check-interval-seconds: 300
+
+messages:
+  new-magnata-broadcast: "&6[&bbigbangcraft&6] &e%player% &fé o novo magnata do servidor!"
+  magnata-join-broadcast: "&6[&bbigbangcraft&6] &fO Magnata &e%player% &flogou no servidor!"
+  magnata-command-info: "&6[&bbigbangcraft&6] &fO Magnata atual é: &e%player% &fcom &a$%balance%&f!"
+  no-magnata: "&6[&bbigbangcraft&6] &cNenhum magnata definido ainda."
+  module-disabled: "&cO módulo de Magnata está desativado."
+
+commands:
+  new-magnata:
+    - "lp user %player% parent add magnata"
+  old-magnata:
+    - "lp user %player% parent remove magnata"

@@ -1,0 +1,29 @@
+id: "gems_top_menu"
+size: 27
+title: "<green>Gemas Top"
+type: "chest"
+
+pagination:
+  enabled: true
+  source: "economy.top.gems"
+  content-slots: [11, 12, 13, 14, 15]
+
+dynamic-item-template:
+  item:
+    material-id: "minecraft:player_head"
+    head-owner: "{gems_top_name}"
+    display-name: "<green>#{gems_top_rank} - {gems_top_name}"
+    lore:
+      - "<gray>Gemas: <green>{gems_top_balance}"
+
+pages:
+  main:
+    default-page: true
+    items:
+      close_btn:
+        slot: 22
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "<red>Fechar"
+        actions:
+          - type: "close_menu"

@@ -1,0 +1,31 @@
+id: "adminshop_root_menu"
+size: 54
+title: "{context:store_title}"
+pagination:
+  enabled: true
+  source: "adminshop.root"
+  content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34,37,38,39,40,41,42,43]
+dynamic-item-template:
+  item:
+    material-id: "{category_icon}"
+    display-name: "{category_title}"
+    lore:
+      - "<gray>Produtos: <white>{product_count}"
+      - ""
+      - "<green>Clique para abrir"
+  actions:
+    - type: "adminshop_open_category"
+      params:
+        store: "{store_id}"
+        category: "{category_id}"
+pages:
+  main:
+    default-page: true
+    items:
+      close:
+        slot: 49
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "<red>Fechar"
+        actions:
+          - type: "close_menu"

@@ -1,0 +1,49 @@
+id: "job_details_menu"
+size: 27
+title: "<gold>Detalhes: {context:job_display_name}"
+
+pages:
+  main:
+    default-page: true
+    items:
+      job_info:
+        slot: 11
+        item:
+          material-id: "{context:job_icon}"
+          display-name: "{context:job_status_color}{context:job_display_name}"
+          lore:
+            - "<gray>{context:job_description}"
+            - ""
+            - "<gray>Nível Atual: <white>{context:job_level}"
+            - "<gray>XP: <white>{context:job_xp} / {context:job_xp_required}"
+            - "{context:job_xp_progress_bar}"
+            - "<gray>Limite Diário: <white>${context:job_earnings} / ${context:job_limit}"
+            - "<gray>Categoria: <white>{context:job_category_label}"
+            - "<gray>Rank: <white>{context:job_required_rank_label}"
+            - "<gray>Licença: {context:job_license_required_label}"
+            - "<gray>Status da licença: {context:job_license_status}"
+            - "{context:job_license_objectives}"
+            - "{context:job_license_progress}"
+            - "<gray>Slot Ocupado: <yellow>{context:job_slot_assigned}"
+            - "<gray>Status: {context:job_status_color}{context:job_status}"
+      toggle_action:
+        slot: 13
+        item:
+          material-id: "minecraft:lever"
+          display-name: "<yellow>Alterar Estado de Atividade"
+          lore:
+            - "<gray>Clique para entrar ou sair"
+            - "<gray>deste trabalho."
+        actions:
+          - type: "toggle_job"
+            params:
+              job-id: "{context:job_id}"
+      back_btn:
+        slot: 15
+        item:
+          material-id: "minecraft:arrow"
+          display-name: "<red>Voltar ao Menu Principal"
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "jobs_menu"

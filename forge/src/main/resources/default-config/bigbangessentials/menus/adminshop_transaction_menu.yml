@@ -1,0 +1,146 @@
+id: "adminshop_transaction_menu"
+size: 54
+title: "Loja: {context:product_name}"
+pages:
+  main:
+    default-page: true
+    items:
+      preview:
+        slot: 22
+        item:
+          material-id: "{context:display_item}"
+          display-name: "{context:product_name}"
+          lore:
+            - "<gray>Preço compra: <white>{context:unit_price}</white>"
+            - "<gray>Preço venda: <white>{context:unit_sell_price}</white>"
+            - "<gray>Estoque: <white>{context:stock_display}</white>"
+            - "<gray>Limite: <white>{context:limit_display}</white>"
+      sell_btn_1:
+        slot: 11
+        item:
+          material-id: "minecraft:stone_button"
+          display-name: "<red>Vender x{context:qty_1} ({context:total_price_1})"
+          lore:
+            - "<gray>Clique para vender"
+        actions:
+          - type: "adminshop_sell_qty"
+            params:
+              product-id: "{context:product_id}"
+              quantity: "{context:qty_1}"
+        render-conditions:
+          - type: "context_present"
+            params:
+              key: "sell_enabled"
+          - type: "context_equals"
+            params:
+              key: "sell_enabled"
+              value: "true"
+      sell_btn_2:
+        slot: 13
+        item:
+          material-id: "minecraft:stone_button"
+          display-name: "<red>Vender x{context:qty_2} ({context:total_price_2})"
+          lore:
+            - "<gray>Clique para vender"
+        actions:
+          - type: "adminshop_sell_qty"
+            params:
+              product-id: "{context:product_id}"
+              quantity: "{context:qty_2}"
+        render-conditions:
+          - type: "context_present"
+            params:
+              key: "sell_enabled"
+          - type: "context_equals"
+            params:
+              key: "sell_enabled"
+              value: "true"
+      sell_btn_3:
+        slot: 15
+        item:
+          material-id: "minecraft:stone_button"
+          display-name: "<red>Vender x{context:qty_3} ({context:total_price_3})"
+          lore:
+            - "<gray>Clique para vender"
+        actions:
+          - type: "adminshop_sell_qty"
+            params:
+              product-id: "{context:product_id}"
+              quantity: "{context:qty_3}"
+        render-conditions:
+          - type: "context_present"
+            params:
+              key: "sell_enabled"
+          - type: "context_equals"
+            params:
+              key: "sell_enabled"
+              value: "true"
+      buy_btn_1:
+        slot: 29
+        item:
+          material-id: "minecraft:oak_button"
+          display-name: "<green>Comprar x{context:qty_1} ({context:total_price_1})"
+          lore:
+            - "<gray>Clique para comprar"
+        actions:
+          - type: "adminshop_buy_qty"
+            params:
+              product-id: "{context:product_id}"
+              quantity: "{context:qty_1}"
+        render-conditions:
+          - type: "context_present"
+            params:
+              key: "buy_enabled"
+          - type: "context_equals"
+            params:
+              key: "buy_enabled"
+              value: "true"
+      buy_btn_2:
+        slot: 31
+        item:
+          material-id: "minecraft:oak_button"
+          display-name: "<green>Comprar x{context:qty_2} ({context:total_price_2})"
+          lore:
+            - "<gray>Clique para comprar"
+        actions:
+          - type: "adminshop_buy_qty"
+            params:
+              product-id: "{context:product_id}"
+              quantity: "{context:qty_2}"
+        render-conditions:
+          - type: "context_present"
+            params:
+              key: "buy_enabled"
+          - type: "context_equals"
+            params:
+              key: "buy_enabled"
+              value: "true"
+      buy_btn_3:
+        slot: 33
+        item:
+          material-id: "minecraft:oak_button"
+          display-name: "<green>Comprar x{context:qty_3} ({context:total_price_3})"
+          lore:
+            - "<gray>Clique para comprar"
+        actions:
+          - type: "adminshop_buy_qty"
+            params:
+              product-id: "{context:product_id}"
+              quantity: "{context:qty_3}"
+        render-conditions:
+          - type: "context_present"
+            params:
+              key: "buy_enabled"
+          - type: "context_equals"
+            params:
+              key: "buy_enabled"
+              value: "true"
+      back:
+        slot: 49
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "<red>Voltar"
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "adminshop_category_menu"

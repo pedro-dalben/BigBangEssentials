@@ -1,0 +1,75 @@
+id: "jobs_menu"
+size: 54
+title: "<gold>Trabalhos e Profissões"
+
+pagination:
+  enabled: true
+  source: "jobs.all"
+  content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
+
+dynamic-item-template:
+  item:
+    material-id: "{job_icon}"
+    display-name: "{job_status_color}{job_display_name}"
+    lore:
+      - "<gray>{job_description}"
+      - ""
+      - "<gray>Nível: <white>{job_level}"
+      - "<gray>XP: <white>{job_xp} / {job_xp_required}"
+      - "{job_xp_progress_bar}"
+      - "<gray>Ganhos Hoje: <white>${job_earnings} / ${job_limit}"
+      - "<gray>Categoria: <white>{job_category_label}"
+      - "<gray>Rank: <white>{job_required_rank_label}"
+      - "<gray>Licença: {job_license_required_label}"
+      - "<gray>Status da licença: {job_license_status}"
+      - "{job_license_objectives}"
+      - "{job_license_progress}"
+      - "<gray>Slot Ocupado: <yellow>{job_slot_assigned}"
+      - "<gray>Status: {job_status_color}{job_status}"
+      - ""
+      - "<green>Clique Esquerdo: Ver detalhes / recompensas"
+      - "<yellow>Clique Direito: Entrar ou Sair da profissão"
+  actions:
+    - type: "open_job_details"
+      params:
+        job-id: "{job_id}"
+      clicks: ["LEFT"]
+    - type: "toggle_job"
+      params:
+        job-id: "{job_id}"
+      clicks: ["RIGHT"]
+
+pages:
+  main:
+    default-page: true
+    items:
+      summary:
+        slot: 4
+        item:
+          material-id: "minecraft:book"
+          display-name: "<gold>Resumo de Profissões"
+          lore:
+            - "<gray>Trabalhos Ativos: <white>{jobs:active_count} / {jobs:max_active}"
+            - "<gray>Limite de Ganhos Hoje: <white>${jobs:total_earnings} / ${jobs:global_limit}"
+            - "<gray>Bônus VIP: <green>{jobs:vip_bonus}"
+      close_btn:
+        slot: 49
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "<red>Fechar"
+        actions:
+          - type: "close_menu"
+      prev_btn:
+        slot: 48
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Página Anterior"
+        actions:
+          - type: "previous_page"
+      next_btn:
+        slot: 50
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Próxima Página"
+        actions:
+          - type: "next_page"

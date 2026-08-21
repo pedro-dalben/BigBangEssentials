@@ -1,0 +1,49 @@
+id: "adminshop_category_menu"
+size: 54
+title: "{context:category_title}"
+pagination:
+  enabled: true
+  source: "adminshop.category"
+  content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34,37,38,39,40,41,42,43]
+dynamic-item-template:
+  item:
+    material-id: "{display_item}"
+    display-name: "<green>{product_name}"
+    lore:
+      - "<yellow>Comprar: <white>{buy_price}</white>"
+      - "<yellow>Vender: <white>{sell_price}</white>"
+      - "<gray>Estoque: <white>{stock}</white>"
+      - ""
+      - "<green>Clique para negociar"
+  actions:
+    - type: "adminshop_open_transaction"
+      params:
+        product-id: "{product_id}"
+      clicks: ["LEFT"]
+pages:
+  main:
+    default-page: true
+    items:
+      prev:
+        slot: 48
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Anterior"
+        actions:
+          - type: "previous_page"
+      back:
+        slot: 49
+        item:
+          material-id: "minecraft:barrier"
+          display-name: "<red>Voltar"
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "adminshop_root_menu"
+      next:
+        slot: 50
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Próxima"
+        actions:
+          - type: "next_page"

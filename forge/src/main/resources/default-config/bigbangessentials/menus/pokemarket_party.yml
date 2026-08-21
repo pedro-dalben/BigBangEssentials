@@ -1,0 +1,51 @@
+id: pokemarket_party
+schema-version: 2
+size: 54
+title: "&6&lEscolha um Pokémon da party"
+flags:
+  cache-rendered-items: false
+  close-on-world-change: true
+  prevent-item-take: true
+pagination:
+  enabled: true
+  source: "pokemarket.party"
+  content-slots: [10,11,12,13,14,15]
+dynamic-item-template:
+  item:
+    material-id: "minecraft:player_head"
+    display-name: "&a{species} &7Lv.{level}"
+    lore:
+      - "&7UUID: &f{pokemon_uuid}"
+      - "&7Forma: &f{form}"
+      - "&7Shiny: &f{shiny}"
+      - "&7IVs perfeitos: &f{perfect_ivs}"
+      - ""
+      - "&eClique para selecionar"
+  actions:
+    - type: "pokemarket_source_select"
+      params:
+        party_slot: "{party_slot}"
+        pokemon_uuid: "{pokemon_uuid}"
+        species: "{species}"
+        form: "{form}"
+        level: "{level}"
+        shiny: "{shiny}"
+        perfect_ivs: "{perfect_ivs}"
+      clicks: ["LEFT"]
+pages:
+  main:
+    default-page: true
+    items:
+      frame:
+        slots: [0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,46,47,48,50,51,52,53]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
+      back:
+        slot: 45
+        item: { material-id: "minecraft:arrow", display-name: "&cVoltar" }
+        actions:
+          - type: "back_menu"
+      close:
+        slot: 49
+        item: { material-id: "minecraft:barrier", display-name: "&cFechar" }
+        actions:
+          - type: "close_menu"

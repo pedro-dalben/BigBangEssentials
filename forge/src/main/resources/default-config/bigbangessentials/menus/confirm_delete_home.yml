@@ -1,0 +1,38 @@
+id: "confirm_delete_home"
+size: 27
+title: "<red>Confirmar Exclusão"
+
+pages:
+  main:
+    default-page: true
+    items:
+      text_info:
+        slot: 13
+        item:
+          material-id: "minecraft:paper"
+          display-name: "<yellow>Excluir Home?"
+          lore:
+            - "<gray>Home: <white>{context:home_name}"
+            - ""
+            - "<red>Esta ação não pode ser desfeita!"
+      confirm_btn:
+        slot: 11
+        item:
+          material-id: "minecraft:green_wool"
+          display-name: "<green>Confirmar Exclusão"
+        actions:
+          - type: "delete_home"
+            params:
+              home-name: "{context:home_name}"
+          - type: "open_menu"
+            params:
+              menu-id: "homes_menu"
+      cancel_btn:
+        slot: 15
+        item:
+          material-id: "minecraft:red_wool"
+          display-name: "<red>Cancelar"
+        actions:
+          - type: "open_menu"
+            params:
+              menu-id: "homes_menu"

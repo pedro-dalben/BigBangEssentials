@@ -1,0 +1,52 @@
+id: pokemarket_main
+schema-version: 2
+size: 27
+title: "&8&lPokéMarket &7• &bCentral"
+flags:
+  cache-rendered-items: false
+  close-on-world-change: true
+  prevent-item-take: true
+pages:
+  main:
+    default-page: true
+    items:
+      frame:
+        slots: [0,1,2,3,4,5,6,7,8,24,26]
+        item: { material-id: "minecraft:black_stained_glass_pane", display-name: " " }
+      browse:
+        slot: 10
+        item:
+          material-id: "minecraft:compass"
+          display-name: "&bExplorar anúncios"
+          lore: ["&7Veja Pokémon disponíveis", "&7e abra os detalhes antes de comprar.", "", "&eClique para abrir"]
+        actions: [{ type: "pokemarket_browse_open" }]
+      sell:
+        slot: 12
+        item:
+          material-id: "minecraft:gold_ingot"
+          display-name: "&aAnunciar venda"
+          lore: ["&7Escolha um Pokémon da Party", "&7ou do PC e defina o preço."]
+        actions: [{ type: "open_menu", params: { menu-id: "pokemarket_sell_source" } }]
+      trade:
+        slot: 14
+        item: { material-id: "minecraft:emerald", display-name: "&dAnunciar troca", lore: ["&7Escolha seu Pokémon e defina", "&7os requisitos da troca."] }
+        actions: [{ type: "pokemarket_source_open", params: { mode: "trade", source: "party" } }]
+      account:
+        slot: 16
+        item: { material-id: "minecraft:chest", display-name: "&eMinha área", lore: ["&7Anúncios, compras, vendas", "&7Claims e notificações."] }
+        actions: [{ type: "open_menu", params: { menu-id: "pokemarket_account" } }]
+      help:
+        slot: 18
+        item: { material-id: "minecraft:paper", display-name: "&eAjuda", lore: ["&7Compre, venda ou troque Pokémon", "&7com confirmação e Claims."] }
+        actions:
+          - type: "send_message"
+            params: { message: "&bPokéMarket &7— explore anúncios, confirme compras e retire Pokémon em Minha área > Claims." }
+      close:
+        slot: 22
+        item: { material-id: "minecraft:barrier", display-name: "&cFechar" }
+        actions: [{ type: "close_menu" }]
+      admin:
+        slot: 25
+        item: { material-id: "minecraft:command_block", display-name: "&cPainel Staff", lore: ["&7Health, estatísticas e operações."] }
+        view-permission: "bigbangessentials.pokemarket.admin"
+        actions: [{ type: "open_menu", params: { menu-id: "pokemarket_admin" } }]
